@@ -5,7 +5,7 @@ export interface Product {
   product_name: string;
   category: string;
   description: string;
-  tags: string[];
+  selling_points: string[];
   brand_voice: string;
   created_at: string;
   updated_at: string;
@@ -27,7 +27,7 @@ export interface ProductCreate {
   product_name: string;
   category: string;
   description?: string;
-  tags?: string[];
+  selling_points?: string[];
   brand_voice?: string;
 }
 

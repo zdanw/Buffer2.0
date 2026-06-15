@@ -12,7 +12,7 @@ export default function AssetManagement() {
     product_name: '',
     category: '',
     description: '',
-    tags: [],
+    selling_points: [],
     brand_voice: '',
   });
 
@@ -39,7 +39,7 @@ export default function AssetManagement() {
         await createProduct(formData);
       }
       setShowModal(false);
-      setFormData({ product_name: '', category: '', description: '', tags: [], brand_voice: '' });
+      setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
       loadProducts();
     } catch (error) {
       console.error('Failed to save product:', error);
@@ -102,13 +102,13 @@ export default function AssetManagement() {
         product_name: product.product_name,
         category: product.category,
         description: product.description,
-        tags: product.tags || [],
+        selling_points: product.selling_points || [],
         brand_voice: product.brand_voice,
       });
     } else {
       setIsEdit(false);
       setSelectedProduct(null);
-      setFormData({ product_name: '', category: '', description: '', tags: [], brand_voice: '' });
+      setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
     }
     setShowModal(true);
   };
@@ -322,11 +322,11 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">标签</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">卖点</label>
                   <input
                     type="text"
-                    value={(formData.tags || []).join(',')}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()) })}
+                    value={(formData.selling_points || []).join(',')}
+                    onChange={(e) => setFormData({ ...formData, selling_points: e.target.value.split(',').map(t => t.trim()) })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="用逗号分隔"
                   />

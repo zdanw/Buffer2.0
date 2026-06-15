@@ -7,7 +7,7 @@ class ProductBase(BaseModel):
     product_name: str
     category: str
     description: Optional[str] = None
-    tags: Optional[List[str]] = None
+    selling_points: Optional[List[str]] = None
     brand_voice: Optional[str] = None
 
 class ProductCreate(ProductBase):
@@ -35,8 +35,8 @@ class ProductResponse(ProductBase):
     @classmethod
     def from_orm(cls, obj):
         result = super().from_orm(obj)
-        if result.tags and isinstance(result.tags, str):
-            result.tags = result.tags.split(",") if result.tags else []
+        if result.selling_points and isinstance(result.selling_points, str):
+            result.selling_points = result.selling_points.split(",") if result.selling_points else []
         return result
 
 class ImageUploadResponse(BaseModel):

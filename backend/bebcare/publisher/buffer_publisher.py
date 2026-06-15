@@ -1,15 +1,371 @@
 import requests
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from bebcare.config.settings import settings
 
-class BufferPublisher:
+PLATFORM_CONFIG = {
+    "instagram": {
+        "metadata": """metadata: { instagram: { type: post, shouldShareToFeed: true } }""",
+        "service_names": ["instagram", "instagram-business", "instagram-personal", "instagram-professional", "instagram-creator"]
+    },
+    "facebook": {
+        "metadata": """metadata: { facebook: { type: post } }""",
+        "service_names": ["facebook", "facebook-page", "facebook-group", "facebook-profile", "facebook-business"]
+    },
+    "tiktok": {
+        "metadata": "",
+        "service_names": ["tiktok", "tiktok-business", "tiktok-account", "tiktok-pro"]
+    },
+    "twitter": {
+        "metadata": "",
+        "service_names": ["twitter", "twitter-x", "x", "twitter-business", "x-business"]
+    },
+    "linkedin": {
+        "metadata": "",
+        "service_names": ["linkedin", "linkedin-company", "linkedin-personal", "linkedin-professional"]
+    },
+    "pinterest": {
+        "metadata": "",
+        "service_names": ["pinterest", "pinterest-business", "pinterest-pro"]
+    },
+    "youtube": {
+        "metadata": "",
+        "service_names": ["youtube", "youtube-channel", "youtube-business"]
+    },
+    "threads": {
+        "metadata": "",
+        "service_names": ["threads", "threads-business"]
+    },
+    "mastodon": {
+        "metadata": "",
+        "service_names": ["mastodon"]
+    }
+}
+
+
+class BufferGraphQLClient:
+    """Buffer GraphQL API客户端"""
+    
+    API_URL = "https://api.buffer.com"
+    
+    def __init__(self, api_token=None):
+        self._api_token = api_token or settings.buffer_api_token
+    
+    def request(self, query, max_retries=3, initial_delay=1.0):
+        headers = {
+            "Authorization": f"Bearer {self._api_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        data = {"query": query}
+        delay = initial_delay
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(self.API_URL, headers=headers, json=data, timeout=30)
+                result = response.json()
+                
+                if "errors" in result:
+                    error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
+                    print(f"GraphQL Error: {', '.join(error_messages)}")
+                    return None
+                    
+                return result.get("data")
+            except requests.exceptions.ReadTimeout:
+                print(f"GraphQL请求超时，第 {attempt + 1}/{max_retries} 次尝试")
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    print(f"GraphQL请求超时，已达最大重试次数 {max_retries}")
+            except requests.exceptions.ConnectionError:
+                print(f"GraphQL请求连接失败，第 {attempt + 1}/{max_retries} 次尝试")
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    print(f"GraphQL请求连接失败，已达最大重试次数 {max_retries}")
+            except Exception as e:
+                print(f"GraphQL Request Error: {e}")
+                return None
+        
+        return None
+    
+    def fetch_account_info(self):
+        query = """
+        query {
+            account {
+                id
+                email
+                name
+                organizations {
+                    id
+                    name
+                }
+            }
+        }
+        """
+        data = self.request(query)
+        if not data:
+            return None
+        return data.get("account")
+    
+    def fetch_channels(self, organization_id):
+        query = f"""
+        query {{
+            channels(input: {{ organizationId: "{organization_id}" }}) {{
+                id
+                name
+                service
+                avatar
+                isQueuePaused
+            }}
+        }}
+        """
+        data = self.request(query)
+        if not data:
+            return []
+        
+        channels = []
+        for channel in data.get("channels", []):
+            channels.append({
+                "id": channel.get("id"),
+                "name": channel.get("name"),
+                "service": channel.get("service"),
+                "avatar": channel.get("avatar"),
+                "isQueuePaused": channel.get("isQueuePaused"),
+                "status": "connected" if not channel.get("isQueuePaused") else "paused"
+            })
+        
+        return channels
+
+
+class BufferCache:
+    """Buffer API响应缓存管理器"""
+    
+    def __init__(self, ttl=600):
+        self._ttl = ttl
+        self._account_info = None
+        self._account_info_time = 0
+        self._channels = {}
+        self._channels_time = {}
+    
+    def get_account_info(self, fetch_func):
+        now = time.time()
+        
+        if self._account_info and (now - self._account_info_time) < self._ttl:
+            return self._account_info
+        
+        account_info = fetch_func()
+        
+        if account_info:
+            self._account_info = account_info
+            self._account_info_time = now
+        
+        return account_info
+    
+    def get_channels(self, organization_id, fetch_func):
+        now = time.time()
+        
+        if organization_id in self._channels:
+            if (now - self._channels_time.get(organization_id, 0)) < self._ttl:
+                return self._channels[organization_id]
+        
+        channels = fetch_func(organization_id)
+        
+        if channels:
+            self._channels[organization_id] = channels
+            self._channels_time[organization_id] = now
+        
+        return channels
+    
+    def clear(self):
+        self._account_info = None
+        self._account_info_time = 0
+        self._channels = {}
+        self._channels_time = {}
+
+
+class BufferPublishService:
+    """Buffer发布服务"""
+    
     def __init__(self):
-        self.api_token = settings.buffer_api_token
-        self.base_url = "https://api.buffer.com/1"
+        self._client = BufferGraphQLClient()
+        self._cache = BufferCache()
+    
+    @property
+    def client(self):
+        return self._client
+    
+    @property
+    def cache(self):
+        return self._cache
+    
+    @staticmethod
+    def escape_graphql_string(text):
+        if not text:
+            return text
+        
+        text = text.replace('\\', '\\\\')
+        text = text.replace('"', '\\"')
+        text = text.replace('\n', '\\n')
+        text = text.replace('\r', '\\r')
+        text = text.replace('\t', '\\t')
+        
+        return text
+    
+    def _build_create_post_query(self, channel_id, text, media_url=None, platform_type=None):
+        query_params = [
+            f'channelId: "{channel_id}"',
+            f'text: "{text}"',
+            f'schedulingType: automatic',
+            f'mode: shareNow'
+        ]
+        
+        if media_url:
+            query_params.append(f'assets: [{{ image: {{ url: "{media_url}" }} }}]')
+        
+        platform_config = PLATFORM_CONFIG.get(platform_type, {})
+        metadata = platform_config.get("metadata", "")
+        if metadata:
+            query_params.append(metadata)
+        
+        params_str = ", ".join(query_params)
+        query = f"""
+        mutation {{
+            createPost(input: {{ {params_str} }}) {{
+                ... on PostActionSuccess {{
+                    post {{
+                        id
+                        text
+                        dueAt
+                    }}
+                }}
+                ... on MutationError {{
+                    message
+                }}
+            }}
+        }}
+        """
+        
+        return query
+    
+    def _parse_create_post_result(self, data):
+        if not data:
+            return None
+        
+        create_post_result = data.get("createPost")
+        
+        if not create_post_result:
+            return {"status": "failed", "message": "发布失败"}
+        
+        if "post" in create_post_result:
+            post = create_post_result["post"]
+            return {
+                "status": "success",
+                "post": {
+                    "id": post.get("id"),
+                    "text": post.get("text"),
+                    "dueAt": post.get("dueAt", "立即")
+                }
+            }
+        elif "message" in create_post_result:
+            return {"status": "failed", "message": create_post_result["message"]}
+        
+        return {"status": "failed", "message": "未知错误"}
+    
+    def create_post(self, channel_id, text, media_url=None, platform_type=None):
+        text = self.escape_graphql_string(text)
+        query = self._build_create_post_query(channel_id, text, media_url, platform_type)
+        data = self._client.request(query)
+        result = self._parse_create_post_result(data)
+        
+        if result and result.get("status") == "success" and result.get("post"):
+            result["post"]["scheduledAt"] = result["post"].pop("dueAt", None)
+        
+        return result
+    
+    def publish_to_platforms(self, text, media_url=None, platforms=None):
+        if platforms is None:
+            platforms = ["instagram", "tiktok", "facebook"]
+        
+        account = self._cache.get_account_info(self._client.fetch_account_info)
+        if not account:
+            print("无法获取账户信息")
+            return [{"error": "Failed to get account info"}]
+        
+        orgs = account.get("organizations", [])
+        if not orgs:
+            print("未找到组织")
+            return [{"error": "No organizations found"}]
+        
+        org_id = orgs[0]["id"]
+        channels = self._cache.get_channels(org_id, self._client.fetch_channels)
+        
+        results = []
+        
+        for platform in platforms:
+            matched = False
+            
+            platform_config = PLATFORM_CONFIG.get(platform, {})
+            service_names = platform_config.get("service_names", [])
+            
+            for channel in channels:
+                service = channel.get("service", "").lower()
+                
+                if service in service_names:
+                    matched = True
+                    
+                    if channel.get("status") != "connected":
+                        results.append({
+                            "platform": platform,
+                            "channel": channel["name"],
+                            "status": "failed",
+                            "error": "Channel not connected"
+                        })
+                        continue
+                    
+                    result = self.create_post(channel["id"], text, media_url, platform)
+                    
+                    if result and result.get("status") == "success":
+                        results.append({
+                            "platform": platform,
+                            "channel": channel["name"],
+                            "status": "success",
+                            "post_id": result["post"].get("id"),
+                            "scheduled_at": result["post"].get("scheduledAt")
+                        })
+                    else:
+                        error_msg = result.get("message", "Failed to create post") if result else "Unknown error"
+                        results.append({
+                            "platform": platform,
+                            "channel": channel["name"],
+                            "status": "failed",
+                            "error": error_msg
+                        })
+            
+            if not matched:
+                results.append({
+                    "platform": platform,
+                    "channel": None,
+                    "status": "failed",
+                    "error": f"No matching channel found for platform '{platform}'"
+                })
+        
+        return results
+    
+    def clear_cache(self):
+        self._cache.clear()
+
+
+class BufferPublisher:
+    """兼容层：保留原有接口"""
+    
+    def __init__(self):
+        self._service = BufferPublishService()
     
     def _retry_request(self, func, max_retries=3, initial_delay=2.0, backoff_factor=2.0):
-        """带指数退避的通用重试函数"""
         delay = initial_delay
         last_exception = None
         
@@ -30,76 +386,18 @@ class BufferPublisher:
     
     def publish(self, text: str, image_url: Optional[str] = None, 
                 platforms: Optional[list] = None) -> Dict:
-        if platforms is None:
-            platforms = ["instagram", "tiktok", "facebook"]
+        results = self._service.publish_to_platforms(text, image_url, platforms)
         
-        results = {}
-        for platform in platforms:
-            profile_id = self._get_profile_id(platform)
-            if profile_id:
-                result = self._publish_to_profile(text, image_url, profile_id)
-                results[platform] = result
+        formatted_results = {}
+        for result in results:
+            platform = result.get("platform")
+            formatted_results[platform] = {
+                "success": result.get("status") == "success",
+                "channel": result.get("channel"),
+                "post_id": result.get("post_id"),
+                "error": result.get("error")
+            }
         
-        return results
-    
-    def _get_profile_id(self, platform: str) -> Optional[str]:
-        url = f"{self.base_url}/profiles.json"
-        headers = {"Authorization": f"Bearer {self.api_token}"}
-        
-        def make_request():
-            response = requests.get(url, headers=headers, timeout=30)
-            if response.status_code == 200:
-                profiles = response.json()
-                for profile in profiles:
-                    if profile.get("service").lower() == platform.lower():
-                        return profile.get("id")
-            elif response.status_code == 401:
-                print("Buffer API authentication failed")
-                return None
-            response.raise_for_status()
-        
-        return self._retry_request(make_request, max_retries=3, initial_delay=2.0)
-    
-    def _publish_to_profile(self, text: str, image_url: Optional[str], profile_id: str) -> Dict:
-        url = f"{self.base_url}/updates/create.json"
-        headers = {"Authorization": f"Bearer {self.api_token}"}
-        
-        data = {
-            "profile_ids[]": profile_id,
-            "text": text
-        }
-        
-        if image_url:
-            data["media[photo]"] = image_url
-        
-        def make_request():
-            response = requests.post(url, headers=headers, data=data, timeout=60)
-            
-            if response.status_code in [200, 201]:
-                return {"success": True, "data": response.json()}
-            elif response.status_code == 401:
-                return {"success": False, "error": "Authentication failed"}
-            else:
-                raise Exception(f"Buffer API error: {response.text}")
-        
-        try:
-            return self._retry_request(make_request, max_retries=3, initial_delay=2.0)
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    def get_update_status(self, update_id: str) -> Dict:
-        url = f"{self.base_url}/updates/{update_id}.json"
-        headers = {"Authorization": f"Bearer {self.api_token}"}
-        
-        def make_request():
-            response = requests.get(url, headers=headers, timeout=30)
-            if response.status_code == 200:
-                return response.json()
-            response.raise_for_status()
-        
-        try:
-            return self._retry_request(make_request, max_retries=3, initial_delay=2.0)
-        except Exception as e:
-            return {"error": str(e)}
+        return formatted_results
 
 buffer_publisher = BufferPublisher()

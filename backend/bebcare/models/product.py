@@ -11,7 +11,7 @@ class Product(Base):
     product_name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)
     description = Column(Text)
-    tags = Column(String(500))
+    selling_points = Column(String(500))
     brand_voice = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

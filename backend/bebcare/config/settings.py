@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Doubao API配置
     doubao_api_key: str
     doubao_api_url: str = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
-    doubao_model_id: str = "doubao-seedream-4-5-251128"
+    doubao_model_id: str = "doubao-seedream-5-0-260128"
     
     # Buffer API配置
     buffer_api_token: str

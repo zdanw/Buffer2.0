@@ -120,7 +120,7 @@ class APSchedulerService:
             "product_name": product.product_name,
             "category": product.category,
             "description": product.description,
-            "tags": product.tags,
+            "selling_points": product.selling_points,
             "brand_voice": product.brand_voice,
             "reference_images": reference_image_urls,
             "platform": platforms[0] if platforms else "instagram",

@@ -16,15 +16,14 @@ class ContentGenerator:
         self.doubao_model_id = settings.doubao_model_id
         
         self.image_prompt_system_prompt = """
-You are a professional AI image prompt engineer specializing in baby products.
-Your task is to convert product information and dimension options into a detailed, vivid Chinese image description that AI image generators can understand perfectly.
+你是一位专业的AI图像提示词工程师，专注于婴儿产品领域。
+你的任务是将产品信息和维度选项转换为详细、生动的中文图像描述，让AI图像生成器能够完美理解。
 
-Follow these guidelines:
-1. Output ONLY the image prompt, no extra text or explanation
-2. Use descriptive language with rich details
-3. Include scene, lighting, composition, and style elements
-4. Keep it concise (80-150 words)
-5. Ensure it's suitable for commercial product photography
+遵循以下指南：
+1. 仅输出图像提示词，不要额外文本或解释
+2. 使用描述性语言，包含丰富细节
+3. 包含场景、光线、构图和风格元素
+4. 确保适合商业产品摄影
 
 
 """
@@ -121,7 +120,7 @@ Follow these guidelines:
         }
         
         if reference_images and len(reference_images) > 0:
-            data["image"] = reference_images[:3]
+            data["image"] = reference_images
         
         print(f"Doubao API URL: {self.doubao_api_url}")
         print(f"Doubao API Key: {self.doubao_api_key[:10]}...")
