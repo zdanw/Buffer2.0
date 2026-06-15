@@ -83,7 +83,6 @@ export default function ContentPreview() {
       const request: GenerateRequest = {
         product_id: selectedProduct,
         platform,
-        reference_count: 2,
         style_hint: 'storytelling',
         use_scene_reference: useSceneReference,
       };

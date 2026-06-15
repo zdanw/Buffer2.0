@@ -50,7 +50,7 @@ def list_products(db: Session = Depends(get_db)):
             "product_name": product.product_name,
             "category": product.category,
             "description": product.description,
-            "tags": product.tags.split(",") if product.tags else [],
+            "selling_points": product.selling_points.split(",") if product.selling_points else [],
             "brand_voice": product.brand_voice,
             "created_at": product.created_at,
             "updated_at": product.updated_at,
@@ -66,7 +66,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
         product_name=product.product_name,
         category=product.category,
         description=product.description,
-        tags=",".join(product.tags) if product.tags else None,
+        selling_points=",".join(product.selling_points) if product.selling_points else None,
         brand_voice=product.brand_voice
     )
     db.add(new_product)
@@ -78,7 +78,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
         "product_name": new_product.product_name,
         "category": new_product.category,
         "description": new_product.description,
-        "tags": product.tags or [],
+        "selling_points": product.selling_points or [],
         "brand_voice": new_product.brand_voice,
         "created_at": new_product.created_at,
         "updated_at": new_product.updated_at,
@@ -117,14 +117,13 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
         "product_name": product.product_name,
         "category": product.category,
         "description": product.description,
-        "tags": product.tags.split(",") if product.tags else [],
+        "selling_points": product.selling_points.split(",") if product.selling_points else [],
         "brand_voice": product.brand_voice,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
         "product_images": product_images,
         "scene_images": scene_images
     }
-
 @router.put("/{product_id}")
 def update_product(product_id: str, product_update: ProductUpdate, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.product_id == product_id).first()
@@ -137,8 +136,8 @@ def update_product(product_id: str, product_update: ProductUpdate, db: Session =
         product.category = product_update.category
     if product_update.description:
         product.description = product_update.description
-    if product_update.tags:
-        product.tags = ",".join(product_update.tags)
+    if product_update.selling_points:
+        product.selling_points = ",".join(product_update.selling_points)
     if product_update.brand_voice:
         product.brand_voice = product_update.brand_voice
     
@@ -170,14 +169,13 @@ def update_product(product_id: str, product_update: ProductUpdate, db: Session =
         "product_name": product.product_name,
         "category": product.category,
         "description": product.description,
-        "tags": product.tags.split(",") if product.tags else [],
+        "selling_points": product.selling_points.split(",") if product.selling_points else [],
         "brand_voice": product.brand_voice,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
         "product_images": product_images,
         "scene_images": scene_images
     }
-
 @router.delete("/{product_id}", status_code=204)
 def delete_product(product_id: str, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.product_id == product_id).first()
@@ -247,7 +245,7 @@ def upload_product_images(
                         "description": product.description,
                         "cdn_url": cdn_url,
                         "phash": phash,
-                        "tags": product.tags,
+                        "selling_points": product.selling_points,
                         "image_type": image_type,
                         "created_at": str(new_image.uploaded_at)
                     }

@@ -49,13 +49,16 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
         ).order_by(func.random()).limit(request.reference_count).all()
         
         reference_image_urls = [img.cdn_url for img in reference_images]
+        
+        if len(reference_image_urls) < request.reference_count:
+            print(f"[WARN] Only {len(reference_image_urls)} images found for product {request.product_id}, requested {request.reference_count}")
     
     product_info = {
         "product_id": str(product.product_id),
         "product_name": product.product_name,
         "category": product.category,
         "description": product.description,
-        "tags": product.tags,
+        "selling_points": product.selling_points,
         "brand_voice": product.brand_voice,
         "reference_images": reference_image_urls,
         "platform": request.platform,
@@ -144,7 +147,7 @@ def generate_copywriting_only(request: GenerateRequest, db: Session = Depends(ge
         "product_name": product.product_name,
         "category": product.category,
         "description": product.description,
-        "tags": product.tags,
+        "selling_points": product.selling_points,
         "brand_voice": product.brand_voice,
         "platform": request.platform,
         "style_hint": request.style_hint
@@ -237,13 +240,16 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
         ).order_by(func.random()).limit(request.reference_count).all()
         
         reference_image_urls = [img.cdn_url for img in reference_images]
+        
+        if len(reference_image_urls) < request.reference_count:
+            print(f"[WARN] Only {len(reference_image_urls)} images found for product {request.product_id}, requested {request.reference_count}")
     
     product_info = {
         "product_id": str(product.product_id),
         "product_name": product.product_name,
         "category": product.category,
         "description": product.description,
-        "tags": product.tags,
+        "selling_points": product.selling_points,
         "brand_voice": product.brand_voice,
         "reference_images": reference_image_urls,
         "platform": request.platform,

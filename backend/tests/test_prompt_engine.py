@@ -37,7 +37,7 @@ def get_real_products():
                 "product_name": product.product_name,
                 "category": product.category,
                 "description": product.description,
-                "tags": product.tags,
+                "selling_points": product.selling_points,
                 "brand_voice": product.brand_voice,
                 "product_images_count": len(product_images),
                 "scene_images_count": len(scene_images),
@@ -88,15 +88,25 @@ def show_two_stage_image_prompts(product_info, platform="instagram", style_hint=
     meta_system_prompt = content_generator.image_prompt_system_prompt.strip()
     
     # 第二级：实际调用DeepSeek API获取最终prompt
-    print("\n" + "="*50)
+    print("\n" + "="*60)
+    print("【DeepSeek API 调用信息】")
+    print("="*60)
+    print("\n📤 发送给 DeepSeek 的 System Prompt:")
+    print("-"*60)
+    print(meta_system_prompt)
+    print("\n📤 发送给 DeepSeek 的 User Prompt (元图像描述请求):")
+    print("-"*60)
+    print(meta_prompt)
+    
+    print("\n" + "="*60)
     print("正在调用 DeepSeek API 生成图像描述...")
-    print("="*50)
+    print("="*60)
     
     try:
         final_prompt = content_generator._call_deepseek(meta_prompt, meta_system_prompt, 200)
-        print("\n" + "="*50)
+        print("\n" + "="*60)
         print("DeepSeek API 调用成功!")
-        print("="*50)
+        print("="*60)
     except Exception as e:
         print(f"\nDeepSeek API 调用失败: {e}")
         print("将显示元prompt供手动参考...")
@@ -192,6 +202,7 @@ def interactive_test():
 
     platforms = ["instagram", "facebook", "twitter"]
     styles = ["storytelling", "lifestyle", "minimalist"]
+    product_types = ["default", "audio_monitor"]
 
     if products:
         print("【Products in Database】")
@@ -214,7 +225,7 @@ def interactive_test():
                         "product_name": input("Product name: ").strip() or "Test Product",
                         "category": input("Category: ").strip() or "Test Category",
                         "description": input("Description: ").strip() or "This is a test product",
-                        "tags": input("Tags (comma separated): ").strip() or "test,demo",
+                        "selling_points": input("Selling points (comma separated): ").strip() or "test,demo",
                         "brand_voice": input("Brand voice: ").strip() or "Professional",
                         "product_images_count": 1,
                         "scene_images_count": 1,
@@ -222,6 +233,12 @@ def interactive_test():
                         "scene_images": [],
                         "reference_images": []
                     }
+                    
+                    print("\nSelect product type:")
+                    for i, pt in enumerate(product_types, 1):
+                        print(f"{i}. {pt}")
+                    pt_choice = int(input(f"Product type (1-{len(product_types)}): ")) - 1
+                    custom_product['product_type'] = product_types[pt_choice] if 0 <= pt_choice < len(product_types) else "default"
                     
                     print("\nSelect platform and style:")
                     for i, p in enumerate(platforms, 1):
@@ -267,7 +284,7 @@ def interactive_test():
                     "product_name": input("\nProduct name (or 'q' to quit): ").strip(),
                     "category": "",
                     "description": "",
-                    "tags": "",
+                    "selling_points": "",
                     "brand_voice": "",
                     "product_images_count": 1,
                     "scene_images_count": 1,
@@ -282,8 +299,14 @@ def interactive_test():
                 
                 custom_product['category'] = input("Category: ").strip() or "Baby Products"
                 custom_product['description'] = input("Description: ").strip() or "High-quality baby product"
-                custom_product['tags'] = input("Tags (comma separated): ").strip() or "baby,high-quality"
+                custom_product['selling_points'] = input("Selling points (comma separated): ").strip() or "baby,high-quality"
                 custom_product['brand_voice'] = input("Brand voice: ").strip() or "Professional and Warm"
+                
+                print("\nSelect product type:")
+                for i, pt in enumerate(product_types, 1):
+                    print(f"{i}. {pt}")
+                pt_choice = int(input(f"Product type (1-{len(product_types)}): ")) - 1
+                custom_product['product_type'] = product_types[pt_choice] if 0 <= pt_choice < len(product_types) else "default"
                 
                 print("\nSelect platform and style:")
                 for i, p in enumerate(platforms, 1):
