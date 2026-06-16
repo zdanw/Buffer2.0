@@ -124,6 +124,66 @@ DIMENSIONS = {
             {"id": "dim_night_ambient", "name": "弱暗卧室环境，仅依靠家长端屏幕微光与远处床头小夜灯照明，安静深夜看护氛围", "time": "night"},
             {"id": "golden_hour_curtain", "name": "黄昏黄金时刻，暖金色阳光透过亚麻窗帘缝隙漫射进房间，温柔氛围感日光", "time": "day"}
         ]
+    },
+    "air_purifier": {
+        "scenes": [
+            {"id": "crib_nursery", "name": "原木风婴儿床内侧，净化器放置床垫旁，室内居家育儿", "time": "indoor", "lighting": ["warm", "soft"]},
+            {"id": "stroller_outdoor", "name": "婴儿推车扶手挂放净化器，城市公园户外遛娃场景", "time": "day", "lighting": ["natural", "bright"]},
+            {"id": "car_seat", "name": "车载儿童安全座椅侧边，车内出行便携净化", "time": "day", "lighting": ["natural", "soft"]},
+            {"id": "travel_hotel", "name": "酒店便携折叠婴儿枕边，亲子短途旅行场景", "time": "indoor", "lighting": ["warm", "soft"]},
+            {"id": "living_playmat", "name": "客厅爬行游戏垫角落，宝宝玩耍时放在身边", "time": "day", "lighting": ["natural", "bright"]},
+            {"id": "bedside_night", "name": "主卧床头柜，夜间静音运行陪伴宝宝安睡", "time": "night", "lighting": ["dim", "warm"]},
+            {"id": "shopping_bag", "name": "帆布母婴包侧袋收纳，随身外出携带场景", "time": "day", "lighting": ["natural", "soft"]},
+            {"id": "nursing_armchair", "name": "哺乳懒人椅扶手，昏暗睡前哄睡环境", "time": "night", "lighting": ["dim", "warm"]}
+        ],
+        "viewpoints": [
+            {"id": "eye_45_front", "name": "45°平视正面特写，完整展示顶部微笑卡通线条、正面密集透气小孔与中段通风栅"},
+            {"id": "top_down_flatlay", "name": "俯拍平铺构图，奶米白机身平铺针织婴儿毯，展示圆润圆弧顶盖造型"},
+            {"id": "baby_low_pov", "name": "婴儿低角度仰拍，模拟宝宝视线看向床边净化器，凸显无尖锐圆角安全设计"},
+            {"id": "hand_hold_portable", "name": "单手手持随身视角，手掌托住小巧机身，直观体现轻量化便携尺寸"},
+            {"id": "side_profile_cut", "name": "机身侧视图，展现轻薄厚度、底部bebcare标识与分层风道结构"},
+            {"id": "macro_filter_detail", "name": "微距特写，聚焦正面密集透气孔、通风栅与机身哑光细腻塑料质感"},
+            {"id": "stroller_pov", "name": "推车第一视角，镜头向下看向挂在扶手的净化器，背景虚化户外绿植"}
+        ],
+        "compositions": [
+            {"id": "rule_third", "name": "三分构图，净化器放置画面右下，左侧留白柔和环境光影，突出随身守护氛围感"},
+            {"id": "center_symmetry", "name": "中心对称构图，净化器居中放置，四周搭配简约母婴小道具，干净电商主图质感"},
+            {"id": "foreground_blur_crib", "name": "前景虚化构图，透过婴儿床原木栏杆对焦净化器，营造婴儿专属防护氛围"},
+            {"id": "diagonal_guide", "name": "对角线构图，推车绑带/母婴包肩带作为视觉引导线，突出随身便携属性"},
+            {"id": "minimal_blank", "name": "极简留白构图，纯色浅背景，仅放置净化器，弱化杂物凸显简约工业设计"},
+            {"id": "narrative_lifestyle", "name": "叙事生活化构图，局部露出熟睡宝宝小手+净化器同框，传递空气防护安心感"},
+            {"id": "layer_depth", "name": "前后分层景深，前景清晰净化器，背景模糊宝宝玩耍区域，表达远距离全域净化"}
+        ],
+        "styles": [
+            {"id": "dutch_minimal", "name": "荷兰简约工业母婴美学，低饱和柔和奶白色调，流畅圆润线条，哑光高级质感", "compatible_with": ["crib_nursery", "travel_hotel", "bedside_night"]},
+            {"id": "warm_documentary", "name": "家庭纪实胶片摄影，轻微颗粒暖调，真实生活化带娃随身使用场景", "compatible_with": ["stroller_outdoor", "living_playmat", "shopping_bag"]},
+            {"id": "soft_dreamy_night", "name": "梦幻柔焦夜景风格，浅景深弱光晕，适配夜间静音净化哄睡场景", "compatible_with": ["bedside_night", "nursing_armchair", "crib_nursery"]},
+            {"id": "outdoor_lifestyle", "name": "写实户外生活摄影，原生自然日光，清晰还原随身出行便携使用状态", "compatible_with": ["stroller_outdoor", "car_seat", "shopping_bag"]},
+            {"id": "commercial_product", "name": "高端电商商业静物摄影，均匀柔光，精准还原哑光塑料、通风栅、风道细节，适合产品主图", "compatible_with": ["crib_nursery", "living_playmat"]}
+        ],
+        "quality": [
+            {"id": "8k_ultra_detail", "name": "8K超高清，清晰捕捉机身细密透气孔、顶盖简笔微笑线条、底部品牌字体纹理"},
+            {"id": "cinematic_bokeh", "name": "电影级景深虚化，柔和自然光影层次，氛围感人像级产品拍摄"},
+            {"id": "c4d_product_render", "name": "C4D三维写实渲染，细腻奶米白哑光塑料材质，柔和圆弧曲面光影过渡"},
+            {"id": "macro_pro_shot", "name": "专业微距商业摄影，锐利还原通风栅、微孔风道、机身哑光细腻肌理"},
+            {"id": "hdr_soft_glow", "name": "HDR高动态范围，明暗层次完整，柔和机身漫反射，无刺眼高光反光"}
+        ],
+        "details": [
+            {"id": "nursery_soft_toys", "name": "针织安抚玩偶、纯棉婴儿盖毯、原木摇铃，温馨婴儿房软装", "compatible_with": ["crib_nursery", "living_playmat"]},
+            {"id": "travel_baby_gear", "name": "帆布母婴背包、折叠隔尿垫、便携安抚奶嘴链，出行随身母婴道具", "compatible_with": ["stroller_outdoor", "car_seat", "shopping_bag", "travel_hotel"]},
+            {"id": "night_baby_supplies", "name": "玻璃储奶瓶、纱布襁褓、低亮度床头小夜灯，夜间育儿用品", "compatible_with": ["bedside_night", "nursing_armchair", "crib_nursery"]},
+            {"id": "air_tech_props", "name": "透明滤网小样、小型空气质量显示卡片，凸显净化黑科技卖点", "compatible_with": ["crib_nursery", "commercial_product"]},
+            {"id": "baby_part_soft", "name": "熟睡婴儿小手、小脚局部入镜（不露面部），柔和治愈亲子氛围", "compatible_with": ["crib_nursery", "bedside_night", "nursing_armchair"]},
+            {"id": "household_living", "name": "亚麻窗帘、原木边几、针织爬行垫，简约居家软装", "compatible_with": ["living_playmat", "bedside_night"]}
+        ],
+        "lighting": [
+            {"id": "soft_morning_window", "name": "清晨窗边漫射柔光，通透暖白自然光，搭配微弱室内小夜灯", "time": "day"},
+            {"id": "golden_hour_park", "name": "黄昏黄金时刻，树叶缝隙洒落暖金色自然光，户外柔和环境光", "time": "day"},
+            {"id": "soft_side_table_lamp", "name": "床头暖光台灯侧漫射光，低亮度柔和漫反射，夜间静音场景", "time": "night"},
+            {"id": "dim_night_ambient", "name": "深夜弱暗环境，仅微弱环境小夜灯光，凸显净化器静音夜间运行氛围", "time": "night"},
+            {"id": "soft_car_natural", "name": "车内柔和漫射日光，车窗过滤弱化强光，均匀打亮机身哑光表面", "time": "day"},
+            {"id": "studio_even_softbox", "name": "影棚柔光箱均匀布光，无硬阴影，商业产品静物专用光线", "time": "all"}
+        ]
     }
 }
 
@@ -348,7 +408,12 @@ Clip it anywhere, calm anytime. 🍼
         product_description = product_info.get('description', '')
         category = product_info.get('category', '')
         
-        product_type = 'audio_monitor' if category == 'Audio Monitor' else product_info.get('product_type', 'default')
+        if category == 'Audio Monitor':
+            product_type = 'audio_monitor'
+        elif category == 'Air Purifiers':
+            product_type = 'air_purifier'
+        else:
+            product_type = product_info.get('product_type', 'default')
         
         selling_points = product_info.get('selling_points', [])
         
