@@ -184,6 +184,65 @@ DIMENSIONS = {
             {"id": "soft_car_natural", "name": "车内柔和漫射日光，车窗过滤弱化强光，均匀打亮机身哑光表面", "time": "day"},
             {"id": "studio_even_softbox", "name": "影棚柔光箱均匀布光，无硬阴影，商业产品静物专用光线", "time": "all"}
         ]
+    },
+    "video_motion": {
+        "scenes": [
+            {"id": "nursery_crib", "name": "温馨婴儿房，云台摄像头正对婴儿床，家长手持显示屏在隔壁房间", "time": "indoor", "lighting": ["warm", "soft"]},
+            {"id": "bedside_night", "name": "主卧床头柜，家长手持显示屏夜间查看宝宝，婴儿房摄像头开启夜视模式", "time": "night", "lighting": ["dim", "infrared"]},
+            {"id": "living_room", "name": "客厅，家长在沙发上看电视，同时用显示屏关注卧室里的宝宝", "time": "day", "lighting": ["natural", "bright"]},
+            {"id": "yard_stroller", "name": "后院花园，婴儿在推车里睡觉，摄像头固定在推车上，家长在屋内通过显示屏查看", "time": "day", "lighting": ["natural", "bright"]},
+            {"id": "playroom_split", "name": "游戏室，一个摄像头对着宝宝，另一个对着玩具区，家长显示屏开启分屏模式", "time": "day", "lighting": ["natural", "soft"]},
+            {"id": "hotel_travel", "name": "酒店房间，便携摄像头放在床头柜，家长手持显示屏在浴室门口", "time": "indoor", "lighting": ["warm", "soft"]},
+            {"id": "kitchen_cooking", "name": "厨房，家长一边做饭一边用挂在墙上的显示屏查看宝宝", "time": "day", "lighting": ["natural", "soft"]}
+        ],
+        "viewpoints": [
+            {"id": "dual_device_hero", "name": "产品英雄视角，白色云台摄像头与4.3英寸家长显示屏并排摆放，清晰展示两者外观与屏幕内容"},
+            {"id": "camera_pov", "name": "摄像头第一视角，镜头画面即为屏幕上显示的婴儿房实时画面"},
+            {"id": "parent_handheld", "name": "家长手持显示屏视角，特写屏幕上宝宝的睡颜，背景是昏暗的卧室"},
+            {"id": "baby_low_angle", "name": "婴儿视角，仰拍天花板上的云台摄像头，镜头正下方是宝宝"},
+            {"id": "split_screen_detail", "name": "显示屏分屏特写，一个画面是宝宝，另一个画面是客厅"},
+            {"id": "nightvision_closeup", "name": "夜视模式特写，摄像头发出微弱红外光，屏幕上显示黑白清晰的宝宝影像"},
+            {"id": "wall_mounted_display", "name": "显示屏壁挂视角，固定在厨房或卧室墙上，方便家长随时查看"}
+        ],
+        "compositions": [
+            {"id": "rule_of_thirds", "name": "三分构图，摄像头位于画面一侧，家长手持的显示屏位于另一侧，形成呼应"},
+            {"id": "symmetry", "name": "中心对称构图，摄像头与显示屏居中放置，背景干净，适合产品主图"},
+            {"id": "foreground_blur", "name": "前景虚化构图，透过婴儿床栏杆或玩具，聚焦于清晰的摄像头或显示屏"},
+            {"id": "diagonal_guide", "name": "对角线构图，摄像头的电源线或显示屏的挂绳形成引导线，指向主体"},
+            {"id": "narrative", "name": "叙事性构图，捕捉家长在做家务或工作时，瞥一眼显示屏的瞬间"},
+            {"id": "minimalist", "name": "极简主义构图，大量留白，仅突出产品本身，强调其简约设计"},
+            {"id": "layered_depth", "name": "分层景深构图，前景是家长的手和显示屏，中景是客厅，背景是婴儿房的门，营造空间感"}
+        ],
+        "styles": [
+            {"id": "nordic_minimalist", "name": "北欧简约风格，柔和的白色与原木色，哑光质感，干净治愈", "compatible_with": ["nursery_crib", "bedside_night", "hotel_travel"]},
+            {"id": "warm_documentary", "name": "温暖纪实摄影风格，带有轻微胶片颗粒，还原真实的家庭生活场景", "compatible_with": ["living_room", "kitchen_cooking", "yard_stroller"]},
+            {"id": "dreamy_night", "name": "梦幻夜景风格，柔和的焦外虚化与温暖的光晕，营造宁静的睡眠氛围", "compatible_with": ["bedside_night", "nursery_crib"]},
+            {"id": "lifestyle", "name": "生活方式摄影风格，自然光线，色彩真实，展现产品在不同场景下的使用", "compatible_with": ["living_room", "yard_stroller", "playroom_split"]},
+            {"id": "commercial_product", "name": "高端电商产品摄影风格，光线均匀，细节清晰，适合产品详情页", "compatible_with": ["nursery_crib", "hotel_travel"]}
+        ],
+        "quality": [
+            {"id": "8k_ultra", "name": "8K超高清分辨率，清晰还原产品材质、屏幕像素和细节纹理"},
+            {"id": "cinematic", "name": "电影级画质，具有丰富的光影层次和自然的景深效果"},
+            {"id": "c4d_render", "name": "C4D渲染品质，精细的塑料和金属材质，光影过渡自然"},
+            {"id": "macro_photo", "name": "微距摄影，聚焦于产品的按键、logo和屏幕保护膜等细节"},
+            {"id": "hdr", "name": "高动态范围成像，同时保留高光和暗部细节，画面更有质感"}
+        ],
+        "details": [
+            {"id": "nursery_toys", "name": "有机棉毛绒玩具、木质摇铃、针织毯", "compatible_with": ["nursery_crib", "playroom_split"]},
+            {"id": "baby_essentials", "name": "奶瓶、襁褓、安抚奶嘴", "compatible_with": ["nursery_crib", "bedside_night", "hotel_travel"]},
+            {"id": "household_items", "name": "厨房料理台、沙发、电视、书本", "compatible_with": ["living_room", "kitchen_cooking"]},
+            {"id": "travel_gear", "name": "便携婴儿床、折叠包、护照", "compatible_with": ["hotel_travel"]},
+            {"id": "baby_parts", "name": "婴儿的小手、小脚、睡颜（不露全脸）", "compatible_with": ["nursery_crib", "bedside_night"]},
+            {"id": "tech_props", "name": "额外的摄像头、充电底座、产品说明书", "compatible_with": ["playroom_split", "commercial_product"]}
+        ],
+        "lighting": [
+            {"id": "nightvision_infrared", "name": "夜视红外光，屏幕显示黑白画面，环境光线极低", "time": "night"},
+            {"id": "warm_table_lamp", "name": "温暖的台灯光线，营造睡前的宁静氛围", "time": "night"},
+            {"id": "soft_morning_light", "name": "柔和的清晨自然光，透过窗户照亮房间", "time": "day"},
+            {"id": "afternoon_sunlight", "name": "午后的阳光，带有温暖的色调和明显的光影", "time": "day"},
+            {"id": "evening_ambient", "name": "傍晚的环境光，混合了室内灯光和窗外的余晖", "time": "day"},
+            {"id": "studio_softbox", "name": "影棚柔光箱布光，光线均匀柔和，无硬阴影", "time": "all"}
+        ]
     }
 }
 
@@ -412,6 +471,8 @@ Clip it anywhere, calm anytime. 🍼
             product_type = 'audio_monitor'
         elif category == 'Air Purifiers':
             product_type = 'air_purifier'
+        elif category == 'Video Motion':
+            product_type = 'video_motion'
         else:
             product_type = product_info.get('product_type', 'default')
         
