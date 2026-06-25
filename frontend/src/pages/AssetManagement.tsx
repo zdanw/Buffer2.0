@@ -65,15 +65,19 @@ export default function AssetManagement() {
     const files = Array.from(e.target.files);
     
     try {
-      await uploadProductImages(selectedProduct.product_id, files, imageType);
+      const response = await uploadProductImages(selectedProduct.product_id, files, imageType);
+      if (response.failed && response.failed.length > 0) {
+        alert(`${response.uploaded.length} 张图片上传成功，${response.failed.length} 张失败: ${response.failed.join(', ')}`);
+      }
+    } catch (error) {
+      console.error('Failed to upload images:', error);
+    } finally {
       const updated = await getProducts();
       const product = updated.find(p => p.product_id === selectedProduct.product_id);
       if (product) {
         setProducts(updated);
         setSelectedProduct(product);
       }
-    } catch (error) {
-      console.error('Failed to upload images:', error);
     }
   };
 
@@ -82,14 +86,15 @@ export default function AssetManagement() {
     if (confirm('确定删除该图片吗？')) {
       try {
         await deleteProductImage(selectedProduct.product_id, imageId);
+      } catch (error) {
+        console.error('Failed to delete image:', error);
+      } finally {
         const updated = await getProducts();
         const product = updated.find(p => p.product_id === selectedProduct.product_id);
         if (product) {
           setProducts(updated);
           setSelectedProduct(product);
         }
-      } catch (error) {
-        console.error('Failed to delete image:', error);
       }
     }
   };
@@ -203,7 +208,7 @@ export default function AssetManagement() {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">产品图像</h4>
                     <div className="grid grid-cols-3 gap-3">
-                      {selectedProduct.product_images.map((image) => (
+                      {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
                         <div key={image.image_id} className="relative group">
                           <img
                             src={image.cdn_url}
@@ -244,7 +249,7 @@ export default function AssetManagement() {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">场景图像</h4>
                     <div className="grid grid-cols-3 gap-3">
-                      {selectedProduct.scene_images.map((image) => (
+                      {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
                         <div key={image.image_id} className="relative group">
                           <img
                             src={image.cdn_url}

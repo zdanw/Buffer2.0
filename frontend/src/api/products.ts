@@ -32,7 +32,7 @@ export interface ProductCreate {
 }
 
 export const getProducts = async (): Promise<Product[]> => {
-  const response = await axiosInstance.get('/products');
+  const response = await axiosInstance.get('/products/');
   return response.data;
 };
 
@@ -60,18 +60,21 @@ export const deleteProduct = async (productId: string): Promise<void> => {
   await axiosInstance.delete(`/products/${productId}`);
 };
 
-export const uploadProductImages = async (productId: string, files: File[], imageType: 'product' | 'scene' = 'product'): Promise<{ product_id: string; uploaded: ProductImage[] }> => {
+export const uploadProductImages = async (productId: string, files: File[], imageType: 'product' | 'scene' = 'product'): Promise<{ product_id: string; uploaded: ProductImage[]; failed?: string[]; message?: string }> => {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
   });
   
-  const response = await axiosInstance.post(`/products/${productId}/images?image_type=${imageType}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+  try {
+    const response = await axiosInstance.post(`/products/${productId}/images?image_type=${imageType}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return response.data;
+    return response.data;
+  } catch (error: any) {
+    console.error('Upload error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 export const getProductImages = async (productId: string): Promise<{ product_id: string; images: ProductImage[] }> => {

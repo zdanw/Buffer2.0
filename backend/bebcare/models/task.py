@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, Integer
+from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, Integer, ForeignKey
 from bebcare.database import Base
 import uuid
 from datetime import datetime
@@ -9,11 +9,45 @@ class ScheduledTask(Base):
     task_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     cron = Column(String(100), nullable=False)
+    mode = Column(String(20), default="auto")
     target_categories = Column(JSON)
     target_products = Column(JSON)
     platforms = Column(JSON)
     reference_image_count = Column(Integer, default=3)
     run_count_per_execution = Column(Integer, default=1)
+    generate_image_count = Column(Integer, default=1)
+    generate_copy_count = Column(Integer, default=1)
     enabled = Column(Boolean, default=True)
+    use_scene_reference = Column(Boolean, default=False)
+    last_run_at = Column(DateTime)
+    next_run_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TaskExecution(Base):
+    __tablename__ = "task_executions"
+    
+    execution_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id"))
+    status = Column(String(20), nullable=False)
+    error_message = Column(Text)
+    generated_images = Column(JSON)
+    published_platforms = Column(JSON)
+    copywriting = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ManualTaskDraft(Base):
+    __tablename__ = "manual_task_drafts"
+    
+    draft_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id"))
+    product_id = Column(String(36))
+    images = Column(JSON)
+    copywritings = Column(JSON)
+    status = Column(String(20), default="pending")
+    selected_image = Column(Text)
+    selected_copy = Column(Text)
+    published_platforms = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)

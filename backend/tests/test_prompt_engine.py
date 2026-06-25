@@ -127,6 +127,11 @@ def test_single_prompt(product_info, platform="instagram", style="storytelling")
     print(f"Category: {product_info['category']}")
     print(f"Platform: {platform.upper()} | Style: {style}")
     print(f"{'='*70}")
+    if product_info.get('description'):
+        desc = product_info['description']
+        print(f"Description: {desc[:100]}..." if len(desc) > 100 else f"Description: {desc}")
+        if 'Nunito' in desc or 'nunito' in desc:
+            print("⚠️  检测到 Nunito 字体约束 - 将强制使用 Nunito 字体显示 bebcare 字符")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 第一部分：文案生成 Prompt（发送给 DeepSeek）
@@ -202,7 +207,7 @@ def interactive_test():
 
     platforms = ["instagram", "facebook", "twitter"]
     styles = ["storytelling", "lifestyle", "minimalist"]
-    product_types = ["default", "audio_monitor"]
+    product_types = ["default", "audio_monitor", "air_purifier", "video_motion"]
 
     if products:
         print("【Products in Database】")

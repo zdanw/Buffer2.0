@@ -17,12 +17,16 @@ export default function TaskConfiguration() {
   const [formData, setFormData] = useState<TaskCreate>({
     name: '',
     cron: '0 10 * * *',
+    mode: 'auto',
     target_categories: [],
     target_products: [],
     platforms: ['instagram'],
     reference_image_count: 3,
     run_count_per_execution: 1,
+    generate_image_count: 3,
+    generate_copy_count: 3,
     enabled: true,
+    use_scene_reference: false,
   });
 
   useEffect(() => {
@@ -82,12 +86,16 @@ export default function TaskConfiguration() {
       setFormData({
         name: '',
         cron: '0 10 * * *',
+        mode: 'auto',
         target_categories: [],
         target_products: [],
         platforms: ['instagram'],
         reference_image_count: 3,
         run_count_per_execution: 1,
+        generate_image_count: 3,
+        generate_copy_count: 3,
         enabled: true,
+        use_scene_reference: false,
       });
       loadTasks();
     } catch (error) {
@@ -113,12 +121,16 @@ export default function TaskConfiguration() {
       setFormData({
         name: task.name,
         cron: task.cron,
+        mode: task.mode,
         target_categories: task.target_categories || [],
         target_products: task.target_products || [],
-        platforms: task.platforms,
+        platforms: task.platforms || ['instagram'],
         reference_image_count: task.reference_image_count,
         run_count_per_execution: task.run_count_per_execution,
+        generate_image_count: task.generate_image_count || 3,
+        generate_copy_count: task.generate_copy_count || 3,
         enabled: task.enabled,
+        use_scene_reference: task.use_scene_reference || false,
       });
     } else {
       setIsEdit(false);
@@ -126,12 +138,16 @@ export default function TaskConfiguration() {
       setFormData({
         name: '',
         cron: '0 10 * * *',
+        mode: 'auto',
         target_categories: [],
         target_products: [],
         platforms: ['instagram'],
         reference_image_count: 3,
         run_count_per_execution: 1,
+        generate_image_count: 3,
+        generate_copy_count: 3,
         enabled: true,
+        use_scene_reference: false,
       });
     }
     setShowModal(true);
@@ -178,6 +194,13 @@ export default function TaskConfiguration() {
                   }`}>
                     {task.enabled ? '运行中' : '已禁用'}
                   </span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    task.mode === 'auto'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {task.mode === 'auto' ? '自动发布' : '手动发布'}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
@@ -189,15 +212,29 @@ export default function TaskConfiguration() {
                   ) : (
                     <span>分类: {task.target_categories.join(', ')}</span>
                   )}
-                  <span>平台: {task.platforms.join(', ')}</span>
+                  {task.mode === 'auto' && (
+                    <span>平台: {task.platforms.join(', ')}</span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-3 mt-3">
                   <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
                     参考图: {task.reference_image_count}
                   </span>
-                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                    每次运行: {task.run_count_per_execution} 次
-                  </span>
+                  {task.mode === 'auto' && (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                      每次运行: {task.run_count_per_execution} 次
+                    </span>
+                  )}
+                  {task.mode === 'manual' && (
+                    <>
+                      <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded text-xs">
+                        生成图片: {task.generate_image_count} 张
+                      </span>
+                      <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded text-xs">
+                        生成文案: {task.generate_copy_count} 条
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
@@ -251,6 +288,51 @@ export default function TaskConfiguration() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">任务模式</label>
+                <div className="flex gap-4">
+                  <label
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
+                      formData.mode === 'auto'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={formData.mode === 'auto'}
+                      onChange={() => setFormData({ ...formData, mode: 'auto' })}
+                      className="sr-only"
+                    />
+                    <Clock className="w-4 h-4" />
+                    自动发布
+                  </label>
+                  <label
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
+                      formData.mode === 'manual'
+                        ? 'border-amber-600 bg-amber-50 text-amber-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={formData.mode === 'manual'}
+                      onChange={() => setFormData({ ...formData, mode: 'manual' })}
+                      className="sr-only"
+                    />
+                    <Zap className="w-4 h-4" />
+                    手动发布
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {formData.mode === 'auto' 
+                    ? '系统按CRON定时生成内容并自动发布到平台'
+                    : '系统按CRON定时生成候选内容，保存到待发布列表等待审核'}
+                </p>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   CRON 表达式
                   <span className="text-gray-400 font-normal ml-2">格式: 分 时 日 月 周</span>
@@ -259,10 +341,15 @@ export default function TaskConfiguration() {
                   type="text"
                   value={formData.cron}
                   onChange={(e) => setFormData({ ...formData, cron: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                    formData.cron.split(' ').filter(Boolean).length !== 5 ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="0 10 * * *"
                   required
                 />
+                {formData.cron.split(' ').filter(Boolean).length !== 5 && formData.cron && (
+                  <p className="text-red-500 text-xs mt-1">CRON 表达式格式错误，需要5个字段: 分 时 日 月 周</p>
+                )}
               </div>
 
               <div>
@@ -334,33 +421,35 @@ export default function TaskConfiguration() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">发布平台</label>
-                <div className="flex flex-wrap gap-2">
-                  {PLATFORMS.map((platform) => (
-                    <label
-                      key={platform}
-                      className={`px-3 py-1 rounded-full text-sm cursor-pointer transition-all ${
-                        formData.platforms.includes(platform)
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.platforms.includes(platform)}
-                        onChange={(e) => {
-                          const platforms = formData.platforms.filter(p => p !== platform);
-                          if (e.target.checked) platforms.push(platform);
-                          setFormData({ ...formData, platforms });
-                        }}
-                        className="sr-only"
-                      />
-                      {platform}
-                    </label>
-                  ))}
+              {formData.mode === 'auto' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">发布平台</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PLATFORMS.map((platform) => (
+                      <label
+                        key={platform}
+                        className={`px-3 py-1 rounded-full text-sm cursor-pointer transition-all ${
+                          formData.platforms.includes(platform)
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.platforms.includes(platform)}
+                          onChange={(e) => {
+                            const platforms = formData.platforms.filter(p => p !== platform);
+                            if (e.target.checked) platforms.push(platform);
+                            setFormData({ ...formData, platforms });
+                          }}
+                          className="sr-only"
+                        />
+                        {platform}
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -374,18 +463,46 @@ export default function TaskConfiguration() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+                {formData.mode === 'auto' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">运行次数</label>
+                    <input
+                      type="number"
+                      value={formData.run_count_per_execution}
+                      onChange={(e) => setFormData({ ...formData, run_count_per_execution: parseInt(e.target.value) || 1 })}
+                      min="1"
+                      max="5"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">生成图片数量</label>
+                    <input
+                      type="number"
+                      value={formData.generate_image_count}
+                      onChange={(e) => setFormData({ ...formData, generate_image_count: parseInt(e.target.value) || 1 })}
+                      min="1"
+                      max="10"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {formData.mode === 'manual' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">运行次数</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">生成文案数量</label>
                   <input
                     type="number"
-                    value={formData.run_count_per_execution}
-                    onChange={(e) => setFormData({ ...formData, run_count_per_execution: parseInt(e.target.value) || 1 })}
+                    value={formData.generate_copy_count}
+                    onChange={(e) => setFormData({ ...formData, generate_copy_count: parseInt(e.target.value) || 1 })}
                     min="1"
-                    max="5"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    max="10"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   />
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input
@@ -395,6 +512,16 @@ export default function TaskConfiguration() {
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
                 <label className="text-sm font-medium text-gray-700">启用任务</label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.use_scene_reference || false}
+                  onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                <label className="text-sm font-medium text-gray-700">启用场景参考图</label>
               </div>
 
               <div className="flex gap-3 mt-6">

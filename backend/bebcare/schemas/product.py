@@ -42,3 +42,5 @@ class ProductResponse(ProductBase):
 class ImageUploadResponse(BaseModel):
     product_id: str
     uploaded: List[dict]
+    failed: Optional[List[str]] = None
+    message: Optional[str] = None
