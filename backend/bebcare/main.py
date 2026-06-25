@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from bebcare.api import product_router, task_router, generate_router, publish_router
+from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router
 from bebcare.database import engine, Base
 from bebcare.config.settings import settings
 from bebcare.scheduler.apscheduler_service import scheduler_service
+from bebcare.services.auth_dependency import get_current_active_user
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,15 @@ app = FastAPI(
     version="2.0.0"
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url}")
+    auth_header = request.headers.get("Authorization")
+    logger.info(f"Authorization header: {auth_header[:30] if auth_header else 'None'}...")
+    response = await call_next(request)
+    logger.info(f"Response: {response.status_code}")
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,10 +35,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(product_router)
-app.include_router(task_router)
-app.include_router(generate_router)
-app.include_router(publish_router)
+app.include_router(auth_router)
+
+app.include_router(
+    product_router,
+    dependencies=[Depends(get_current_active_user)]
+)
+app.include_router(
+    task_router,
+    dependencies=[Depends(get_current_active_user)]
+)
+app.include_router(
+    generate_router,
+    dependencies=[Depends(get_current_active_user)]
+)
+app.include_router(
+    publish_router,
+    dependencies=[Depends(get_current_active_user)]
+)
 
 @app.on_event("startup")
 async def startup_event():

@@ -12,6 +12,7 @@ pytz==2023.3.post1
 aiohttp==3.9.1
 python-dotenv==1.0.0
 pydantic==2.6.1
+pydantic-settings==2.1.0
 pillow==10.2.0
 imagehash==4.3.1
 datasketch==1.6.3
@@ -19,4 +20,12 @@ transformers==4.37.2
 torch==2.1.2
 requests==2.31.0
 httpx==0.26.0
-open_clip_torch==2.23.0
+numpy<2.0
+scikit-learn==1.4.0
+python-multipart==0.0.9
+setuptools>=65.0.0
+diffusers==0.26.3
+opencv-python==4.9.0.80
+tqdm==4.66.2
+accelerate==0.27.2
+sentence-transformers==2.6.1

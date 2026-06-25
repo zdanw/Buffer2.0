@@ -172,7 +172,7 @@ DIMENSIONS = {
             {"id": "nursery_soft_toys", "name": "针织安抚玩偶、纯棉婴儿盖毯、原木摇铃，温馨婴儿房软装", "compatible_with": ["crib_nursery", "living_playmat"]},
             {"id": "travel_baby_gear", "name": "帆布母婴背包、折叠隔尿垫、便携安抚奶嘴链，出行随身母婴道具", "compatible_with": ["stroller_outdoor", "car_seat", "shopping_bag", "travel_hotel"]},
             {"id": "night_baby_supplies", "name": "玻璃储奶瓶、纱布襁褓、低亮度床头小夜灯，夜间育儿用品", "compatible_with": ["bedside_night", "nursing_armchair", "crib_nursery"]},
-            {"id": "air_tech_props", "name": "透明滤网小样、小型空气质量显示卡片，凸显净化黑科技卖点", "compatible_with": ["crib_nursery", "commercial_product"]},
+            {"id": "air_tech_props", "name": "透明滤网小样、小型空气质量显示卡片，凸显净化黑科技卖点", "compatible_with": ["crib_nursery", "travel_hotel"]},
             {"id": "baby_part_soft", "name": "熟睡婴儿小手、小脚局部入镜（不露面部），柔和治愈亲子氛围", "compatible_with": ["crib_nursery", "bedside_night", "nursing_armchair"]},
             {"id": "household_living", "name": "亚麻窗帘、原木边几、针织爬行垫，简约居家软装", "compatible_with": ["living_playmat", "bedside_night"]}
         ],
@@ -233,7 +233,7 @@ DIMENSIONS = {
             {"id": "household_items", "name": "厨房料理台、沙发、电视、书本", "compatible_with": ["living_room", "kitchen_cooking"]},
             {"id": "travel_gear", "name": "便携婴儿床、折叠包、护照", "compatible_with": ["hotel_travel"]},
             {"id": "baby_parts", "name": "婴儿的小手、小脚、睡颜（不露全脸）", "compatible_with": ["nursery_crib", "bedside_night"]},
-            {"id": "tech_props", "name": "额外的摄像头、充电底座、产品说明书", "compatible_with": ["playroom_split", "commercial_product"]}
+            {"id": "tech_props", "name": "额外的摄像头、充电底座、产品说明书", "compatible_with": ["playroom_split", "hotel_travel"]}
         ],
         "lighting": [
             {"id": "nightvision_infrared", "name": "夜视红外光，屏幕显示黑白画面，环境光线极低", "time": "night"},
@@ -487,7 +487,10 @@ Clip it anywhere, calm anytime. 🍼
         # 使用内部规则选择维度，确保兼容性
         selected_dimensions = self._select_dimensions(product_type)
         
-        # 构建结构化的提示词
+        nunito_constraint = ""
+        if 'Nunito' in product_description or 'nunito' in product_description:
+            nunito_constraint = "4. 产品上印有bebcare字符,必须以Nunito字体呈现"
+        
         prompt = f"""
 你是专业的AI图像提示词润色师。请将以下结构化信息润色为高质量的中文图像提示词。
 
@@ -509,6 +512,7 @@ Clip it anywhere, calm anytime. 🍼
 1. 仅输出中文图像提示词，无需其他内容
 2. 将以上信息自然融合成流畅的描述
 3. 保持专业商业摄影风格
+{nunito_constraint}
 
 
 输出格式：直接输出润色后的图像提示词。
@@ -528,18 +532,17 @@ Clip it anywhere, calm anytime. 🍼
     def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None) -> str:
         product_name = product_info.get('product_name', '产品')
         appearance = product_info.get('description', '')
+        category = product_info.get('category', '')
         
         prompt = f"""
-使用第一张图像作为背景场景参考。
-从后续图像中参考产品外观和细节。
-自然地将{product_name}放置到场景中。
-产品外观特征：{appearance}
-保持场景的氛围和光线风格。
-保留产品细节和纹理。
-确保产品与场景无缝融合，真实自然。
-画质：8K，商业摄影，锐聚焦，高细节，真实渲染。
+将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
+1. 保持产品的位置、角度、大小、外观完全不变
+2. 保持产品的颜色、材质、纹理细节完全不变
+3. 仅对背景进行轻微优化，使其更符合婴儿房场景风格
+4. 保持原场景的构图结构和布局基本不变
+5. 保持原图像的光线方向和整体色调一致
+6. 背景优化采用柔和自然的婴儿房元素，避免过度改动
 
-仅输出英文。
 """
         
         if style_hint:
