@@ -23,6 +23,7 @@ var/
 wheels/
 share/python-wheels/
 *.egg-info/
+<<<<<<< HEAD
 .installed.cfg
 *.egg
 MANIFEST
@@ -190,6 +191,8 @@ __marimo__/
 
 # macOS
 .DS_Store
+=======
+>>>>>>> 054cef0 (Update .gitignore)
 
 # 数据库文件
 *.db
@@ -199,14 +202,20 @@ __marimo__/
 # IDE 配置
 .trae/
 
+<<<<<<< HEAD
 # 项目特定
 chroma_data/
 checkpoints/*.pt
 
+=======
+>>>>>>> 054cef0 (Update .gitignore)
 # 临时测试脚本
 check_db.py
 get_product.py
 backend/test_video_motion.py
+<<<<<<< HEAD
 
 # node
 node_modules/
+=======
+>>>>>>> 054cef0 (Update .gitignore)
