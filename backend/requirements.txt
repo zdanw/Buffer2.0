@@ -29,3 +29,5 @@ opencv-python==4.9.0.80
 tqdm==4.66.2
 accelerate==0.27.2
 sentence-transformers==2.6.1
+pydantic[email]>=2.0.0
+torchvision
