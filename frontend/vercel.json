@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "env": {
+    "VITE_BACKEND_URL": "@backend_url"
+  },
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  }
+}
