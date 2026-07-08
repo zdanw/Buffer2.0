@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
+    # 管理员账户配置（可选）
+    admin_username: str = "admin"
+    admin_email: str = "admin@bebcare.com"
+    admin_password: str | None = None
+    
     # 应用配置
     app_host: str = "0.0.0.0"
     app_port: int = 8080

@@ -23,11 +23,14 @@ class DeduplicationEngine:
         self.minhash_threshold = 0.8
         self.lsh = MinHashLSH(threshold=self.minhash_threshold, num_perm=128)
         
-        # Load longclip if available
         backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.long_clip_path = os.path.join(backend_dir, 'Long-CLIP')
         self.longclip_available = False
         self.longclip = None
+    
+    def _ensure_longclip_loaded(self):
+        if self.longclip_available and self.longclip is not None:
+            return
         
         if os.path.exists(self.long_clip_path):
             sys.path.insert(0, self.long_clip_path)
@@ -90,6 +93,8 @@ class DeduplicationEngine:
         model = chroma_client.clip_model
         processor = chroma_client.clip_processor
         device = chroma_client.device
+        
+        self._ensure_longclip_loaded()
         
         if self.longclip_available and hasattr(model, 'encode_text'):
             # Use Long-CLIP tokenize (supports 248 tokens)

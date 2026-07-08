@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router
 from bebcare.database import engine, Base
 from bebcare.config.settings import settings
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.services.auth_dependency import get_current_active_user
+from bebcare.initial_data import initialize_data
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -35,28 +36,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
+api_router = APIRouter(prefix="/api")
+api_router.include_router(auth_router)
+api_router.include_router(product_router, dependencies=[Depends(get_current_active_user)])
+api_router.include_router(task_router, dependencies=[Depends(get_current_active_user)])
+api_router.include_router(generate_router, dependencies=[Depends(get_current_active_user)])
+api_router.include_router(publish_router, dependencies=[Depends(get_current_active_user)])
 
-app.include_router(
-    product_router,
-    dependencies=[Depends(get_current_active_user)]
-)
-app.include_router(
-    task_router,
-    dependencies=[Depends(get_current_active_user)]
-)
-app.include_router(
-    generate_router,
-    dependencies=[Depends(get_current_active_user)]
-)
-app.include_router(
-    publish_router,
-    dependencies=[Depends(get_current_active_user)]
-)
+app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting Bebcare AI Studio API")
+    initialize_data()
     scheduler_service.start()
 
 @app.on_event("shutdown")
