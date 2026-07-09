@@ -4,12 +4,26 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/v1/(.*)",
-      "destination": "https://zongsechenai-bebcare-buffer.hf.space/v1/$1"
+      "source": "/v1/:path*",
+      "destination": "https://zongsechenai-bebcare-buffer.hf.space/v1/$1",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/v1/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS,PUT,DELETE" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" },
+        { "key": "Access-Control-Max-Age", "value": "86400" }
+      ]
     }
   ]
 }
