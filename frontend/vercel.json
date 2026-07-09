@@ -2,21 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-<<<<<<< HEAD
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
   
 }
-=======
-  "env": {
-    "VITE_BACKEND_URL": "@backend_url"
-  },
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 128,
-      "maxDuration": 10
-    }
-  }
-}
->>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
