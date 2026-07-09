@@ -1,14 +1,14 @@
 {
   "buildCommand": "npm run build",
   "functions": {
-    "api/index.js": {
+    "api/index.cjs": {
       "runtime": "@vercel/node@3.2.2"
     }
   },
   "routes": [
     {
       "src": "/v1/(.*)",
-      "dest": "/api/index.js",
+      "dest": "/api/index.cjs",
       "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
