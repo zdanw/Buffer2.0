@@ -29,7 +29,7 @@ class TaskExecution(Base):
     __tablename__ = "task_executions"
     
     execution_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id"))
+    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id", ondelete="CASCADE"))
     status = Column(String(20), nullable=False)
     error_message = Column(Text)
     generated_images = Column(JSON)
@@ -42,7 +42,7 @@ class ManualTaskDraft(Base):
     __tablename__ = "manual_task_drafts"
     
     draft_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id"))
+    task_id = Column(String(36), ForeignKey("scheduled_tasks.task_id", ondelete="CASCADE"))
     product_id = Column(String(36))
     images = Column(JSON)
     copywritings = Column(JSON)

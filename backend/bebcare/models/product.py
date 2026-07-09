@@ -22,7 +22,7 @@ class ProductImage(Base):
     __tablename__ = "product_images"
     
     image_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    product_id = Column(String(36), ForeignKey("products.product_id"))
+    product_id = Column(String(36), ForeignKey("products.product_id", ondelete="CASCADE"))
     cdn_url = Column(String(500), nullable=False)
     phash = Column(String(64))
     width = Column(Integer)

@@ -139,8 +139,9 @@ export default function AssetManagement() {
             <h3 className="font-semibold text-gray-800 mb-4">产品列表</h3>
             <div className="space-y-2">
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <span className="text-gray-500 text-sm">服务正在启动中，请稍候...</span>
                 </div>
               ) : products.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">暂无产品</div>

@@ -248,6 +248,10 @@ def delete_task(task_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
     
     scheduler_service.remove_task(task_id)
+    
+    db.query(ManualTaskDraft).filter(ManualTaskDraft.task_id == task_id).delete(synchronize_session=False)
+    db.query(TaskExecution).filter(TaskExecution.task_id == task_id).delete(synchronize_session=False)
+    
     db.delete(task)
     db.commit()
 
