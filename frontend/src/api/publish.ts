@@ -22,7 +22,7 @@ export const publishContent = async (text: string, image_url?: string, platforms
   if (image_url) params.append('image_url', image_url);
   if (platforms) params.append('platforms', JSON.stringify(platforms));
   
-  const response = await axiosInstance.post('/publish', params);
+  const response = await axiosInstance.post('/publish/', params);
   return response.data;
 };
 

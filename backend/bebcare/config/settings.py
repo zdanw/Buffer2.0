@@ -1,8 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 class Settings(BaseSettings):
     # 数据库配置
-    database_url: str = "sqlite:///./bebcare.db"
+    database_url: str = f"sqlite:///{os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'bebcare.db')}"
     redis_url: str = "redis://localhost:6379/0"
     
     # DeepSeek API配置
@@ -40,6 +41,6 @@ class Settings(BaseSettings):
     # 日志配置
     log_level: str = "INFO"
     
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"))
 
 settings = Settings()

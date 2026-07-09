@@ -20,14 +20,10 @@ class ChromaClient:
         self.client = chromadb.PersistentClient(path="./chroma_data")
         self.collection_name = "bebcare_products"
         self._get_or_create_collection()
-<<<<<<< HEAD
         self.clip_model = None
         self.clip_processor = None
         self.device = "cpu"
         self.clip_available = False
-=======
-        self._load_longclip_model()
->>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
     
     def _get_or_create_collection(self):
         try:
@@ -80,7 +76,6 @@ class ChromaClient:
                 self.device = "cpu"
                 self.clip_available = False
     
-<<<<<<< HEAD
     def _ensure_clip_loaded(self):
         if self.clip_available and self.clip_model is not None:
             return
@@ -89,9 +84,6 @@ class ChromaClient:
     
     def get_image_embedding(self, image):
         self._ensure_clip_loaded()
-=======
-    def get_image_embedding(self, image):
->>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
         if not self.clip_available:
             return [0.0] * 512
         

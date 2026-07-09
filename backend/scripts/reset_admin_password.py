@@ -4,11 +4,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
-from bebcare.database import SessionLocal
-from bebcare.models.user import User
+from bebcare.database import SessionLocal, engine, Base
+from bebcare.models import User
 from bebcare.services.auth_service import get_password_hash
 import secrets
 import string
+
+Base.metadata.create_all(bind=engine)
 
 
 def generate_password(length: int = 12) -> str:

@@ -27,7 +27,7 @@ export interface GenerateStatus {
 }
 
 export const generateContent = async (data: GenerateRequest): Promise<GenerateResponse> => {
-  const response = await axiosInstance.post('/generate', data);
+  const response = await axiosInstance.post('/generate/', data);
   return response.data;
 };
 

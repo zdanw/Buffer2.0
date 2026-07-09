@@ -20,6 +20,8 @@ module.exports = (req, res) => {
     targetPath = '/v1' + targetPath;
   }
 
+  console.log(`=== ${req.method} ${targetPath} ===`);
+
   const headers = {};
   for (const [key, value] of Object.entries(req.headers)) {
     if (key !== 'host' && key !== 'connection') {
@@ -27,8 +29,6 @@ module.exports = (req, res) => {
     }
   }
   headers['host'] = TARGET_HOST;
-  headers['origin'] = `https://${TARGET_HOST}`;
-  headers['referer'] = `https://${TARGET_HOST}/`;
 
   const options = {
     hostname: TARGET_HOST,
@@ -38,19 +38,27 @@ module.exports = (req, res) => {
   };
 
   const proxyReq = https.request(options, (proxyRes) => {
-    console.log('HF Space response status:', proxyRes.statusCode);
+    console.log('HF Space status:', proxyRes.statusCode);
     console.log('HF Space content-type:', proxyRes.headers['content-type']);
 
-    const responseHeaders = {};
-    for (const [key, value] of Object.entries(proxyRes.headers)) {
-      responseHeaders[key] = value;
-    }
-    responseHeaders['access-control-allow-origin'] = '*';
-    responseHeaders['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-    responseHeaders['access-control-allow-headers'] = 'Content-Type, Authorization';
+    let responseBody = '';
+    proxyRes.on('data', (chunk) => {
+      responseBody += chunk;
+    });
+    proxyRes.on('end', () => {
+      console.log('HF Space response body:', responseBody.substring(0, 500));
 
-    res.writeHead(proxyRes.statusCode, responseHeaders);
-    proxyRes.pipe(res);
+      const responseHeaders = {};
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        responseHeaders[key] = value;
+      }
+      responseHeaders['access-control-allow-origin'] = '*';
+      responseHeaders['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+      responseHeaders['access-control-allow-headers'] = 'Content-Type, Authorization';
+
+      res.writeHead(proxyRes.statusCode, responseHeaders);
+      res.end(responseBody);
+    });
   });
 
   proxyReq.on('error', (err) => {

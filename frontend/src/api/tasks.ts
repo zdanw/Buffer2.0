@@ -86,7 +86,7 @@ export const getAllExecutions = async (): Promise<TaskExecution[]> => {
 };
 
 export const createTask = async (data: TaskCreate): Promise<ScheduledTask> => {
-  const response = await axiosInstance.post('/tasks', data);
+  const response = await axiosInstance.post('/tasks/', data);
   return response.data;
 };
 
