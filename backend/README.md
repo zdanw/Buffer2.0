@@ -3,7 +3,7 @@ title: Bebcare AI Studio API
 emoji: 🤖
 colorFrom: blue
 colorTo: purple
-sdk: gradio
+sdk: docker
 sdk_version: 4.36.1
 app_file: app.py
 ---

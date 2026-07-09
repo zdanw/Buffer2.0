@@ -2,9 +2,13 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+<<<<<<< HEAD
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
+  ]
+  
+}
+=======
   "env": {
     "VITE_BACKEND_URL": "@backend_url"
   },
@@ -15,3 +19,4 @@
     }
   }
 }
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1

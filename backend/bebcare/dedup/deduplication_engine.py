@@ -27,6 +27,10 @@ class DeduplicationEngine:
         self.long_clip_path = os.path.join(backend_dir, 'Long-CLIP')
         self.longclip_available = False
         self.longclip = None
+    
+    def _ensure_longclip_loaded(self):
+        if self.longclip_available and self.longclip is not None:
+            return
         
         if os.path.exists(self.long_clip_path):
             sys.path.insert(0, self.long_clip_path)
@@ -90,11 +94,15 @@ class DeduplicationEngine:
         processor = chroma_client.clip_processor
         device = chroma_client.device
         
+        self._ensure_longclip_loaded()
+        
         if self.longclip_available and hasattr(model, 'encode_text'):
+            # Use Long-CLIP tokenize (supports 248 tokens)
             text_input = self.longclip.tokenize([text]).to(device)
             with torch.no_grad():
                 text_embedding = model.encode_text(text_input).cpu().numpy()
         else:
+            # Fallback to standard CLIP (77 tokens limit)
             max_chars = 300
             truncated_text = text[:max_chars] if len(text) > max_chars else text
             inputs = processor(text=[truncated_text], return_tensors="pt").to(device)

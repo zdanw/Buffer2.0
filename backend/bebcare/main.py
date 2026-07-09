@@ -36,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/v1")
 api_router.include_router(auth_router)
 api_router.include_router(product_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(task_router, dependencies=[Depends(get_current_active_user)])
