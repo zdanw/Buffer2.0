@@ -33,12 +33,12 @@ export interface ProductCreate {
 
 export const getProducts = async (): Promise<Product[]> => {
   const response = await axiosInstance.get('/products/');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getCategories = async (): Promise<string[]> => {
   const response = await axiosInstance.get('/products/categories');
-  return response.data.categories;
+  return Array.isArray(response.data.categories) ? response.data.categories : [];
 };
 
 export const getProduct = async (productId: string): Promise<Product> => {

@@ -163,7 +163,7 @@ export default function PublishCalendar() {
               title: task.name,
               time: `${hour}:${minute.toString().padStart(2, '0')}`,
               status: status,
-              platforms: task.platforms,
+              platforms: task.platforms || [],
               mode: task.mode || 'auto',
               day: d,
               month: month,
@@ -499,14 +499,14 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      {execution.generated_images && execution.generated_images.length > 0 && (
+                      {((execution.generated_images || []).length > 0) && (
                         <div>
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                             <Image className="w-4 h-4" />
                             发布图片
                           </div>
                           <div className="grid grid-cols-2 gap-3">
-                            {execution.generated_images.map((img, index) => (
+                            {(execution.generated_images || []).map((img, index) => (
                               <img
                                 key={index}
                                 src={img}
@@ -518,11 +518,11 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      {execution.published_platforms && execution.published_platforms.length > 0 && (
+                      {((execution.published_platforms || []).length > 0) && (
                         <div className="mt-4">
                           <div className="text-sm text-gray-500 mb-2">发布平台</div>
                           <div className="flex flex-wrap gap-2">
-                            {execution.published_platforms.map((platform) => (
+                            {(execution.published_platforms || []).map((platform) => (
                               <span
                                 key={platform}
                                 className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm"

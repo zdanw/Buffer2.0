@@ -55,7 +55,7 @@ export const getCurrentUser = async (): Promise<UserResponse> => {
 
 export const listUsers = async (): Promise<UserResponse[]> => {
   const response = await axiosInstance.get('/auth/users');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const createUser = async (data: CreateUserData): Promise<UserResponse> => {

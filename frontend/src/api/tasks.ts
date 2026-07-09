@@ -67,7 +67,7 @@ export interface DraftPublishRequest {
 
 export const getTasks = async (): Promise<ScheduledTask[]> => {
   const response = await axiosInstance.get('/tasks/');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getTask = async (taskId: string): Promise<ScheduledTask> => {
@@ -77,12 +77,12 @@ export const getTask = async (taskId: string): Promise<ScheduledTask> => {
 
 export const getTaskExecutions = async (taskId: string): Promise<TaskExecution[]> => {
   const response = await axiosInstance.get(`/tasks/${taskId}/executions`);
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getAllExecutions = async (): Promise<TaskExecution[]> => {
   const response = await axiosInstance.get('/tasks/executions');
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const createTask = async (data: TaskCreate): Promise<ScheduledTask> => {
@@ -102,7 +102,7 @@ export const deleteTask = async (taskId: string): Promise<void> => {
 export const getDrafts = async (status?: string): Promise<ManualTaskDraft[]> => {
   const params = status ? { status } : {};
   const response = await axiosInstance.get('/tasks/drafts', { params });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const publishDraft = async (draftId: string, request: DraftPublishRequest): Promise<{ success: boolean; draft_id: string; published_platforms: string[]; cdn_url: string }> => {

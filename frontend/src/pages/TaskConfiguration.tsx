@@ -207,13 +207,13 @@ export default function TaskConfiguration() {
                     <Clock className="w-4 h-4" />
                     {formatCron(task.cron)}
                   </span>
-                  {(task.target_products && task.target_products.length > 0) ? (
-                    <span>产品: {task.target_products.length} 个</span>
+                  {((task.target_products || []).length > 0) ? (
+                    <span>产品: {(task.target_products || []).length} 个</span>
                   ) : (
-                    <span>分类: {task.target_categories.join(', ')}</span>
+                    <span>分类: {(task.target_categories || []).join(', ')}</span>
                   )}
                   {task.mode === 'auto' && (
-                    <span>平台: {task.platforms.join(', ')}</span>
+                    <span>平台: {(task.platforms || []).join(', ')}</span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-3 mt-3">
