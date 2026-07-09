@@ -1,6 +1,10 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node"
+    }
+  },
   "routes": [
     {
       "src": "/v1/(.*)",
@@ -8,8 +12,16 @@
       "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/dist/assets/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/dist/favicon.ico"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/dist/index.html"
     }
   ]
 }
