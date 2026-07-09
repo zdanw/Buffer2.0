@@ -28,7 +28,11 @@ diffusers==0.26.3
 opencv-python==4.9.0.80
 tqdm==4.66.2
 accelerate==0.27.2
+<<<<<<< HEAD
 sentence-transformers==2.6.1
 pydantic[email]>=2.0.0
 torchvision
 ftfy
+=======
+sentence-transformers==2.6.1
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1

@@ -20,10 +20,7 @@ class ChromaClient:
         self.client = chromadb.PersistentClient(path="./chroma_data")
         self.collection_name = "bebcare_products"
         self._get_or_create_collection()
-        self.clip_model = None
-        self.clip_processor = None
-        self.device = "cpu"
-        self.clip_available = False
+        self._load_longclip_model()
     
     def _get_or_create_collection(self):
         try:
@@ -33,7 +30,6 @@ class ChromaClient:
     
     def _load_longclip_model(self):
         try:
-            # Get absolute path to Long-CLIP directory
             backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             self.long_clip_path = os.path.join(backend_dir, 'Long-CLIP')
             
@@ -60,7 +56,6 @@ class ChromaClient:
                 
         except Exception as e:
             print(f"Long-CLIP model not available: {e}")
-            # Fallback to standard CLIP
             try:
                 from transformers import CLIPProcessor, CLIPModel
                 self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -76,14 +71,7 @@ class ChromaClient:
                 self.device = "cpu"
                 self.clip_available = False
     
-    def _ensure_clip_loaded(self):
-        if self.clip_available and self.clip_model is not None:
-            return
-        
-        self._load_longclip_model()
-    
     def get_image_embedding(self, image):
-        self._ensure_clip_loaded()
         if not self.clip_available:
             return [0.0] * 512
         

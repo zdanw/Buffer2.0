@@ -24,6 +24,9 @@ wheels/
 share/python-wheels/
 *.egg-info/
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 .installed.cfg
 *.egg
 MANIFEST
@@ -191,8 +194,11 @@ __marimo__/
 
 # macOS
 .DS_Store
+<<<<<<< HEAD
 =======
 >>>>>>> 054cef0 (Update .gitignore)
+=======
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 
 # 数据库文件
 *.db
@@ -203,19 +209,31 @@ __marimo__/
 .trae/
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 # 项目特定
 chroma_data/
 checkpoints/*.pt
 
+<<<<<<< HEAD
 =======
 >>>>>>> 054cef0 (Update .gitignore)
+=======
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 # 临时测试脚本
 check_db.py
 get_product.py
 backend/test_video_motion.py
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 # node
 node_modules/
 =======
 >>>>>>> 054cef0 (Update .gitignore)
+=======
+
+# node
+node_modules/
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1

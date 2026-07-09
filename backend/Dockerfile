@@ -9,15 +9,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+<<<<<<< HEAD
 COPY backend/requirements.txt .
+=======
+COPY requirements.txt .
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+<<<<<<< HEAD
 COPY backend/bebcare/ ./bebcare/
 COPY backend/Long-CLIP/ ./Long-CLIP/
 COPY backend/scripts/ ./scripts/
 COPY backend/.env.example ./
+=======
+COPY . .
+>>>>>>> 8c5362493e8ae8975fca8647afa1a2a80dab42b1
 
 RUN mkdir -p /app/chroma_data /app/Long-CLIP/checkpoints
 
