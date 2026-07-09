@@ -1,4 +1,3 @@
-const http = require('http');
 const https = require('https');
 
 const TARGET_HOST = 'zongsechenai-bebcare-buffer.hf.space';
@@ -14,39 +13,72 @@ module.exports = (req, res) => {
     return;
   }
 
-  const path = req.url.replace(/^\/api/, '/v1');
-  
-  const options = {
-    hostname: TARGET_HOST,
-    path: path,
-    method: req.method,
-    headers: {
-      ...req.headers,
-      'Host': TARGET_HOST,
-    },
-  };
+  try {
+    let targetPath = req.url;
+    if (targetPath.startsWith('/api')) {
+      targetPath = targetPath.replace(/^\/api/, '/v1');
+    } else if (targetPath.startsWith('/v1')) {
+      targetPath = targetPath;
+    } else {
+      targetPath = '/v1' + targetPath;
+    }
 
-  const protocol = TARGET_HOST.startsWith('https') ? https : http;
+    const headers = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (key !== 'host' && key !== 'connection') {
+        headers[key] = value;
+      }
+    }
+    headers['host'] = TARGET_HOST;
 
-  const proxyReq = protocol.request(options, (proxyRes) => {
-    const headers = {
-      ...proxyRes.headers,
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    const options = {
+      hostname: TARGET_HOST,
+      path: targetPath,
+      method: req.method,
+      headers: headers,
     };
 
-    res.writeHead(proxyRes.statusCode, headers);
-    proxyRes.pipe(res);
-  });
+    const proxyReq = https.request(options, (proxyRes) => {
+      const responseHeaders = {};
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        responseHeaders[key] = value;
+      }
+      responseHeaders['access-control-allow-origin'] = '*';
+      responseHeaders['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+      responseHeaders['access-control-allow-headers'] = 'Content-Type, Authorization';
 
-  proxyReq.on('error', (err) => {
+      res.writeHead(proxyRes.statusCode, responseHeaders);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error('Proxy error:', err.message);
+      res.writeHead(500, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));
+    });
+
+    req.on('data', (chunk) => {
+      proxyReq.write(chunk);
+    });
+
+    req.on('end', () => {
+      proxyReq.end();
+    });
+
+    req.on('error', (err) => {
+      console.error('Request error:', err.message);
+      proxyReq.destroy(err);
+    });
+
+  } catch (err) {
+    console.error('Function error:', err.message);
     res.writeHead(500, {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
     });
-    res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));
-  });
-
-  req.pipe(proxyReq);
+    res.end(JSON.stringify({ error: 'Internal error', message: err.message }));
+  }
 };
