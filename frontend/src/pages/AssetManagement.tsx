@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Upload, Trash2, Eye, Edit2, X } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw } from 'lucide-react';
 import type { Product, ProductCreate } from '@/api/products';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 
@@ -124,13 +124,23 @@ export default function AssetManagement() {
           <h2 className="text-2xl font-bold text-gray-900">素材管理</h2>
           <p className="text-gray-500 mt-1">管理产品和图片素材</p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          添加产品
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadProducts}
+            disabled={loading}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            添加产品
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
