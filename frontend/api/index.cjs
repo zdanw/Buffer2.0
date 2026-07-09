@@ -13,20 +13,11 @@ module.exports = (req, res) => {
     return;
   }
 
-  console.log('=== Proxy Request ===');
-  console.log('Method:', req.method);
-  console.log('Original URL:', req.url);
-  console.log('Headers:', JSON.stringify(req.headers));
-
   let targetPath = req.url;
-  console.log('Target path before processing:', targetPath);
-
   if (targetPath.startsWith('/api')) {
     targetPath = targetPath.replace(/^\/api/, '/v1');
-    console.log('Replaced /api with /v1:', targetPath);
   } else if (!targetPath.startsWith('/v1')) {
     targetPath = '/v1' + targetPath;
-    console.log('Added /v1 prefix:', targetPath);
   }
 
   const headers = {};
@@ -36,8 +27,8 @@ module.exports = (req, res) => {
     }
   }
   headers['host'] = TARGET_HOST;
-
-  console.log('Final target:', 'https://' + TARGET_HOST + targetPath);
+  headers['origin'] = `https://${TARGET_HOST}`;
+  headers['referer'] = `https://${TARGET_HOST}/`;
 
   const options = {
     hostname: TARGET_HOST,
@@ -47,9 +38,8 @@ module.exports = (req, res) => {
   };
 
   const proxyReq = https.request(options, (proxyRes) => {
-    console.log('=== Proxy Response ===');
-    console.log('Status:', proxyRes.statusCode);
-    console.log('Response headers:', JSON.stringify(proxyRes.headers));
+    console.log('HF Space response status:', proxyRes.statusCode);
+    console.log('HF Space content-type:', proxyRes.headers['content-type']);
 
     const responseHeaders = {};
     for (const [key, value] of Object.entries(proxyRes.headers)) {
@@ -73,7 +63,6 @@ module.exports = (req, res) => {
   });
 
   req.on('data', (chunk) => {
-    console.log('Request body chunk:', chunk.toString());
     proxyReq.write(chunk);
   });
 
