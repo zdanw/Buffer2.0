@@ -34,15 +34,7 @@ export interface UserResponse {
 }
 
 export const login = async (data: LoginData): Promise<TokenResponse> => {
-  const params = new URLSearchParams();
-  params.append('username', data.username);
-  params.append('password', data.password);
-  
-  const response = await axiosInstance.post('/auth/login', params, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
+  const response = await axiosInstance.post('/auth/login', data);
   return response.data;
 };
 

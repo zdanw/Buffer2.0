@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import List
@@ -8,17 +7,17 @@ from bebcare.models.user import User
 from bebcare.services.auth_service import authenticate_user, create_access_token, get_password_hash, get_user
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.services.auth_scheme import oauth2_scheme
-from bebcare.schemas.auth import Token, UserCreate, UserUpdate, UserResponse
+from bebcare.schemas.auth import Token, UserCreate, UserUpdate, UserResponse, UserLogin
 from bebcare.config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=Token)
 def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    login_data: UserLogin,
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(db, login_data.username, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
