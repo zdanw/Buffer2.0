@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from uuid import UUID
 from bebcare.database import get_db
@@ -22,15 +22,13 @@ def get_categories(db: Session = Depends(get_db)):
 
 @router.get("/")
 def list_products(db: Session = Depends(get_db)):
-    products = db.query(Product).all()
+    products = db.query(Product).options(joinedload(Product.images)).all()
     result = []
     for product in products:
-        images = db.query(ProductImage).filter(ProductImage.product_id == product.product_id).all()
-        
         product_images = []
         scene_images = []
         
-        for img in images:
+        for img in product.images:
             img_dict = {
                 "image_id": img.image_id,
                 "cdn_url": img.cdn_url,
@@ -88,16 +86,14 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
 
 @router.get("/{product_id}")
 def get_product(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
+    product = db.query(Product).options(joinedload(Product.images)).filter(Product.product_id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
-    images = db.query(ProductImage).filter(ProductImage.product_id == product_id).all()
     
     product_images = []
     scene_images = []
     
-    for img in images:
+    for img in product.images:
         img_dict = {
             "image_id": img.image_id,
             "cdn_url": img.cdn_url,
@@ -126,7 +122,7 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
     }
 @router.put("/{product_id}")
 def update_product(product_id: str, product_update: ProductUpdate, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
+    product = db.query(Product).options(joinedload(Product.images)).filter(Product.product_id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
@@ -144,12 +140,10 @@ def update_product(product_id: str, product_update: ProductUpdate, db: Session =
     db.commit()
     db.refresh(product)
     
-    images = db.query(ProductImage).filter(ProductImage.product_id == product_id).all()
-    
     product_images = []
     scene_images = []
     
-    for img in images:
+    for img in product.images:
         img_dict = {
             "image_id": img.image_id,
             "cdn_url": img.cdn_url,

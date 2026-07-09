@@ -1,6 +1,7 @@
 const https = require('https');
 
 const TARGET_HOST = 'zongsechenai-bebcare-buffer.hf.space';
+const TIMEOUT_MS = 30000;
 
 module.exports = (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -35,6 +36,7 @@ module.exports = (req, res) => {
     path: targetPath,
     method: req.method,
     headers: headers,
+    timeout: TIMEOUT_MS,
   };
 
   const proxyReq = https.request(options, (proxyRes) => {
@@ -59,6 +61,16 @@ module.exports = (req, res) => {
       res.writeHead(proxyRes.statusCode, responseHeaders);
       res.end(responseBody);
     });
+  });
+
+  proxyReq.on('timeout', () => {
+    console.error('Proxy request timed out after', TIMEOUT_MS, 'ms');
+    proxyReq.destroy();
+    res.writeHead(504, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({ error: 'Gateway Timeout', message: '服务正在启动中，请稍后重试' }));
   });
 
   proxyReq.on('error', (err) => {

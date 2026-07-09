@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Plus, Upload, Trash2, Eye, Edit2, X } from 'lucide-react';
 import type { Product, ProductCreate } from '@/api/products';
-import { getProducts, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 
 export default function AssetManagement() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<ProductCreate>({
     product_name: '',
     category: '',
@@ -21,11 +22,14 @@ export default function AssetManagement() {
   }, []);
 
   const loadProducts = async () => {
+    setLoading(true);
     try {
       const data = await getProducts();
       setProducts(data);
     } catch (error) {
       console.error('Failed to load products:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,12 +39,13 @@ export default function AssetManagement() {
       if (isEdit && selectedProduct) {
         const updated = await updateProduct(selectedProduct.product_id, formData);
         setSelectedProduct(updated);
+        setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
       } else {
-        await createProduct(formData);
+        const created = await createProduct(formData);
+        setProducts(prev => [...prev, created]);
       }
       setShowModal(false);
       setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
-      loadProducts();
     } catch (error) {
       console.error('Failed to save product:', error);
     }
@@ -53,7 +58,7 @@ export default function AssetManagement() {
         if (selectedProduct?.product_id === productId) {
           setSelectedProduct(null);
         }
-        loadProducts();
+        setProducts(prev => prev.filter(p => p.product_id !== productId));
       } catch (error) {
         console.error('Failed to delete product:', error);
       }
@@ -72,12 +77,9 @@ export default function AssetManagement() {
     } catch (error) {
       console.error('Failed to upload images:', error);
     } finally {
-      const updated = await getProducts();
-      const product = updated.find(p => p.product_id === selectedProduct.product_id);
-      if (product) {
-        setProducts(updated);
-        setSelectedProduct(product);
-      }
+      const updated = await getProduct(selectedProduct.product_id);
+      setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+      setSelectedProduct(updated);
     }
   };
 
@@ -89,12 +91,9 @@ export default function AssetManagement() {
       } catch (error) {
         console.error('Failed to delete image:', error);
       } finally {
-        const updated = await getProducts();
-        const product = updated.find(p => p.product_id === selectedProduct.product_id);
-        if (product) {
-          setProducts(updated);
-          setSelectedProduct(product);
-        }
+        const updated = await getProduct(selectedProduct.product_id);
+        setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+        setSelectedProduct(updated);
       }
     }
   };
@@ -139,20 +138,28 @@ export default function AssetManagement() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <h3 className="font-semibold text-gray-800 mb-4">产品列表</h3>
             <div className="space-y-2">
-              {products.map((product) => (
-                <div
-                  key={product.product_id}
-                  onClick={() => setSelectedProduct(product)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all ${
-                    selectedProduct?.product_id === product.product_id
-                      ? 'bg-indigo-50 border border-indigo-200'
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
-                >
-                  <h4 className="font-medium text-gray-800">{product.product_name}</h4>
-                  <p className="text-sm text-gray-500">{product.category}</p>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-              ))}
+              ) : products.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">暂无产品</div>
+              ) : (
+                products.map((product) => (
+                  <div
+                    key={product.product_id}
+                    onClick={() => setSelectedProduct(product)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                      selectedProduct?.product_id === product.product_id
+                        ? 'bg-indigo-50 border border-indigo-200'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <h4 className="font-medium text-gray-800">{product.product_name}</h4>
+                    <p className="text-sm text-gray-500">{product.category}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
