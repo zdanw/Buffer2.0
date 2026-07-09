@@ -1,10 +1,8 @@
 import axios from 'axios';
 import { getToken, removeToken } from './auth';
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-
 const axiosInstance = axios.create({
-  baseURL: backendUrl ? `${backendUrl}/v1` : '/v1',
+  baseURL: '/v1',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
