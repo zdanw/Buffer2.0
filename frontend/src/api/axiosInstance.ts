@@ -32,12 +32,18 @@ axiosInstance.interceptors.request.use(
 
 axiosInstance.interceptors.response.use(
   (response) => {
+    console.log(`API Success: ${response.config.url} - Status: ${response.status}`);
     return response;
   },
   async (error) => {
     const config = error.config as RetryConfig;
     
+    console.error(`API Error: ${config?.url}`);
+    console.error('Error response:', error.response?.status, error.response?.data);
+    console.error('Error message:', error.message);
+    
     if (error.response?.status === 504 && (config.retry ?? 0) < 2) {
+      console.log(`Retry attempt ${config.retry ?? 0 + 1} for ${config.url}`);
       config.retry = (config.retry ?? 0) + 1;
       await new Promise(resolve => setTimeout(resolve, config.retryDelay ?? 3000));
       return axiosInstance(config);
@@ -49,6 +55,7 @@ axiosInstance.interceptors.response.use(
       const isAuthPath = authPaths.some(path => requestUrl.includes(path));
       
       if (!isAuthPath) {
+        console.log('Token expired, redirecting to login');
         removeToken();
         window.location.href = '/login';
       }

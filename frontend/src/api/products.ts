@@ -33,7 +33,16 @@ export interface ProductCreate {
 
 export const getProducts = async (): Promise<Product[]> => {
   const response = await axiosInstance.get('/products/');
-  return Array.isArray(response.data) ? response.data : [];
+  console.log('getProducts response status:', response.status);
+  console.log('getProducts response data:', JSON.stringify(response.data).substring(0, 500));
+  console.log('getProducts data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
+  
+  if (!Array.isArray(response.data)) {
+    console.error('getProducts: Expected array, got:', typeof response.data, response.data);
+    return [];
+  }
+  
+  return response.data;
 };
 
 export const getCategories = async (): Promise<string[]> => {
