@@ -9,6 +9,7 @@ export default function AssetManagement() {
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProductCreate>({
     product_name: '',
     category: '',
@@ -118,8 +119,9 @@ export default function AssetManagement() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">素材管理</h2>
           <p className="text-gray-500 mt-1">管理产品和图片素材</p>
@@ -234,7 +236,7 @@ export default function AssetManagement() {
                             className="w-full aspect-square object-cover rounded-lg"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                            <button className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
+                            <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
@@ -275,7 +277,7 @@ export default function AssetManagement() {
                             className="w-full aspect-square object-cover rounded-lg"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                            <button className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
+                            <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
@@ -384,7 +386,19 @@ export default function AssetManagement() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <button onClick={() => setPreviewImage(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
+              <X className="w-8 h-8" />
+            </button>
+            <img src={previewImage} alt="预览" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
