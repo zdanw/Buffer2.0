@@ -49,6 +49,7 @@ module.exports = (req, res) => {
     });
     proxyRes.on('end', () => {
       console.log('HF Space response body:', responseBody.substring(0, 500));
+      console.log('HF Space response headers:', JSON.stringify(proxyRes.headers));
 
       const responseHeaders = {};
       for (const [key, value] of Object.entries(proxyRes.headers)) {
@@ -57,6 +58,10 @@ module.exports = (req, res) => {
       responseHeaders['access-control-allow-origin'] = '*';
       responseHeaders['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
       responseHeaders['access-control-allow-headers'] = 'Content-Type, Authorization';
+      
+      if (!responseHeaders['content-type']) {
+        responseHeaders['content-type'] = 'application/json; charset=utf-8';
+      }
 
       res.writeHead(proxyRes.statusCode, responseHeaders);
       res.end(responseBody);

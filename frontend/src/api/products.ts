@@ -37,12 +37,24 @@ export const getProducts = async (): Promise<Product[]> => {
   console.log('getProducts response data:', JSON.stringify(response.data).substring(0, 500));
   console.log('getProducts data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
   
-  if (!Array.isArray(response.data)) {
-    console.error('getProducts: Expected array, got:', typeof response.data, response.data);
+  let data = response.data;
+  
+  if (typeof data === 'string') {
+    console.log('getProducts: Parsing string response as JSON');
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      console.error('getProducts: Failed to parse JSON:', e);
+      return [];
+    }
+  }
+  
+  if (!Array.isArray(data)) {
+    console.error('getProducts: Expected array, got:', typeof data, data);
     return [];
   }
   
-  return response.data;
+  return data;
 };
 
 export const getCategories = async (): Promise<string[]> => {
