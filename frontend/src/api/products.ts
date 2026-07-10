@@ -32,29 +32,18 @@ export interface ProductCreate {
 }
 
 export const getProducts = async (): Promise<Product[]> => {
-  const response = await axiosInstance.get('/products/');
+  const response = await axiosInstance.get('/products/', { responseType: 'json' });
   console.log('getProducts response status:', response.status);
-  console.log('getProducts response data:', JSON.stringify(response.data).substring(0, 500));
+  console.log('getProducts response headers:', JSON.stringify(response.headers).substring(0, 300));
   console.log('getProducts data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
   
-  let data = response.data;
-  
-  if (typeof data === 'string') {
-    console.log('getProducts: Parsing string response as JSON');
-    try {
-      data = JSON.parse(data);
-    } catch (e) {
-      console.error('getProducts: Failed to parse JSON:', e);
-      return [];
-    }
+  if (Array.isArray(response.data)) {
+    console.log('getProducts: Got array with', response.data.length, 'items');
+    return response.data;
   }
   
-  if (!Array.isArray(data)) {
-    console.error('getProducts: Expected array, got:', typeof data, data);
-    return [];
-  }
-  
-  return data;
+  console.error('getProducts: Expected array, got:', typeof response.data, response.data);
+  return [];
 };
 
 export const getCategories = async (): Promise<string[]> => {
