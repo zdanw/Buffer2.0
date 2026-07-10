@@ -43,11 +43,12 @@ module.exports = (req, res) => {
     console.log('HF Space status:', proxyRes.statusCode);
     console.log('HF Space content-type:', proxyRes.headers['content-type']);
 
-    let responseBody = '';
+    const chunks = [];
     proxyRes.on('data', (chunk) => {
-      responseBody += chunk;
+      chunks.push(chunk);
     });
     proxyRes.on('end', () => {
+      const responseBody = Buffer.concat(chunks).toString('utf8');
       console.log('HF Space response body:', responseBody.substring(0, 500));
       console.log('HF Space response headers:', JSON.stringify(proxyRes.headers));
 

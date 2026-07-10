@@ -42,6 +42,24 @@ export const getProducts = async (): Promise<Product[]> => {
     return response.data;
   }
   
+  if (typeof response.data === 'string') {
+    console.log('getProducts: Attempting to parse string response');
+    try {
+      let trimmed = response.data.trim();
+      if (trimmed.startsWith('\uFEFF')) {
+        console.log('getProducts: Removing BOM');
+        trimmed = trimmed.slice(1);
+      }
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        console.log('getProducts: Parsed array with', parsed.length, 'items');
+        return parsed;
+      }
+    } catch (e) {
+      console.error('getProducts: Failed to parse JSON:', e);
+    }
+  }
+  
   console.error('getProducts: Expected array, got:', typeof response.data, response.data);
   return [];
 };
