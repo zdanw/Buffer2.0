@@ -56,14 +56,19 @@ function UserManagement() {
     setSuccess('');
 
     try {
-      await createUser(newUser);
+      const userData = {
+        ...newUser,
+        email: newUser.email || undefined,
+      };
+      await createUser(userData);
       setShowCreateModal(false);
       setNewUser({ username: '', email: '', password: '', is_admin: false });
       setSuccess('用户创建成功');
       fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '创建用户失败');
+      const detail = err.response?.data?.detail;
+      setError(Array.isArray(detail) ? detail[0].msg : detail || '创建用户失败');
     }
   };
 

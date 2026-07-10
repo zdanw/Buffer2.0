@@ -11,12 +11,12 @@ class TokenData(BaseModel):
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password: str = Field(..., min_length=6)
     is_admin: bool = False
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password: Optional[str] = Field(None, min_length=6)
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
