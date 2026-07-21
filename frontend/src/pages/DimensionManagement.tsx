@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-react';
 import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities } from '@/api/dimensions';
 import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, getDimensionsByType, ALL_DIMENSION_TYPES } from '@/api/dimensions';
 import Pagination from '@/components/Pagination';
+
+type CompatOptions = Record<string, { id: string; name: string }[]>;
 
 export default function DimensionManagement() {
   const [dimensions, setDimensions] = useState<PromptDimension[]>([]);
@@ -13,6 +15,8 @@ export default function DimensionManagement() {
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
   const [selectedDimension, setSelectedDimension] = useState<PromptDimension | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -35,19 +39,41 @@ export default function DimensionManagement() {
     compatibilities: createEmptyCompatibilities('scenes'),
   });
 
-  const [allDimensions, setAllDimensions] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [allDimensions, setAllDimensions] = useState<CompatOptions>({});
+  /** 按产品类型缓存兼容选项，避免每次点编辑都打 7 个接口 */
+  const compatCacheRef = useRef<Record<string, CompatOptions>>({});
 
-  const loadAllDimensions = async (productType: string) => {
-    const result: Record<string, { id: string; name: string }[]> = {};
-    for (const dimType of ALL_DIMENSION_TYPES) {
-      try {
-        const data = await getDimensionsByType(productType, dimType.key);
-        result[dimType.key] = data;
-      } catch {
-        result[dimType.key] = [];
-      }
+  const loadAllDimensions = async (productType: string, force = false) => {
+    if (!force && compatCacheRef.current[productType]) {
+      setAllDimensions(compatCacheRef.current[productType]);
+      return;
     }
-    setAllDimensions(result);
+    setModalOptionsLoading(true);
+    try {
+      const entries = await Promise.all(
+        ALL_DIMENSION_TYPES.map(async (dimType) => {
+          try {
+            const data = await getDimensionsByType(productType, dimType.key);
+            return [dimType.key, data] as const;
+          } catch {
+            return [dimType.key, []] as const;
+          }
+        })
+      );
+      const result = Object.fromEntries(entries) as CompatOptions;
+      compatCacheRef.current[productType] = result;
+      setAllDimensions(result);
+    } finally {
+      setModalOptionsLoading(false);
+    }
+  };
+
+  const invalidateCompatCache = (productType?: string) => {
+    if (productType) {
+      delete compatCacheRef.current[productType];
+    } else {
+      compatCacheRef.current = {};
+    }
   };
 
   const getCompatibleDimensionTypes = (currentType: string) => {
@@ -80,7 +106,7 @@ export default function DimensionManagement() {
   useEffect(() => {
     loadDimensionTypes();
     loadProductTypes();
-    loadDimensions();
+    loadDimensions(1);
   }, []);
 
   const loadDimensionTypes = async () => {
@@ -101,8 +127,8 @@ export default function DimensionManagement() {
     }
   };
 
-  const loadDimensions = async (page: number = 1, newPageSize?: number) => {
-    setLoading(true);
+  const loadDimensions = async (page: number = currentPage, newPageSize?: number, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<PromptDimension> = await getPromptDimensions(
@@ -120,7 +146,7 @@ export default function DimensionManagement() {
     } catch (error) {
       console.error('Failed to load dimensions:', error);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -128,45 +154,77 @@ export default function DimensionManagement() {
     loadDimensions(1, newPageSize);
   };
 
+  const matchesCurrentFilters = (dim: PromptDimension) => {
+    if (selectedProductType && dim.product_type !== selectedProductType) return false;
+    if (selectedDimensionType && dim.dimension_type !== selectedDimensionType) return false;
+    return true;
+  };
+
+  const resetForm = () => {
+    setFormData({
+      product_type: 'night_lights',
+      dimension_type: 'scenes',
+      item_id: '',
+      name: '',
+      compatibilities: createEmptyCompatibilities('scenes'),
+    });
+    setSelectedDimension(null);
+    setIsEdit(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      const submitData = {
-        ...formData,
-      };
+      const submitData = { ...formData };
 
       if (isEdit && selectedDimension) {
         const updatePayload: PromptDimensionUpdate = {
           name: submitData.name,
           compatibilities: submitData.compatibilities,
         };
-        await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
+        const updated = await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
+        setDimensions((prev) =>
+          prev.map((d) => (d.dimension_id === updated.dimension_id ? { ...d, ...updated } : d))
+        );
+        // 兼容关系双向变更可能影响同页其他行计数，后台静默刷新当前页
+        void loadDimensions(currentPage, undefined, { silent: true });
       } else {
-        await createPromptDimension(submitData);
+        const created = await createPromptDimension(submitData);
+        invalidateCompatCache(created.product_type);
+        if (matchesCurrentFilters(created) && currentPage === 1) {
+          setDimensions((prev) => [created, ...prev].slice(0, pageSize));
+          setTotal((t) => t + 1);
+        } else if (matchesCurrentFilters(created)) {
+          setTotal((t) => t + 1);
+          void loadDimensions(currentPage, undefined, { silent: true });
+        } else {
+          setTotal((t) => t + 1);
+        }
+        void loadProductTypes();
       }
       setShowModal(false);
-      setFormData({
-        product_type: 'night_lights',
-        dimension_type: 'scenes',
-        item_id: '',
-        name: '',
-        compatibilities: createEmptyCompatibilities('scenes'),
-      });
-      setAllDimensions({});
-      loadDimensions();
-      loadProductTypes();
+      resetForm();
     } catch (error) {
       console.error('Failed to save dimension:', error);
       alert('保存失败，请检查输入');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (dimensionId: string) => {
     if (confirm('确定删除该维度吗？')) {
       try {
+        const removed = dimensions.find((d) => d.dimension_id === dimensionId);
         await deletePromptDimension(dimensionId);
-        loadDimensions();
-        loadProductTypes();
+        if (removed) invalidateCompatCache(removed.product_type);
+        setDimensions((prev) => prev.filter((d) => d.dimension_id !== dimensionId));
+        setTotal((t) => Math.max(0, t - 1));
+        // 当前页删空则回到上一页
+        if (dimensions.length <= 1 && currentPage > 1) {
+          void loadDimensions(currentPage - 1, undefined, { silent: true });
+        }
       } catch (error) {
         console.error('Failed to delete dimension:', error);
       }
@@ -177,8 +235,8 @@ export default function DimensionManagement() {
     if (confirm('确定初始化默认维度数据吗？这将覆盖现有数据。')) {
       try {
         await initializeDimensions();
-        loadProductTypes();
-        loadDimensions();
+        invalidateCompatCache();
+        await Promise.all([loadProductTypes(), loadDimensions(1)]);
         alert('初始化成功');
       } catch (error) {
         console.error('Failed to initialize dimensions:', error);
@@ -197,7 +255,7 @@ export default function DimensionManagement() {
         name: dimension.name,
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
-      loadAllDimensions(dimension.product_type);
+      void loadAllDimensions(dimension.product_type);
     } else {
       setIsEdit(false);
       setSelectedDimension(null);
@@ -210,7 +268,7 @@ export default function DimensionManagement() {
         name: '',
         compatibilities: createEmptyCompatibilities(dt),
       });
-      loadAllDimensions(pt);
+      void loadAllDimensions(pt);
     }
     setShowModal(true);
   };
@@ -409,7 +467,11 @@ export default function DimensionManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">产品类型</label>
                   <select
                     value={formData.product_type}
-                    onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                    onChange={(e) => {
+                      const pt = e.target.value;
+                      setFormData({ ...formData, product_type: pt });
+                      void loadAllDimensions(pt);
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
                     disabled={isEdit}
@@ -456,7 +518,15 @@ export default function DimensionManagement() {
                     placeholder="如 温馨婴儿房角落配有木质婴儿床"
                   />
                 </div>
-                {isEdit && getCompatibleDimensionTypes(formData.dimension_type).map((dimType) => {
+                {isEdit && (
+                  <>
+                    {modalOptionsLoading && (
+                      <div className="text-sm text-gray-500 flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        加载兼容选项…
+                      </div>
+                    )}
+                    {getCompatibleDimensionTypes(formData.dimension_type).map((dimType) => {
                   const current = ((formData.compatibilities || {})[dimType.key as keyof DimensionCompatibilities] || []);
                   const allItems = allDimensions[dimType.key]?.map(item => item.id) || [];
                   const isAllSelected = allItems.length > 0 && allItems.every(id => current.includes(id));
@@ -530,22 +600,26 @@ export default function DimensionManagement() {
                       )}
                     </div>
                   );
-                })}
+                    })}
+                  </>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {isEdit ? '保存修改' : '添加维度'}
+                  {saving ? '保存中…' : isEdit ? '保存修改' : '添加维度'}
                 </button>
               </div>
             </form>
