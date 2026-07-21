@@ -291,25 +291,32 @@ export default function DimensionManagement() {
   const loadDimensions = async (
     page: number = currentPage,
     newPageSize?: number,
-    opts?: { silent?: boolean; keepRows?: boolean }
+    opts?: { silent?: boolean; keepRows?: boolean; fromFilter?: boolean }
   ) => {
-    const userFilter = Boolean(opts?.keepRows);
+    const fromFilter = Boolean(opts?.fromFilter);
     const silent = Boolean(opts?.silent);
-    if (!silent && !userFilter) setLoading(true);
-    if (userFilter) setFiltering(true);
+    const keepRows = Boolean(opts?.keepRows) || fromFilter;
+    if (!silent && !keepRows) setLoading(true);
+    // 仅点「筛选」时显示筛选中；翻页/改每页条数不走筛选态
+    if (fromFilter) setFiltering(true);
     const size = newPageSize ?? pageSize;
+    // 翻页/改页大小沿用已生效条件；点筛选才用下拉当前值
+    const productType = fromFilter ? selectedProductType : appliedProductType;
+    const dimensionType = fromFilter ? selectedDimensionType : appliedDimensionType;
     try {
       const response: PaginatedResponse<PromptDimension> = await getPromptDimensions(
-        selectedProductType || undefined, 
-        selectedDimensionType || undefined,
+        productType || undefined,
+        dimensionType || undefined,
         page,
         size
       );
       setDimensions(response.data);
       setTotal(response.pagination.total);
       setCurrentPage(response.pagination.current);
-      setAppliedProductType(selectedProductType);
-      setAppliedDimensionType(selectedDimensionType);
+      if (fromFilter) {
+        setAppliedProductType(selectedProductType);
+        setAppliedDimensionType(selectedDimensionType);
+      }
       if (newPageSize) {
         setPageSize(newPageSize);
       }
@@ -320,18 +327,18 @@ export default function DimensionManagement() {
     } catch (error) {
       console.error('Failed to load dimensions:', error);
     } finally {
-      if (!silent && !userFilter) setLoading(false);
-      if (userFilter) setFiltering(false);
+      if (!silent && !keepRows) setLoading(false);
+      if (fromFilter) setFiltering(false);
     }
   };
 
   const handleFilter = () => {
     // 保留当前表格内容，只在筛选按钮上转圈，避免“全部重置”的闪烁
-    void loadDimensions(1, undefined, { keepRows: true });
+    void loadDimensions(1, undefined, { fromFilter: true, keepRows: true });
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    loadDimensions(1, newPageSize, { keepRows: true });
+    void loadDimensions(1, newPageSize, { keepRows: true });
   };
 
   const matchesCurrentFilters = (dim: PromptDimension) => {

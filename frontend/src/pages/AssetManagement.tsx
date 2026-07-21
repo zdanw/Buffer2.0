@@ -45,8 +45,13 @@ export default function AssetManagement() {
     }
   };
 
-  const loadProducts = async (page: number = currentPage, newPageSize?: number, opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
+  const loadProducts = async (
+    page: number = currentPage,
+    newPageSize?: number,
+    opts?: { silent?: boolean; keepRows?: boolean }
+  ) => {
+    const keepRows = Boolean(opts?.keepRows || opts?.silent);
+    if (!opts?.silent && !keepRows) setLoading(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<Product> = await getProducts(page, size);
@@ -59,12 +64,12 @@ export default function AssetManagement() {
     } catch (error) {
       console.error('Failed to load products:', error);
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (!opts?.silent && !keepRows) setLoading(false);
     }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    loadProducts(1, newPageSize);
+    void loadProducts(1, newPageSize, { keepRows: true });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,7 +215,7 @@ export default function AssetManagement() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <h3 className="font-semibold text-gray-800 mb-4">产品列表</h3>
             <div className="space-y-2">
-              {loading ? (
+              {loading && products.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
                   <span className="text-gray-500 text-sm">服务正在启动中，请稍候...</span>
@@ -240,7 +245,7 @@ export default function AssetManagement() {
                   current={currentPage}
                   total={total}
                   pageSize={pageSize}
-                  onChange={loadProducts}
+                  onChange={(page) => void loadProducts(page, undefined, { keepRows: true })}
                   onPageSizeChange={handlePageSizeChange}
                 />
               </div>

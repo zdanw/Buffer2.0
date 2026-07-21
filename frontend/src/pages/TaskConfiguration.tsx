@@ -27,6 +27,7 @@ export default function TaskConfiguration() {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [listBusy, setListBusy] = useState(false);
   const [formData, setFormData] = useState<TaskCreate>({
     name: '',
     cron: '0 10 * * *',
@@ -46,7 +47,13 @@ export default function TaskConfiguration() {
     void Promise.all([loadTasks(1), loadCategories(), loadProducts()]);
   }, []);
 
-  const loadTasks = async (page: number = currentPage, newPageSize?: number) => {
+  const loadTasks = async (
+    page: number = currentPage,
+    newPageSize?: number,
+    opts?: { keepRows?: boolean }
+  ) => {
+    const keepRows = Boolean(opts?.keepRows);
+    if (keepRows) setListBusy(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<ScheduledTask> = await getTasks(page, size);
@@ -58,11 +65,13 @@ export default function TaskConfiguration() {
       }
     } catch (error) {
       console.error('Failed to load tasks:', error);
+    } finally {
+      if (keepRows) setListBusy(false);
     }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    loadTasks(1, newPageSize);
+    void loadTasks(1, newPageSize, { keepRows: true });
   };
 
   const loadCategories = async () => {
@@ -266,7 +275,7 @@ export default function TaskConfiguration() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
         {tasks.map((task) => (
           <div
             key={task.task_id}
@@ -357,7 +366,7 @@ export default function TaskConfiguration() {
               current={currentPage}
               total={total}
               pageSize={pageSize}
-              onChange={loadTasks}
+              onChange={(page) => void loadTasks(page, undefined, { keepRows: true })}
               onPageSizeChange={handlePageSizeChange}
             />
           </div>

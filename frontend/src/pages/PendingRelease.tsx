@@ -22,12 +22,19 @@ export default function PendingRelease() {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [listBusy, setListBusy] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadDrafts(1), loadTasks()]);
   }, []);
 
-  const loadDrafts = async (page: number = currentPage, newPageSize?: number) => {
+  const loadDrafts = async (
+    page: number = currentPage,
+    newPageSize?: number,
+    opts?: { keepRows?: boolean }
+  ) => {
+    const keepRows = Boolean(opts?.keepRows);
+    if (keepRows) setListBusy(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<ManualTaskDraft> = await getDrafts('pending', page, size);
@@ -39,11 +46,13 @@ export default function PendingRelease() {
       }
     } catch (error) {
       console.error('Failed to load drafts:', error);
+    } finally {
+      if (keepRows) setListBusy(false);
     }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    loadDrafts(1, newPageSize);
+    void loadDrafts(1, newPageSize, { keepRows: true });
   };
 
   const loadTasks = async () => {
@@ -177,7 +186,7 @@ export default function PendingRelease() {
             </div>
           ) : (
             <>
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              <div className={`space-y-3 max-h-[600px] overflow-y-auto ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
                 {drafts.map((draft) => (
                   <div
                     key={draft.draft_id}
@@ -241,7 +250,7 @@ export default function PendingRelease() {
                     current={currentPage}
                     total={total}
                     pageSize={pageSize}
-                    onChange={loadDrafts}
+                    onChange={(page) => void loadDrafts(page, undefined, { keepRows: true })}
                     onPageSizeChange={handlePageSizeChange}
                   />
                 </div>
