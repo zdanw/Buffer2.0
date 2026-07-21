@@ -10,6 +10,7 @@ import {
   minLen,
   required,
 } from '@/lib/formValidation';
+import { formatServerDate } from '@/lib/datetime';
 
 const generateRandomPassword = (): string => {
  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -280,7 +281,7 @@ function UserManagement() {
                       </select>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString('zh-CN')}
+                      {formatServerDate(user.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -334,7 +335,7 @@ function UserManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString('zh-CN')}
+                      {formatServerDate(user.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

@@ -5,6 +5,7 @@ import { getDrafts, publishDraft, discardDraft } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
@@ -159,19 +160,7 @@ export default function PendingRelease() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      return '未知时间';
-    }
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (dateStr: string) => formatServerDateTime(dateStr);
 
   const selectedDraft = drafts.find(d => d.draft_id === selectedDraftId);
 

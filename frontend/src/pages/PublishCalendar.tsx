@@ -4,6 +4,7 @@ import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, R
 import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import { formatServerDateTime, parseServerDate } from '@/lib/datetime';
 
 interface CalendarEvent {
   id: string;
@@ -95,14 +96,19 @@ export default function PublishCalendar() {
     const map = new Map<string, TaskExecution[]>();
     executions.forEach((taskExes) => {
       for (const ex of taskExes) {
-        const d = new Date(ex.created_at);
+        const d = parseServerDate(ex.created_at);
+        if (!d) continue;
         const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(ex);
       }
     });
     for (const list of map.values()) {
-      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      list.sort((a, b) => {
+        const ta = parseServerDate(a.created_at)?.getTime() ?? 0;
+        const tb = parseServerDate(b.created_at)?.getTime() ?? 0;
+        return tb - ta;
+      });
     }
     return map;
   }, [executions]);
@@ -510,10 +516,14 @@ export default function PublishCalendar() {
                             {task?.name || '未知任务'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {(() => {
-                              const date = new Date(execution.created_at);
-                              return date.toLocaleString('zh-CN');
-                            })()}
+                            {formatServerDateTime(execution.created_at, {
+                              year: 'numeric',
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })}
                           </div>
                         </div>
                       </div>
