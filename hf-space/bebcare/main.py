@@ -21,13 +21,21 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# 探活与根路径不刷请求日志，避免 HF 休眠唤醒/健康检查噪声
+# 探活、文档与高频轮询不刷请求日志，避免 HF Logs 被淹没
 _SKIP_REQUEST_LOG_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
+_SKIP_REQUEST_LOG_PREFIXES = ("/v1/generate/status/",)
+
+
+def _should_skip_request_log(path: str) -> bool:
+    if path in _SKIP_REQUEST_LOG_PATHS:
+        return True
+    return any(path.startswith(prefix) for prefix in _SKIP_REQUEST_LOG_PREFIXES)
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     path = request.url.path
-    skip = path in _SKIP_REQUEST_LOG_PATHS
+    skip = _should_skip_request_log(path)
     started = time.perf_counter()
     if not skip:
         logger.info("→ %s %s", request.method, path)

@@ -372,8 +372,7 @@ Clip it anywhere, calm anytime. 🍼
 {nunito_constraint}
 """
         
-        if style_hint:
-            prompt += f"\n\n额外风格提示：{style_hint}"
+      
         
         dimensions_info = {
             "scene": selected_dimensions['scene']['name'],
@@ -412,8 +411,7 @@ Clip it anywhere, calm anytime. 🍼
 
 """
         
-        if style_hint:
-            prompt += f"\n风格提示：{style_hint}"
+        
         
         return prompt.strip()
 

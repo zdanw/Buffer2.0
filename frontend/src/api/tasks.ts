@@ -20,6 +20,16 @@ export interface ScheduledTask {
   next_run_at?: string;
 }
 
+export interface ExecutionDimensions {
+  scene?: string;
+  viewpoint?: string;
+  composition?: string;
+  style?: string;
+  quality?: string;
+  details?: string;
+  lighting?: string;
+}
+
 export interface TaskExecution {
   execution_id: string;
   task_id: string;
@@ -28,6 +38,8 @@ export interface TaskExecution {
   generated_images?: string[];
   published_platforms?: string[];
   copywriting?: string;
+  dimensions?: ExecutionDimensions | null;
+  image_prompt?: string | null;
   created_at: string;
 }
 

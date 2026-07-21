@@ -530,6 +530,68 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
+                      {(execution.dimensions || execution.image_prompt) && (
+                        <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+                          {execution.dimensions && (
+                            <>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">维度信息</h4>
+                              <div className="grid grid-cols-2 gap-2">
+                                {execution.dimensions.scene && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">场景</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.scene}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.lighting && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">光线</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.lighting}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.style && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">风格</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.style}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.composition && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">构图</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.composition}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.details && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">细节</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.details}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.quality && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">画质</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.quality}</span>
+                                  </div>
+                                )}
+                                {execution.dimensions.viewpoint && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xs text-gray-500 w-12 shrink-0">视角</span>
+                                    <span className="text-xs text-gray-800">{execution.dimensions.viewpoint}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {execution.image_prompt && (
+                            <div className={execution.dimensions ? 'mt-3' : ''}>
+                              <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                              <div className="text-xs text-gray-700 bg-white p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap border border-gray-100">
+                                {execution.image_prompt}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {execution.error_message && (
                         <div className="mt-4 p-3 bg-red-50 rounded-lg text-sm text-red-600">
                           错误信息: {execution.error_message}

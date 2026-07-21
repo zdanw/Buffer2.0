@@ -214,6 +214,8 @@ class APSchedulerService:
                     execution.generated_images = result.get("images", [])
                     execution.published_platforms = result.get("platforms", [])
                     execution.copywriting = result.get("copywriting", "")
+                    execution.dimensions = result.get("dimensions")
+                    execution.image_prompt = result.get("image_prompt")
                 except Exception as e:
                     execution.status = "FAILED"
                     execution.error_message = str(e)
@@ -386,6 +388,8 @@ class APSchedulerService:
             product_info, platforms[0] if platforms else "instagram", reference_image_urls, db=session
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
+        dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None
+        image_prompt = image_result.get("image_prompt") if isinstance(image_result, dict) else None
         if not image_urls:
             raise Exception("Auto task image generation returned no URLs; publish aborted")
         logger.info(f"Generated images: {image_urls}")
@@ -404,7 +408,13 @@ class APSchedulerService:
                     similarity,
                     task_id,
                 )
-                return {"images": [], "platforms": [], "copywriting": copywriting}
+                return {
+                    "images": [],
+                    "platforms": [],
+                    "copywriting": copywriting,
+                    "dimensions": dimensions,
+                    "image_prompt": image_prompt,
+                }
 
         image = download_image(image_urls[0])
         if not image:
@@ -431,6 +441,12 @@ class APSchedulerService:
         if not published_platforms:
             raise Exception(f"Buffer publish failed for all platforms: {publish_result}")
 
-        return {"images": generated_images, "platforms": published_platforms, "copywriting": copywriting}
+        return {
+            "images": generated_images,
+            "platforms": published_platforms,
+            "copywriting": copywriting,
+            "dimensions": dimensions,
+            "image_prompt": image_prompt,
+        }
 
 scheduler_service = APSchedulerService()

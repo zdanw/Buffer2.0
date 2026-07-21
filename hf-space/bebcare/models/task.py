@@ -35,6 +35,8 @@ class TaskExecution(Base):
     generated_images = Column(JSON)
     published_platforms = Column(JSON)
     copywriting = Column(Text)
+    dimensions = Column(JSON)
+    image_prompt = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
