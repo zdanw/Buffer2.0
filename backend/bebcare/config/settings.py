@@ -52,10 +52,10 @@ class Settings(BaseSettings):
     auto_migrate: bool = True
 
     # 调度与并发（HF Space 建议保持较小：workers=2, concurrent_jobs=1）
-    scheduler_max_workers: int = 2
+    scheduler_max_workers: int = 5
     scheduler_max_instances: int = 1
     scheduler_misfire_grace_seconds: int = 600
-    max_concurrent_jobs: int = 1
+    max_concurrent_jobs: int = 5
     job_queue_wait_seconds: int = 120
 
     # Supabase / Postgres 连接池（免费档连接有限，勿过大）
