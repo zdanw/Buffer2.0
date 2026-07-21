@@ -7,18 +7,56 @@ import Pagination from '@/components/Pagination';
 
 type CompatOptions = Record<string, { id: string; name: string }[]>;
 
-/** 模块级缓存：切 tab 卸载组件后仍保留，避免每次编辑都重新拉取 */
-const compatOptionsCache = new Map<string, CompatOptions>();
+type CompatCacheEntry = {
+  options: CompatOptions;
+  /** true = 已拉过该产品类型全部分页，可安全全选 */
+  complete: boolean;
+};
+
+/** 模块级缓存：切 tab / 筛选后仍保留，避免编辑时反复拉兼容选项 */
+const compatOptionsCache = new Map<string, CompatCacheEntry>();
 const compatOptionsInflight = new Map<string, Promise<CompatOptions>>();
 
 function emptyCompatOptions(): CompatOptions {
   return Object.fromEntries(ALL_DIMENSION_TYPES.map((t) => [t.key, []])) as CompatOptions;
 }
 
-/** 一次分页列表拉取该产品类型全部维度，替代原来的 7 次 by-type 请求 */
+function getCachedOptions(productType: string): CompatOptions | undefined {
+  return compatOptionsCache.get(productType)?.options;
+}
+
+function isCompatCacheComplete(productType: string): boolean {
+  return compatOptionsCache.get(productType)?.complete === true;
+}
+
+/** 用当前列表页数据预热缓存（不完全，仅加速展示；全选仍会补全） */
+function seedCompatCacheFromList(dims: PromptDimension[]) {
+  for (const dim of dims) {
+    const entry = compatOptionsCache.get(dim.product_type) || {
+      options: emptyCompatOptions(),
+      complete: false,
+    };
+    if (entry.complete) continue;
+    const bucket = entry.options[dim.dimension_type] || (entry.options[dim.dimension_type] = []);
+    if (!bucket.some((x) => x.id === dim.item_id)) {
+      bucket.push({ id: dim.item_id, name: dim.name });
+    }
+    compatOptionsCache.set(dim.product_type, entry);
+  }
+}
+
+/** 后台预热：把当前页出现的产品类型拉全，编辑展开时直接命中 */
+function prefetchCompatForProductTypes(productTypes: string[]) {
+  for (const pt of productTypes) {
+    if (!pt || isCompatCacheComplete(pt) || compatOptionsInflight.has(pt)) continue;
+    void fetchCompatOptions(pt);
+  }
+}
+
+/** 一次分页列表拉取该产品类型全部维度 */
 async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
   const cached = compatOptionsCache.get(productType);
-  if (cached) return cached;
+  if (cached?.complete) return cached.options;
 
   const inflight = compatOptionsInflight.get(productType);
   if (inflight) return inflight;
@@ -37,7 +75,7 @@ async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
       page += 1;
     } while (page <= pages);
 
-    compatOptionsCache.set(productType, result);
+    compatOptionsCache.set(productType, { options: result, complete: true });
     compatOptionsInflight.delete(productType);
     return result;
   })().catch((err) => {
@@ -68,6 +106,7 @@ export default function DimensionManagement() {
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [filtering, setFiltering] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
   const [selectedDimension, setSelectedDimension] = useState<PromptDimension | null>(null);
@@ -94,13 +133,16 @@ export default function DimensionManagement() {
 
   const [allDimensions, setAllDimensions] = useState<CompatOptions>({});
 
-  /** 仅在展开/全选时加载；有缓存则同步命中，无网络请求 */
+  /** 有完整缓存则同步命中；否则拉全量并写入缓存（筛选不会清缓存） */
   const ensureCompatOptions = async (productType: string) => {
-    const cached = compatOptionsCache.get(productType);
-    if (cached) {
+    if (isCompatCacheComplete(productType)) {
+      const cached = getCachedOptions(productType)!;
       setAllDimensions(cached);
       return cached;
     }
+    const partial = getCachedOptions(productType);
+    if (partial) setAllDimensions(partial);
+
     setModalOptionsLoading(true);
     try {
       const result = await fetchCompatOptions(productType);
@@ -170,8 +212,14 @@ export default function DimensionManagement() {
     }
   };
 
-  const loadDimensions = async (page: number = currentPage, newPageSize?: number, opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
+  const loadDimensions = async (
+    page: number = currentPage,
+    newPageSize?: number,
+    opts?: { silent?: boolean; keepRows?: boolean }
+  ) => {
+    const keepRows = opts?.keepRows || opts?.silent;
+    if (!opts?.silent && !keepRows) setLoading(true);
+    if (keepRows) setFiltering(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<PromptDimension> = await getPromptDimensions(
@@ -186,15 +234,25 @@ export default function DimensionManagement() {
       if (newPageSize) {
         setPageSize(newPageSize);
       }
+      // 预热：列表数据写入缓存 + 后台补全当前页产品类型，编辑时不再整表重拉
+      seedCompatCacheFromList(response.data);
+      const pts = [...new Set(response.data.map((d) => d.product_type))];
+      prefetchCompatForProductTypes(pts);
     } catch (error) {
       console.error('Failed to load dimensions:', error);
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (!opts?.silent && !keepRows) setLoading(false);
+      setFiltering(false);
     }
   };
 
+  const handleFilter = () => {
+    // 保留当前表格内容，只在筛选按钮上转圈，避免“全部重置”的闪烁
+    void loadDimensions(1, undefined, { keepRows: true });
+  };
+
   const handlePageSizeChange = (newPageSize: number) => {
-    loadDimensions(1, newPageSize);
+    loadDimensions(1, newPageSize, { keepRows: true });
   };
 
   const matchesCurrentFilters = (dim: PromptDimension) => {
@@ -291,8 +349,10 @@ export default function DimensionManagement() {
 
   const openModal = (dimension?: PromptDimension) => {
     setExpandedDimensions({});
-    setAllDimensions(compatOptionsCache.get(dimension?.product_type || selectedProductType || 'night_lights') || {});
     setModalOptionsLoading(false);
+
+    const pt = dimension?.product_type || selectedProductType || 'night_lights';
+    setAllDimensions(getCachedOptions(pt) || {});
 
     if (dimension) {
       setIsEdit(true);
@@ -304,11 +364,11 @@ export default function DimensionManagement() {
         name: dimension.name,
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
-      // 不预加载兼容选项：展开某一项或点全选时再拉取（有模块缓存则瞬间命中）
+      // 后台补全（已缓存则瞬间返回）；筛选不会清缓存，避免再次整表重拉
+      void ensureCompatOptions(dimension.product_type);
     } else {
       setIsEdit(false);
       setSelectedDimension(null);
-      const pt = selectedProductType || 'night_lights';
       const dt = selectedDimensionType || 'scenes';
       setFormData({
         product_type: pt,
@@ -387,18 +447,18 @@ export default function DimensionManagement() {
               </select>
             </div>
             <button
-              onClick={() => loadDimensions(1)}
-              disabled={loading}
+              onClick={handleFilter}
+              disabled={filtering || loading}
               className="mt-6 flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              筛选
+              <RefreshCw className={`w-4 h-4 ${filtering ? 'animate-spin' : ''}`} />
+              {filtering ? '筛选中…' : '筛选'}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${filtering ? 'opacity-70 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -416,7 +476,7 @@ export default function DimensionManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
+              {loading && dimensions.length === 0 ? (
                 <tr>
                   <td colSpan={selectedDimensionType ? 11 : 12} className="px-6 py-12 text-center">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
@@ -491,7 +551,7 @@ export default function DimensionManagement() {
             current={currentPage}
             total={total}
             pageSize={pageSize}
-            onChange={loadDimensions}
+            onChange={(page) => loadDimensions(page, undefined, { keepRows: true })}
             onPageSizeChange={handlePageSizeChange}
           />
         )}
@@ -518,7 +578,7 @@ export default function DimensionManagement() {
                     onChange={(e) => {
                       const pt = e.target.value;
                       setFormData({ ...formData, product_type: pt });
-                      setAllDimensions(compatOptionsCache.get(pt) || {});
+                      setAllDimensions(getCachedOptions(pt) || {});
                       // 新建时若已展开过选项，换产品类型再按需加载
                       if (Object.values(expandedDimensions).some(Boolean)) {
                         void ensureCompatOptions(pt);
