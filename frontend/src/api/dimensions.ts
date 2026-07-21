@@ -33,6 +33,8 @@ export interface PromptDimension {
   dimension_type: string;
   item_id: string;
   name: string;
+  /** false = 已禁用，生成链路不会使用 */
+  enabled?: boolean;
   compatibilities?: DimensionCompatibilities;
   created_at: string;
   updated_at: string;
@@ -48,6 +50,7 @@ export interface PromptDimensionCreate {
 
 export interface PromptDimensionUpdate {
   name?: string;
+  enabled?: boolean;
   compatibilities?: DimensionCompatibilities;
 }
 

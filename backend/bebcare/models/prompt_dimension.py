@@ -39,6 +39,8 @@ class PromptDimension(Base):
     name = Column(String(500), nullable=False)
     time = Column(String(50))
     lighting = Column(JSON)
+    # False = 禁用，生成/兼容选取时不会使用
+    enabled = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

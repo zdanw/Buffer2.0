@@ -17,6 +17,36 @@ from bebcare.models import Product
 router = APIRouter(prefix="/prompt-dimensions", tags=["prompt-dimensions"])
 
 
+def _compat_dict_from_dim(dim: PromptDimension) -> dict:
+    compatibilities = {
+        "scenes": [],
+        "lighting": [],
+        "styles": [],
+        "compositions": [],
+        "details": [],
+        "quality": [],
+        "viewpoints": [],
+    }
+    for comp in dim.compatibilities:
+        if comp.target_dimension_type in compatibilities:
+            compatibilities[comp.target_dimension_type].append(comp.target_item_id)
+    return compatibilities
+
+
+def _to_dimension_response(dim: PromptDimension, compatibilities=None) -> PromptDimensionResponse:
+    return PromptDimensionResponse(
+        dimension_id=dim.dimension_id,
+        product_type=dim.product_type,
+        dimension_type=dim.dimension_type,
+        item_id=dim.item_id,
+        name=dim.name,
+        enabled=bool(dim.enabled) if dim.enabled is not None else True,
+        created_at=dim.created_at,
+        updated_at=dim.updated_at,
+        compatibilities=compatibilities if compatibilities is not None else _compat_dict_from_dim(dim),
+    )
+
+
 @router.get("/dimension-types", response_model=List[DimensionTypeResponse])
 def get_dimension_types():
     return [
@@ -78,30 +108,7 @@ def list_prompt_dimensions(
 
     results = []
     for dim in dimensions:
-        compatibilities = {
-            "scenes": [],
-            "lighting": [],
-            "styles": [],
-            "compositions": [],
-            "details": [],
-            "quality": [],
-            "viewpoints": [],
-        }
-        for comp in dim.compatibilities:
-            if comp.target_dimension_type in compatibilities:
-                compatibilities[comp.target_dimension_type].append(comp.target_item_id)
-        
-        response = PromptDimensionResponse(
-            dimension_id=dim.dimension_id,
-            product_type=dim.product_type,
-            dimension_type=dim.dimension_type,
-            item_id=dim.item_id,
-            name=dim.name,
-            created_at=dim.created_at,
-            updated_at=dim.updated_at,
-            compatibilities=compatibilities
-        )
-        results.append(response)
+        results.append(_to_dimension_response(dim))
 
     return {
         "data": results,
@@ -173,24 +180,18 @@ def create_prompt_dimension(
 
     dimension_service.clear_cache()
 
-    response = PromptDimensionResponse(
-        dimension_id=new_dim.dimension_id,
-        product_type=new_dim.product_type,
-        dimension_type=new_dim.dimension_type,
-        item_id=new_dim.item_id,
-        name=new_dim.name,
-        created_at=new_dim.created_at,
-        updated_at=new_dim.updated_at,
-        compatibilities=dimension.compatibilities or {
+    return _to_dimension_response(
+        new_dim,
+        dimension.compatibilities or {
+            "scenes": [],
             "lighting": [],
             "styles": [],
             "compositions": [],
             "details": [],
             "quality": [],
             "viewpoints": [],
-        }
+        },
     )
-    return response
 
 
 @router.get("/{dimension_id}", response_model=PromptDimensionResponse)
@@ -202,29 +203,7 @@ def get_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
     if not dimension:
         raise HTTPException(status_code=404, detail="维度项不存在")
 
-    compatibilities = {
-        "lighting": [],
-        "styles": [],
-        "compositions": [],
-        "details": [],
-        "quality": [],
-        "viewpoints": [],
-    }
-    for comp in dimension.compatibilities:
-        if comp.target_dimension_type in compatibilities:
-            compatibilities[comp.target_dimension_type].append(comp.target_item_id)
-    
-    response = PromptDimensionResponse(
-        dimension_id=dimension.dimension_id,
-        product_type=dimension.product_type,
-        dimension_type=dimension.dimension_type,
-        item_id=dimension.item_id,
-        name=dimension.name,
-        created_at=dimension.created_at,
-        updated_at=dimension.updated_at,
-        compatibilities=compatibilities
-    )
-    return response
+    return _to_dimension_response(dimension)
 
 
 @router.put("/{dimension_id}", response_model=PromptDimensionResponse)
@@ -240,8 +219,11 @@ def update_prompt_dimension(
     if not dimension:
         raise HTTPException(status_code=404, detail="维度项不存在")
 
-    if update_data.name:
+    if update_data.name is not None:
         dimension.name = update_data.name
+
+    if update_data.enabled is not None:
+        dimension.enabled = update_data.enabled
 
     if update_data.compatibilities is not None:
         db.query(PromptDimensionCompatibility).filter(
@@ -288,24 +270,10 @@ def update_prompt_dimension(
 
     dimension_service.clear_cache()
 
-    response = PromptDimensionResponse(
-        dimension_id=dimension.dimension_id,
-        product_type=dimension.product_type,
-        dimension_type=dimension.dimension_type,
-        item_id=dimension.item_id,
-        name=dimension.name,
-        created_at=dimension.created_at,
-        updated_at=dimension.updated_at,
-        compatibilities=update_data.compatibilities or {
-            "lighting": [],
-            "styles": [],
-            "compositions": [],
-            "details": [],
-            "quality": [],
-            "viewpoints": [],
-        }
+    return _to_dimension_response(
+        dimension,
+        update_data.compatibilities if update_data.compatibilities is not None else None,
     )
-    return response
 
 
 @router.delete("/{dimension_id}", status_code=204)

@@ -39,6 +39,7 @@ function isCompatCacheComplete(productType: string): boolean {
 /** 用当前列表页数据预热缓存（不完全，仅加速展示；全选仍会补全） */
 function seedCompatCacheFromList(dims: PromptDimension[]) {
   for (const dim of dims) {
+    if (dim.enabled === false) continue;
     const entry = compatOptionsCache.get(dim.product_type) || {
       options: emptyCompatOptions(),
       complete: false,
@@ -75,6 +76,7 @@ async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
     do {
       const res = await getPromptDimensions(productType, undefined, page, 100);
       for (const dim of res.data) {
+        if (dim.enabled === false) continue;
         const bucket = result[dim.dimension_type] || (result[dim.dimension_type] = []);
         bucket.push({ id: dim.item_id, name: dim.name });
       }
@@ -106,6 +108,10 @@ function invalidateCompatCache(productType?: string) {
 
 /** 创建/改名后写入缓存，保留 complete，避免下次编辑整表重拉 */
 function upsertCompatCacheItem(dim: PromptDimension) {
+  if (dim.enabled === false) {
+    removeCompatCacheItem(dim.product_type, dim.dimension_type, dim.item_id);
+    return;
+  }
   const entry = compatOptionsCache.get(dim.product_type) || {
     options: emptyCompatOptions(),
     complete: false,
@@ -415,6 +421,20 @@ export default function DimensionManagement() {
     }
   };
 
+  const handleToggleEnabled = async (dimension: PromptDimension) => {
+    const nextEnabled = dimension.enabled === false;
+    try {
+      const updated = await updatePromptDimension(dimension.dimension_id, { enabled: nextEnabled });
+      upsertCompatCacheItem(updated);
+      setDimensions((prev) =>
+        prev.map((d) => (d.dimension_id === updated.dimension_id ? { ...d, ...updated } : d))
+      );
+    } catch (error) {
+      console.error('Failed to toggle dimension enabled:', error);
+      alert(nextEnabled ? '启用失败，请重试' : '禁用失败，请重试');
+    }
+  };
+
   const handleInitialize = async () => {
     if (confirm('确定初始化默认维度数据吗？这将覆盖现有数据。')) {
       try {
@@ -556,6 +576,7 @@ export default function DimensionManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">维度类型</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                 {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => (
                   <th key={dimType.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     兼容{dimType.label}
@@ -567,21 +588,23 @@ export default function DimensionManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={appliedDimensionType ? 11 : 12} className="px-6 py-12 text-center">
+                  <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                     <span className="text-gray-500 text-sm">加载中...</span>
                   </td>
                 </tr>
               ) : dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={appliedDimensionType ? 11 : 12} className="px-6 py-12 text-center text-gray-400 text-sm">
+                  <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center text-gray-400 text-sm">
                     暂无数据
                   </td>
                 </tr>
               ) : (
                 dimensions.map((dimension) => (
-                  <tr key={dimension.dimension_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr
+                    key={dimension.dimension_id}
+                    className={`hover:bg-gray-50 ${dimension.enabled === false ? 'bg-gray-50 opacity-60' : ''}`}
+                  >                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                         {getProductTypeLabel(dimension.product_type)}
                       </span>
@@ -596,6 +619,25 @@ export default function DimensionManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{dimension.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleEnabled(dimension)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          dimension.enabled === false ? 'bg-gray-300' : 'bg-indigo-600'
+                        }`}
+                        title={dimension.enabled === false ? '已禁用（点击启用）' : '已启用（点击禁用）'}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            dimension.enabled === false ? 'translate-x-1' : 'translate-x-6'
+                          }`}
+                        />
+                      </button>
+                      <span className={`ml-2 text-xs ${dimension.enabled === false ? 'text-red-500' : 'text-gray-500'}`}>
+                        {dimension.enabled === false ? '已禁用' : '启用中'}
+                      </span>
                     </td>
                     {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => {
                       const compatList = dimension.compatibilities?.[dimType.key as keyof DimensionCompatibilities];

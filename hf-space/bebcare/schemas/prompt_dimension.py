@@ -33,11 +33,13 @@ class PromptDimensionCreate(PromptDimensionBase):
 
 class PromptDimensionUpdate(BaseModel):
     name: Optional[str] = None
+    enabled: Optional[bool] = None
     compatibilities: Optional[DimensionCompatibilities] = None
 
 
 class PromptDimensionResponse(PromptDimensionBase):
     dimension_id: str
+    enabled: bool = True
     created_at: datetime
     updated_at: datetime
     compatibilities: Optional[DimensionCompatibilities] = None

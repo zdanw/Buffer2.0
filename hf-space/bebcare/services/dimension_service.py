@@ -18,7 +18,8 @@ class DimensionService:
     def get_dimensions_by_product_type(self, product_type: str, db: Session) -> dict:
         try:
             dimensions = db.query(PromptDimension).filter(
-                PromptDimension.product_type.ilike(product_type)
+                PromptDimension.product_type.ilike(product_type),
+                PromptDimension.enabled.is_(True),
             ).all()
 
             result = {dim_type.value: [] for dim_type in DimensionType}
@@ -70,13 +71,15 @@ class DimensionService:
             source_dim = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == source_dim_type,
-                PromptDimension.item_id == source_item_id
+                PromptDimension.item_id == source_item_id,
+                PromptDimension.enabled.is_(True),
             ).first()
 
             if not source_dim:
                 all_target_dims = db.query(PromptDimension).filter(
                     PromptDimension.product_type == product_type,
-                    PromptDimension.dimension_type == target_dim_type
+                    PromptDimension.dimension_type == target_dim_type,
+                    PromptDimension.enabled.is_(True),
                 ).all()
                 return [
                     {"id": dim.item_id, "name": dim.name}
@@ -91,7 +94,8 @@ class DimensionService:
             if not compatible_item_ids:
                 all_target_dims = db.query(PromptDimension).filter(
                     PromptDimension.product_type == product_type,
-                    PromptDimension.dimension_type == target_dim_type
+                    PromptDimension.dimension_type == target_dim_type,
+                    PromptDimension.enabled.is_(True),
                 ).all()
                 return [
                     {"id": dim.item_id, "name": dim.name}
@@ -101,7 +105,8 @@ class DimensionService:
             compatible_dims = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == target_dim_type,
-                PromptDimension.item_id.in_(compatible_item_ids)
+                PromptDimension.item_id.in_(compatible_item_ids),
+                PromptDimension.enabled.is_(True),
             ).all()
 
             return [
@@ -121,7 +126,8 @@ class DimensionService:
         try:
             dimensions = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
-                PromptDimension.dimension_type == dimension_type
+                PromptDimension.dimension_type == dimension_type,
+                PromptDimension.enabled.is_(True),
             ).order_by(PromptDimension.item_id).all()
 
             result = []
