@@ -104,6 +104,31 @@ function invalidateCompatCache(productType?: string) {
   }
 }
 
+/** 创建/改名后写入缓存，保留 complete，避免下次编辑整表重拉 */
+function upsertCompatCacheItem(dim: PromptDimension) {
+  const entry = compatOptionsCache.get(dim.product_type) || {
+    options: emptyCompatOptions(),
+    complete: false,
+  };
+  const bucket = entry.options[dim.dimension_type] || (entry.options[dim.dimension_type] = []);
+  const idx = bucket.findIndex((x) => x.id === dim.item_id);
+  if (idx >= 0) {
+    bucket[idx] = { id: dim.item_id, name: dim.name };
+  } else {
+    bucket.push({ id: dim.item_id, name: dim.name });
+  }
+  compatOptionsCache.set(dim.product_type, entry);
+}
+
+/** 删除后从缓存移除该项，保留其余选项与 complete */
+function removeCompatCacheItem(productType: string, dimensionType: string, itemId: string) {
+  const entry = compatOptionsCache.get(productType);
+  if (!entry) return;
+  const bucket = entry.options[dimensionType];
+  if (!bucket) return;
+  entry.options[dimensionType] = bucket.filter((x) => x.id !== itemId);
+}
+
 /**
  * 编辑兼容关系后，按双向边本地修正当前页其他行的计数，避免整表重新筛选请求。
  */
@@ -145,6 +170,9 @@ export default function DimensionManagement() {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [selectedProductType, setSelectedProductType] = useState<string>('');
   const [selectedDimensionType, setSelectedDimensionType] = useState<string>('');
+  /** 已点「筛选」后生效的条件；表头/列只跟这个走，避免改下拉就改列 */
+  const [appliedProductType, setAppliedProductType] = useState<string>('');
+  const [appliedDimensionType, setAppliedDimensionType] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -274,6 +302,8 @@ export default function DimensionManagement() {
       setDimensions(response.data);
       setTotal(response.pagination.total);
       setCurrentPage(response.pagination.current);
+      setAppliedProductType(selectedProductType);
+      setAppliedDimensionType(selectedDimensionType);
       if (newPageSize) {
         setPageSize(newPageSize);
       }
@@ -299,8 +329,8 @@ export default function DimensionManagement() {
   };
 
   const matchesCurrentFilters = (dim: PromptDimension) => {
-    if (selectedProductType && dim.product_type !== selectedProductType) return false;
-    if (selectedDimensionType && dim.dimension_type !== selectedDimensionType) return false;
+    if (appliedProductType && dim.product_type !== appliedProductType) return false;
+    if (appliedDimensionType && dim.dimension_type !== appliedDimensionType) return false;
     return true;
   };
 
@@ -341,14 +371,14 @@ export default function DimensionManagement() {
         };
         const prevCompat = selectedDimension.compatibilities;
         const updated = await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
-        // 本地更新当前行 + 双向兼容计数，不再重新筛选拉列表
-        invalidateCompatCache(updated.product_type);
+        // 本地更新列表 + 就地改缓存名称；不清空兼容选项缓存
+        upsertCompatCacheItem(updated);
         setDimensions((prev) =>
           syncReverseCompatInList(prev, updated, prevCompat, updated.compatibilities)
         );
       } else {
         const created = await createPromptDimension(submitData);
-        invalidateCompatCache(created.product_type);
+        upsertCompatCacheItem(created);
         if (matchesCurrentFilters(created) && currentPage === 1) {
           setDimensions((prev) => [created, ...prev].slice(0, pageSize));
         }
@@ -370,7 +400,9 @@ export default function DimensionManagement() {
       try {
         const removed = dimensions.find((d) => d.dimension_id === dimensionId);
         await deletePromptDimension(dimensionId);
-        if (removed) invalidateCompatCache(removed.product_type);
+        if (removed) {
+          removeCompatCacheItem(removed.product_type, removed.dimension_type, removed.item_id);
+        }
         setDimensions((prev) => prev.filter((d) => d.dimension_id !== dimensionId));
         setTotal((t) => Math.max(0, t - 1));
         // 当前页删空则回到上一页
@@ -403,7 +435,8 @@ export default function DimensionManagement() {
     setModalOptionsLoading(false);
 
     const pt = dimension?.product_type || selectedProductType || 'night_lights';
-    setAllDimensions(getCachedOptions(pt) || {});
+    const cached = getCachedOptions(pt);
+    setAllDimensions(cached || {});
 
     if (dimension) {
       setIsEdit(true);
@@ -415,8 +448,10 @@ export default function DimensionManagement() {
         name: dimension.name,
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
-      // 后台补全（已缓存则瞬间返回）；筛选不会清缓存，避免再次整表重拉
-      void ensureCompatOptions(dimension.product_type);
+      // 缓存已完整则不再请求；未完整才后台补全
+      if (!isCompatCacheComplete(dimension.product_type)) {
+        void ensureCompatOptions(dimension.product_type);
+      }
     } else {
       setIsEdit(false);
       setSelectedDimension(null);
@@ -428,6 +463,9 @@ export default function DimensionManagement() {
         name: '',
         compatibilities: createEmptyCompatibilities(dt),
       });
+      if (!isCompatCacheComplete(pt)) {
+        void ensureCompatOptions(pt);
+      }
     }
     setShowModal(true);
   };
@@ -518,7 +556,7 @@ export default function DimensionManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">维度类型</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
-                {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== selectedDimensionType).map((dimType) => (
+                {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => (
                   <th key={dimType.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     兼容{dimType.label}
                   </th>
@@ -529,14 +567,14 @@ export default function DimensionManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedDimensionType ? 11 : 12} className="px-6 py-12 text-center">
+                  <td colSpan={appliedDimensionType ? 11 : 12} className="px-6 py-12 text-center">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                     <span className="text-gray-500 text-sm">加载中...</span>
                   </td>
                 </tr>
               ) : dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedDimensionType ? 11 : 12} className="px-6 py-12 text-center text-gray-400 text-sm">
+                  <td colSpan={appliedDimensionType ? 11 : 12} className="px-6 py-12 text-center text-gray-400 text-sm">
                     暂无数据
                   </td>
                 </tr>
@@ -559,7 +597,7 @@ export default function DimensionManagement() {
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{dimension.name}</div>
                     </td>
-                    {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== selectedDimensionType).map((dimType) => {
+                    {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => {
                       const compatList = dimension.compatibilities?.[dimType.key as keyof DimensionCompatibilities];
                       const isSelf = dimension.dimension_type === dimType.key;
                       const count = compatList?.length || 0;
