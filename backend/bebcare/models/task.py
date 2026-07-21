@@ -48,6 +48,8 @@ class ManualTaskDraft(Base):
     product_id = Column(String(36))
     images = Column(JSON)
     copywritings = Column(JSON)
+    dimensions = Column(JSON)
+    image_prompts = Column(JSON)
     status = Column(String(20), default="pending")
     selected_image = Column(Text)
     selected_copy = Column(Text)

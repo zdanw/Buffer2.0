@@ -49,6 +49,10 @@ export interface ManualTaskDraft {
   product_id?: string;
   images: string[];
   copywritings: string[];
+  /** 与 images 一一对应的维度信息 */
+  dimensions?: Array<ExecutionDimensions | null>;
+  /** 与 images 一一对应的图像提示词 */
+  image_prompts?: Array<string | null>;
   status: 'pending' | 'published' | 'discarded';
   selected_image?: string;
   selected_copy?: string;

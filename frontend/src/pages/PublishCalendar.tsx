@@ -152,6 +152,7 @@ export default function PublishCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const now = new Date();
     
     tasks.forEach((task) => {
       if (task.enabled) {
@@ -169,23 +170,26 @@ export default function PublishCalendar() {
           const isDayMatch = day === '*' || parseInt(day, 10) === d;
           const isMonthMatch = monthField === '*' || parseInt(monthField, 10) === month + 1;
           const isWeekdayMatch = weekday === '*' || parseInt(weekday, 10) === date.getDay();
-          
-          if (isDayMatch && isMonthMatch && isWeekdayMatch) {
-            const status = getEventStatus(task.task_id, d, month, year);
+          if (!isDayMatch || !isMonthMatch || !isWeekdayMatch) continue;
+
+          // 日历与「即将发布」均只展示未到点的排期；已过点只保留执行记录标记
+          const eventTime = new Date(year, month, d, hour, minute, 0, 0);
+          if (eventTime.getTime() < now.getTime()) continue;
             
-            events.push({
-              id: `${task.task_id}-${d}`,
-              taskId: task.task_id,
-              title: task.name,
-              time: `${hour}:${minute.toString().padStart(2, '0')}`,
-              status: status,
-              platforms: task.platforms || [],
-              mode: task.mode || 'auto',
-              day: d,
-              month: month,
-              year: year,
-            });
-          }
+          const status = getEventStatus(task.task_id, d, month, year);
+          
+          events.push({
+            id: `${task.task_id}-${d}`,
+            taskId: task.task_id,
+            title: task.name,
+            time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+            status: status,
+            platforms: task.platforms || [],
+            mode: task.mode || 'auto',
+            day: d,
+            month: month,
+            year: year,
+          });
         }
       }
     });
@@ -251,21 +255,25 @@ export default function PublishCalendar() {
     }
   };
 
+  const isEventUpcoming = (event: CalendarEvent, now = new Date()) => {
+    const [h, m] = event.time.split(':').map(Number);
+    const eventTime = new Date(event.year, event.month, event.day, h || 0, m || 0, 0, 0);
+    return eventTime.getTime() >= now.getTime();
+  };
+
   const getGroupedEvents = (): GroupedEvents[] => {
     const now = new Date();
-    const upcoming = calendarEvents.filter((event) => {
-      const [h, m] = event.time.split(':').map(Number);
-      const eventTime = new Date(event.year, event.month, event.day, h, m);
-      return eventTime >= now;
-    });
+    // 二次过滤：页面长时间打开时 generateEvents 不会自动重跑
+    const upcoming = calendarEvents
+      .filter((e) => isEventUpcoming(e, now))
+      .sort((a, b) => {
+        const dateA = new Date(a.year, a.month, a.day);
+        const dateB = new Date(b.year, b.month, b.day);
+        if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime();
+        return a.time.localeCompare(b.time);
+      });
 
     const grouped: Record<string, GroupedEvents> = {};
-    
-    upcoming.sort((a, b) => {
-      const dateA = new Date(a.year, a.month, a.day);
-      const dateB = new Date(b.year, b.month, b.day);
-      return dateA.getTime() - dateB.getTime();
-    });
     
     upcoming.forEach(event => {
       const dateKey = `${event.year}-${event.month}-${event.day}`;
@@ -367,7 +375,7 @@ export default function PublishCalendar() {
                 <div key={`empty-${i}`} className="aspect-square bg-gray-50 rounded-lg" />
               ))}
               {getDaysInMonth().map((day) => {
-                const dayEvents = calendarEvents.filter(e => e.day === day);
+                const dayEvents = calendarEvents.filter(e => e.day === day && isEventUpcoming(e));
                 const dayExecutions = getDayExecutions(day, currentDate.getMonth(), currentDate.getFullYear());
                 const hasExecutions = dayExecutions.length > 0;
                 

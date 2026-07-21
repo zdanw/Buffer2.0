@@ -309,6 +309,73 @@ export default function PendingRelease() {
                 </div>
               </div>
 
+              {(() => {
+                const dims = selectedDraft.dimensions?.[selectedImageIndex] ?? null;
+                const prompt = selectedDraft.image_prompts?.[selectedImageIndex] ?? null;
+                if (!dims && !prompt) return null;
+                return (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+                    {dims && (
+                      <>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">维度信息</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {dims.scene && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">场景</span>
+                              <span className="text-xs text-gray-800">{dims.scene}</span>
+                            </div>
+                          )}
+                          {dims.lighting && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">光线</span>
+                              <span className="text-xs text-gray-800">{dims.lighting}</span>
+                            </div>
+                          )}
+                          {dims.style && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">风格</span>
+                              <span className="text-xs text-gray-800">{dims.style}</span>
+                            </div>
+                          )}
+                          {dims.composition && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">构图</span>
+                              <span className="text-xs text-gray-800">{dims.composition}</span>
+                            </div>
+                          )}
+                          {dims.details && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">细节</span>
+                              <span className="text-xs text-gray-800">{dims.details}</span>
+                            </div>
+                          )}
+                          {dims.quality && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">画质</span>
+                              <span className="text-xs text-gray-800">{dims.quality}</span>
+                            </div>
+                          )}
+                          {dims.viewpoint && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-gray-500 w-12 shrink-0">视角</span>
+                              <span className="text-xs text-gray-800">{dims.viewpoint}</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {prompt && (
+                      <div className={dims ? 'mt-3' : ''}>
+                        <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                        <div className="text-xs text-gray-700 bg-white p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap border border-gray-100">
+                          {prompt}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">选择文案</label>
                 <div className="space-y-2">

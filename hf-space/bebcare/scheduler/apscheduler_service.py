@@ -293,6 +293,8 @@ class APSchedulerService:
                     raise
 
             images = []
+            dimensions_list = []
+            image_prompts_list = []
             for i in range(generate_image_count):
                 try:
                     image_result = content_generator.generate_image(
@@ -305,6 +307,12 @@ class APSchedulerService:
                     if not image_urls:
                         raise Exception("Image generation returned no URLs")
                     images.append(image_urls[0])
+                    dimensions_list.append(
+                        image_result.get("dimensions") if isinstance(image_result, dict) else None
+                    )
+                    image_prompts_list.append(
+                        image_result.get("image_prompt") if isinstance(image_result, dict) else None
+                    )
                     logger.info(f"Generated image {i+1}/{generate_image_count}: {image_urls[0]}")
                 except Exception as e:
                     logger.error(
@@ -326,6 +334,8 @@ class APSchedulerService:
                 product_id=str(product.product_id),
                 images=images,
                 copywritings=copywritings,
+                dimensions=dimensions_list,
+                image_prompts=image_prompts_list,
                 status="pending"
             )
             session.add(draft)

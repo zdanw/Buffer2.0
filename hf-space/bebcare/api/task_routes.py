@@ -112,6 +112,16 @@ def get_drafts(
                 published_platforms = json.loads(draft.published_platforms) if isinstance(draft.published_platforms, str) else (draft.published_platforms or [])
             except (json.JSONDecodeError, TypeError):
                 published_platforms = []
+
+            try:
+                dimensions = json.loads(draft.dimensions) if isinstance(draft.dimensions, str) else (draft.dimensions or [])
+            except (json.JSONDecodeError, TypeError):
+                dimensions = []
+
+            try:
+                image_prompts = json.loads(draft.image_prompts) if isinstance(draft.image_prompts, str) else (draft.image_prompts or [])
+            except (json.JSONDecodeError, TypeError):
+                image_prompts = []
             
             result.append({
                 "draft_id": draft.draft_id,
@@ -119,6 +129,8 @@ def get_drafts(
                 "product_id": draft.product_id,
                 "images": images,
                 "copywritings": copywritings,
+                "dimensions": dimensions,
+                "image_prompts": image_prompts,
                 "status": draft.status,
                 "selected_image": draft.selected_image,
                 "selected_copy": draft.selected_copy,
