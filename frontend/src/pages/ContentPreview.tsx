@@ -6,6 +6,7 @@ import { getProducts } from '@/api/products';
 import { generateContent, generateCopywriting, generateImage, getGenerateStatus } from '@/api/generate';
 import type { GenerateRequest, GenerateStatus, DimensionInfo } from '@/api/generate';
 import { publishContent } from '@/api/publish';
+import { cachedFetch } from '@/lib/staticCache';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 const STORAGE_KEY = 'bebcare_content_preview_state';
@@ -99,7 +100,7 @@ export default function ContentPreview() {
   }, [selectedProduct, selectedPlatforms, setSearchParams]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (taskId && isGenerating) {
       const checkStatus = async () => {
         try {
@@ -110,15 +111,12 @@ export default function ContentPreview() {
             setIsGenerating(false);
             if (interval) clearInterval(interval);
             if (status.result) {
-              console.log('Received generation result:', status.result);
-              console.log('Dimensions received:', status.result.dimensions);
-              console.log('Image prompt received:', status.result.image_prompt);
-              setGeneratedContent({
-                text: status.result.text || generatedContent?.text || '',
-                image: status.result.image || generatedContent?.image || '',
-                dimensions: status.result.dimensions,
-                image_prompt: status.result.image_prompt
-              });
+              setGeneratedContent((prev) => ({
+                text: status.result?.text || prev?.text || '',
+                image: status.result?.image || prev?.image || '',
+                dimensions: status.result?.dimensions,
+                image_prompt: status.result?.image_prompt
+              }));
             }
           } else if (status.status === 'FAILURE') {
             setIsGenerating(false);
@@ -134,17 +132,20 @@ export default function ContentPreview() {
       checkStatus();
       interval = setInterval(checkStatus, 1000);
     }
-    return () => clearInterval(interval);
-  }, [taskId, isGenerating, generatedContent]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [taskId, isGenerating]);
 
   const loadProducts = async () => {
     try {
-      const response = await getProducts(1, 100);
-      const data = response.data;
+      const data = await cachedFetch('products:list:100', async () => {
+        const response = await getProducts(1, 100);
+        return response.data;
+      });
       setProducts(data);
-      if (data.length > 0) {
-        setSelectedProduct(data[0].product_id);
-      }
+      // 仅在没有已选产品时设默认，避免覆盖 URL / localStorage
+      setSelectedProduct((prev) => prev || (data[0]?.product_id ?? ''));
     } catch (error) {
       console.error('Failed to load products:', error);
     }

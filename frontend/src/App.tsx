@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import AssetManagement from './pages/AssetManagement';
@@ -35,7 +35,9 @@ const ROUTE_TABS: Record<string, string> = {
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('assets');
+  const initialTab = ROUTE_TABS[location.pathname] || 'assets';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [mountedTabs, setMountedTabs] = useState(() => new Set<string>([initialTab]));
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,38 +56,41 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const path = location.pathname;
-    const tab = ROUTE_TABS[path] || 'assets';
+    const tab = ROUTE_TABS[location.pathname] || 'assets';
     setActiveTab(tab);
+    setMountedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
   }, [location.pathname]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    setMountedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
     const route = TAB_ROUTES[tab];
     if (route) {
       navigate(route);
     }
   };
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'assets':
-        return <AssetManagement />;
-      case 'dimensions':
-        return <DimensionManagement />;
-      case 'tasks':
-        return <TaskConfiguration />;
-      case 'pending':
-        return <PendingRelease />;
-      case 'preview':
-        return <ContentPreview />;
-      case 'calendar':
-        return <PublishCalendar />;
-      case 'users':
-        return <UserManagement />;
-      default:
-        return <AssetManagement />;
-    }
+  const tabPanel = (id: string, node: ReactNode) => {
+    if (!mountedTabs.has(id)) return null;
+    return (
+      <div
+        key={id}
+        className={activeTab === id ? 'h-full' : 'hidden'}
+        aria-hidden={activeTab !== id}
+      >
+        {node}
+      </div>
+    );
   };
 
   if (loading) {
@@ -104,7 +109,13 @@ function AppContent() {
         isAdmin={currentUser?.is_admin || false}
       />
       <main className="flex-1 overflow-auto">
-        {renderContent()}
+        {tabPanel('assets', <AssetManagement />)}
+        {tabPanel('dimensions', <DimensionManagement />)}
+        {tabPanel('tasks', <TaskConfiguration />)}
+        {tabPanel('pending', <PendingRelease />)}
+        {tabPanel('preview', <ContentPreview />)}
+        {tabPanel('calendar', <PublishCalendar />)}
+        {currentUser?.is_admin ? tabPanel('users', <UserManagement />) : null}
       </main>
     </div>
   );

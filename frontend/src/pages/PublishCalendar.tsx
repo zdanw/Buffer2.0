@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap } from 'lucide-react';
 import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
+import { cachedFetch } from '@/lib/staticCache';
 
 interface CalendarEvent {
   id: string;
@@ -46,11 +47,14 @@ export default function PublishCalendar() {
 
   const loadTasks = async () => {
     try {
-      const [response, allExes] = await Promise.all([
-        getTasks(1, 100),
-        getAllExecutions()
+      const [taskList, allExes] = await Promise.all([
+        cachedFetch('tasks:list:100', async () => {
+          const response = await getTasks(1, 100);
+          return response.data;
+        }),
+        getAllExecutions(),
       ]);
-      setTasks(response.data);
+      setTasks(taskList);
       
       const newExecutions = new Map<string, TaskExecution[]>();
       for (const ex of allExes) {
@@ -65,26 +69,32 @@ export default function PublishCalendar() {
     }
   };
 
-  const getEventStatus = (taskId: string, day: number, month: number, year: number): 'pending' | 'completed' | 'failed' | 'running' => {
-    const taskExecutions = executions.get(taskId);
-    if (!taskExecutions || taskExecutions.length === 0) {
-      return 'pending';
-    }
-    
-    const targetDate = new Date(year, month, day);
-    targetDate.setHours(0, 0, 0, 0);
-    
-    const dayExecutions = taskExecutions.filter(ex => {
-      const execDate = new Date(ex.created_at);
-      execDate.setHours(0, 0, 0, 0);
-      return execDate.getTime() === targetDate.getTime();
+  /** 按「年月日」预索引当日执行记录，避免每个格子重复扫描 */
+  const executionsByDay = useMemo(() => {
+    const map = new Map<string, TaskExecution[]>();
+    executions.forEach((taskExes) => {
+      for (const ex of taskExes) {
+        const d = new Date(ex.created_at);
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(ex);
+      }
     });
+    for (const list of map.values()) {
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return map;
+  }, [executions]);
+
+  const getEventStatus = (taskId: string, day: number, month: number, year: number): 'pending' | 'completed' | 'failed' | 'running' => {
+    const dayExes = executionsByDay.get(`${year}-${month}-${day}`) || [];
+    const dayExecutions = dayExes.filter((ex) => ex.task_id === taskId);
     
     if (dayExecutions.length === 0) {
       return 'pending';
     }
     
-    const latestExecution = dayExecutions[dayExecutions.length - 1];
+    const latestExecution = dayExecutions[0];
     switch (latestExecution.status) {
       case 'SUCCESS':
         return 'completed';
@@ -98,20 +108,7 @@ export default function PublishCalendar() {
   };
 
   const getDayExecutions = (day: number, month: number, year: number): TaskExecution[] => {
-    const targetDate = new Date(year, month, day);
-    targetDate.setHours(0, 0, 0, 0);
-    const dayExecutions: TaskExecution[] = [];
-    
-    executions.forEach((taskExes) => {
-      const matching = taskExes.filter(ex => {
-        const execDate = new Date(ex.created_at);
-        execDate.setHours(0, 0, 0, 0);
-        return execDate.getTime() === targetDate.getTime();
-      });
-      dayExecutions.push(...matching);
-    });
-    
-    return dayExecutions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return executionsByDay.get(`${year}-${month}-${day}`) || [];
   };
 
   const handleDayClick = (day: number) => {

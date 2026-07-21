@@ -4,6 +4,7 @@ import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import Pagination from '@/components/Pagination';
 
 export default function AssetManagement() {
@@ -26,21 +27,20 @@ export default function AssetManagement() {
   });
 
   useEffect(() => {
-    loadProducts();
-    loadDimensionTypes();
+    void Promise.all([loadProducts(1), loadDimensionTypes()]);
   }, []);
 
   const loadDimensionTypes = async () => {
     try {
-      const data = await getDimensionTypes();
+      const data = await cachedFetch('dimensionTypes', () => getDimensionTypes());
       setDimensionTypes(data);
     } catch (error) {
       console.error('Failed to load dimension types:', error);
     }
   };
 
-  const loadProducts = async (page: number = 1, newPageSize?: number) => {
-    setLoading(true);
+  const loadProducts = async (page: number = currentPage, newPageSize?: number, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<Product> = await getProducts(page, size);
@@ -53,7 +53,7 @@ export default function AssetManagement() {
     } catch (error) {
       console.error('Failed to load products:', error);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -68,9 +68,18 @@ export default function AssetManagement() {
         const updated = await updateProduct(selectedProduct.product_id, formData);
         setSelectedProduct(updated);
         setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+        invalidateCache('products');
+        invalidateCache('categories');
       } else {
         const created = await createProduct(formData);
-        setProducts(prev => [...prev, created]);
+        invalidateCache('products');
+        invalidateCache('categories');
+        if (currentPage === 1) {
+          setProducts(prev => [created, ...prev].slice(0, pageSize));
+          setTotal(t => t + 1);
+        } else {
+          setTotal(t => t + 1);
+        }
       }
       setShowModal(false);
       setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
@@ -83,10 +92,13 @@ export default function AssetManagement() {
     if (confirm('确定删除该产品及其所有图片吗？')) {
       try {
         await deleteProduct(productId);
+        invalidateCache('products');
+        invalidateCache('categories');
         if (selectedProduct?.product_id === productId) {
           setSelectedProduct(null);
         }
         setProducts(prev => prev.filter(p => p.product_id !== productId));
+        setTotal(t => Math.max(0, t - 1));
       } catch (error) {
         console.error('Failed to delete product:', error);
       }

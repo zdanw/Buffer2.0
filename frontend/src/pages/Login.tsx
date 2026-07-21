@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { login, setToken, setRefreshToken } from '../api/auth';
 import type { LoginData } from '../api/auth';
 
 function Login() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,9 +24,7 @@ function Login() {
         if (response.refresh_token) {
           setRefreshToken(response.refresh_token);
         }
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 100);
+        navigate('/assets', { replace: true });
       } else {
         setError('登录失败：响应数据格式错误');
       }

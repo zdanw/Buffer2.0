@@ -4,6 +4,7 @@ import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
+import { cachedFetch } from '@/lib/staticCache';
 import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
@@ -23,11 +24,10 @@ export default function PendingRelease() {
   const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
-    loadDrafts();
-    loadTasks();
+    void Promise.all([loadDrafts(1), loadTasks()]);
   }, []);
 
-  const loadDrafts = async (page: number = 1, newPageSize?: number) => {
+  const loadDrafts = async (page: number = currentPage, newPageSize?: number) => {
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<ManualTaskDraft> = await getDrafts('pending', page, size);
@@ -48,8 +48,11 @@ export default function PendingRelease() {
 
   const loadTasks = async () => {
     try {
-      const response = await getTasks(1, 100);
-      setTasks(response.data);
+      const data = await cachedFetch('tasks:list:100', async () => {
+        const response = await getTasks(1, 100);
+        return response.data;
+      });
+      setTasks(data);
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
@@ -58,6 +61,15 @@ export default function PendingRelease() {
   const getTaskName = (taskId: string) => {
     const task = tasks.find(t => t.task_id === taskId);
     return task?.name || '未知任务';
+  };
+
+  const removeDraftLocally = (draftId: string) => {
+    setDrafts((prev) => prev.filter((d) => d.draft_id !== draftId));
+    setTotal((t) => Math.max(0, t - 1));
+    if (selectedDraftId === draftId) {
+      setSelectedDraftId(null);
+      setSelectedPlatforms([]);
+    }
   };
 
   const handleSelectDraft = (draft: ManualTaskDraft) => {
@@ -86,17 +98,20 @@ export default function PendingRelease() {
       return;
     }
 
+    const draftId = selectedDraftId;
     setLoading(true);
     try {
-      await publishDraft(selectedDraftId, {
+      await publishDraft(draftId, {
         selected_image_index: selectedImageIndex,
         selected_copy_index: selectedCopyIndex,
         platforms: selectedPlatforms
       });
       alert('发布成功！');
-      loadDrafts();
-      setSelectedDraftId(null);
-      setSelectedPlatforms([]);
+      const remaining = drafts.length - 1;
+      removeDraftLocally(draftId);
+      if (remaining <= 0 && currentPage > 1) {
+        void loadDrafts(currentPage - 1);
+      }
     } catch (error) {
       console.error('Failed to publish:', error);
       alert('发布失败，请重试');
@@ -109,9 +124,10 @@ export default function PendingRelease() {
     if (confirm('确定要丢弃这个草稿吗？此操作不可撤销。')) {
       try {
         await discardDraft(draftId);
-        loadDrafts();
-        if (selectedDraftId === draftId) {
-          setSelectedDraftId(null);
+        const remaining = drafts.length - 1;
+        removeDraftLocally(draftId);
+        if (remaining <= 0 && currentPage > 1) {
+          void loadDrafts(currentPage - 1);
         }
       } catch (error) {
         console.error('Failed to discard:', error);

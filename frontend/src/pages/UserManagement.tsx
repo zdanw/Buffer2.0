@@ -34,15 +34,15 @@ function UserManagement() {
     is_admin: false,
   });
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!opts?.silent) setLoading(true);
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || '加载用户列表失败');
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -60,11 +60,11 @@ function UserManagement() {
         ...newUser,
         email: newUser.email || undefined,
       };
-      await createUser(userData);
+      const created = await createUser(userData);
+      setUsers((prev) => [...prev, created]);
       setShowCreateModal(false);
-      setNewUser({ username: '', email: '', password: '', is_admin: false });
+      setNewUser({ username: '', email: '', password: generateRandomPassword(), is_admin: false });
       setSuccess('用户创建成功');
-      fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -93,10 +93,10 @@ function UserManagement() {
       if (!updateData.password) {
         delete updateData.password;
       }
-      await updateUser(userId, updateData);
+      const updated = await updateUser(userId, updateData);
+      setUsers((prev) => prev.map((u) => (u.user_id === updated.user_id ? updated : u)));
       setEditingUserId(null);
       setSuccess('用户信息更新成功');
-      fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.detail || '更新用户失败');
@@ -113,15 +113,15 @@ function UserManagement() {
 
     try {
       await deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u.user_id !== userId));
       setSuccess('用户删除成功');
-      fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.detail || '删除用户失败');
     }
   };
 
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

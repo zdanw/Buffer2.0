@@ -1,10 +1,63 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-react';
 import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities } from '@/api/dimensions';
-import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, getDimensionsByType, ALL_DIMENSION_TYPES } from '@/api/dimensions';
+import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES } from '@/api/dimensions';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import Pagination from '@/components/Pagination';
 
 type CompatOptions = Record<string, { id: string; name: string }[]>;
+
+/** 模块级缓存：切 tab 卸载组件后仍保留，避免每次编辑都重新拉取 */
+const compatOptionsCache = new Map<string, CompatOptions>();
+const compatOptionsInflight = new Map<string, Promise<CompatOptions>>();
+
+function emptyCompatOptions(): CompatOptions {
+  return Object.fromEntries(ALL_DIMENSION_TYPES.map((t) => [t.key, []])) as CompatOptions;
+}
+
+/** 一次分页列表拉取该产品类型全部维度，替代原来的 7 次 by-type 请求 */
+async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
+  const cached = compatOptionsCache.get(productType);
+  if (cached) return cached;
+
+  const inflight = compatOptionsInflight.get(productType);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const result = emptyCompatOptions();
+    let page = 1;
+    let pages = 1;
+    do {
+      const res = await getPromptDimensions(productType, undefined, page, 100);
+      for (const dim of res.data) {
+        const bucket = result[dim.dimension_type] || (result[dim.dimension_type] = []);
+        bucket.push({ id: dim.item_id, name: dim.name });
+      }
+      pages = res.pagination.pages || 1;
+      page += 1;
+    } while (page <= pages);
+
+    compatOptionsCache.set(productType, result);
+    compatOptionsInflight.delete(productType);
+    return result;
+  })().catch((err) => {
+    compatOptionsInflight.delete(productType);
+    throw err;
+  });
+
+  compatOptionsInflight.set(productType, promise);
+  return promise;
+}
+
+function invalidateCompatCache(productType?: string) {
+  if (productType) {
+    compatOptionsCache.delete(productType);
+    compatOptionsInflight.delete(productType);
+  } else {
+    compatOptionsCache.clear();
+    compatOptionsInflight.clear();
+  }
+}
 
 export default function DimensionManagement() {
   const [dimensions, setDimensions] = useState<PromptDimension[]>([]);
@@ -40,39 +93,26 @@ export default function DimensionManagement() {
   });
 
   const [allDimensions, setAllDimensions] = useState<CompatOptions>({});
-  /** 按产品类型缓存兼容选项，避免每次点编辑都打 7 个接口 */
-  const compatCacheRef = useRef<Record<string, CompatOptions>>({});
 
-  const loadAllDimensions = async (productType: string, force = false) => {
-    if (!force && compatCacheRef.current[productType]) {
-      setAllDimensions(compatCacheRef.current[productType]);
-      return;
+  /** 仅在展开/全选时加载；有缓存则同步命中，无网络请求 */
+  const ensureCompatOptions = async (productType: string) => {
+    const cached = compatOptionsCache.get(productType);
+    if (cached) {
+      setAllDimensions(cached);
+      return cached;
     }
     setModalOptionsLoading(true);
     try {
-      const entries = await Promise.all(
-        ALL_DIMENSION_TYPES.map(async (dimType) => {
-          try {
-            const data = await getDimensionsByType(productType, dimType.key);
-            return [dimType.key, data] as const;
-          } catch {
-            return [dimType.key, []] as const;
-          }
-        })
-      );
-      const result = Object.fromEntries(entries) as CompatOptions;
-      compatCacheRef.current[productType] = result;
+      const result = await fetchCompatOptions(productType);
       setAllDimensions(result);
+      return result;
+    } catch (error) {
+      console.error('Failed to load compat options:', error);
+      const empty = emptyCompatOptions();
+      setAllDimensions(empty);
+      return empty;
     } finally {
       setModalOptionsLoading(false);
-    }
-  };
-
-  const invalidateCompatCache = (productType?: string) => {
-    if (productType) {
-      delete compatCacheRef.current[productType];
-    } else {
-      compatCacheRef.current = {};
     }
   };
 
@@ -83,35 +123,38 @@ export default function DimensionManagement() {
   const [expandedDimensions, setExpandedDimensions] = useState<Record<string, boolean>>({});
 
   const toggleDimension = (dimType: string) => {
+    const willExpand = !expandedDimensions[dimType];
     setExpandedDimensions(prev => ({
       ...prev,
       [dimType]: !prev[dimType]
     }));
+    if (willExpand) {
+      void ensureCompatOptions(formData.product_type);
+    }
   };
 
-  const toggleSelectAll = (dimType: string) => {
+  const toggleSelectAll = async (dimType: string) => {
+    const opts = await ensureCompatOptions(formData.product_type);
     const current = ((formData.compatibilities || {})[dimType as keyof DimensionCompatibilities] || []);
-    const allItems = allDimensions[dimType]?.map(item => item.id) || [];
+    const allItems = opts[dimType]?.map(item => item.id) || [];
     const isAllSelected = allItems.length > 0 && allItems.every(id => current.includes(id));
     
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       compatibilities: {
-        ...(formData.compatibilities || {}),
+        ...(prev.compatibilities || {}),
         [dimType]: isAllSelected ? [] : allItems
       }
-    });
+    }));
   };
 
   useEffect(() => {
-    loadDimensionTypes();
-    loadProductTypes();
-    loadDimensions(1);
+    void Promise.all([loadDimensionTypes(), loadProductTypes(), loadDimensions(1)]);
   }, []);
 
   const loadDimensionTypes = async () => {
     try {
-      const data = await getDimensionTypes();
+      const data = await cachedFetch('dimensionTypes', () => getDimensionTypes());
       setDimensionTypes(data);
     } catch (error) {
       console.error('Failed to load dimension types:', error);
@@ -120,7 +163,7 @@ export default function DimensionManagement() {
 
   const loadProductTypes = async () => {
     try {
-      const data = await getProductTypes();
+      const data = await cachedFetch('productTypes', () => getProductTypes());
       setProductTypes(data);
     } catch (error) {
       console.error('Failed to load product types:', error);
@@ -236,6 +279,8 @@ export default function DimensionManagement() {
       try {
         await initializeDimensions();
         invalidateCompatCache();
+        invalidateCache('productTypes');
+        invalidateCache('dimensionTypes');
         await Promise.all([loadProductTypes(), loadDimensions(1)]);
         alert('初始化成功');
       } catch (error) {
@@ -245,6 +290,10 @@ export default function DimensionManagement() {
   };
 
   const openModal = (dimension?: PromptDimension) => {
+    setExpandedDimensions({});
+    setAllDimensions(compatOptionsCache.get(dimension?.product_type || selectedProductType || 'night_lights') || {});
+    setModalOptionsLoading(false);
+
     if (dimension) {
       setIsEdit(true);
       setSelectedDimension(dimension);
@@ -255,7 +304,7 @@ export default function DimensionManagement() {
         name: dimension.name,
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
-      void loadAllDimensions(dimension.product_type);
+      // 不预加载兼容选项：展开某一项或点全选时再拉取（有模块缓存则瞬间命中）
     } else {
       setIsEdit(false);
       setSelectedDimension(null);
@@ -268,7 +317,6 @@ export default function DimensionManagement() {
         name: '',
         compatibilities: createEmptyCompatibilities(dt),
       });
-      void loadAllDimensions(pt);
     }
     setShowModal(true);
   };
@@ -470,7 +518,11 @@ export default function DimensionManagement() {
                     onChange={(e) => {
                       const pt = e.target.value;
                       setFormData({ ...formData, product_type: pt });
-                      void loadAllDimensions(pt);
+                      setAllDimensions(compatOptionsCache.get(pt) || {});
+                      // 新建时若已展开过选项，换产品类型再按需加载
+                      if (Object.values(expandedDimensions).some(Boolean)) {
+                        void ensureCompatOptions(pt);
+                      }
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
@@ -531,6 +583,7 @@ export default function DimensionManagement() {
                   const allItems = allDimensions[dimType.key]?.map(item => item.id) || [];
                   const isAllSelected = allItems.length > 0 && allItems.every(id => current.includes(id));
                   const isExpanded = expandedDimensions[dimType.key] || false;
+                  const selectedCount = current.length;
                   
                   return (
                     <div key={dimType.key} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -539,12 +592,17 @@ export default function DimensionManagement() {
                         onClick={() => toggleDimension(dimType.key)}
                         className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
                       >
-                        <span className="font-medium text-gray-700">兼容{dimType.label}</span>
+                        <span className="font-medium text-gray-700">
+                          兼容{dimType.label}
+                          {selectedCount > 0 && (
+                            <span className="ml-2 text-xs font-normal text-indigo-600">已选 {selectedCount}</span>
+                          )}
+                        </span>
                         <span className="flex items-center gap-2">
                           <input
                             type="checkbox"
                             checked={isAllSelected}
-                            onChange={() => toggleSelectAll(dimType.key)}
+                            onChange={() => void toggleSelectAll(dimType.key)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                           />
@@ -592,7 +650,10 @@ export default function DimensionManagement() {
                                 </label>
                               );
                             })}
-                            {!allDimensions[dimType.key] || allDimensions[dimType.key].length === 0 && (
+                            {modalOptionsLoading && (!allDimensions[dimType.key] || allDimensions[dimType.key].length === 0) && (
+                              <span className="text-sm text-gray-400">加载中…</span>
+                            )}
+                            {!modalOptionsLoading && (!allDimensions[dimType.key] || allDimensions[dimType.key].length === 0) && (
                               <span className="text-sm text-gray-400">暂无数据</span>
                             )}
                           </div>

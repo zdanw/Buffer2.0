@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight } from 'l
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
@@ -34,12 +35,10 @@ export default function TaskConfiguration() {
   });
 
   useEffect(() => {
-    loadTasks();
-    loadCategories();
-    loadProducts();
+    void Promise.all([loadTasks(1), loadCategories(), loadProducts()]);
   }, []);
 
-  const loadTasks = async (page: number = 1, newPageSize?: number) => {
+  const loadTasks = async (page: number = currentPage, newPageSize?: number) => {
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<ScheduledTask> = await getTasks(page, size);
@@ -60,7 +59,10 @@ export default function TaskConfiguration() {
 
   const loadCategories = async () => {
     try {
-      const data = await getCategories();
+      const data = await cachedFetch('categories', async () => {
+        const cats = await getCategories();
+        return cats;
+      });
       setCategories(data);
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -69,8 +71,11 @@ export default function TaskConfiguration() {
 
   const loadProducts = async () => {
     try {
-      const response = await getProducts(1, 100);
-      setProducts(response.data);
+      const data = await cachedFetch('products:list:100', async () => {
+        const response = await getProducts(1, 100);
+        return response.data;
+      });
+      setProducts(data);
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -88,30 +93,45 @@ export default function TaskConfiguration() {
     return products.filter(p => p.category === category);
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      cron: '0 10 * * *',
+      mode: 'auto',
+      target_categories: [],
+      target_products: [],
+      platforms: ['instagram'],
+      reference_image_count: 3,
+      run_count_per_execution: 1,
+      generate_image_count: 3,
+      generate_copy_count: 3,
+      enabled: true,
+      use_scene_reference: false,
+    });
+    setSelectedTask(null);
+    setIsEdit(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isEdit && selectedTask) {
-        await updateTask(selectedTask.task_id, formData);
+        const updated = await updateTask(selectedTask.task_id, formData);
+        setTasks((prev) => prev.map((t) => (t.task_id === updated.task_id ? updated : t)));
+        invalidateCache('tasks');
       } else {
-        await createTask(formData);
+        const created = await createTask(formData);
+        invalidateCache('tasks');
+        if (currentPage === 1) {
+          setTasks((prev) => [created, ...prev].slice(0, pageSize));
+          setTotal((t) => t + 1);
+        } else {
+          setTotal((t) => t + 1);
+          void loadTasks(currentPage);
+        }
       }
       setShowModal(false);
-      setFormData({
-        name: '',
-        cron: '0 10 * * *',
-        mode: 'auto',
-        target_categories: [],
-        target_products: [],
-        platforms: ['instagram'],
-        reference_image_count: 3,
-        run_count_per_execution: 1,
-        generate_image_count: 3,
-        generate_copy_count: 3,
-        enabled: true,
-        use_scene_reference: false,
-      });
-      loadTasks();
+      resetForm();
     } catch (error) {
       console.error('Failed to save task:', error);
     }
@@ -121,7 +141,13 @@ export default function TaskConfiguration() {
     if (confirm('确定删除该任务吗？')) {
       try {
         await deleteTask(taskId);
-        loadTasks();
+        invalidateCache('tasks');
+        const remaining = tasks.length - 1;
+        setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
+        setTotal((t) => Math.max(0, t - 1));
+        if (remaining <= 0 && currentPage > 1) {
+          void loadTasks(currentPage - 1);
+        }
       } catch (error) {
         console.error('Failed to delete task:', error);
       }
