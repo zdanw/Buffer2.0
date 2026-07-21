@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn } from 'lucide-react';
+import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw } from 'lucide-react';
 import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
-import { cachedFetch } from '@/lib/staticCache';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
@@ -23,10 +23,21 @@ export default function PendingRelease() {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadDrafts(1), loadTasks()]);
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      invalidateCache('tasks');
+      await Promise.all([loadDrafts(currentPage, undefined, { keepRows: true }), loadTasks(true)]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadDrafts = async (
     page: number = currentPage,
@@ -55,12 +66,15 @@ export default function PendingRelease() {
     void loadDrafts(1, newPageSize, { keepRows: true });
   };
 
-  const loadTasks = async () => {
+  const loadTasks = async (force = false) => {
     try {
-      const data = await cachedFetch('tasks:list:100', async () => {
-        const response = await getTasks(1, 100);
-        return response.data;
-      });
+      if (force) invalidateCache('tasks');
+      const data = force
+        ? (await getTasks(1, 100)).data
+        : await cachedFetch('tasks:list:100', async () => {
+            const response = await getTasks(1, 100);
+            return response.data;
+          });
       setTasks(data);
     } catch (error) {
       console.error('Failed to load tasks:', error);
@@ -168,9 +182,20 @@ export default function PendingRelease() {
           <h2 className="text-2xl font-bold text-gray-900">待发布</h2>
           <p className="text-gray-500 mt-1">审核并发布手动任务生成的内容</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Calendar className="w-4 h-4" />
-          <span>共 {total} 个待审核草稿</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Calendar className="w-4 h-4" />
+            <span>共 {total} 个待审核草稿</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || listBusy}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
         </div>
       </div>
 

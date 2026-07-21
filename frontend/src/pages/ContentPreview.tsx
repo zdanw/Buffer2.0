@@ -2,10 +2,17 @@ import { useState, useEffect } from 'react';
 import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
-import { generateContent, generateCopywriting, generateImage, getGenerateStatus } from '@/api/generate';
-import type { GenerateRequest, GenerateStatus, DimensionInfo } from '@/api/generate';
+import {
+  generateContent,
+  generateCopywriting,
+  generateImage,
+  getGenerateStatus,
+  type GenerateRequest,
+  type GenerateStatus,
+  type DimensionInfo,
+} from '@/api/generate';
 import { publishContent } from '@/api/publish';
-import { cachedFetch } from '@/lib/staticCache';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 const STORAGE_KEY = 'bebcare_content_preview_state';
@@ -62,10 +69,20 @@ export default function ContentPreview() {
   const [generatedContent, setGeneratedContent] = useState<{ text: string; image: string; dimensions?: DimensionInfo; image_prompt?: string } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadProducts();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadProducts(true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     saveStateToStorage({
@@ -117,15 +134,21 @@ export default function ContentPreview() {
     };
   }, [taskId, isGenerating]);
 
-  const loadProducts = async () => {
+  const loadProducts = async (force = false) => {
     try {
-      const data = await cachedFetch('products:list:100', async () => {
-        const response = await getProducts(1, 100);
-        return response.data;
-      });
+      if (force) invalidateCache('products');
+      const data = force
+        ? (await getProducts(1, 100)).data
+        : await cachedFetch('products:list:100', async () => {
+            const response = await getProducts(1, 100);
+            return response.data;
+          });
       setProducts(data);
       // 仅在没有已选产品时设默认，避免覆盖 localStorage
-      setSelectedProduct((prev) => prev || (data[0]?.product_id ?? ''));
+      setSelectedProduct((prev) => {
+        if (prev && data.some((p) => p.product_id === prev)) return prev;
+        return data[0]?.product_id ?? '';
+      });
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -229,6 +252,15 @@ export default function ContentPreview() {
           <h2 className="text-2xl font-bold text-gray-900">内容预览</h2>
           <p className="text-gray-500 mt-1">生成并预览社媒内容</p>
         </div>
+        <button
+          type="button"
+          onClick={() => void handleRefresh()}
+          disabled={refreshing || isGenerating}
+          className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          刷新
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-6">

@@ -193,7 +193,12 @@ export default function AssetManagement() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => loadProducts(1)}
+            type="button"
+            onClick={() => {
+              invalidateCache('products');
+              invalidateCache('dimensionTypes');
+              void Promise.all([loadProducts(currentPage), loadDimensionTypes()]);
+            }}
             disabled={loading}
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

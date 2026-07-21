@@ -183,6 +183,7 @@ export default function DimensionManagement() {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filtering, setFiltering] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
   const [selectedDimension, setSelectedDimension] = useState<PromptDimension | null>(null);
@@ -335,6 +336,21 @@ export default function DimensionManagement() {
   const handleFilter = () => {
     // 保留当前表格内容，只在筛选按钮上转圈，避免“全部重置”的闪烁
     void loadDimensions(1, undefined, { fromFilter: true, keepRows: true });
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      invalidateCache('productTypes');
+      invalidateCache('dimensionTypes');
+      await Promise.all([
+        loadDimensionTypes(),
+        loadProductTypes(),
+        loadDimensions(currentPage, undefined, { keepRows: true }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
@@ -515,6 +531,15 @@ export default function DimensionManagement() {
           <p className="text-gray-500 mt-1">管理AI图像生成的提示词维度配置</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || loading || filtering}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
           <button
             onClick={handleInitialize}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"

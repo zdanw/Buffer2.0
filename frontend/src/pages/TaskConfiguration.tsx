@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
@@ -28,6 +28,7 @@ export default function TaskConfiguration() {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [formData, setFormData] = useState<TaskCreate>({
     name: '',
     cron: '0 10 * * *',
@@ -72,6 +73,18 @@ export default function TaskConfiguration() {
 
   const handlePageSizeChange = (newPageSize: number) => {
     void loadTasks(1, newPageSize, { keepRows: true });
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      invalidateCache('tasks');
+      invalidateCache('categories');
+      invalidateCache('products');
+      await Promise.all([loadTasks(currentPage, undefined, { keepRows: true }), loadCategories(), loadProducts()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const loadCategories = async () => {
@@ -266,13 +279,24 @@ export default function TaskConfiguration() {
           <h2 className="text-2xl font-bold text-gray-900">任务配置</h2>
           <p className="text-gray-500 mt-1">管理定时发布任务</p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          添加任务
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || listBusy}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            添加任务
+          </button>
+        </div>
       </div>
 
       <div className={`grid grid-cols-1 gap-4 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
