@@ -7,7 +7,7 @@ __pycache__/
 *.so
 *.pyd
 
-# Distribution / packaging
+# Distribution / packaging（仅忽略仓库根目录的 lib，勿误伤 frontend/src/lib）
 .Python
 build/
 develop-eggs/
@@ -15,8 +15,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
