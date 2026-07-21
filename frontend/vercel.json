@@ -6,14 +6,17 @@
       "runtime": "@vercel/node@3.2.2"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/v1/:path*",
-      "destination": "/api/index.cjs"
+      "src": "/v1/(.*)",
+      "dest": "/api/index.cjs"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
