@@ -76,7 +76,8 @@ function AppContent() {
     });
     const route = TAB_ROUTES[tab];
     if (route) {
-      navigate(route);
+      // 清空查询串，避免内容预览页保活时把 ?product_id=&platform= 写到其他页
+      navigate({ pathname: route, search: '' });
     }
   };
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
@@ -50,19 +49,11 @@ const saveStateToStorage = (state: PreviewState) => {
 };
 
 export default function ContentPreview() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const savedState = loadStateFromStorage();
   
   const [products, setProducts] = useState<Product[]>([]);
-  
-  const urlProductId = searchParams.get('product_id');
-  const urlPlatforms = searchParams.get('platform')?.split(',') || [];
-  
-  const initialProduct = urlProductId || savedState.selectedProduct;
-  const initialPlatforms = urlPlatforms.length > 0 ? urlPlatforms.filter(p => PLATFORMS.includes(p)) : savedState.selectedPlatforms;
-  
-  const [selectedProduct, setSelectedProduct] = useState<string>(initialProduct);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(initialPlatforms);
+  const [selectedProduct, setSelectedProduct] = useState<string>(savedState.selectedProduct);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(savedState.selectedPlatforms);
   const [useSceneReference, setUseSceneReference] = useState(savedState.useSceneReference);
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
@@ -87,17 +78,6 @@ export default function ContentPreview() {
       generatingType,
     });
   }, [selectedProduct, selectedPlatforms, useSceneReference, generatedContent, taskId, isGenerating, generatingType]);
-
-  useEffect(() => {
-    const params: Record<string, string> = {};
-    if (selectedProduct) {
-      params['product_id'] = selectedProduct;
-    }
-    if (selectedPlatforms.length > 0) {
-      params['platform'] = selectedPlatforms.join(',');
-    }
-    setSearchParams(params);
-  }, [selectedProduct, selectedPlatforms, setSearchParams]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -144,7 +124,7 @@ export default function ContentPreview() {
         return response.data;
       });
       setProducts(data);
-      // 仅在没有已选产品时设默认，避免覆盖 URL / localStorage
+      // 仅在没有已选产品时设默认，避免覆盖 localStorage
       setSelectedProduct((prev) => prev || (data[0]?.product_id ?? ''));
     } catch (error) {
       console.error('Failed to load products:', error);
