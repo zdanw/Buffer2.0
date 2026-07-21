@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap, ZoomIn } from 'lucide-react';
 import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -38,6 +38,7 @@ export default function PublishCalendar() {
   const [executions, setExecutions] = useState<Map<string, TaskExecution[]>>(new Map());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const loadTasks = useCallback(async (force = false) => {
     try {
@@ -537,12 +538,21 @@ export default function PublishCalendar() {
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {(execution.generated_images || []).map((img, index) => (
-                              <img
+                              <button
                                 key={index}
-                                src={img}
-                                alt={`Generated image ${index + 1}`}
-                                className="w-full h-40 object-cover rounded-lg"
-                              />
+                                type="button"
+                                onClick={() => setPreviewImage(img)}
+                                className="relative group w-full rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                              >
+                                <img
+                                  src={img}
+                                  alt={`Generated image ${index + 1}`}
+                                  className="w-full h-40 object-cover"
+                                />
+                                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                                  <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </span>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -655,6 +665,29 @@ export default function PublishCalendar() {
                 <p className="text-gray-500">当天暂无发布记录</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-2 right-2 text-white hover:text-gray-300 z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <img
+              src={previewImage}
+              alt="预览"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
