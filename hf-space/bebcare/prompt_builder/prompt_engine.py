@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import List, Dict, Optional
 import json
 import random
@@ -85,10 +89,10 @@ class PromptEngine:
                 result = dimension_service.get_dimensions_by_product_type(product_type, db)
                 return result
             except Exception as e:
-                print(f"[ERROR] dimension_service.get_dimensions_by_product_type failed: {e}")
+                logger.exception('dimension_service.get_dimensions_by_product_type failed: %s', e)
         
         if product_type not in DIMENSIONS:
-            print(f"[WARN] Product type '{product_type}' not found in DIMENSIONS, falling back to 'night_lights'")
+            logger.warning("Product type '%s' not found in DIMENSIONS, falling back to 'night_lights'", product_type)
         
         return DIMENSIONS.get(product_type, DIMENSIONS["night_lights"])
     

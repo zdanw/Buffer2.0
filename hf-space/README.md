@@ -55,6 +55,7 @@ Secrets / Variables 配置环境变量后等待构建；探活：`GET /health`�
 | `SCHEDULER_MAX_WORKERS` | `2` |
 | `DB_POOL_SIZE` | `3` |
 | `ENABLE_CLIP` | `false`（开启需额外依赖与 Long-CLIP） |
+| `LOG_LEVEL` | `INFO`（`DEBUG`/`WARNING`/`ERROR`；日志在 Space → Logs） |
 | `ALLOWED_ORIGINS` | 前端域名白名单（逗号分隔，禁止 `*`） |
 
 必填密钥类：`DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、`BUFFER_API_TOKEN`、`GITHUB_*`、`SECRET_KEY`、`ADMIN_PASSWORD`。

@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import requests
 import time
 from typing import Dict, Optional, List
@@ -68,26 +72,26 @@ class BufferGraphQLClient:
                 
                 if "errors" in result:
                     error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
-                    print(f"GraphQL Error: {', '.join(error_messages)}")
+                    logger.error('GraphQL Error: %s', ', '.join(error_messages))
                     return None
                     
                 return result.get("data")
             except requests.exceptions.ReadTimeout:
-                print(f"GraphQL请求超时，第 {attempt + 1}/{max_retries} 次尝试")
+                logger.warning('GraphQL request timeout, attempt %s/%s', attempt + 1, max_retries)
                 if attempt < max_retries - 1:
                     time.sleep(delay)
                     delay *= 2
                 else:
-                    print(f"GraphQL请求超时，已达最大重试次数 {max_retries}")
+                    logger.error('GraphQL request timeout, max retries %s reached', max_retries)
             except requests.exceptions.ConnectionError:
-                print(f"GraphQL请求连接失败，第 {attempt + 1}/{max_retries} 次尝试")
+                logger.warning('GraphQL connection failed, attempt %s/%s', attempt + 1, max_retries)
                 if attempt < max_retries - 1:
                     time.sleep(delay)
                     delay *= 2
                 else:
-                    print(f"GraphQL请求连接失败，已达最大重试次数 {max_retries}")
+                    logger.error('GraphQL connection failed, max retries %s reached', max_retries)
             except Exception as e:
-                print(f"GraphQL Request Error: {e}")
+                logger.exception('GraphQL Request Error: %s', e)
                 return None
         
         return None
@@ -292,12 +296,12 @@ class BufferPublishService:
         
         account = self._cache.get_account_info(self._client.fetch_account_info)
         if not account:
-            print("无法获取账户信息")
+            logger.error('Unable to fetch Buffer account info')
             return [{"error": "Failed to get account info"}]
         
         orgs = account.get("organizations", [])
         if not orgs:
-            print("未找到组织")
+            logger.error('No Buffer organization found')
             return [{"error": "No organizations found"}]
         
         org_id = orgs[0]["id"]
@@ -371,14 +375,14 @@ class BufferPublisher:
                 return func()
             except Exception as e:
                 last_exception = e
-                print(f"Attempt {attempt + 1}/{max_retries} failed: {str(e)[:100]}...")
+                logger.warning('Attempt %s/%s failed: %s...', attempt + 1, max_retries, str(e)[:100])
                 
                 if attempt < max_retries - 1:
-                    print(f"Retrying in {delay:.2f} seconds...")
+                    logger.info('Retrying in %.2f seconds...', delay)
                     time.sleep(delay)
                     delay *= backoff_factor
         
-        print(f"All {max_retries} attempts failed. Last error: {str(last_exception)[:200]}")
+        logger.error('All %s attempts failed. Last error: %s', max_retries, str(last_exception)[:200])
         raise last_exception
     
     def publish(self, text: str, image_url: Optional[str] = None, 

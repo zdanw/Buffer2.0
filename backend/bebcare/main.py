@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router, prompt_dimension_router
 from bebcare.database import init_db
 from bebcare.config.settings import settings
+from bebcare.logging_config import setup_logging
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.initial_data import initialize_data
 import logging
+import time
 
-logging.basicConfig(level=logging.INFO)
+setup_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
 init_db()
@@ -19,12 +21,26 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# 探活与根路径不刷请求日志，避免 HF 休眠唤醒/健康检查噪声
+_SKIP_REQUEST_LOG_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # 不记录 Authorization 等敏感头
-    logger.info("Request: %s %s", request.method, request.url.path)
+    path = request.url.path
+    skip = path in _SKIP_REQUEST_LOG_PATHS
+    started = time.perf_counter()
+    if not skip:
+        logger.info("→ %s %s", request.method, path)
     response = await call_next(request)
-    logger.info("Response: %s %s -> %s", request.method, request.url.path, response.status_code)
+    if not skip:
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        logger.info(
+            "← %s %s -> %s (%.0fms)",
+            request.method,
+            path,
+            response.status_code,
+            elapsed_ms,
+        )
     return response
 
 cors_origins = settings.cors_origins
@@ -54,7 +70,7 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Bebcare AI Studio API (env=%s)", settings.app_env)
+    logger.info("Starting Bebcare AI Studio API (env=%s, log_level=%s)", settings.app_env, settings.log_level)
     logger.info("CORS allow_origins=%s", cors_origins)
     initialize_data()
     scheduler_service.start()

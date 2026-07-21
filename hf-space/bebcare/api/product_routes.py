@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -268,26 +272,26 @@ async def upload_product_images(
     
     for file in all_files:
         try:
-            print(f"Processing file: {file.filename}")
+            logger.info('Processing file: %s', file.filename)
             
             file_content = file.file.read()
-            print(f"File size: {len(file_content)} bytes")
+            logger.debug('File size: %s bytes', len(file_content))
             
             cdn_url = github_uploader.upload_file(file_content, file.filename)
-            print(f"Uploaded to CDN: {cdn_url}")
+            logger.info('Uploaded to CDN: %s', cdn_url)
             
             image = download_image(cdn_url)
-            print("Downloaded image successfully")
+            logger.debug('Downloaded image successfully')
             
             phash = calculate_phash(image)
             width, height = get_image_dimensions(image)
-            print(f"Image dimensions: {width}x{height}, phash: {phash}")
+            logger.debug('Image dimensions: %sx%s, phash: %s', width, height, phash)
             
             embedding = chroma_client.get_image_embedding(image)
             if chroma_client.embeddings_enabled:
-                print(f"Generated embedding with {len(embedding)} dimensions")
+                logger.debug('Generated embedding with %s dimensions', len(embedding))
             else:
-                print("CLIP disabled; storing placeholder embedding for metadata only")
+                logger.info('CLIP disabled; storing placeholder embedding for metadata only')
             
             new_image = ProductImage(
                 product_id=product_id,
@@ -325,12 +329,12 @@ async def upload_product_images(
                 "height": height,
                 "image_type": image_type
             })
-            print(f"Image {file.filename} processed successfully")
+            logger.info('Image %s processed successfully', file.filename)
             
             db.commit()
             
         except Exception as e:
-            print(f"Error processing file {file.filename}: {e}")
+            logger.exception('Error processing file %s: %s', file.filename, e)
             db.rollback()
             failed.append(file.filename)
     

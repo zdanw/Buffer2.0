@@ -6,7 +6,10 @@ from bebcare.models import Product, ProductImage
 from bebcare.schemas.generate import GenerateRequest, GenerateResponse
 from bebcare.generator.content_generator import ContentGenerator
 from sqlalchemy import func
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/generate", tags=["generate"])
 
@@ -39,10 +42,10 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
         reference_image_urls.extend([img.cdn_url for img in product_images])
         
         if not scene_images:
-            print(f"[WARN] No scene images found for product {request.product_id}, falling back to regular mode")
+            logger.warning('No scene images for product %s, falling back to regular mode', request.product_id)
             request.use_scene_reference = False
         elif not product_images:
-            print(f"[WARN] No product images found for product {request.product_id}")
+            logger.warning('No product images for product %s', request.product_id)
     else:
         reference_images = db.query(ProductImage).filter(
             ProductImage.product_id == request.product_id
@@ -51,7 +54,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
         reference_image_urls = [img.cdn_url for img in reference_images]
         
         if len(reference_image_urls) < request.reference_count:
-            print(f"[WARN] Only {len(reference_image_urls)} images found for product {request.product_id}, requested {request.reference_count}")
+            logger.warning('Only %s images for product %s, requested %s', len(reference_image_urls), request.product_id, request.reference_count)
     
     product_info = {
         "product_id": str(product.product_id),
@@ -75,7 +78,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
     
     def run_generation(task_id: str, product_info: dict, db: Session):
         try:
-            print(f"[{task_id}] Starting generation task")
+            logger.info('[%s] Starting generation task', task_id)
             generate_tasks[task_id]["status"] = "PROGRESS"
 
             platform = product_info.get("platform", "instagram")
@@ -100,9 +103,9 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
                 "dimensions": image_result.get("dimensions", None),
                 "image_prompt": image_result.get("image_prompt", None)
             }
-            print(f"[{task_id}] Generation completed: {len(image_urls)} images")
+            logger.info('[%s] Generation completed: %s images', task_id, len(image_urls))
         except Exception as e:
-            print(f"[{task_id}] Task failed: {e}")
+            logger.exception('[%s] Task failed: %s', task_id, e)
             generate_tasks[task_id]["status"] = "FAILURE"
             generate_tasks[task_id]["result"] = {"error": str(e)}
     
@@ -139,7 +142,7 @@ def generate_copywriting_only(request: GenerateRequest, db: Session = Depends(ge
     
     def run_copywriting_generation(task_id: str, product_info: dict, db: Session):
         try:
-            print(f"[{task_id}] Starting copywriting generation")
+            logger.info('[%s] Starting copywriting generation', task_id)
             generate_tasks[task_id]["status"] = "PROGRESS"
 
             generator = ContentGenerator()
@@ -152,9 +155,9 @@ def generate_copywriting_only(request: GenerateRequest, db: Session = Depends(ge
                 "text": copywriting_text,
                 "image": None
             }
-            print(f"[{task_id}] Copywriting completed")
+            logger.info('[%s] Copywriting completed', task_id)
         except Exception as e:
-            print(f"[{task_id}] Task failed: {e}")
+            logger.exception('[%s] Task failed: %s', task_id, e)
             generate_tasks[task_id]["status"] = "FAILURE"
             generate_tasks[task_id]["result"] = {"error": str(e)}
     
@@ -192,7 +195,7 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
         reference_image_urls.extend([img.cdn_url for img in product_images])
         
         if not scene_images:
-            print(f"[WARN] No scene images found for product {request.product_id}, falling back to regular mode")
+            logger.warning('No scene images for product %s, falling back to regular mode', request.product_id)
             request.use_scene_reference = False
     else:
         reference_images = db.query(ProductImage).filter(
@@ -202,7 +205,7 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
         reference_image_urls = [img.cdn_url for img in reference_images]
         
         if len(reference_image_urls) < request.reference_count:
-            print(f"[WARN] Only {len(reference_image_urls)} images found for product {request.product_id}, requested {request.reference_count}")
+            logger.warning('Only %s images for product %s, requested %s', len(reference_image_urls), request.product_id, request.reference_count)
     
     product_info = {
         "product_id": str(product.product_id),
@@ -226,7 +229,7 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
     
     def run_image_generation(task_id: str, product_info: dict, db: Session):
         try:
-            print(f"[{task_id}] Starting image generation")
+            logger.info('[%s] Starting image generation', task_id)
             generate_tasks[task_id]["status"] = "PROGRESS"
 
             platform = product_info.get("platform", "instagram")
@@ -247,9 +250,9 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
                 "dimensions": image_result.get("dimensions", None),
                 "image_prompt": image_result.get("image_prompt", None)
             }
-            print(f"[{task_id}] Image generation completed: {len(image_urls)} images")
+            logger.info('[%s] Image generation completed: %s images', task_id, len(image_urls))
         except Exception as e:
-            print(f"[{task_id}] Task failed: {e}")
+            logger.exception('[%s] Task failed: %s', task_id, e)
             generate_tasks[task_id]["status"] = "FAILURE"
             generate_tasks[task_id]["result"] = {"error": str(e)}
     

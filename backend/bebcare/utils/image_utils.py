@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from PIL import Image
 import imagehash
 import requests
@@ -14,14 +18,14 @@ def _retry_request(func, max_retries=3, initial_delay=2.0, backoff_factor=2.0):
             return func()
         except Exception as e:
             last_exception = e
-            print(f"Attempt {attempt + 1}/{max_retries} failed: {str(e)[:100]}...")
+            logger.warning('Attempt %s/%s failed: %s...', attempt + 1, max_retries, str(e)[:100])
             
             if attempt < max_retries - 1:
-                print(f"Retrying in {delay:.2f} seconds...")
+                logger.info('Retrying in %.2f seconds...', delay)
                 time.sleep(delay)
                 delay *= backoff_factor
     
-    print(f"All {max_retries} attempts failed. Last error: {str(last_exception)[:200]}")
+    logger.error('All %s attempts failed. Last error: %s', max_retries, str(last_exception)[:200])
     raise last_exception
 
 def calculate_phash(image):

@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from functools import lru_cache
 from sqlalchemy.orm import Session
 from bebcare.models.prompt_dimension import PromptDimension, PromptDimensionCompatibility, DimensionType
@@ -51,7 +55,7 @@ class DimensionService:
             return result
 
         except Exception as e:
-            print(f"[ERROR] DimensionService.get_dimensions_by_product_type failed: {e}")
+            logger.exception('DimensionService.get_dimensions_by_product_type failed: %s', e)
             return {dim_type.value: [] for dim_type in DimensionType}
 
     def get_compatible_dimensions(
@@ -154,7 +158,7 @@ class DimensionService:
             return result
 
         except Exception as e:
-            print(f"[ERROR] DimensionService.get_dimensions_by_type failed: {e}")
+            logger.exception('DimensionService.get_dimensions_by_type failed: %s', e)
             return []
 
     def initialize_default_dimensions(self, db: Session):
