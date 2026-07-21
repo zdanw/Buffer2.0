@@ -29,7 +29,12 @@ _SKIP_REQUEST_LOG_PREFIXES = ("/v1/generate/status/",)
 def _should_skip_request_log(path: str) -> bool:
     if path in _SKIP_REQUEST_LOG_PATHS:
         return True
-    return any(path.startswith(prefix) for prefix in _SKIP_REQUEST_LOG_PREFIXES)
+    if any(path.startswith(prefix) for prefix in _SKIP_REQUEST_LOG_PREFIXES):
+        return True
+    # 只记录业务 API；/.env、/graphql、/actuator 等公网扫描一律忽略
+    if not path.startswith("/v1/"):
+        return True
+    return False
 
 
 @app.middleware("http")

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap } from 'lucide-react';
 import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
-import { cachedFetch } from '@/lib/staticCache';
+import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 
 interface CalendarEvent {
   id: string;
@@ -31,43 +32,62 @@ interface GroupedEvents {
 }
 
 export default function PublishCalendar() {
+  const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [executions, setExecutions] = useState<Map<string, TaskExecution[]>>(new Map());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null);
 
-  useEffect(() => {
-    loadTasks();
+  const loadTasks = useCallback(async (force = false) => {
+    try {
+      if (force) invalidateCache('tasks');
+
+      const taskPromise = force
+        ? getTasks(1, 100).then((r) => r.data)
+        : cachedFetch('tasks:list:100', async () => {
+            const response = await getTasks(1, 100);
+            return response.data;
+          });
+
+      const [taskResult, exeResult] = await Promise.allSettled([
+        taskPromise,
+        getAllExecutions(),
+      ]);
+
+      if (taskResult.status === 'fulfilled') {
+        setTasks(taskResult.value);
+      } else {
+        console.error('Failed to load tasks:', taskResult.reason);
+      }
+
+      if (exeResult.status === 'fulfilled') {
+        const newExecutions = new Map<string, TaskExecution[]>();
+        for (const ex of exeResult.value) {
+          if (!newExecutions.has(ex.task_id)) {
+            newExecutions.set(ex.task_id, []);
+          }
+          newExecutions.get(ex.task_id)!.push(ex);
+        }
+        setExecutions(newExecutions);
+      } else {
+        console.error('Failed to load executions:', exeResult.reason);
+      }
+    } catch (error) {
+      console.error('Failed to load calendar data:', error);
+    }
   }, []);
+
+  // 页面保活：切回日历时重新拉取，避免任务配置后仍显示空日历
+  useEffect(() => {
+    if (location.pathname === '/calendar') {
+      loadTasks();
+    }
+  }, [location.pathname, loadTasks]);
 
   useEffect(() => {
     generateEvents();
   }, [tasks, executions, currentDate]);
-
-  const loadTasks = async () => {
-    try {
-      const [taskList, allExes] = await Promise.all([
-        cachedFetch('tasks:list:100', async () => {
-          const response = await getTasks(1, 100);
-          return response.data;
-        }),
-        getAllExecutions(),
-      ]);
-      setTasks(taskList);
-      
-      const newExecutions = new Map<string, TaskExecution[]>();
-      for (const ex of allExes) {
-        if (!newExecutions.has(ex.task_id)) {
-          newExecutions.set(ex.task_id, []);
-        }
-        newExecutions.get(ex.task_id)!.push(ex);
-      }
-      setExecutions(newExecutions);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-    }
-  };
 
   /** 按「年月日」预索引当日执行记录，避免每个格子重复扫描 */
   const executionsByDay = useMemo(() => {
@@ -132,26 +152,25 @@ export default function PublishCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const now = new Date();
     
     tasks.forEach((task) => {
       if (task.enabled) {
-        const cronParts = task.cron.split(' ');
-        const minute = parseInt(cronParts[0]);
-        const hour = parseInt(cronParts[1]);
+        const cronParts = task.cron.trim().split(/\s+/);
+        if (cronParts.length < 5) return;
+        const minute = parseInt(cronParts[0], 10);
+        const hour = parseInt(cronParts[1], 10);
         const day = cronParts[2];
         const monthField = cronParts[3];
         const weekday = cronParts[4];
+        if (Number.isNaN(minute) || Number.isNaN(hour)) return;
         
         for (let d = 1; d <= daysInMonth; d++) {
           const date = new Date(year, month, d);
-          const eventTime = new Date(year, month, d, hour, minute);
-          const isTimePassed = eventTime < now;
-          const isDayMatch = day === '*' || parseInt(day) === d;
-          const isMonthMatch = monthField === '*' || parseInt(monthField) === month + 1;
-          const isWeekdayMatch = weekday === '*' || parseInt(weekday) === date.getDay();
+          const isDayMatch = day === '*' || parseInt(day, 10) === d;
+          const isMonthMatch = monthField === '*' || parseInt(monthField, 10) === month + 1;
+          const isWeekdayMatch = weekday === '*' || parseInt(weekday, 10) === date.getDay();
           
-          if (!isTimePassed && isDayMatch && isMonthMatch && isWeekdayMatch) {
+          if (isDayMatch && isMonthMatch && isWeekdayMatch) {
             const status = getEventStatus(task.task_id, d, month, year);
             
             events.push({
@@ -233,15 +252,22 @@ export default function PublishCalendar() {
   };
 
   const getGroupedEvents = (): GroupedEvents[] => {
+    const now = new Date();
+    const upcoming = calendarEvents.filter((event) => {
+      const [h, m] = event.time.split(':').map(Number);
+      const eventTime = new Date(event.year, event.month, event.day, h, m);
+      return eventTime >= now;
+    });
+
     const grouped: Record<string, GroupedEvents> = {};
     
-    calendarEvents.sort((a, b) => {
+    upcoming.sort((a, b) => {
       const dateA = new Date(a.year, a.month, a.day);
       const dateB = new Date(b.year, b.month, b.day);
       return dateA.getTime() - dateB.getTime();
     });
     
-    calendarEvents.forEach(event => {
+    upcoming.forEach(event => {
       const dateKey = `${event.year}-${event.month}-${event.day}`;
       if (!grouped[dateKey]) {
         const date = new Date(event.year, event.month, event.day);
@@ -299,7 +325,7 @@ export default function PublishCalendar() {
           <p className="text-gray-500 mt-1">查看和管理发布计划</p>
         </div>
         <button
-          onClick={loadTasks}
+          onClick={() => loadTasks(true)}
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
@@ -381,7 +407,7 @@ export default function PublishCalendar() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-800">即将发布</h3>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {calendarEvents.length} 个任务
+                {groupedEvents.reduce((n, g) => n + g.events.length, 0)} 个任务
               </span>
             </div>
             
@@ -600,6 +626,20 @@ export default function PublishCalendar() {
                     </div>
                   );
                 })}
+              </div>
+            ) : selectedDay.tasks.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500 mb-2">当天计划任务（尚未产生执行记录）</p>
+                {selectedDay.tasks.map((task) => (
+                  <div key={task.task_id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="font-medium text-gray-800">{task.name}</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      {task.mode === 'manual'
+                        ? '手动模式：到点后会生成草稿到「待发布」，不会直接写入发布记录'
+                        : '自动模式：到点后会自动生成并发布'}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12">
