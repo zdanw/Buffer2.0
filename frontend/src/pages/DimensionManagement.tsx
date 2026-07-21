@@ -104,6 +104,41 @@ function invalidateCompatCache(productType?: string) {
   }
 }
 
+/**
+ * 编辑兼容关系后，按双向边本地修正当前页其他行的计数，避免整表重新筛选请求。
+ */
+function syncReverseCompatInList(
+  rows: PromptDimension[],
+  edited: PromptDimension,
+  prevCompat: DimensionCompatibilities | undefined,
+  nextCompat: DimensionCompatibilities | undefined
+): PromptDimension[] {
+  return rows.map((row) => {
+    if (row.dimension_id === edited.dimension_id) {
+      return { ...row, ...edited };
+    }
+
+    const targetType = row.dimension_type as keyof DimensionCompatibilities;
+    const sourceType = edited.dimension_type as keyof DimensionCompatibilities;
+    const oldTargets = new Set(prevCompat?.[targetType] || []);
+    const newTargets = new Set(nextCompat?.[targetType] || []);
+    const wasLinked = oldTargets.has(row.item_id);
+    const isLinked = newTargets.has(row.item_id);
+    if (wasLinked === isLinked) return row;
+
+    const compat: DimensionCompatibilities = { ...(row.compatibilities || {}) };
+    const reverseList = [...(compat[sourceType] || [])];
+    if (isLinked && !reverseList.includes(edited.item_id)) {
+      reverseList.push(edited.item_id);
+    } else if (!isLinked) {
+      const idx = reverseList.indexOf(edited.item_id);
+      if (idx >= 0) reverseList.splice(idx, 1);
+    }
+    compat[sourceType] = reverseList;
+    return { ...row, compatibilities: compat };
+  });
+}
+
 export default function DimensionManagement() {
   const [dimensions, setDimensions] = useState<PromptDimension[]>([]);
   const [dimensionTypes, setDimensionTypes] = useState<DimensionType[]>([]);
@@ -224,9 +259,10 @@ export default function DimensionManagement() {
     newPageSize?: number,
     opts?: { silent?: boolean; keepRows?: boolean }
   ) => {
-    const keepRows = opts?.keepRows || opts?.silent;
-    if (!opts?.silent && !keepRows) setLoading(true);
-    if (keepRows) setFiltering(true);
+    const userFilter = Boolean(opts?.keepRows);
+    const silent = Boolean(opts?.silent);
+    if (!silent && !userFilter) setLoading(true);
+    if (userFilter) setFiltering(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<PromptDimension> = await getPromptDimensions(
@@ -248,8 +284,8 @@ export default function DimensionManagement() {
     } catch (error) {
       console.error('Failed to load dimensions:', error);
     } finally {
-      if (!opts?.silent && !keepRows) setLoading(false);
-      setFiltering(false);
+      if (!silent && !userFilter) setLoading(false);
+      if (userFilter) setFiltering(false);
     }
   };
 
@@ -303,24 +339,20 @@ export default function DimensionManagement() {
           name: submitData.name,
           compatibilities: submitData.compatibilities,
         };
+        const prevCompat = selectedDimension.compatibilities;
         const updated = await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
+        // 本地更新当前行 + 双向兼容计数，不再重新筛选拉列表
+        invalidateCompatCache(updated.product_type);
         setDimensions((prev) =>
-          prev.map((d) => (d.dimension_id === updated.dimension_id ? { ...d, ...updated } : d))
+          syncReverseCompatInList(prev, updated, prevCompat, updated.compatibilities)
         );
-        // 兼容关系双向变更可能影响同页其他行计数，后台静默刷新当前页
-        void loadDimensions(currentPage, undefined, { silent: true });
       } else {
         const created = await createPromptDimension(submitData);
         invalidateCompatCache(created.product_type);
         if (matchesCurrentFilters(created) && currentPage === 1) {
           setDimensions((prev) => [created, ...prev].slice(0, pageSize));
-          setTotal((t) => t + 1);
-        } else if (matchesCurrentFilters(created)) {
-          setTotal((t) => t + 1);
-          void loadDimensions(currentPage, undefined, { silent: true });
-        } else {
-          setTotal((t) => t + 1);
         }
+        setTotal((t) => t + 1);
         void loadProductTypes();
       }
       setShowModal(false);
