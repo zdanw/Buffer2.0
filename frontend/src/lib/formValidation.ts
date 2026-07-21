@@ -55,8 +55,8 @@ export function cronFormat(value: string | undefined | null): string | null {
   return null;
 }
 
-export function intInRange(label: string, value: number, min: number, max: number): string | null {
-  if (!Number.isFinite(value) || !Number.isInteger(value)) return `${label}须为整数`;
+export function intInRange(label: string, value: number | undefined | null, min: number, max: number): string | null {
+  if (value == null || !Number.isFinite(value) || !Number.isInteger(value)) return `${label}须为整数`;
   if (value < min || value > max) return `${label}须在 ${min}–${max} 之间`;
   return null;
 }
