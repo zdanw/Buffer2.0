@@ -7,10 +7,13 @@ import sys
 _CONFIGURED = False
 
 
-def setup_logging(level: str = "INFO") -> None:
-    """按 LOG_LEVEL 配置根日志。幂等，可在导入时调用。"""
+def setup_logging(level: str = "INFO", *, force: bool = False) -> None:
+    """按 LOG_LEVEL 配置根日志。
+
+    force=True：在 Alembic fileConfig 等重置根 logger 后强制恢复。
+    """
     global _CONFIGURED
-    if _CONFIGURED:
+    if _CONFIGURED and not force:
         return
 
     level_name = (level or "INFO").upper().strip()

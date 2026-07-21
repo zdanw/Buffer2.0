@@ -99,6 +99,12 @@ def init_db() -> None:
             )
             run_migrations()
 
+        # Alembic 旧版 env 可能重置 logging；迁移后强制恢复应用日志级别
+        from bebcare.logging_config import setup_logging
+
+        setup_logging(settings.log_level, force=True)
+        logger.info("Database ready (env=%s, dialect=%s)", settings.app_env, dialect)
+
         # stamp 不会补新表；已 stamp 的旧库也可能缺 product_dimensions 等 → /products 500
         _ensure_missing_tables()
         return

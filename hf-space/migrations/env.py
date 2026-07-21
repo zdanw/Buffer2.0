@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+import logging
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -10,7 +11,9 @@ import bebcare.models  # noqa: F401 — 注册全部 ORM 模型到 metadata
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
-if config.config_file_name is not None:
+# 仅 CLI `alembic ...` 时配置；应用内 init_db→upgrade 已有 setup_logging，
+# 再调用 fileConfig 会把 root 打成 WARN，导致 HF Space 看不到 INFO 业务日志。
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata

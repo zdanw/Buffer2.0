@@ -52,23 +52,34 @@ class ContentGenerator:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.deepseek_api_key}"
         }
-        
-        data = {
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": system_prompt or prompt_engine.system_prompt},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7,
-            "max_tokens": max_tokens
-        }
-        
-        def make_request():
+
+        def request_once(token_limit: int):
+            data = {
+                "model": "deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": system_prompt or prompt_engine.system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": token_limit
+            }
             response = requests.post(self.deepseek_api_url, headers=headers, json=data, timeout=60)
             response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"].strip()
-        
+            choice = response.json()["choices"][0]
+            return choice["message"]["content"].strip(), choice.get("finish_reason")
+
+        def make_request():
+            content, finish_reason = request_once(max_tokens)
+            # finish_reason=length 表示因 max_tokens 被截断，再抬高一次上限重试
+            retry_limit = max_tokens
+            if finish_reason == "length":
+                retry_limit = min(max(max_tokens * 2, 1024), 4096)
+                if retry_limit > max_tokens:
+                    content, finish_reason = request_once(retry_limit)
+            if finish_reason == "length":
+                raise Exception(f"DeepSeek output truncated after max_tokens={retry_limit}")
+            return content
+
         return self._retry_request(make_request, max_retries=3, initial_delay=2.0)
     
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
@@ -93,7 +104,8 @@ class ContentGenerator:
             meta_prompt = image_prompt_result["prompt"]
             selected_dimensions = image_prompt_result.get("dimensions", None)
             
-            positive_prompt = self._call_deepseek(meta_prompt, self.image_prompt_system_prompt, 200)
+            # 详细中文图像描述通常远超 200 tokens；1024 覆盖完整提示词
+            positive_prompt = self._call_deepseek(meta_prompt, self.image_prompt_system_prompt, 1024)
             image_prompt = positive_prompt
         
         negative_prompt = prompt_engine.build_negative_prompt()
