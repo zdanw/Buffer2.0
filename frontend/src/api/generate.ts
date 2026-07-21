@@ -13,11 +13,23 @@ export interface GenerateResponse {
   status: string;
 }
 
+export interface DimensionInfo {
+  scene: string;
+  viewpoint: string;
+  composition: string;
+  style: string;
+  quality: string;
+  details: string;
+  lighting: string;
+}
+
 export interface GenerateResult {
   success?: boolean;
   text?: string;
   image?: string;
   error?: string;
+  dimensions?: DimensionInfo;
+  image_prompt?: string;
 }
 
 export interface GenerateStatus {
@@ -32,12 +44,12 @@ export const generateContent = async (data: GenerateRequest): Promise<GenerateRe
 };
 
 export const generateCopywriting = async (data: GenerateRequest): Promise<GenerateResponse> => {
-  const response = await axiosInstance.post('/generate/copywriting', data);
+  const response = await axiosInstance.post('/generate/copywriting/', data);
   return response.data;
 };
 
 export const generateImage = async (data: GenerateRequest): Promise<GenerateResponse> => {
-  const response = await axiosInstance.post('/generate/image', data);
+  const response = await axiosInstance.post('/generate/image/', data);
   return response.data;
 };
 

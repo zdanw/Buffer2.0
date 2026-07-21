@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight } from 'lucide-react';
-import type { ScheduledTask, TaskCreate } from '@/api/tasks';
+import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
+import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
@@ -14,6 +15,9 @@ export default function TaskConfiguration() {
   const [isEdit, setIsEdit] = useState(false);
   const [selectedTask, setSelectedTask] = useState<ScheduledTask | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState<TaskCreate>({
     name: '',
     cron: '0 10 * * *',
@@ -35,13 +39,23 @@ export default function TaskConfiguration() {
     loadProducts();
   }, []);
 
-  const loadTasks = async () => {
+  const loadTasks = async (page: number = 1, newPageSize?: number) => {
+    const size = newPageSize ?? pageSize;
     try {
-      const data = await getTasks();
-      setTasks(data);
+      const response: PaginatedResponse<ScheduledTask> = await getTasks(page, size);
+      setTasks(response.data);
+      setTotal(response.pagination.total);
+      setCurrentPage(response.pagination.current);
+      if (newPageSize) {
+        setPageSize(newPageSize);
+      }
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    loadTasks(1, newPageSize);
   };
 
   const loadCategories = async () => {
@@ -55,8 +69,8 @@ export default function TaskConfiguration() {
 
   const loadProducts = async () => {
     try {
-      const data = await getProducts();
-      setProducts(data);
+      const response = await getProducts(1, 100);
+      setProducts(response.data);
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -259,6 +273,18 @@ export default function TaskConfiguration() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">暂无定时任务，点击上方按钮创建</p>
+          </div>
+        )}
+        
+        {total > 0 && (
+          <div className="mt-4">
+            <Pagination
+              current={currentPage}
+              total={total}
+              pageSize={pageSize}
+              onChange={loadTasks}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { login, setToken } from '../api/auth';
+import { login, setToken, setRefreshToken } from '../api/auth';
 import type { LoginData } from '../api/auth';
 
 function Login() {
@@ -19,6 +19,9 @@ function Login() {
       
       if (response && response.access_token) {
         setToken(response.access_token);
+        if (response.refresh_token) {
+          setRefreshToken(response.refresh_token);
+        }
         setTimeout(() => {
           window.location.href = '/';
         }, 100);

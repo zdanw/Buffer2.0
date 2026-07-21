@@ -46,11 +46,11 @@ export default function PublishCalendar() {
 
   const loadTasks = async () => {
     try {
-      const [data, allExes] = await Promise.all([
-        getTasks(),
+      const [response, allExes] = await Promise.all([
+        getTasks(1, 100),
         getAllExecutions()
       ]);
-      setTasks(data);
+      setTasks(response.data);
       
       const newExecutions = new Map<string, TaskExecution[]>();
       for (const ex of allExes) {
@@ -480,8 +480,7 @@ export default function PublishCalendar() {
                           <div className="text-sm text-gray-500">
                             {(() => {
                               const date = new Date(execution.created_at);
-                              const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-                              return utcDate.toLocaleString('zh-CN');
+                              return date.toLocaleString('zh-CN');
                             })()}
                           </div>
                         </div>

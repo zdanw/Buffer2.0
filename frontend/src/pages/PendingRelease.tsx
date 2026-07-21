@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn } from 'lucide-react';
-import type { ManualTaskDraft } from '@/api/tasks';
+import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
+import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
@@ -17,25 +18,38 @@ export default function PendingRelease() {
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewCopy, setPreviewCopy] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     loadDrafts();
     loadTasks();
   }, []);
 
-  const loadDrafts = async () => {
+  const loadDrafts = async (page: number = 1, newPageSize?: number) => {
+    const size = newPageSize ?? pageSize;
     try {
-      const data = await getDrafts('pending');
-      setDrafts(data);
+      const response: PaginatedResponse<ManualTaskDraft> = await getDrafts('pending', page, size);
+      setDrafts(response.data);
+      setTotal(response.pagination.total);
+      setCurrentPage(response.pagination.current);
+      if (newPageSize) {
+        setPageSize(newPageSize);
+      }
     } catch (error) {
       console.error('Failed to load drafts:', error);
     }
   };
 
+  const handlePageSizeChange = (newPageSize: number) => {
+    loadDrafts(1, newPageSize);
+  };
+
   const loadTasks = async () => {
     try {
-      const data = await getTasks();
-      setTasks(data);
+      const response = await getTasks(1, 100);
+      setTasks(response.data);
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
@@ -111,8 +125,7 @@ export default function PendingRelease() {
     if (isNaN(date.getTime())) {
       return '未知时间';
     }
-    const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-    return utcDate.toLocaleString('zh-CN', {
+    return date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -132,7 +145,7 @@ export default function PendingRelease() {
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Calendar className="w-4 h-4" />
-          <span>共 {drafts.length} 个待审核草稿</span>
+          <span>共 {total} 个待审核草稿</span>
         </div>
       </div>
 
@@ -147,64 +160,77 @@ export default function PendingRelease() {
               <p className="text-gray-400 text-sm mt-2">手动发布模式的任务会在CRON时间自动生成草稿</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {drafts.map((draft) => (
-                <div
-                  key={draft.draft_id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                    selectedDraftId === draft.draft_id
-                      ? 'border-indigo-600 bg-indigo-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => handleSelectDraft(draft)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                        {getTaskName(draft.task_id)}
-                      </span>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatDate(draft.created_at)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDiscard(draft.draft_id);
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>{draft.images.length} 张图片</span>
-                    <span>{draft.copywritings.length} 条文案</span>
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    {draft.images.slice(0, 3).map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`预览图 ${idx + 1}`}
-                        className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+            <>
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft.draft_id}
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      selectedDraftId === draft.draft_id
+                        ? 'border-indigo-600 bg-indigo-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => handleSelectDraft(draft)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                          {getTaskName(draft.task_id)}
+                        </span>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {formatDate(draft.created_at)}
+                        </p>
+                      </div>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setPreviewImage(img);
+                          handleDiscard(draft.draft_id);
                         }}
-                      />
-                    ))}
-                    {draft.images.length > 3 && (
-                      <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center text-gray-500 text-xs">
-                        +{draft.images.length - 3}
-                      </div>
-                    )}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>{draft.images.length} 张图片</span>
+                      <span>{draft.copywritings.length} 条文案</span>
+                    </div>
+
+                    <div className="mt-3 flex gap-2">
+                      {draft.images.slice(0, 3).map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img}
+                          alt={`预览图 ${idx + 1}`}
+                          className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(img);
+                          }}
+                        />
+                      ))}
+                      {draft.images.length > 3 && (
+                        <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center text-gray-500 text-xs">
+                          +{draft.images.length - 3}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+              {total > 0 && (
+                <div className="mt-4">
+                  <Pagination
+                    current={currentPage}
+                    total={total}
+                    pageSize={pageSize}
+                    onChange={loadDrafts}
+                    onPageSizeChange={handlePageSizeChange}
+                  />
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 

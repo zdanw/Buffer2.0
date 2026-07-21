@@ -65,19 +65,26 @@ export interface DraftPublishRequest {
   platforms: string[];
 }
 
-export const getTasks = async (): Promise<ScheduledTask[]> => {
-  const response = await axiosInstance.get('/tasks/');
-  return Array.isArray(response.data) ? response.data : [];
-};
+export interface Pagination {
+  current: number;
+  page_size: number;
+  total: number;
+  pages: number;
+}
 
-export const getTask = async (taskId: string): Promise<ScheduledTask> => {
-  const response = await axiosInstance.get(`/tasks/${taskId}`);
-  return response.data;
-};
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: Pagination;
+}
 
-export const getTaskExecutions = async (taskId: string): Promise<TaskExecution[]> => {
-  const response = await axiosInstance.get(`/tasks/${taskId}/executions`);
-  return Array.isArray(response.data) ? response.data : [];
+export const getTasks = async (page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<ScheduledTask>> => {
+  const response = await axiosInstance.get('/tasks/', { params: { page, page_size: pageSize } });
+  
+  if (response.data && response.data.data && Array.isArray(response.data.data)) {
+    return response.data;
+  }
+  
+  return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
 };
 
 export const getAllExecutions = async (): Promise<TaskExecution[]> => {
@@ -99,18 +106,28 @@ export const deleteTask = async (taskId: string): Promise<void> => {
   await axiosInstance.delete(`/tasks/${taskId}`);
 };
 
-export const getDrafts = async (status?: string): Promise<ManualTaskDraft[]> => {
-  const params = status ? { status } : {};
-  const response = await axiosInstance.get('/tasks/drafts', { params });
-  return Array.isArray(response.data) ? response.data : [];
+export const getDrafts = async (
+  status?: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<PaginatedResponse<ManualTaskDraft>> => {
+  const params: Record<string, any> = { page, page_size: pageSize };
+  if (status) params.status = status;
+  const response = await axiosInstance.get('/tasks/drafts/', { params });
+  
+  if (response.data && response.data.data && Array.isArray(response.data.data)) {
+    return response.data;
+  }
+  
+  return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
 };
 
 export const publishDraft = async (draftId: string, request: DraftPublishRequest): Promise<{ success: boolean; draft_id: string; published_platforms: string[]; cdn_url: string }> => {
-  const response = await axiosInstance.post(`/tasks/drafts/${draftId}/publish`, request);
+  const response = await axiosInstance.post(`/tasks/drafts/${draftId}/publish/`, request);
   return response.data;
 };
 
 export const discardDraft = async (draftId: string): Promise<{ success: boolean; draft_id: string }> => {
-  const response = await axiosInstance.post(`/tasks/drafts/${draftId}/discard`);
+  const response = await axiosInstance.post(`/tasks/drafts/${draftId}/discard/`);
   return response.data;
 };

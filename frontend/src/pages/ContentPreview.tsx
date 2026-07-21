@@ -1,59 +1,146 @@
 import { useState, useEffect } from 'react';
-import { Play, RefreshCw, Image as ImageIcon, FileText, Image } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import { generateContent, generateCopywriting, generateImage, getGenerateStatus } from '@/api/generate';
-import type { GenerateRequest, GenerateStatus } from '@/api/generate';
+import type { GenerateRequest, GenerateStatus, DimensionInfo } from '@/api/generate';
+import { publishContent } from '@/api/publish';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+const STORAGE_KEY = 'bebcare_content_preview_state';
+
+interface PreviewState {
+  selectedProduct: string;
+  selectedPlatforms: string[];
+  useSceneReference: boolean;
+  generatedContent: { text: string; image: string; dimensions?: DimensionInfo; image_prompt?: string } | null;
+  taskId: string | null;
+  isGenerating: boolean;
+  generatingType: string | null;
+}
+
+const loadStateFromStorage = (): PreviewState => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to load state from localStorage:', e);
+  }
+  return {
+    selectedProduct: '',
+    selectedPlatforms: ['instagram'],
+    useSceneReference: false,
+    generatedContent: null,
+    taskId: null,
+    isGenerating: false,
+    generatingType: null,
+  };
+};
+
+const saveStateToStorage = (state: PreviewState) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to save state to localStorage:', e);
+  }
+};
 
 export default function ContentPreview() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const savedState = loadStateFromStorage();
+  
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>('');
-  const [platform, setPlatform] = useState('instagram');
-  const [useSceneReference, setUseSceneReference] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingType, setGeneratingType] = useState<string | null>(null);
-  const [taskId, setTaskId] = useState<string | null>(null);
+  
+  const urlProductId = searchParams.get('product_id');
+  const urlPlatforms = searchParams.get('platform')?.split(',') || [];
+  
+  const initialProduct = urlProductId || savedState.selectedProduct;
+  const initialPlatforms = urlPlatforms.length > 0 ? urlPlatforms.filter(p => PLATFORMS.includes(p)) : savedState.selectedPlatforms;
+  
+  const [selectedProduct, setSelectedProduct] = useState<string>(initialProduct);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(initialPlatforms);
+  const [useSceneReference, setUseSceneReference] = useState(savedState.useSceneReference);
+  const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
+  const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
+  const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus | null>(null);
-  const [generatedContent, setGeneratedContent] = useState<{ text: string; image: string } | null>(null);
+  const [generatedContent, setGeneratedContent] = useState<{ text: string; image: string; dimensions?: DimensionInfo; image_prompt?: string } | null>(savedState.generatedContent);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
   }, []);
 
   useEffect(() => {
+    saveStateToStorage({
+      selectedProduct,
+      selectedPlatforms,
+      useSceneReference,
+      generatedContent,
+      taskId,
+      isGenerating,
+      generatingType,
+    });
+  }, [selectedProduct, selectedPlatforms, useSceneReference, generatedContent, taskId, isGenerating, generatingType]);
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (selectedProduct) {
+      params['product_id'] = selectedProduct;
+    }
+    if (selectedPlatforms.length > 0) {
+      params['platform'] = selectedPlatforms.join(',');
+    }
+    setSearchParams(params);
+  }, [selectedProduct, selectedPlatforms, setSearchParams]);
+
+  useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (taskId && isGenerating) {
-      interval = setInterval(async () => {
+      const checkStatus = async () => {
         try {
           const status = await getGenerateStatus(taskId);
           setGenerateStatus(status);
           
           if (status.status === 'SUCCESS') {
             setIsGenerating(false);
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
             if (status.result) {
+              console.log('Received generation result:', status.result);
+              console.log('Dimensions received:', status.result.dimensions);
+              console.log('Image prompt received:', status.result.image_prompt);
               setGeneratedContent({
                 text: status.result.text || generatedContent?.text || '',
-                image: status.result.image || generatedContent?.image || ''
+                image: status.result.image || generatedContent?.image || '',
+                dimensions: status.result.dimensions,
+                image_prompt: status.result.image_prompt
               });
             }
           } else if (status.status === 'FAILURE') {
             setIsGenerating(false);
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
           }
         } catch (error) {
           console.error('Failed to check status:', error);
+          setIsGenerating(false);
+          if (interval) clearInterval(interval);
         }
-      }, 3000);
+      };
+      
+      checkStatus();
+      interval = setInterval(checkStatus, 1000);
     }
     return () => clearInterval(interval);
   }, [taskId, isGenerating, generatedContent]);
 
   const loadProducts = async () => {
     try {
-      const data = await getProducts();
+      const response = await getProducts(1, 100);
+      const data = response.data;
       setProducts(data);
       if (data.length > 0) {
         setSelectedProduct(data[0].product_id);
@@ -64,15 +151,18 @@ export default function ContentPreview() {
   };
 
   const handleGenerate = async (type: 'all' | 'copywriting' | 'image') => {
-    if (!selectedProduct) return;
+    if (!selectedProduct || selectedPlatforms.length === 0) return;
+    if (isGenerating) return;
     
     setIsGenerating(true);
     setGeneratingType(type);
+    setPublishStatus(null);
+    setTaskId(null);
     
     if (type === 'copywriting') {
-      setGeneratedContent(prev => ({ text: '', image: prev?.image || '' }));
+      setGeneratedContent(prev => ({ text: '', image: prev?.image || '', dimensions: prev?.dimensions, image_prompt: prev?.image_prompt }));
     } else if (type === 'image') {
-      setGeneratedContent(prev => ({ text: prev?.text || '', image: '' }));
+      setGeneratedContent(prev => ({ text: prev?.text || '', image: '', dimensions: prev?.dimensions, image_prompt: prev?.image_prompt }));
     } else {
       setGeneratedContent(null);
     }
@@ -82,7 +172,7 @@ export default function ContentPreview() {
     try {
       const request: GenerateRequest = {
         product_id: selectedProduct,
-        platform,
+        platform: selectedPlatforms[0],
         style_hint: 'storytelling',
         use_scene_reference: useSceneReference,
       };
@@ -100,7 +190,39 @@ export default function ContentPreview() {
       console.error('Failed to generate content:', error);
       setIsGenerating(false);
       setGeneratingType(null);
+      setTaskId(null);
     }
+  };
+
+  const handlePublish = async () => {
+    if (!generatedContent || !generatedContent.text || selectedPlatforms.length === 0) return;
+    
+    setIsPublishing(true);
+    setPublishStatus(null);
+    
+    try {
+      await publishContent(
+        generatedContent.text,
+        generatedContent.image,
+        selectedPlatforms
+      );
+      setPublishStatus('success');
+    } catch (error) {
+      console.error('Failed to publish content:', error);
+      setPublishStatus('failed');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const togglePlatform = (platform: string) => {
+    setSelectedPlatforms(prev => {
+      if (prev.includes(platform)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(p => p !== platform);
+      }
+      return [...prev, platform];
+    });
   };
 
   return (
@@ -131,15 +253,15 @@ export default function ContentPreview() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">发布平台</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">发布平台 (多选)</label>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((p) => (
                 <button
                   key={p}
-                  onClick={() => setPlatform(p)}
+                  onClick={() => togglePlatform(p)}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    platform === p
-                      ? 'bg-indigo-600 text-white'
+                    selectedPlatforms.includes(p)
+                      ? 'bg-indigo-600 text-white shadow-md'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -150,30 +272,29 @@ export default function ContentPreview() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm font-medium text-gray-700">启用场景图像参考</span>
-              <button
-                onClick={() => setUseSceneReference(!useSceneReference)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  useSceneReference ? 'bg-indigo-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    useSceneReference ? 'translate-x-7' : 'translate-x-1'
-                  }`}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-700">启用场景图像参考</div>
+                <p className="text-xs text-gray-500 mt-1">开启后将从场景图像中选择参考图，结合产品图像进行生成</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useSceneReference}
+                  onChange={() => setUseSceneReference(!useSceneReference)}
+                  className="sr-only peer"
                 />
-              </button>
-            </label>
-            <p className="text-xs text-gray-500 mt-2">开启后将从场景图像中选择参考图，结合产品图像进行生成</p>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-3">
             <button
               onClick={() => handleGenerate('all')}
-              disabled={isGenerating || !selectedProduct}
+              disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                isGenerating || !selectedProduct
+                isGenerating || !selectedProduct || selectedPlatforms.length === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
@@ -194,9 +315,9 @@ export default function ContentPreview() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleGenerate('copywriting')}
-                disabled={isGenerating || !selectedProduct}
+                disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                  isGenerating || !selectedProduct
+                  isGenerating || !selectedProduct || selectedPlatforms.length === 0
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
@@ -215,9 +336,9 @@ export default function ContentPreview() {
 
               <button
                 onClick={() => handleGenerate('image')}
-                disabled={isGenerating || !selectedProduct}
+                disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                  isGenerating || !selectedProduct
+                  isGenerating || !selectedProduct || selectedPlatforms.length === 0
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-orange-600 text-white hover:bg-orange-700'
                 }`}
@@ -234,6 +355,30 @@ export default function ContentPreview() {
                 )}
               </button>
             </div>
+
+            {generatedContent && generatedContent.text && (
+              <button
+                onClick={handlePublish}
+                disabled={isPublishing || selectedPlatforms.length === 0}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  isPublishing || selectedPlatforms.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {isPublishing ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    发布中...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    发布到 {selectedPlatforms.join(', ')}
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {generateStatus && (
@@ -248,6 +393,75 @@ export default function ContentPreview() {
                 {generateStatus.status === 'SUCCESS' ? '生成成功' :
                  generateStatus.status === 'FAILURE' ? '生成失败' : '处理中...'}
               </p>
+            </div>
+          )}
+
+          {publishStatus && (
+            <div className={`p-4 rounded-lg flex items-center gap-2 ${
+              publishStatus === 'success' ? 'bg-green-50' : 'bg-red-50'
+            }`}>
+              {publishStatus === 'success' ? (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="font-medium text-green-700">发布成功</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-red-700">发布失败</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {generatedContent && (generatedContent.dimensions || generatedContent.image_prompt) && (
+            <div className="border-2 border-red-400 rounded-xl p-4 bg-white">
+              {generatedContent.dimensions && (
+                <>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    维度信息
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">场景</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.scene}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">光线</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.lighting}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">风格</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.style}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">构图</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.composition}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">细节</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.details}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">画质</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.quality}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12">视角</span>
+                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.viewpoint}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {generatedContent.image_prompt && (
+                <div className="mt-3">
+                  <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                  <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap">
+                    {generatedContent.image_prompt}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

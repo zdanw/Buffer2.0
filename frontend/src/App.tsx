@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import AssetManagement from './pages/AssetManagement';
+import DimensionManagement from './pages/DimensionManagement';
 import TaskConfiguration from './pages/TaskConfiguration';
 import PendingRelease from './pages/PendingRelease';
 import ContentPreview from './pages/ContentPreview';
@@ -10,9 +11,30 @@ import UserManagement from './pages/UserManagement';
 import Login from './pages/Login';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
-import './App.css';
+
+const TAB_ROUTES: Record<string, string> = {
+  'assets': '/assets',
+  'dimensions': '/dimensions',
+  'tasks': '/tasks',
+  'pending': '/pending',
+  'preview': '/preview',
+  'calendar': '/calendar',
+  'users': '/users',
+};
+
+const ROUTE_TABS: Record<string, string> = {
+  '/assets': 'assets',
+  '/dimensions': 'dimensions',
+  '/tasks': 'tasks',
+  '/pending': 'pending',
+  '/preview': 'preview',
+  '/calendar': 'calendar',
+  '/users': 'users',
+};
 
 function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('assets');
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,10 +53,26 @@ function AppContent() {
     fetchCurrentUser();
   }, []);
 
+  useEffect(() => {
+    const path = location.pathname;
+    const tab = ROUTE_TABS[path] || 'assets';
+    setActiveTab(tab);
+  }, [location.pathname]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const route = TAB_ROUTES[tab];
+    if (route) {
+      navigate(route);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'assets':
         return <AssetManagement />;
+      case 'dimensions':
+        return <DimensionManagement />;
       case 'tasks':
         return <TaskConfiguration />;
       case 'pending':
@@ -62,7 +100,7 @@ function AppContent() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         isAdmin={currentUser?.is_admin || false}
       />
       <main className="flex-1 overflow-auto">
@@ -85,6 +123,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Navigate to="/assets" />} />
         <Route
           path="/*"
           element={

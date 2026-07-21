@@ -4,8 +4,7 @@ emoji: 🤖
 colorFrom: blue
 colorTo: purple
 sdk: docker
-sdk_version: 4.36.1
-app_file: app.py
+app_port: 7860
 ---
 
 # Bebcare AI Studio API
@@ -20,58 +19,61 @@ uvicorn app:app --host 0.0.0.0 --port 7860
 
 ## 环境变量
 
-```env
-# 数据库配置
-DATABASE_URL=sqlite:///./bebcare.db
+完整模板见 `.env.example`。要点：
 
-# DeepSeek API配置
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_API_URL=https://api.deepseek.com/v1
+| 变量 | 本地 | 生产（Supabase） |
+|------|------|------------------|
+| `APP_ENV` | `development` | `production` |
+| `DATABASE_URL` | 可省略（默认 SQLite `bebcare.db`） | Supabase `postgresql://...`（Session 5432 + `sslmode=require`） |
+| `AUTO_MIGRATE` | `true` | 单实例可 `true`；多实例建议 `false` 并由 CI 跑迁移 |
+| `MAX_CONCURRENT_JOBS` | `1`～`2` | HF Space 建议 `1`；错开 cron，勿多任务同一分钟触发 |
+| `SCHEDULER_MAX_WORKERS` | `2` | 线程池大小 |
+| `DB_POOL_SIZE` | `3` | Supabase 免费连接有限，勿盲目加大 |
+| `ENABLE_CLIP` | `false` | 图文向量/匹配；开启需 `requirements-clip.txt` + Long-CLIP |
 
-# Doubao API配置
-DOUBAO_API_KEY=your_doubao_api_key
-DOUBAO_API_URL=https://ark.cn-beijing.volces.com/api/v3/images/generations
-DOUBAO_MODEL_ID=your_model_id
+生产环境若仍使用 SQLite，启动会直接报错。
 
-# Buffer API配置
-BUFFER_API_TOKEN=your_buffer_api_token
+## 数据库迁移（Alembic）
 
-# GitHub图床配置
-GITHUB_TOKEN=your_github_token
-GITHUB_USERNAME=your_github_username
-GITHUB_REPO=your_github_repo
-GITHUB_BRANCH=main
+本地与生产共用同一套 migration（`migrations/versions/`）。
 
-# 安全配置
-SECRET_KEY=your-secret-key-here
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+```bash
+# 安装依赖后，在 backend 目录
+pip install -r requirements.txt
 
-# 管理员账户配置（可选）
-ADMIN_USERNAME=admin
-ADMIN_EMAIL=admin@bebcare.com
-ADMIN_PASSWORD=  # 留空则自动生成随机密码
+# 手动升级到最新（可选；默认启动时 AUTO_MIGRATE=true 会自动执行）
+alembic upgrade head
 
-# 应用配置
-APP_HOST=0.0.0.0
-APP_PORT=7860
-LOG_LEVEL=INFO
+# 新建迁移（改完 models 后）
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
 ```
+
+已有本地 SQLite（以前靠 `create_all`）首次切换时，启动会自动 `stamp`；也可手动：
+
+```bash
+python scripts/stamp_existing_db.py
+```
+
+上线到 Supabase：在控制台拿到 Session 连接串 → 写入生产 `DATABASE_URL` → `APP_ENV=production` → 部署前/启动时执行 `alembic upgrade head`。
 
 ## API 接口
 
-- `POST /api/auth/login` - 用户登录
-- `GET /api/auth/me` - 获取当前用户信息
-- `GET /api/auth/users` - 获取用户列表
-- `POST /api/auth/users` - 创建用户
-- `PUT /api/auth/users/{user_id}` - 更新用户
-- `DELETE /api/auth/users/{user_id}` - 删除用户
+前缀为 `/v1`：
+
+- `POST /v1/auth/login/` - 用户登录
+- `GET /v1/auth/me` - 获取当前用户信息
+- `GET /v1/auth/users` - 获取用户列表
+- `POST /v1/auth/users` - 创建用户
+- `PUT /v1/auth/users/{user_id}` - 更新用户
+- `DELETE /v1/auth/users/{user_id}` - 删除用户
 
 ## 技术栈
 
 - FastAPI 0.110.0
 - Uvicorn
-- SQLAlchemy 2.0
+- SQLAlchemy 2.0 + Alembic
+- PostgreSQL（生产 / Supabase）或 SQLite（本地）
 - ChromaDB
 - PyTorch
 - Transformers

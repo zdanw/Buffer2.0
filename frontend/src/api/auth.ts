@@ -21,6 +21,7 @@ export interface UpdateUserData {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
 }
 
@@ -38,7 +39,7 @@ export const login = async (data: LoginData): Promise<TokenResponse> => {
   params.append('username', data.username);
   params.append('password', data.password);
   
-  const response = await axiosInstance.post('/auth/login', params, {
+  const response = await axiosInstance.post('/auth/login/', params, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
@@ -59,7 +60,7 @@ export const listUsers = async (): Promise<UserResponse[]> => {
 };
 
 export const createUser = async (data: CreateUserData): Promise<UserResponse> => {
-  const response = await axiosInstance.post('/auth/users', data);
+  const response = await axiosInstance.post('/auth/users/', data);
   return response.data;
 };
 
@@ -86,17 +87,31 @@ export const removeToken = (): void => {
   localStorage.removeItem('access_token');
 };
 
-export const isAuthenticated = (): boolean => {
-  return !!getToken();
+export const getRefreshToken = (): string | null => {
+  return localStorage.getItem('refresh_token');
 };
 
-export const getUserRole = (): boolean | null => {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.is_admin || false;
-  } catch {
-    return null;
+export const setRefreshToken = (token: string): void => {
+  localStorage.setItem('refresh_token', token);
+};
+
+export const removeRefreshToken = (): void => {
+  localStorage.removeItem('refresh_token');
+};
+
+export const clearAuth = (): void => {
+  removeToken();
+  removeRefreshToken();
+};
+
+export const refreshToken = async (): Promise<TokenResponse> => {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
   }
+  
+  const response = await axiosInstance.post('/auth/refresh/', {
+    refresh_token: refreshToken,
+  });
+  return response.data;
 };

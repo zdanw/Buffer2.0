@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.db
+.env
+chroma_data/
+Long-CLIP/
+*.md
+!README.md
+.dockerignore
+Dockerfile
+requirements-clip.txt

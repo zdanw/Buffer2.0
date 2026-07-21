@@ -1,0 +1,8 @@
+﻿.env
+__pycache__/
+*.pyc
+*.pyo
+chroma_data/
+Long-CLIP/
+*.db
+.DS_Store

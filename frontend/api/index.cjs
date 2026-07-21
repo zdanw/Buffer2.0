@@ -1,15 +1,44 @@
 const https = require('https');
 
-const TARGET_HOST = 'zongsechenai-bebcare-buffer.hf.space';
+/** 仅 hostname；若误填带协议的 URL 会剥掉，避免代理走错。 */
+function resolveTargetHost() {
+  const raw = (process.env.HF_SPACE_HOST || 'zongsechenai-bebcare-buffer.hf.space').trim();
+  return raw.replace(/^https?:\/\//i, '').split('/')[0];
+}
+
+const TARGET_HOST = resolveTargetHost();
 const TIMEOUT_MS = 30000;
+
+function resolveAllowedOrigin(req) {
+  const configured = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s !== '*');
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && configured.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+  // Same-origin browser calls often omit Origin; fall back to first configured origin for ACAO.
+  return configured[0] || '';
+}
+
+function corsHeaders(req) {
+  const origin = resolveAllowedOrigin(req);
+  const headers = {
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+  if (origin) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+    headers['Vary'] = 'Origin';
+  }
+  return headers;
+}
 
 module.exports = (req, res) => {
   if (req.method === 'OPTIONS') {
-    res.writeHead(200, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    });
+    res.writeHead(200, corsHeaders(req));
     res.end();
     return;
   }
@@ -50,16 +79,17 @@ module.exports = (req, res) => {
     proxyRes.on('end', () => {
       const responseBody = Buffer.concat(chunks).toString('utf8');
       console.log('HF Space response body:', responseBody.substring(0, 500));
-      console.log('HF Space response headers:', JSON.stringify(proxyRes.headers));
 
       const responseHeaders = {};
       for (const [key, value] of Object.entries(proxyRes.headers)) {
+        const lower = key.toLowerCase();
+        if (lower.startsWith('access-control-')) {
+          continue;
+        }
         responseHeaders[key] = value;
       }
-      responseHeaders['access-control-allow-origin'] = '*';
-      responseHeaders['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-      responseHeaders['access-control-allow-headers'] = 'Content-Type, Authorization';
-      
+      Object.assign(responseHeaders, corsHeaders(req));
+
       if (!responseHeaders['content-type']) {
         responseHeaders['content-type'] = 'application/json; charset=utf-8';
       }
@@ -74,7 +104,7 @@ module.exports = (req, res) => {
     proxyReq.destroy();
     res.writeHead(504, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      ...corsHeaders(req),
     });
     res.end(JSON.stringify({ error: 'Gateway Timeout', message: '服务正在启动中，请稍后重试' }));
   });
@@ -83,7 +113,7 @@ module.exports = (req, res) => {
     console.error('Proxy error:', err.message);
     res.writeHead(500, {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      ...corsHeaders(req),
     });
     res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));
   });

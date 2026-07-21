@@ -1,0 +1,9 @@
+# Optional CLIP / Torch stack — only needed when ENABLE_CLIP=true
+# Install: pip install -r requirements-clip.txt
+torch==2.1.2
+torchvision
+transformers==4.37.2
+scikit-learn==1.4.0
+ftfy
+tqdm==4.66.2
+accelerate==0.27.2

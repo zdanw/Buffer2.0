@@ -1,11 +1,14 @@
 import axios, { type AxiosRequestConfig } from 'axios';
-import { getToken, removeToken } from './auth';
+import { getToken, setToken, clearAuth, refreshToken as apiRefreshToken } from './auth';
 
 interface RetryConfig extends AxiosRequestConfig {
   retry?: number;
   retryDelay?: number;
+  _retry?: boolean;
 }
 
+// 始终同源 /v1 → Vercel api/index.cjs（https）→ HF Space。
+// 禁止使用 VITE_BACKEND_URL 等绝对地址，否则 HTTPS 前端会 Mixed Content。
 const axiosInstance = axios.create({
   baseURL: '/v1',
   timeout: 60000,
@@ -23,6 +26,7 @@ axiosInstance.interceptors.request.use(
     const cfg = config as RetryConfig;
     cfg.retry = cfg.retry || 0;
     cfg.retryDelay = cfg.retryDelay || 3000;
+    cfg._retry = cfg._retry || false;
     return config;
   },
   (error) => {
@@ -51,12 +55,28 @@ axiosInstance.interceptors.response.use(
     
     if (error.response?.status === 401) {
       const requestUrl = config?.url || '';
-      const authPaths = ['/auth/login', '/auth/register', '/auth/me'];
+      const authPaths = ['/auth/login', '/auth/register', '/auth/refresh'];
       const isAuthPath = authPaths.some(path => requestUrl.includes(path));
       
-      if (!isAuthPath) {
-        console.log('Token expired, redirecting to login');
-        removeToken();
+      if (!isAuthPath && !config._retry) {
+        try {
+          console.log('Attempting to refresh token...');
+          const newToken = await apiRefreshToken();
+          if (newToken && newToken.access_token) {
+            setToken(newToken.access_token);
+            config._retry = true;
+            if (!config.headers) {
+              config.headers = {};
+            }
+            config.headers.Authorization = `Bearer ${newToken.access_token}`;
+            return axiosInstance(config);
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+        
+        console.log('Token expired or refresh failed, redirecting to login');
+        clearAuth();
         window.location.href = '/login';
       }
     }

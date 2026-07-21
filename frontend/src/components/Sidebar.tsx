@@ -1,4 +1,4 @@
-import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users } from 'lucide-react';
+import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette } from 'lucide-react';
 import { removeToken } from '../api/auth';
 
 interface SidebarProps {
@@ -9,6 +9,7 @@ interface SidebarProps {
 
 const baseMenuItems = [
   { id: 'assets', label: '素材管理', icon: Image },
+  { id: 'dimensions', label: '维度管理', icon: Palette },
   { id: 'tasks', label: '任务配置', icon: Settings },
   { id: 'pending', label: '待发布', icon: Clock },
   { id: 'preview', label: '内容预览', icon: Sparkles },

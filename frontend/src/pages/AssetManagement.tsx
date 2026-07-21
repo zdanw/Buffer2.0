@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw } from 'lucide-react';
-import type { Product, ProductCreate } from '@/api/products';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, Package, FolderOpen, FileText, Sparkles, Megaphone } from 'lucide-react';
+import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import type { DimensionType } from '@/api/dimensions';
+import { getDimensionTypes } from '@/api/dimensions';
+import Pagination from '@/components/Pagination';
 
 export default function AssetManagement() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -10,6 +13,10 @@ export default function AssetManagement() {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [dimensionTypes, setDimensionTypes] = useState<DimensionType[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState<ProductCreate>({
     product_name: '',
     category: '',
@@ -20,18 +27,38 @@ export default function AssetManagement() {
 
   useEffect(() => {
     loadProducts();
+    loadDimensionTypes();
   }, []);
 
-  const loadProducts = async () => {
-    setLoading(true);
+  const loadDimensionTypes = async () => {
     try {
-      const data = await getProducts();
-      setProducts(data);
+      const data = await getDimensionTypes();
+      setDimensionTypes(data);
+    } catch (error) {
+      console.error('Failed to load dimension types:', error);
+    }
+  };
+
+  const loadProducts = async (page: number = 1, newPageSize?: number) => {
+    setLoading(true);
+    const size = newPageSize ?? pageSize;
+    try {
+      const response: PaginatedResponse<Product> = await getProducts(page, size);
+      setProducts(response.data);
+      setTotal(response.pagination.total);
+      setCurrentPage(response.pagination.current);
+      if (newPageSize) {
+        setPageSize(newPageSize);
+      }
     } catch (error) {
       console.error('Failed to load products:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    loadProducts(1, newPageSize);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +155,7 @@ export default function AssetManagement() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={loadProducts}
+            onClick={() => loadProducts(1)}
             disabled={loading}
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -174,6 +201,17 @@ export default function AssetManagement() {
                 ))
               )}
             </div>
+            {total > 0 && (
+              <div className="mt-4">
+                <Pagination
+                  current={currentPage}
+                  total={total}
+                  pageSize={pageSize}
+                  onChange={loadProducts}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,6 +331,34 @@ export default function AssetManagement() {
                   </div>
                 </div>
               </div>
+
+              {Array.isArray(selectedProduct.dimensions) && selectedProduct.dimensions.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
+                    <Palette className="w-5 h-5" />
+                    关联维度
+                  </h4>
+                  <div className="grid grid-cols-7 gap-4">
+                    {dimensionTypes.map((dimType) => {
+                      const dims = selectedProduct.dimensions.filter(d => d.dimension_type === dimType.name);
+                      return (
+                        <div key={dimType.name} className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs font-medium text-gray-500 mb-2">{dimType.display_name}</div>
+                          <div className="space-y-1">
+                            {dims.map((dim) => (
+                              <div key={dim.id} className="text-sm text-gray-700 truncate" title={dim.name}>
+                                {dim.is_custom && <span className="text-red-500">*</span>}
+                                {dim.name}
+                              </div>
+                            ))}
+                            {dims.length === 0 && <div className="text-xs text-gray-400">-</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -318,7 +384,13 @@ export default function AssetManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span>产品名称</span>
+                      <TooltipWrapper icon={<Package className="w-4 h-4" />} text="产品的名称，用于识别和展示" />
+                      
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={formData.product_name}
@@ -328,7 +400,13 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span>分类</span>
+                      <TooltipWrapper icon={<FolderOpen className="w-4 h-4" />} text="产品所属分类，如Audio Monitor、Night Lights" />
+                      
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={formData.category}
@@ -338,7 +416,13 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span>描述</span>
+                      <TooltipWrapper icon={<FileText className="w-4 h-4" />} text="产品的详细描述，用于生成文案和图像提示词" />
+                      
+                    </div>
+                  </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -347,7 +431,13 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">卖点</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span>卖点</span>
+                      <TooltipWrapper icon={<Sparkles className="w-4 h-4" />} text="产品的核心卖点，用逗号分隔多个卖点，用于生成文案" />
+                      
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={(formData.selling_points || []).join(',')}
@@ -357,7 +447,13 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">品牌调性</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span>品牌调性</span>
+                      <TooltipWrapper icon={<Megaphone className="w-4 h-4" />} text="品牌的语言风格和调性，影响生成文案的语气" />
+                      
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={formData.brand_voice}
@@ -407,5 +503,27 @@ function Image(props: { className?: string }) {
     <svg className={props.className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
+  );
+}
+
+function TooltipWrapper(props: { icon: React.ReactNode; text: string }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  return (
+    <div className="relative group">
+      <span 
+        className="cursor-help text-gray-500 hover:text-indigo-600 transition-colors"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {props.icon}
+      </span>
+      {showTooltip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50 whitespace-nowrap">
+          {props.text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+        </div>
+      )}
+    </div>
   );
 }

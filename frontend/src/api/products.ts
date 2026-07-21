@@ -1,4 +1,5 @@
 import axiosInstance from './axiosInstance';
+import type { ProductDimension } from './dimensions';
 
 export interface Product {
   product_id: string;
@@ -11,6 +12,7 @@ export interface Product {
   updated_at: string;
   product_images: ProductImage[];
   scene_images: ProductImage[];
+  dimensions: ProductDimension[];
 }
 
 export interface ProductImage {
@@ -31,37 +33,29 @@ export interface ProductCreate {
   brand_voice?: string;
 }
 
-export const getProducts = async (): Promise<Product[]> => {
-  const response = await axiosInstance.get('/products/', { responseType: 'json' });
-  console.log('getProducts response status:', response.status);
-  console.log('getProducts response headers:', JSON.stringify(response.headers).substring(0, 300));
-  console.log('getProducts data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
+export interface Pagination {
+  current: number;
+  page_size: number;
+  total: number;
+  pages: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: Pagination;
+}
+
+export const getProducts = async (page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Product>> => {
+  const response = await axiosInstance.get('/products/', { 
+    params: { page, page_size: pageSize },
+    responseType: 'json' 
+  });
   
-  if (Array.isArray(response.data)) {
-    console.log('getProducts: Got array with', response.data.length, 'items');
+  if (response.data && response.data.data && Array.isArray(response.data.data)) {
     return response.data;
   }
   
-  if (typeof response.data === 'string') {
-    console.log('getProducts: Attempting to parse string response');
-    try {
-      let trimmed = response.data.trim();
-      if (trimmed.startsWith('\uFEFF')) {
-        console.log('getProducts: Removing BOM');
-        trimmed = trimmed.slice(1);
-      }
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        console.log('getProducts: Parsed array with', parsed.length, 'items');
-        return parsed;
-      }
-    } catch (e) {
-      console.error('getProducts: Failed to parse JSON:', e);
-    }
-  }
-  
-  console.error('getProducts: Expected array, got:', typeof response.data, response.data);
-  return [];
+  return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
 };
 
 export const getCategories = async (): Promise<string[]> => {
@@ -103,11 +97,6 @@ export const uploadProductImages = async (productId: string, files: File[], imag
     console.error('Upload error:', error.response?.data || error.message);
     throw error;
   }
-};
-
-export const getProductImages = async (productId: string): Promise<{ product_id: string; images: ProductImage[] }> => {
-  const response = await axiosInstance.get(`/products/${productId}/images`);
-  return response.data;
 };
 
 export const deleteProductImage = async (productId: string, imageId: string): Promise<void> => {
