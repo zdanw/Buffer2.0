@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, setToken, setRefreshToken } from '../api/auth';
 import type { LoginData } from '../api/auth';
+import {
+  LIMITS,
+  alertValidationErrors,
+  maxLen,
+  minLen,
+  required,
+} from '@/lib/formValidation';
 
 function Login() {
   const navigate = useNavigate();
@@ -13,6 +20,17 @@ function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (
+      alertValidationErrors([
+        required('用户名', username),
+        maxLen('用户名', username, LIMITS.username.max),
+        required('密码', password),
+        minLen('密码', password, LIMITS.password.min),
+        maxLen('密码', password, LIMITS.password.max),
+      ])
+    ) {
+      return;
+    }
     setLoading(true);
 
     try {
@@ -68,6 +86,7 @@ function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
+              maxLength={LIMITS.username.max}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="请输入用户名"
             />
@@ -82,7 +101,8 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={LIMITS.password.min}
+              maxLength={LIMITS.password.max}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="请输入密码"
             />

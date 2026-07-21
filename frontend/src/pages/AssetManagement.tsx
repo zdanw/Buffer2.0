@@ -5,6 +5,12 @@ import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, u
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import {
+  LIMITS,
+  alertValidationErrors,
+  maxLen,
+  required,
+} from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
 
 export default function AssetManagement() {
@@ -63,6 +69,20 @@ export default function AssetManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const sellingJoined = (formData.selling_points || []).filter(Boolean).join(',');
+    if (
+      alertValidationErrors([
+        required('产品名称', formData.product_name),
+        maxLen('产品名称', formData.product_name, LIMITS.productName),
+        required('分类', formData.category),
+        maxLen('分类', formData.category, LIMITS.category),
+        maxLen('描述', formData.description, LIMITS.description),
+        maxLen('卖点', sellingJoined, LIMITS.sellingPointsJoined),
+        maxLen('品牌调性', formData.brand_voice, LIMITS.brandVoice),
+      ])
+    ) {
+      return;
+    }
     try {
       if (isEdit && selectedProduct) {
         const updated = await updateProduct(selectedProduct.product_id, formData);
@@ -85,6 +105,7 @@ export default function AssetManagement() {
       setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
     } catch (error) {
       console.error('Failed to save product:', error);
+      alert('保存失败，请检查输入后重试');
     }
   };
 
@@ -409,6 +430,7 @@ export default function AssetManagement() {
                     onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
+                    maxLength={LIMITS.productName}
                   />
                 </div>
                 <div>
@@ -425,6 +447,7 @@ export default function AssetManagement() {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
+                    maxLength={LIMITS.category}
                   />
                 </div>
                 <div>
@@ -440,7 +463,11 @@ export default function AssetManagement() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     rows={3}
+                    maxLength={LIMITS.description}
                   />
+                  <p className="mt-1 text-xs text-gray-400 text-right">
+                    {(formData.description || '').length}/{LIMITS.description}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -456,13 +483,17 @@ export default function AssetManagement() {
                     onChange={(e) => setFormData({ ...formData, selling_points: e.target.value.split(',').map(t => t.trim()) })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="用逗号分隔"
+                    maxLength={LIMITS.sellingPointsJoined}
                   />
+                  <p className="mt-1 text-xs text-gray-400 text-right">
+                    {(formData.selling_points || []).filter(Boolean).join(',').length}/{LIMITS.sellingPointsJoined}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <div className="flex items-center gap-2">
                       <span>品牌调性</span>
-                      <TooltipWrapper icon={<Megaphone className="w-4 h-4" />} text="品牌的语言风格和调性，影响生成文案的语气" />
+                      <TooltipWrapper icon={<Megaphone className="w-4 h-4" />} text={`品牌的语言风格和调性，影响生成文案的语气（最多 ${LIMITS.brandVoice} 字）`} />
                       
                     </div>
                   </label>
@@ -471,7 +502,11 @@ export default function AssetManagement() {
                     value={formData.brand_voice}
                     onChange={(e) => setFormData({ ...formData, brand_voice: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    maxLength={LIMITS.brandVoice}
                   />
+                  <p className={`mt-1 text-xs text-right ${(formData.brand_voice || '').length >= LIMITS.brandVoice ? 'text-red-500' : 'text-gray-400'}`}>
+                    {(formData.brand_voice || '').length}/{LIMITS.brandVoice}
+                  </p>
                 </div>
               </div>
 

@@ -3,6 +3,13 @@ import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-reac
 import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities } from '@/api/dimensions';
 import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import {
+  LIMITS,
+  alertValidationErrors,
+  itemIdFormat,
+  maxLen,
+  required,
+} from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
 
 type CompatOptions = Record<string, { id: string; name: string }[]>;
@@ -275,6 +282,18 @@ export default function DimensionManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (
+      alertValidationErrors([
+        required('产品类型', formData.product_type),
+        maxLen('产品类型', formData.product_type, LIMITS.productType),
+        required('维度类型', formData.dimension_type),
+        isEdit ? null : itemIdFormat(formData.item_id),
+        required('名称', formData.name),
+        maxLen('名称', formData.name, LIMITS.dimensionName),
+      ])
+    ) {
+      return;
+    }
     setSaving(true);
     try {
       const submitData = { ...formData };
@@ -616,6 +635,7 @@ export default function DimensionManagement() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
                     disabled={isEdit}
+                    maxLength={LIMITS.dimensionItemId}
                     placeholder="如 nursery"
                   />
                 </div>
@@ -627,8 +647,12 @@ export default function DimensionManagement() {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
+                    maxLength={LIMITS.dimensionName}
                     placeholder="如 温馨婴儿房角落配有木质婴儿床"
                   />
+                  <p className="mt-1 text-xs text-gray-400 text-right">
+                    {(formData.name || '').length}/{LIMITS.dimensionName}
+                  </p>
                 </div>
                 {isEdit && (
                   <>

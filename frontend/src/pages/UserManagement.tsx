@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { listUsers, createUser, updateUser, deleteUser } from '../api/auth';
 import type { UserResponse, CreateUserData, UpdateUserData } from '../api/auth';
 import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import {
+  LIMITS,
+  alertValidationErrors,
+  emailFormat,
+  maxLen,
+  minLen,
+  required,
+} from '@/lib/formValidation';
+
 const generateRandomPassword = (): string => {
  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
  let password = '';
@@ -54,6 +63,19 @@ function UserManagement() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (
+      alertValidationErrors([
+        required('用户名', newUser.username),
+        minLen('用户名', newUser.username, LIMITS.username.min),
+        maxLen('用户名', newUser.username, LIMITS.username.max),
+        emailFormat('邮箱', newUser.email, true),
+        required('密码', newUser.password),
+        minLen('密码', newUser.password, LIMITS.password.min),
+        maxLen('密码', newUser.password, LIMITS.password.max),
+      ])
+    ) {
+      return;
+    }
 
     try {
       const userData = {
@@ -87,6 +109,19 @@ function UserManagement() {
   const handleSaveEdit = async (userId: string) => {
     setError('');
     setSuccess('');
+    if (
+      alertValidationErrors([
+        emailFormat('邮箱', editForm.email, true),
+        editForm.password
+          ? minLen('密码', editForm.password, LIMITS.password.min)
+          : null,
+        editForm.password
+          ? maxLen('密码', editForm.password, LIMITS.password.max)
+          : null,
+      ])
+    ) {
+      return;
+    }
 
     try {
       const updateData: UpdateUserData = { ...editForm };
@@ -197,6 +232,7 @@ function UserManagement() {
                         type="email"
                         value={editForm.email || ''}
                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        maxLength={LIMITS.email}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
                         placeholder="可选"
                       />
@@ -206,6 +242,8 @@ function UserManagement() {
                         type="password"
                         value={editForm.password || ''}
                         onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                        minLength={LIMITS.password.min}
+                        maxLength={LIMITS.password.max}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
                         placeholder="留空则不修改"
                       />
@@ -334,7 +372,8 @@ function UserManagement() {
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                   required
-                  minLength={3}
+                  minLength={LIMITS.username.min}
+                  maxLength={LIMITS.username.max}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="请输入用户名"
                 />
@@ -348,6 +387,7 @@ function UserManagement() {
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  maxLength={LIMITS.email}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="请输入邮箱（可选）"
                 />
@@ -363,7 +403,8 @@ function UserManagement() {
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                     required
-                    minLength={6}
+                    minLength={LIMITS.password.min}
+                    maxLength={LIMITS.password.max}
                     className="w-full px-4 py-2 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="系统已自动生成密码"
                   />

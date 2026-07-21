@@ -152,7 +152,14 @@ export default function ContentPreview() {
   };
 
   const handleGenerate = async (type: 'all' | 'copywriting' | 'image') => {
-    if (!selectedProduct || selectedPlatforms.length === 0) return;
+    if (!selectedProduct) {
+      alert('请先选择产品');
+      return;
+    }
+    if (selectedPlatforms.length === 0) {
+      alert('请至少选择一个发布平台');
+      return;
+    }
     if (isGenerating) return;
     
     setIsGenerating(true);
@@ -192,11 +199,19 @@ export default function ContentPreview() {
       setIsGenerating(false);
       setGeneratingType(null);
       setTaskId(null);
+      alert('生成请求失败，请稍后重试');
     }
   };
 
   const handlePublish = async () => {
-    if (!generatedContent || !generatedContent.text || selectedPlatforms.length === 0) return;
+    if (!generatedContent || !generatedContent.text) {
+      alert('请先生成文案后再发布');
+      return;
+    }
+    if (selectedPlatforms.length === 0) {
+      alert('请至少选择一个发布平台');
+      return;
+    }
     
     setIsPublishing(true);
     setPublishStatus(null);
@@ -211,6 +226,7 @@ export default function ContentPreview() {
     } catch (error) {
       console.error('Failed to publish content:', error);
       setPublishStatus('failed');
+      alert('发布失败，请重试');
     } finally {
       setIsPublishing(false);
     }

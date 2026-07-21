@@ -4,6 +4,14 @@ import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import {
+  LIMITS,
+  alertValidationErrors,
+  cronFormat,
+  intInRange,
+  maxLen,
+  required,
+} from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
@@ -114,6 +122,46 @@ export default function TaskConfiguration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: Array<string | null> = [
+      required('任务名称', formData.name),
+      maxLen('任务名称', formData.name, LIMITS.taskName),
+      cronFormat(formData.cron),
+      formData.target_products.length === 0 ? '请至少选择一个目标产品' : null,
+      intInRange(
+        '参考图数量',
+        formData.reference_image_count,
+        LIMITS.referenceImageCount.min,
+        LIMITS.referenceImageCount.max
+      ),
+    ];
+    if (formData.mode === 'auto') {
+      if (formData.platforms.length === 0) errors.push('自动模式请至少选择一个发布平台');
+      errors.push(
+        intInRange(
+          '运行次数',
+          formData.run_count_per_execution,
+          LIMITS.runCount.min,
+          LIMITS.runCount.max
+        )
+      );
+    } else {
+      errors.push(
+        intInRange(
+          '生成图片数量',
+          formData.generate_image_count,
+          LIMITS.generateImageCount.min,
+          LIMITS.generateImageCount.max
+        ),
+        intInRange(
+          '生成文案数量',
+          formData.generate_copy_count,
+          LIMITS.generateCopyCount.min,
+          LIMITS.generateCopyCount.max
+        )
+      );
+    }
+    if (alertValidationErrors(errors)) return;
+
     try {
       if (isEdit && selectedTask) {
         const updated = await updateTask(selectedTask.task_id, formData);
@@ -134,6 +182,7 @@ export default function TaskConfiguration() {
       resetForm();
     } catch (error) {
       console.error('Failed to save task:', error);
+      alert('保存失败，请检查输入后重试');
     }
   };
 
@@ -336,6 +385,7 @@ export default function TaskConfiguration() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   required
+                  maxLength={LIMITS.taskName}
                 />
               </div>
 
@@ -398,6 +448,7 @@ export default function TaskConfiguration() {
                   }`}
                   placeholder="0 10 * * *"
                   required
+                  maxLength={LIMITS.cron}
                 />
                 {formData.cron.split(' ').filter(Boolean).length !== 5 && formData.cron && (
                   <p className="text-red-500 text-xs mt-1">CRON 表达式格式错误，需要5个字段: 分 时 日 月 周</p>
