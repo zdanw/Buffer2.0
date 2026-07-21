@@ -58,6 +58,20 @@ def _legacy_schema_needs_stamp() -> bool:
     return "users" in tables or "products" in tables
 
 
+def _ensure_missing_tables() -> None:
+    """补建 stamp/旧库缺失的表（如 product_dimensions），已存在则跳过。"""
+    import bebcare.models  # noqa: F401 — 注册 Base.metadata
+
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    missing = [t for t in Base.metadata.sorted_tables if t.name not in existing]
+    if not missing:
+        return
+    names = [t.name for t in missing]
+    logger.info("Creating missing tables (checkfirst): %s", names)
+    Base.metadata.create_all(bind=engine, tables=missing)
+
+
 def init_db() -> None:
     """启动时初始化 schema。生产禁止 SQLite；优先走 Alembic。"""
     if settings.is_production and settings.is_sqlite:
@@ -77,14 +91,16 @@ def init_db() -> None:
                 dialect,
             )
             stamp_head()
-            return
+        else:
+            logger.info(
+                "Running database migrations (env=%s, dialect=%s)",
+                settings.app_env,
+                dialect,
+            )
+            run_migrations()
 
-        logger.info(
-            "Running database migrations (env=%s, dialect=%s)",
-            settings.app_env,
-            dialect,
-        )
-        run_migrations()
+        # stamp 不会补新表；已 stamp 的旧库也可能缺 product_dimensions 等 → /products 500
+        _ensure_missing_tables()
         return
 
     # 关闭自动迁移时：仅开发环境允许 create_all 兜底
