@@ -207,7 +207,7 @@ def interactive_test():
 
     platforms = ["instagram", "facebook", "twitter"]
     styles = ["storytelling", "lifestyle", "minimalist"]
-    product_types = ["default", "audio_monitor", "air_purifier", "video_motion"]
+    product_types = ["Night Lights", "Audio Monitor", "Air Purifiers", "Video Monitor"]
 
     if products:
         print("【Products in Database】")

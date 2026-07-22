@@ -21,7 +21,7 @@ class DimensionCompatibilities(BaseModel):
 
 
 class PromptDimensionBase(BaseModel):
-    product_type: str = Field(..., description="产品类型，如 default, audio_monitor")
+    product_type: str = Field(..., description="产品类型，与素材 category 一致，如 Night Lights, Audio Monitor")
     dimension_type: str = Field(..., description="维度类型，如 scenes, viewpoints")
     item_id: str = Field(..., description="维度项ID")
     name: str = Field(..., description="维度项名称")

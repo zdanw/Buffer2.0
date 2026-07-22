@@ -1,5 +1,5 @@
 DIMENSIONS = {
-    "night_lights": {
+    "Night Lights": {
         "scenes": [
             {"id": "nursery", "name": "温馨婴儿房角落配有木质婴儿床", "time": "indoor", "lighting": ["warm", "soft"]},
             {"id": "bedside", "name": "柔和昏暗的婴儿床边，婴儿正在安睡", "time": "night", "lighting": ["dim", "warm"]},
@@ -59,7 +59,7 @@ DIMENSIONS = {
             {"id": "golden_hour", "name": "金色时刻光线透过窗帘缝隙", "time": "day"}
         ]
     },
-    "audio_monitor": {
+    "Audio Monitor": {
         "scenes": [
             {"id": "nursery", "name": "温馨原木风婴儿房，白色婴儿床摆放婴儿端监护主机", "time": "indoor", "lighting": ["warm", "soft"]},
             {"id": "bedside_night", "name": "主卧床头柜，家长端主机放在床头，婴儿在隔壁婴儿房熟睡", "time": "night", "lighting": ["dim", "warm"]},
@@ -121,7 +121,7 @@ DIMENSIONS = {
             {"id": "golden_hour_diffuse", "name": "傍晚金色时刻柔和漫射光线，透过窗帘缝隙洒落在监护主机上，温馨黄昏氛围", "time": "day"}
         ]
     },
-    "air_purifier": {
+    "Air Purifiers": {
         "scenes": [
             {"id": "nursery", "name": "温馨原木风婴儿房，白色婴儿床旁放置空气净化器", "time": "indoor", "lighting": ["warm", "soft"]},
             {"id": "bedroom_parent", "name": "主卧床头柜，空气净化器与台灯并排摆放，安静夜间睡眠场景", "time": "night", "lighting": ["dim", "warm"]},
@@ -181,7 +181,7 @@ DIMENSIONS = {
             {"id": "golden_hour_diffuse", "name": "傍晚金色时刻柔和漫射光线，温馨黄昏氛围", "time": "day"}
         ]
     },
-    "video_motion": {
+    "Video Monitor": {
         "scenes": [
             {"id": "nursery", "name": "温馨原木风婴儿房，白色婴儿床上方安装视频监护摄像头", "time": "indoor", "lighting": ["warm", "soft"]},
             {"id": "bedside_night", "name": "主卧床头柜，家长端屏幕显示宝宝实时画面，婴儿在隔壁熟睡", "time": "night", "lighting": ["dim", "warm"]},

@@ -201,7 +201,7 @@ export default function DimensionManagement() {
   };
 
   const [formData, setFormData] = useState<PromptDimensionCreate>({
-    product_type: 'night_lights',
+    product_type: 'Night Lights',
     dimension_type: 'scenes',
     item_id: '',
     name: '',
@@ -365,7 +365,7 @@ export default function DimensionManagement() {
 
   const resetForm = () => {
     setFormData({
-      product_type: 'night_lights',
+      product_type: 'Night Lights',
       dimension_type: 'scenes',
       item_id: '',
       name: '',
@@ -477,7 +477,7 @@ export default function DimensionManagement() {
     setExpandedDimensions({});
     setModalOptionsLoading(false);
 
-    const pt = dimension?.product_type || selectedProductType || 'night_lights';
+    const pt = dimension?.product_type || selectedProductType || 'Night Lights';
     const cached = getCachedOptions(pt);
     setAllDimensions(cached || {});
 

@@ -57,25 +57,14 @@ def get_dimension_types():
 
 @router.get("/product-types")
 def get_product_types(db: Session = Depends(get_db)):
+    """产品类型列表：直接使用素材 category 与已有维度 product_type 的并集。"""
     prompt_types = db.query(PromptDimension.product_type).distinct().all()
     prompt_type_list = [pt[0] for pt in prompt_types if pt[0]]
 
     product_categories = db.query(Product.category).distinct().all()
     category_list = [cat[0] for cat in product_categories if cat[0]]
 
-    category_to_type = {
-        "Audio Monitor": "audio_monitor",
-        "Video Monitor": "video_motion",
-        "Air Purifiers": "air_purifier",
-        "Night Lights": "night_lights",
-    }
-
-    mapped_categories = []
-    for cat in category_list:
-        mapped = category_to_type.get(cat, cat.lower().replace(" ", "_"))
-        mapped_categories.append(mapped)
-
-    all_types = set(prompt_type_list + mapped_categories)
+    all_types = set(prompt_type_list + category_list)
 
     result = []
     for pt in sorted(all_types):

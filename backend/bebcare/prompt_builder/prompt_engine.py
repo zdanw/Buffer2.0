@@ -82,7 +82,7 @@ class PromptEngine:
 7. 帖子长度必须为120-200字（包含所有文本和话题标签）
 """
 
-    def _get_dimensions(self, product_type: str = "night_lights", db=None) -> dict:
+    def _get_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:
         """获取指定产品类型的维度配置"""
         if db is not None and dimension_service is not None:
             try:
@@ -92,16 +92,16 @@ class PromptEngine:
                 logger.exception('dimension_service.get_dimensions_by_product_type failed: %s', e)
         
         if product_type not in DIMENSIONS:
-            logger.warning("Product type '%s' not found in DIMENSIONS, falling back to 'night_lights'", product_type)
+            logger.warning("Product type '%s' not found in DIMENSIONS, falling back to 'Night Lights'", product_type)
         
-        return DIMENSIONS.get(product_type, DIMENSIONS["night_lights"])
+        return DIMENSIONS.get(product_type, DIMENSIONS["Night Lights"])
     
-    def _select_scene(self, product_type: str = "night_lights", db=None) -> dict:
+    def _select_scene(self, product_type: str = "Night Lights", db=None) -> dict:
         """选择一个场景"""
         dimensions = self._get_dimensions(product_type, db)
         return random.choice(dimensions["scenes"])
     
-    def _select_lighting(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的光线"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_lighting_ids = scene.get("compatible_lighting", [])
@@ -126,7 +126,7 @@ class PromptEngine:
         
         return random.choice(compatible_lighting)
     
-    def _select_style(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_style(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的风格"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_style_ids = scene.get("compatible_styles", [])
@@ -151,7 +151,7 @@ class PromptEngine:
         
         return random.choice(compatible_styles)
     
-    def _select_details(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_details(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的细节/道具"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_detail_ids = scene.get("compatible_details", [])
@@ -176,7 +176,7 @@ class PromptEngine:
         
         return random.choice(compatible_details)
     
-    def _select_viewpoint(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_viewpoint(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的视角"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_viewpoint_ids = scene.get("compatible_viewpoints", [])
@@ -197,7 +197,7 @@ class PromptEngine:
         
         return random.choice(compatible_viewpoints)
     
-    def _select_composition(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_composition(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的构图"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_composition_ids = scene.get("compatible_compositions", [])
@@ -218,7 +218,7 @@ class PromptEngine:
         
         return random.choice(compatible_compositions)
     
-    def _select_quality(self, scene: dict, product_type: str = "night_lights", db=None) -> dict:
+    def _select_quality(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的画质"""
         dimensions = self._get_dimensions(product_type, db)
         compatible_quality_ids = scene.get("compatible_quality", [])
@@ -239,7 +239,7 @@ class PromptEngine:
         
         return random.choice(compatible_qualities)
     
-    def _select_dimensions(self, product_type: str = "night_lights", db=None) -> dict:
+    def _select_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:
         """基于规则选择所有维度，确保兼容性"""
         # 1. 先选择场景
         scene = self._select_scene(product_type, db)
@@ -326,18 +326,7 @@ Clip it anywhere, calm anytime. 🍼
         product_name = product_info.get('product_name', '产品')
         product_description = product_info.get('description', '')
         category = product_info.get('category', '')
-        product_type_from_info = product_info.get('product_type', None)
-        
-
-        
-        if category == 'Audio Monitor':
-            product_type = 'audio_monitor'
-        elif category == 'Air Purifiers':
-            product_type = 'air_purifier'
-        elif category == 'Video Motion':
-            product_type = 'video_motion'
-        else:
-            product_type = product_info.get('product_type', category.lower().replace(' ', '_'))
+        product_type = (product_info.get('product_type') or category or 'Night Lights').strip()
         
         selling_points = product_info.get('selling_points', [])
         if selling_points is None:
