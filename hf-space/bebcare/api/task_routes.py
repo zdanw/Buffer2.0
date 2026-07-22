@@ -7,11 +7,10 @@ from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft
 from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.publisher.buffer_publisher import buffer_publisher
-from bebcare.utils.github_uploader import github_uploader
-from bebcare.utils.image_utils import download_image
+from bebcare.utils.image_utils import persist_image_url_to_cdn
 import uuid
 import json
-from io import BytesIO
+import datetime
 
 def validate_cron(cron: str):
     fields = cron.split()
@@ -172,37 +171,30 @@ def publish_draft(draft_id: str, request: DraftPublishRequest, db: Session = Dep
     selected_copy = copywritings[request.selected_copy_index]
     
     try:
-        image = download_image(selected_image)
-        if image:
-            buffer = BytesIO()
-            image.save(buffer, format='JPEG')
-            buffer.seek(0)
-            import datetime
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            cdn_url = github_uploader.upload_file(buffer, f"draft_{draft_id}_{timestamp}.jpg")
-            
-            publish_result = buffer_publisher.publish(selected_copy, cdn_url, request.platforms)
-            
-            success_platforms = []
-            for platform, result in publish_result.items():
-                if result.get("success"):
-                    success_platforms.append(platform)
-            
-            draft.status = "published"
-            draft.selected_image = cdn_url
-            draft.selected_copy = selected_copy
-            draft.published_platforms = success_platforms
-            
-            db.commit()
-            
-            return {
-                "success": True,
-                "draft_id": draft_id,
-                "published_platforms": success_platforms,
-                "cdn_url": cdn_url
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to download image")
+        # New drafts already store CDN URLs; legacy temp URLs are re-persisted here
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        cdn_url = persist_image_url_to_cdn(selected_image, f"draft_{draft_id}_{timestamp}.jpg")
+
+        publish_result = buffer_publisher.publish(selected_copy, cdn_url, request.platforms)
+
+        success_platforms = []
+        for platform, result in publish_result.items():
+            if result.get("success"):
+                success_platforms.append(platform)
+
+        draft.status = "published"
+        draft.selected_image = cdn_url
+        draft.selected_copy = selected_copy
+        draft.published_platforms = success_platforms
+
+        db.commit()
+
+        return {
+            "success": True,
+            "draft_id": draft_id,
+            "published_platforms": success_platforms,
+            "cdn_url": cdn_url
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Publish failed: {str(e)}")
 

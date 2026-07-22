@@ -4,7 +4,7 @@ import time
 from typing import Dict, List, Optional
 from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
-from bebcare.utils.image_utils import download_image, calculate_average_color, get_color_temperature
+from bebcare.utils.image_utils import persist_image_url_to_cdn
 
 class ContentGenerator:
     def __init__(self):
@@ -164,8 +164,14 @@ class ContentGenerator:
         if not image_urls:
             raise Exception("No images generated")
 
+        product_id = product_info.get("product_id", "gen")
+        cdn_urls = []
+        for i, url in enumerate(image_urls):
+            file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
+            cdn_urls.append(persist_image_url_to_cdn(url, file_name))
+
         return {
-            "image_urls": image_urls,
+            "image_urls": cdn_urls,
             "dimensions": selected_dimensions,
             "image_prompt": image_prompt
         }

@@ -4,9 +4,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from datetime import datetime
 from bebcare.generator.content_generator import content_generator
 from bebcare.dedup.deduplication_engine import deduplication_engine
-from bebcare.utils.github_uploader import github_uploader
 from bebcare.publisher.buffer_publisher import buffer_publisher
-from bebcare.utils.image_utils import download_image
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product, ProductImage
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
@@ -15,7 +13,6 @@ from bebcare.database import engine
 import logging
 import threading
 import uuid
-from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -426,17 +423,8 @@ class APSchedulerService:
                     "image_prompt": image_prompt,
                 }
 
-        image = download_image(image_urls[0])
-        if not image:
-            raise Exception("Failed to download generated image; publish aborted")
-
-        buffer = BytesIO()
-        image.save(buffer, format='JPEG')
-        buffer.seek(0)
-        cdn_url = github_uploader.upload_file(
-            buffer, f"{product.product_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-        )
-        logger.info(f"Uploaded to CDN: {cdn_url}")
+        # generate_image already persists to CDN
+        cdn_url = image_urls[0]
         generated_images.append(cdn_url)
 
         publish_result = buffer_publisher.publish(copywriting, cdn_url, platforms)

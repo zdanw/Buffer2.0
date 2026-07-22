@@ -64,6 +64,24 @@ def download_image(url):
     
     return _retry_request(download_func, max_retries=3, initial_delay=2.0)
 
+def persist_image_url_to_cdn(image_url, file_name=None):
+    """Download a remote (often temporary) image and upload to GitHub CDN."""
+    from bebcare.utils.github_uploader import github_uploader
+    from datetime import datetime
+
+    if image_url and "cdn.jsdelivr.net" in image_url:
+        return image_url
+
+    image = download_image(image_url)
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    buffer.seek(0)
+    if not file_name:
+        file_name = f"gen_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+    cdn_url = github_uploader.upload_file(buffer, file_name)
+    logger.info("Persisted image to CDN: %s", cdn_url)
+    return cdn_url
+
 def calculate_average_color(image):
     if isinstance(image, str):
         image = download_image(image)
