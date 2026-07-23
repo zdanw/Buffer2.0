@@ -399,9 +399,9 @@ Clip it anywhere, calm anytime. 🍼
 
         selected_dimensions = self._select_dimensions(product_type, db)
         dimensions_info = {
-            "scene": selected_dimensions['scene']['name'],
-            "viewpoint": selected_dimensions['viewpoint']['name'],
-            "composition": selected_dimensions['composition']['name'],
+            "scene": "参考场景图",
+            "viewpoint": "沿用参考图",
+            "composition": "沿用参考图",
             "style": selected_dimensions['style']['name'],
             "quality": selected_dimensions['quality']['name'],
             "details": selected_dimensions['details']['name'],

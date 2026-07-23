@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle, X } from 'lucide-react';
+import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle, X, BookmarkPlus } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -12,6 +12,7 @@ import {
   type DimensionInfo,
 } from '@/api/generate';
 import { publishContent } from '@/api/publish';
+import { createDraft } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 
@@ -86,6 +87,8 @@ export default function ContentPreview() {
   } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [saveDraftStatus, setSaveDraftStatus] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -189,6 +192,7 @@ export default function ContentPreview() {
     setIsGenerating(true);
     setGeneratingType(type);
     setPublishStatus(null);
+    setSaveDraftStatus(null);
     setTaskId(null);
     
     if (type === 'copywriting') {
@@ -269,6 +273,37 @@ export default function ContentPreview() {
       alert('发布失败，请重试');
     } finally {
       setIsPublishing(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!generatedContent?.text && !generatedContent?.image) {
+      alert('请先生成文案或图片后再保存');
+      return;
+    }
+
+    setIsSavingDraft(true);
+    setSaveDraftStatus(null);
+    try {
+      const images = generatedContent.image ? [generatedContent.image] : [];
+      const copywritings = generatedContent.text ? [generatedContent.text] : [];
+      await createDraft({
+        product_id: selectedProduct || undefined,
+        images,
+        copywritings,
+        dimensions: generatedContent.dimensions ? [generatedContent.dimensions] : [],
+        image_prompts: generatedContent.image_prompt ? [generatedContent.image_prompt] : [],
+        reference_product_images: generatedContent.reference_product_images || [],
+        reference_scene_images: generatedContent.reference_scene_images || [],
+      });
+      invalidateCache('drafts');
+      setSaveDraftStatus('success');
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      setSaveDraftStatus('failed');
+      alert('保存到待发布失败，请重试');
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -422,6 +457,31 @@ export default function ContentPreview() {
               </button>
             </div>
 
+            {generatedContent && (generatedContent.text || generatedContent.image) && (
+              <button
+                type="button"
+                onClick={() => void handleSaveDraft()}
+                disabled={isSavingDraft}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  isSavingDraft
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {isSavingDraft ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-5 h-5" />
+                    保存到待发布
+                  </>
+                )}
+              </button>
+            )}
+
             {generatedContent && generatedContent.text && (
               <button
                 onClick={handlePublish}
@@ -469,6 +529,21 @@ export default function ContentPreview() {
             <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
               <p className="font-medium text-amber-800">CDN 上传失败</p>
               <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
+            </div>
+          )}
+
+          {saveDraftStatus && (
+            <div className={`p-4 rounded-lg flex items-center gap-2 ${
+              saveDraftStatus === 'success' ? 'bg-green-50' : 'bg-red-50'
+            }`}>
+              {saveDraftStatus === 'success' ? (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="font-medium text-green-700">已保存到待发布</span>
+                </>
+              ) : (
+                <span className="font-medium text-red-700">保存失败</span>
+              )}
             </div>
           )}
 

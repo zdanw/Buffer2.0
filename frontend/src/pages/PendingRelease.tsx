@@ -83,7 +83,8 @@ export default function PendingRelease() {
     }
   };
 
-  const getTaskName = (taskId: string) => {
+  const getTaskName = (taskId?: string | null) => {
+    if (!taskId) return '内容预览';
     const task = tasks.find(t => t.task_id === taskId);
     return task?.name || '未知任务';
   };
@@ -197,7 +198,7 @@ export default function PendingRelease() {
             <div className="text-center py-12">
               <Eye className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500">暂无待发布草稿</p>
-              <p className="text-gray-400 text-sm mt-2">手动发布模式的任务会在CRON时间自动生成草稿</p>
+              <p className="text-gray-400 text-sm mt-2">手动任务或内容预览保存的草稿会出现在这里</p>
             </div>
           ) : (
             <>

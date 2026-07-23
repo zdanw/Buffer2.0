@@ -4,7 +4,7 @@ from uuid import UUID
 from typing import List, Optional
 from bebcare.database import get_db
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft
-from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest
+from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest, DraftCreateRequest
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.utils.image_utils import persist_image_url_to_cdn
@@ -77,6 +77,36 @@ def list_tasks(
             "total": total,
             "pages": (total + page_size - 1) // page_size
         }
+    }
+
+@router.post("/drafts/", status_code=201)
+def create_draft(request: DraftCreateRequest, db: Session = Depends(get_db)):
+    images = [url for url in (request.images or []) if url and str(url).strip()]
+    copywritings = [text for text in (request.copywritings or []) if text and str(text).strip()]
+    if not images and not copywritings:
+        raise HTTPException(status_code=400, detail="图片和文案不能同时为空")
+
+    draft = ManualTaskDraft(
+        draft_id=str(uuid.uuid4()),
+        task_id=None,
+        product_id=request.product_id,
+        images=images,
+        copywritings=copywritings,
+        dimensions=request.dimensions or [],
+        image_prompts=request.image_prompts or [],
+        reference_product_images=request.reference_product_images or [],
+        reference_scene_images=request.reference_scene_images or [],
+        status="pending",
+    )
+    db.add(draft)
+    db.commit()
+    db.refresh(draft)
+
+    return {
+        "success": True,
+        "draft_id": draft.draft_id,
+        "status": draft.status,
+        "created_at": draft.created_at,
     }
 
 @router.get("/drafts/")

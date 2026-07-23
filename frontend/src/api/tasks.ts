@@ -47,7 +47,7 @@ export interface TaskExecution {
 
 export interface ManualTaskDraft {
   draft_id: string;
-  task_id: string;
+  task_id?: string | null;
   product_id?: string;
   images: string[];
   copywritings: string[];
@@ -62,6 +62,16 @@ export interface ManualTaskDraft {
   selected_copy?: string;
   published_platforms?: string[];
   created_at: string;
+}
+
+export interface DraftCreateRequest {
+  product_id?: string;
+  images?: string[];
+  copywritings?: string[];
+  dimensions?: Array<ExecutionDimensions | null>;
+  image_prompts?: Array<string | null>;
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
 }
 
 export interface TaskCreate {
@@ -140,6 +150,13 @@ export const getDrafts = async (
   }
   
   return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
+};
+
+export const createDraft = async (
+  request: DraftCreateRequest
+): Promise<{ success: boolean; draft_id: string; status: string; created_at: string }> => {
+  const response = await axiosInstance.post('/tasks/drafts/', request);
+  return response.data;
 };
 
 export const publishDraft = async (draftId: string, request: DraftPublishRequest): Promise<{ success: boolean; draft_id: string; published_platforms: string[]; cdn_url: string }> => {

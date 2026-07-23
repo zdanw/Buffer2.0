@@ -57,3 +57,13 @@ class DraftPublishRequest(BaseModel):
     selected_image_index: int
     selected_copy_index: int
     platforms: List[str]
+
+
+class DraftCreateRequest(BaseModel):
+    product_id: Optional[str] = None
+    images: List[str] = []
+    copywritings: List[str] = []
+    dimensions: Optional[List] = None
+    image_prompts: Optional[List] = None
+    reference_product_images: Optional[List[str]] = None
+    reference_scene_images: Optional[List[str]] = None
