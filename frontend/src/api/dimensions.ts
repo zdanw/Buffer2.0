@@ -13,14 +13,17 @@ export interface DimensionCompatEntry {
   items: string[];
 }
 
+/** 新格式为 DimensionCompatEntry；旧 API 可能仍返回 string[] */
+export type DimensionCompatValue = DimensionCompatEntry | string[];
+
 export interface DimensionCompatibilities {
-  scenes?: DimensionCompatEntry;
-  lighting?: DimensionCompatEntry;
-  styles?: DimensionCompatEntry;
-  compositions?: DimensionCompatEntry;
-  details?: DimensionCompatEntry;
-  quality?: DimensionCompatEntry;
-  viewpoints?: DimensionCompatEntry;
+  scenes?: DimensionCompatValue;
+  lighting?: DimensionCompatValue;
+  styles?: DimensionCompatValue;
+  compositions?: DimensionCompatValue;
+  details?: DimensionCompatValue;
+  quality?: DimensionCompatValue;
+  viewpoints?: DimensionCompatValue;
 }
 
 export const ALL_DIMENSION_TYPES = [
