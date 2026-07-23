@@ -5,6 +5,7 @@ import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime, parseServerDate } from '@/lib/datetime';
+import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 
 interface CalendarEvent {
   id: string;
@@ -567,6 +568,13 @@ export default function PublishCalendar() {
                           </div>
                         </div>
                       )}
+
+                      <ReferenceImagesDisplay
+                        className="mt-4"
+                        productImages={execution.reference_product_images}
+                        sceneImages={execution.reference_scene_images}
+                        onPreview={setPreviewImage}
+                      />
 
                       {((execution.published_platforms || []).length > 0) && (
                         <div className="mt-4">

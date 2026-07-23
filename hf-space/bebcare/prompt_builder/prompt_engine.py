@@ -361,7 +361,7 @@ Clip it anywhere, calm anytime. 🍼
 {nunito_constraint}
 """
         
-      
+    
         
         dimensions_info = {
             "scene": selected_dimensions['scene']['name'],
@@ -384,25 +384,45 @@ Clip it anywhere, calm anytime. 🍼
         
         return f"{hard_rules}, {soft_rules}"
 
-    def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> str:
+    def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> Dict:
         product_name = product_info.get('product_name', '产品')
-        appearance = product_info.get('description', '')
         category = product_info.get('category', '')
-        
+        product_type = (product_info.get('product_type') or category or 'Night Lights').strip()
+
+        selected_dimensions = self._select_dimensions(product_type, db)
+        dimensions_info = {
+            "scene": selected_dimensions['scene']['name'],
+            "viewpoint": selected_dimensions['viewpoint']['name'],
+            "composition": selected_dimensions['composition']['name'],
+            "style": selected_dimensions['style']['name'],
+            "quality": selected_dimensions['quality']['name'],
+            "details": selected_dimensions['details']['name'],
+            "lighting": selected_dimensions['lighting']['name'],
+        }
+
         prompt = f"""
 将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
+
+## 硬约束（必须遵守）
 1. 保持产品的位置、角度、大小、外观完全不变
 2. 保持产品的颜色、材质、纹理细节完全不变
-3. 仅对背景进行轻微优化，使其更符合婴儿房场景风格
-4. 保持原场景的构图结构和布局基本不变
-5. 保持原图像的光线方向和整体色调一致
-6. 背景优化采用柔和自然的婴儿房元素，避免过度改动
+3. 保持原场景的构图结构和布局基本不变
+4. 保持原图像的光线方向和整体色调一致
+5. 仅对背景进行轻微优化，避免过度改动
 
+## 软引导（不得违反硬约束）
+- 风格倾向：{dimensions_info['style']}
+- 画质倾向：{dimensions_info['quality']}
+- 可轻微增加的细节/道具：{dimensions_info['details']}（不得遮挡或改变产品）
+
+## 优先级
+1）产品保真 → 2）场景结构保真 → 3）风格/画质/细节软引导
 """
-        
-        
-        
-        return prompt.strip()
+
+        return {
+            "prompt": prompt.strip(),
+            "dimensions": dimensions_info,
+        }
 
 
 prompt_engine = PromptEngine()

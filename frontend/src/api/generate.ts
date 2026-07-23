@@ -30,6 +30,9 @@ export interface GenerateResult {
   error?: string;
   dimensions?: DimensionInfo;
   image_prompt?: string;
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
+  warning?: string;
 }
 
 export interface GenerateStatus {

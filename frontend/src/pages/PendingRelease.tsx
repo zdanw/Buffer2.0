@@ -7,6 +7,7 @@ import type { ScheduledTask } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
+import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
@@ -322,6 +323,12 @@ export default function PendingRelease() {
                   ))}
                 </div>
               </div>
+
+              <ReferenceImagesDisplay
+                productImages={selectedDraft.reference_product_images}
+                sceneImages={selectedDraft.reference_scene_images}
+                onPreview={setPreviewImage}
+              />
 
               {(() => {
                 const dims = selectedDraft.dimensions?.[selectedImageIndex] ?? null;

@@ -37,6 +37,8 @@ class TaskExecution(Base):
     copywriting = Column(Text)
     dimensions = Column(JSON)
     image_prompt = Column(Text)
+    reference_product_images = Column(JSON)
+    reference_scene_images = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -50,6 +52,8 @@ class ManualTaskDraft(Base):
     copywritings = Column(JSON)
     dimensions = Column(JSON)
     image_prompts = Column(JSON)
+    reference_product_images = Column(JSON)
+    reference_scene_images = Column(JSON)
     status = Column(String(20), default="pending")
     selected_image = Column(Text)
     selected_copy = Column(Text)

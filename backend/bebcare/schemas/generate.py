@@ -26,3 +26,6 @@ class GenerateResult(BaseModel):
     image: Optional[str] = None
     dimensions: Optional[DimensionInfo] = None
     image_prompt: Optional[str] = None
+    reference_product_images: Optional[list] = None
+    reference_scene_images: Optional[list] = None
+    warning: Optional[str] = None

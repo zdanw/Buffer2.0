@@ -5,7 +5,8 @@ from datetime import datetime
 from bebcare.generator.content_generator import content_generator
 from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
-from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product, ProductImage
+from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
+from bebcare.utils.reference_selector import select_reference_images
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -213,6 +214,8 @@ class APSchedulerService:
                     execution.copywriting = result.get("copywriting", "")
                     execution.dimensions = result.get("dimensions")
                     execution.image_prompt = result.get("image_prompt")
+                    execution.reference_product_images = result.get("reference_product_images", [])
+                    execution.reference_scene_images = result.get("reference_scene_images", [])
                 except Exception as e:
                     execution.status = "FAILED"
                     execution.error_message = str(e)
@@ -251,11 +254,13 @@ class APSchedulerService:
                 logger.error("No product found in target categories or products")
                 return
             
-            reference_images = session.query(ProductImage).filter(
-                ProductImage.product_id == product.product_id
-            ).order_by(func.random()).limit(reference_image_count).all()
-            
-            reference_image_urls = [img.cdn_url for img in reference_images]
+            selected = select_reference_images(
+                session, product.product_id, reference_image_count, use_scene_reference
+            )
+            reference_image_urls = selected["reference_images"]
+            reference_product_images = selected["reference_product_images"]
+            reference_scene_images = selected["reference_scene_images"]
+            use_scene_reference = selected["use_scene_reference"]
             logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
             
             product_info = {
@@ -333,6 +338,8 @@ class APSchedulerService:
                 copywritings=copywritings,
                 dimensions=dimensions_list,
                 image_prompts=image_prompts_list,
+                reference_product_images=reference_product_images,
+                reference_scene_images=reference_scene_images,
                 status="pending"
             )
             session.add(draft)
@@ -368,11 +375,13 @@ class APSchedulerService:
             logger.error("No product found in target categories or products")
             return {"images": [], "platforms": [], "copywriting": ""}
         
-        reference_images = session.query(ProductImage).filter(
-            ProductImage.product_id == product.product_id
-        ).order_by(func.random()).limit(reference_image_count).all()
-        
-        reference_image_urls = [img.cdn_url for img in reference_images]
+        selected = select_reference_images(
+            session, product.product_id, reference_image_count, use_scene_reference
+        )
+        reference_image_urls = selected["reference_images"]
+        reference_product_images = selected["reference_product_images"]
+        reference_scene_images = selected["reference_scene_images"]
+        use_scene_reference = selected["use_scene_reference"]
         logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
         logger.info(f"Scene reference mode: {use_scene_reference}")
         
@@ -421,6 +430,8 @@ class APSchedulerService:
                     "copywriting": copywriting,
                     "dimensions": dimensions,
                     "image_prompt": image_prompt,
+                    "reference_product_images": reference_product_images,
+                    "reference_scene_images": reference_scene_images,
                 }
 
         # generate_image already persists to CDN
@@ -445,6 +456,8 @@ class APSchedulerService:
             "copywriting": copywriting,
             "dimensions": dimensions,
             "image_prompt": image_prompt,
+            "reference_product_images": reference_product_images,
+            "reference_scene_images": reference_scene_images,
         }
 
 scheduler_service = APSchedulerService()

@@ -1,3 +1,4 @@
+import logging
 import requests
 import json
 import time
@@ -5,6 +6,8 @@ from typing import Dict, List, Optional
 from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
 from bebcare.utils.image_utils import persist_image_url_to_cdn
+
+logger = logging.getLogger(__name__)
 
 class ContentGenerator:
     def __init__(self):
@@ -97,8 +100,12 @@ class ContentGenerator:
         image_prompt = None
         
         if use_scene_reference:
-            positive_prompt = prompt_engine.build_scene_reference_prompt(product_info, platform, style_hint, db)
+            scene_prompt_result = prompt_engine.build_scene_reference_prompt(
+                product_info, platform, style_hint, db
+            )
+            positive_prompt = scene_prompt_result["prompt"]
             image_prompt = positive_prompt
+            selected_dimensions = scene_prompt_result.get("dimensions")
         else:
             image_prompt_result = prompt_engine.build_image_prompt(product_info, platform, style_hint, db)
             meta_prompt = image_prompt_result["prompt"]
@@ -166,14 +173,28 @@ class ContentGenerator:
 
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
+        cdn_upload_failed = False
         for i, url in enumerate(image_urls):
             file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
-            cdn_urls.append(persist_image_url_to_cdn(url, file_name))
+            try:
+                cdn_urls.append(persist_image_url_to_cdn(url, file_name))
+            except Exception as e:
+                cdn_upload_failed = True
+                logger.warning(
+                    "CDN upload failed, falling back to temporary Doubao URL: %s",
+                    e,
+                )
+                cdn_urls.append(url)
 
-        return {
+        result = {
             "image_urls": cdn_urls,
             "dimensions": selected_dimensions,
-            "image_prompt": image_prompt
+            "image_prompt": image_prompt,
         }
+        if cdn_upload_failed:
+            result["warning"] = (
+                "上传 GitHub CDN 失败，已使用临时图片链接展示；请尽快发布（链接可能过期）"
+            )
+        return result
 
 content_generator = ContentGenerator()

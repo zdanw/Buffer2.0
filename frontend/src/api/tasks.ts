@@ -40,6 +40,8 @@ export interface TaskExecution {
   copywriting?: string;
   dimensions?: ExecutionDimensions | null;
   image_prompt?: string | null;
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
   created_at: string;
 }
 
@@ -53,6 +55,8 @@ export interface ManualTaskDraft {
   dimensions?: Array<ExecutionDimensions | null>;
   /** 与 images 一一对应的图像提示词 */
   image_prompts?: Array<string | null>;
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
   status: 'pending' | 'published' | 'discarded';
   selected_image?: string;
   selected_copy?: string;

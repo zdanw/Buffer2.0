@@ -13,6 +13,7 @@ import {
 } from '@/api/generate';
 import { publishContent } from '@/api/publish';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
+import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 const STORAGE_KEY = 'bebcare_content_preview_state';
@@ -21,7 +22,15 @@ interface PreviewState {
   selectedProduct: string;
   selectedPlatforms: string[];
   useSceneReference: boolean;
-  generatedContent: { text: string; image: string; dimensions?: DimensionInfo; image_prompt?: string } | null;
+  generatedContent: {
+    text: string;
+    image: string;
+    dimensions?: DimensionInfo;
+    image_prompt?: string;
+    reference_product_images?: string[];
+    reference_scene_images?: string[];
+    warning?: string;
+  } | null;
   taskId: string | null;
   isGenerating: boolean;
   generatingType: string | null;
@@ -66,7 +75,15 @@ export default function ContentPreview() {
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
   const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus | null>(null);
-  const [generatedContent, setGeneratedContent] = useState<{ text: string; image: string; dimensions?: DimensionInfo; image_prompt?: string } | null>(savedState.generatedContent);
+  const [generatedContent, setGeneratedContent] = useState<{
+    text: string;
+    image: string;
+    dimensions?: DimensionInfo;
+    image_prompt?: string;
+    reference_product_images?: string[];
+    reference_scene_images?: string[];
+    warning?: string;
+  } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,7 +129,10 @@ export default function ContentPreview() {
                 text: status.result?.text || prev?.text || '',
                 image: status.result?.image || prev?.image || '',
                 dimensions: status.result?.dimensions,
-                image_prompt: status.result?.image_prompt
+                image_prompt: status.result?.image_prompt,
+                reference_product_images: status.result?.reference_product_images ?? prev?.reference_product_images,
+                reference_scene_images: status.result?.reference_scene_images ?? prev?.reference_scene_images,
+                warning: status.result?.warning,
               }));
             }
           } else if (status.status === 'FAILURE') {
@@ -171,9 +191,25 @@ export default function ContentPreview() {
     setTaskId(null);
     
     if (type === 'copywriting') {
-      setGeneratedContent(prev => ({ text: '', image: prev?.image || '', dimensions: prev?.dimensions, image_prompt: prev?.image_prompt }));
+      setGeneratedContent(prev => ({
+        text: '',
+        image: prev?.image || '',
+        dimensions: prev?.dimensions,
+        image_prompt: prev?.image_prompt,
+        reference_product_images: prev?.reference_product_images,
+        reference_scene_images: prev?.reference_scene_images,
+        warning: prev?.warning,
+      }));
     } else if (type === 'image') {
-      setGeneratedContent(prev => ({ text: prev?.text || '', image: '', dimensions: prev?.dimensions, image_prompt: prev?.image_prompt }));
+      setGeneratedContent(prev => ({
+        text: prev?.text || '',
+        image: '',
+        dimensions: undefined,
+        image_prompt: undefined,
+        reference_product_images: undefined,
+        reference_scene_images: undefined,
+        warning: undefined,
+      }));
     } else {
       setGeneratedContent(null);
     }
@@ -422,6 +458,16 @@ export default function ContentPreview() {
                 {generateStatus.status === 'SUCCESS' ? '生成成功' :
                  generateStatus.status === 'FAILURE' ? '生成失败' : '处理中...'}
               </p>
+              {generateStatus.status === 'FAILURE' && generateStatus.result?.error && (
+                <p className="text-sm text-red-600 mt-1">{generateStatus.result.error}</p>
+              )}
+            </div>
+          )}
+
+          {generatedContent?.warning && (
+            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+              <p className="font-medium text-amber-800">CDN 上传失败</p>
+              <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
             </div>
           )}
 
@@ -440,6 +486,13 @@ export default function ContentPreview() {
                 </>
               )}
             </div>
+          )}
+
+          {generatedContent && (
+            <ReferenceImagesDisplay
+              productImages={generatedContent.reference_product_images}
+              sceneImages={generatedContent.reference_scene_images}
+            />
           )}
 
           {generatedContent && (generatedContent.dimensions || generatedContent.image_prompt) && (
