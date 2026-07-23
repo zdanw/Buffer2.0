@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle } from 'lucide-react';
+import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle, X } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -87,6 +87,7 @@ export default function ContentPreview() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -492,6 +493,7 @@ export default function ContentPreview() {
             <ReferenceImagesDisplay
               productImages={generatedContent.reference_product_images}
               sceneImages={generatedContent.reference_scene_images}
+              onPreview={setPreviewImage}
             />
           )}
 
@@ -586,6 +588,29 @@ export default function ContentPreview() {
           </div>
         </div>
       </div>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-2 right-2 text-white hover:text-gray-300 z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <img
+              src={previewImage}
+              alt="参考图预览"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

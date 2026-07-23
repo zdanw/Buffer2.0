@@ -1,3 +1,5 @@
+import { ZoomIn } from 'lucide-react';
+
 interface ReferenceImagesDisplayProps {
   productImages?: string[] | null;
   sceneImages?: string[] | null;
@@ -28,25 +30,32 @@ export default function ReferenceImagesDisplay({
         </div>
         <div className="grid grid-cols-3 gap-2">
           {urls.map((url, idx) => {
-            const img = (
-              <img
-                src={url}
-                alt={`${label} ${idx + 1}`}
-                className="w-full h-20 object-cover rounded-lg border border-gray-200"
-              />
-            );
             if (!onPreview) {
-              return <div key={`${label}-${idx}`}>{img}</div>;
+              return (
+                <div key={`${label}-${idx}`}>
+                  <img
+                    src={url}
+                    alt={`${label} ${idx + 1}`}
+                    className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                  />
+                </div>
+              );
             }
             return (
               <button
                 key={`${label}-${idx}`}
                 type="button"
                 onClick={() => onPreview(url)}
-                className="relative group focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded-lg overflow-hidden"
+                className="relative group w-full rounded-lg overflow-hidden border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               >
-                {img}
-                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                <img
+                  src={url}
+                  alt={`${label} ${idx + 1}`}
+                  className="w-full h-20 object-cover"
+                />
+                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                  <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
               </button>
             );
           })}

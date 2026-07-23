@@ -87,7 +87,12 @@ class PromptEngine:
         if db is not None and dimension_service is not None:
             try:
                 result = dimension_service.get_dimensions_by_product_type(product_type, db)
-                return result
+                if result.get("scenes"):
+                    return result
+                logger.warning(
+                    "No scenes in DB for product_type '%s', falling back to static DIMENSIONS",
+                    product_type,
+                )
             except Exception as e:
                 logger.exception('dimension_service.get_dimensions_by_product_type failed: %s', e)
         
@@ -99,7 +104,10 @@ class PromptEngine:
     def _select_scene(self, product_type: str = "Night Lights", db=None) -> dict:
         """选择一个场景"""
         dimensions = self._get_dimensions(product_type, db)
-        return random.choice(dimensions["scenes"])
+        scenes = dimensions.get("scenes") or []
+        if not scenes:
+            return {"id": "default", "name": "默认场景"}
+        return random.choice(scenes)
     
     def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的光线"""
