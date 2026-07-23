@@ -34,7 +34,9 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         generate_image_count=task.generate_image_count,
         generate_copy_count=task.generate_copy_count,
         enabled=task.enabled,
-        use_scene_reference=task.use_scene_reference
+        use_scene_reference=task.use_scene_reference,
+        image_provider_id=task.image_provider_id,
+        image_model=task.image_model,
     )
     db.add(new_task)
     db.commit()
@@ -277,6 +279,9 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         "generate_image_count": task.generate_image_count,
         "generate_copy_count": task.generate_copy_count,
         "enabled": task.enabled,
+        "use_scene_reference": task.use_scene_reference,
+        "image_provider_id": task.image_provider_id,
+        "image_model": task.image_model,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
         "last_run_at": task.last_run_at,
@@ -316,6 +321,10 @@ def update_task(task_id: str, task_update: TaskUpdate, db: Session = Depends(get
         task.enabled = task_update.enabled
     if task_update.use_scene_reference is not None:
         task.use_scene_reference = task_update.use_scene_reference
+    if "image_provider_id" in task_update.model_fields_set:
+        task.image_provider_id = task_update.image_provider_id
+    if "image_model" in task_update.model_fields_set:
+        task.image_model = task_update.image_model
     
     if task.enabled:
         scheduler_service.update_task(

@@ -1,4 +1,4 @@
-import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette } from 'lucide-react';
+import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette, Cpu } from 'lucide-react';
 import { removeToken } from '../api/auth';
 
 interface SidebarProps {
@@ -17,6 +17,7 @@ const baseMenuItems = [
 ];
 
 const adminMenuItems = [
+  { id: 'image-models', label: '图像模型', icon: Cpu },
   { id: 'users', label: '用户管理', icon: Users },
 ];
 

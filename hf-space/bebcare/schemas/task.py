@@ -16,6 +16,8 @@ class TaskBase(BaseModel):
     generate_copy_count: int = 1
     enabled: bool = True
     use_scene_reference: bool = False
+    image_provider_id: Optional[str] = None
+    image_model: Optional[str] = None
 
 class TaskCreate(TaskBase):
     pass
@@ -33,6 +35,8 @@ class TaskUpdate(BaseModel):
     generate_copy_count: Optional[int] = None
     enabled: Optional[bool] = None
     use_scene_reference: Optional[bool] = None
+    image_provider_id: Optional[str] = None
+    image_model: Optional[str] = None
 
 class TaskResponse(TaskBase):
     task_id: UUID

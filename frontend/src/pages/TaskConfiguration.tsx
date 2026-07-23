@@ -13,6 +13,7 @@ import {
   required,
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
+import ImageModelPicker from '@/components/ImageModelPicker';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
@@ -42,6 +43,8 @@ export default function TaskConfiguration() {
     generate_copy_count: 3,
     enabled: true,
     use_scene_reference: false,
+    image_provider_id: null,
+    image_model: null,
   });
 
   useEffect(() => {
@@ -137,6 +140,8 @@ export default function TaskConfiguration() {
       generate_copy_count: 3,
       enabled: true,
       use_scene_reference: false,
+      image_provider_id: null,
+      image_model: null,
     });
     setSelectedTask(null);
     setIsEdit(false);
@@ -242,6 +247,8 @@ export default function TaskConfiguration() {
         generate_copy_count: task.generate_copy_count || 3,
         enabled: task.enabled,
         use_scene_reference: task.use_scene_reference || false,
+        image_provider_id: task.image_provider_id || null,
+        image_model: task.image_model || null,
       });
     } else {
       setIsEdit(false);
@@ -259,6 +266,8 @@ export default function TaskConfiguration() {
         generate_copy_count: 3,
         enabled: true,
         use_scene_reference: false,
+        image_provider_id: null,
+        image_model: null,
       });
     }
     setShowModal(true);
@@ -658,6 +667,24 @@ export default function TaskConfiguration() {
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
                 <label className="text-sm font-medium text-gray-700">启用场景参考图</label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">图像模型</label>
+                <ImageModelPicker
+                  compact
+                  value={{
+                    image_provider_id: formData.image_provider_id,
+                    image_model: formData.image_model,
+                  }}
+                  onChange={(next) =>
+                    setFormData({
+                      ...formData,
+                      image_provider_id: next.image_provider_id ?? null,
+                      image_model: next.image_model ?? null,
+                    })
+                  }
+                />
               </div>
 
               <div className="flex gap-3 mt-6">

@@ -15,6 +15,7 @@ import { publishContent } from '@/api/publish';
 import { createDraft } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
+import ImageModelPicker from '@/components/ImageModelPicker';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 const STORAGE_KEY = 'bebcare_content_preview_state';
@@ -23,6 +24,8 @@ interface PreviewState {
   selectedProduct: string;
   selectedPlatforms: string[];
   useSceneReference: boolean;
+  imageProviderId?: string | null;
+  imageModel?: string | null;
   generatedContent: {
     text: string;
     image: string;
@@ -50,6 +53,8 @@ const loadStateFromStorage = (): PreviewState => {
     selectedProduct: '',
     selectedPlatforms: ['instagram'],
     useSceneReference: false,
+    imageProviderId: null,
+    imageModel: null,
     generatedContent: null,
     taskId: null,
     isGenerating: false,
@@ -72,6 +77,8 @@ export default function ContentPreview() {
   const [selectedProduct, setSelectedProduct] = useState<string>(savedState.selectedProduct);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(savedState.selectedPlatforms);
   const [useSceneReference, setUseSceneReference] = useState(savedState.useSceneReference);
+  const [imageProviderId, setImageProviderId] = useState<string | null>(savedState.imageProviderId ?? null);
+  const [imageModel, setImageModel] = useState<string | null>(savedState.imageModel ?? null);
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
   const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
@@ -110,12 +117,14 @@ export default function ContentPreview() {
       selectedProduct,
       selectedPlatforms,
       useSceneReference,
+      imageProviderId,
+      imageModel,
       generatedContent,
       taskId,
       isGenerating,
       generatingType,
     });
-  }, [selectedProduct, selectedPlatforms, useSceneReference, generatedContent, taskId, isGenerating, generatingType]);
+  }, [selectedProduct, selectedPlatforms, useSceneReference, imageProviderId, imageModel, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -132,11 +141,14 @@ export default function ContentPreview() {
               setGeneratedContent((prev) => ({
                 text: status.result?.text || prev?.text || '',
                 image: status.result?.image || prev?.image || '',
-                dimensions: status.result?.dimensions,
-                image_prompt: status.result?.image_prompt,
-                reference_product_images: status.result?.reference_product_images ?? prev?.reference_product_images,
-                reference_scene_images: status.result?.reference_scene_images ?? prev?.reference_scene_images,
-                warning: status.result?.warning,
+                // 仅文案接口不返回维度/提示词，需保留上一次图片生成的结果
+                dimensions: status.result?.dimensions ?? prev?.dimensions,
+                image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
+                reference_product_images:
+                  status.result?.reference_product_images ?? prev?.reference_product_images,
+                reference_scene_images:
+                  status.result?.reference_scene_images ?? prev?.reference_scene_images,
+                warning: status.result?.warning ?? prev?.warning,
               }));
             }
           } else if (status.status === 'FAILURE') {
@@ -227,6 +239,8 @@ export default function ContentPreview() {
         platform: selectedPlatforms[0],
         style_hint: 'storytelling',
         use_scene_reference: useSceneReference,
+        image_provider_id: imageProviderId || undefined,
+        image_model: imageModel || undefined,
       };
 
       let response;
@@ -389,6 +403,15 @@ export default function ContentPreview() {
               </label>
             </div>
           </div>
+
+          <ImageModelPicker
+            value={{ image_provider_id: imageProviderId, image_model: imageModel }}
+            onChange={(next) => {
+              setImageProviderId(next.image_provider_id ?? null);
+              setImageModel(next.image_model ?? null);
+            }}
+            disabled={isGenerating}
+          />
 
           <div className="space-y-3">
             <button

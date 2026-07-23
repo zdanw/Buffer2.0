@@ -6,6 +6,8 @@ export interface GenerateRequest {
   reference_count?: number;
   style_hint?: string;
   use_scene_reference?: boolean;
+  image_provider_id?: string | null;
+  image_model?: string | null;
 }
 
 export interface GenerateResponse {

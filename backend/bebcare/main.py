@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router, prompt_dimension_router
+from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router, prompt_dimension_router, image_provider_router
 from bebcare.database import init_db
 from bebcare.config.settings import settings
 from bebcare.logging_config import setup_logging
@@ -78,6 +78,7 @@ api_router.include_router(task_router, dependencies=[Depends(get_current_active_
 api_router.include_router(generate_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(publish_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(prompt_dimension_router, dependencies=[Depends(get_current_active_user)])
+api_router.include_router(image_provider_router)
 
 app.include_router(api_router)
 

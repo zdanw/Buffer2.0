@@ -93,7 +93,11 @@ class ContentGenerator:
                        reference_images: List[str] = None, 
                        style_hint: Optional[str] = None,
                        num_candidates: int = 1,
-                       db=None) -> Dict:
+                       db=None,
+                       image_provider_id: Optional[str] = None,
+                       image_model: Optional[str] = None) -> Dict:
+        from bebcare.providers.registry import resolve_image_provider
+
         use_scene_reference = product_info.get('use_scene_reference', False)
         
         selected_dimensions = None
@@ -116,55 +120,22 @@ class ContentGenerator:
             image_prompt = positive_prompt
         
         negative_prompt = prompt_engine.build_negative_prompt()
-        
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.doubao_api_key}",
-            "X-Ark-Sdk-Version": "v1.0.0"
-        }
-        
-        data = {
-            "model": self.doubao_model_id,
-            "prompt": positive_prompt,
-            "negative_prompt": negative_prompt,
-            "size": "2048x2048",
-            "sequential_image_generation": "disabled",
-            "response_format": "url",
-            "watermark": False
-        }
-        
-        if reference_images and len(reference_images) > 0:
-            data["image"] = reference_images
-        
-        def make_doubao_request():
-            response = requests.post(self.doubao_api_url, headers=headers, json=data, timeout=120)
-            
-            try:
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                raise
-            
-            result = response.json()
-            
-            if result.get("error"):
-                error_code = result["error"].get("code", "Unknown")
-                if "Timeout while downloading" in result["error"].get("message", ""):
-                    raise Exception(f"Download timeout: {result['error']['message']}")
-                raise Exception(f"Image generation failed: {result['error'].get('message', 'Unknown error')}")
-            
-            image_urls = []
-            if result.get("data"):
-                for item in result["data"]:
-                    if isinstance(item, dict) and "url" in item:
-                        image_urls.append(item["url"])
-            
-            if not image_urls:
-                raise Exception("No images generated")
-            
-            return image_urls
-        
+
+        provider_id = image_provider_id or product_info.get("image_provider_id")
+        model_id = image_model or product_info.get("image_model")
+        provider, resolved_model = resolve_image_provider(db, provider_id, model_id)
+
+        def make_image_request():
+            return provider.generate(
+                prompt=positive_prompt,
+                negative_prompt=negative_prompt,
+                reference_images=reference_images if reference_images else None,
+                size="2048x2048",
+                model=resolved_model,
+            )
+
         try:
-            image_urls = self._retry_request(make_doubao_request, max_retries=3, initial_delay=5.0)
+            image_urls = self._retry_request(make_image_request, max_retries=3, initial_delay=5.0)
         except Exception as e:
             raise Exception(f"Image generation failed after retries: {e}") from e
 
@@ -181,7 +152,7 @@ class ContentGenerator:
             except Exception as e:
                 cdn_upload_failed = True
                 logger.warning(
-                    "CDN upload failed, falling back to temporary Doubao URL: %s",
+                    "CDN upload failed, falling back to temporary image URL: %s",
                     e,
                 )
                 cdn_urls.append(url)

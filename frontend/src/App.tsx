@@ -8,6 +8,7 @@ import PendingRelease from './pages/PendingRelease';
 import ContentPreview from './pages/ContentPreview';
 import PublishCalendar from './pages/PublishCalendar';
 import UserManagement from './pages/UserManagement';
+import ImageProviderSettings from './pages/ImageProviderSettings';
 import Login from './pages/Login';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
@@ -19,6 +20,7 @@ const TAB_ROUTES: Record<string, string> = {
   'pending': '/pending',
   'preview': '/preview',
   'calendar': '/calendar',
+  'image-models': '/image-models',
   'users': '/users',
 };
 
@@ -29,6 +31,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/pending': 'pending',
   '/preview': 'preview',
   '/calendar': 'calendar',
+  '/image-models': 'image-models',
   '/users': 'users',
 };
 
@@ -116,6 +119,7 @@ function AppContent() {
         {tabPanel('pending', <PendingRelease />)}
         {tabPanel('preview', <ContentPreview />)}
         {tabPanel('calendar', <PublishCalendar />)}
+        {currentUser?.is_admin ? tabPanel('image-models', <ImageProviderSettings />) : null}
         {currentUser?.is_admin ? tabPanel('users', <UserManagement />) : null}
       </main>
     </div>

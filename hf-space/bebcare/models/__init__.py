@@ -4,5 +4,6 @@ from .publish import PublishRecord
 from .log import OperationLog
 from .user import User
 from .prompt_dimension import PromptDimension, PromptDimensionCompatibility, ProductDimension, DimensionType
+from .image_provider import ImageProviderConfig
 
-__all__ = ["Product", "ProductImage", "ScheduledTask", "TaskExecution", "ManualTaskDraft", "PublishRecord", "OperationLog", "User", "PromptDimension", "PromptDimensionCompatibility", "ProductDimension", "DimensionType"]
+__all__ = ["Product", "ProductImage", "ScheduledTask", "TaskExecution", "ManualTaskDraft", "PublishRecord", "OperationLog", "User", "PromptDimension", "PromptDimensionCompatibility", "ProductDimension", "DimensionType", "ImageProviderConfig"]

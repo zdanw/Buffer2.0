@@ -274,6 +274,10 @@ class APSchedulerService:
                 "platform": platforms[0] if platforms else "instagram",
                 "use_scene_reference": use_scene_reference,
             }
+
+            task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            image_provider_id = task_cfg.image_provider_id if task_cfg else None
+            image_model = task_cfg.image_model if task_cfg else None
             
             copywritings = []
             for i in range(generate_copy_count):
@@ -304,6 +308,8 @@ class APSchedulerService:
                         platforms[0] if platforms else "instagram",
                         reference_image_urls,
                         db=session,
+                        image_provider_id=image_provider_id,
+                        image_model=image_model,
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -396,12 +402,21 @@ class APSchedulerService:
             "platform": platforms[0] if platforms else "instagram",
             "use_scene_reference": use_scene_reference,
         }
+
+        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+        image_provider_id = task_cfg.image_provider_id if task_cfg else None
+        image_model = task_cfg.image_model if task_cfg else None
         
         copywriting = content_generator.generate_copywriting(product_info, platforms[0] if platforms else "instagram", db=session)
         logger.info(f"Generated copywriting: {copywriting[:100]}...")
 
         image_result = content_generator.generate_image(
-            product_info, platforms[0] if platforms else "instagram", reference_image_urls, db=session
+            product_info,
+            platforms[0] if platforms else "instagram",
+            reference_image_urls,
+            db=session,
+            image_provider_id=image_provider_id,
+            image_model=image_model,
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None

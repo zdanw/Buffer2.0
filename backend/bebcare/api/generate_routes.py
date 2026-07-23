@@ -53,6 +53,8 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "platform": request.platform,
         "style_hint": request.style_hint,
         "use_scene_reference": selected["use_scene_reference"],
+        "image_provider_id": request.image_provider_id,
+        "image_model": request.image_model,
     }
 
 
@@ -86,7 +88,14 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
             generate_tasks[task_id]["copywriting"] = copywriting_text
 
             image_result = generator.generate_image(
-                product_info, platform, reference_images, style_hint, 1, db
+                product_info,
+                platform,
+                reference_images,
+                style_hint,
+                1,
+                db,
+                image_provider_id=product_info.get("image_provider_id"),
+                image_model=product_info.get("image_model"),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:
@@ -197,7 +206,14 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
             style_hint = product_info.get("style_hint", None)
 
             image_result = generator.generate_image(
-                product_info, platform, reference_images, style_hint, 1, db
+                product_info,
+                platform,
+                reference_images,
+                style_hint,
+                1,
+                db,
+                image_provider_id=product_info.get("image_provider_id"),
+                image_model=product_info.get("image_model"),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:
