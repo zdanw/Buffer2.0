@@ -2,14 +2,24 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from bebcare.database import get_db
-from bebcare.models.prompt_dimension import PromptDimension, PromptDimensionCompatibility, ProductDimension, DimensionType
+from bebcare.models.prompt_dimension import (
+    PromptDimension,
+    PromptDimensionCompatibility,
+    PromptDimensionCompatPolicy,
+    ProductDimension,
+    DimensionType,
+    CompatMode,
+)
 from bebcare.schemas.prompt_dimension import (
     DimensionTypeResponse,
+    DimensionCompatEntry,
+    DimensionCompatibilities,
+    COMPAT_TARGET_TYPES,
     PromptDimensionCreate,
     PromptDimensionUpdate,
     PromptDimensionResponse,
     ProductDimensionCreate,
-    ProductDimensionResponse
+    ProductDimensionResponse,
 )
 from bebcare.services.dimension_service import dimension_service
 from bebcare.models import Product
@@ -17,23 +27,55 @@ from bebcare.models import Product
 router = APIRouter(prefix="/prompt-dimensions", tags=["prompt-dimensions"])
 
 
-def _compat_dict_from_dim(dim: PromptDimension) -> dict:
-    compatibilities = {
-        "scenes": [],
-        "lighting": [],
-        "styles": [],
-        "compositions": [],
-        "details": [],
-        "quality": [],
-        "viewpoints": [],
+def _empty_compat_dict() -> dict:
+    return {
+        t: DimensionCompatEntry(mode="unrestricted", items=[])
+        for t in COMPAT_TARGET_TYPES
     }
-    for comp in dim.compatibilities:
-        if comp.target_dimension_type in compatibilities:
-            compatibilities[comp.target_dimension_type].append(comp.target_item_id)
-    return compatibilities
+
+
+def _compat_dict_from_dim(dim: PromptDimension) -> dict:
+    """策略表为准；无策略行 = unrestricted（忽略可能残留的反向边）。"""
+    result = _empty_compat_dict()
+    policy_by_type = {
+        p.target_dimension_type: p.mode
+        for p in (dim.compat_policies or [])
+    }
+    allow_items: dict[str, list[str]] = {t: [] for t in COMPAT_TARGET_TYPES}
+    block_items: dict[str, list[str]] = {t: [] for t in COMPAT_TARGET_TYPES}
+
+    for comp in dim.compatibilities or []:
+        t = comp.target_dimension_type
+        if t not in allow_items:
+            continue
+        rel = (comp.relation_type or "compatible")
+        if rel == "blocked":
+            block_items[t].append(comp.target_item_id)
+        else:
+            allow_items[t].append(comp.target_item_id)
+
+    for t in COMPAT_TARGET_TYPES:
+        mode = policy_by_type.get(t)
+        if mode == CompatMode.ALLOWLIST.value:
+            # 空 items 仍为 allowlist = 都不兼容
+            result[t] = DimensionCompatEntry(mode="allowlist", items=list(allow_items[t]))
+        elif mode == CompatMode.BLOCKLIST.value:
+            items = list(block_items[t])
+            if items:
+                result[t] = DimensionCompatEntry(mode="blocklist", items=items)
+            else:
+                result[t] = DimensionCompatEntry(mode="unrestricted", items=[])
+        else:
+            result[t] = DimensionCompatEntry(mode="unrestricted", items=[])
+
+    return result
 
 
 def _to_dimension_response(dim: PromptDimension, compatibilities=None) -> PromptDimensionResponse:
+    if compatibilities is None:
+        compatibilities = DimensionCompatibilities(**_compat_dict_from_dim(dim))
+    elif isinstance(compatibilities, dict):
+        compatibilities = DimensionCompatibilities(**compatibilities)
     return PromptDimensionResponse(
         dimension_id=dim.dimension_id,
         product_type=dim.product_type,
@@ -43,8 +85,58 @@ def _to_dimension_response(dim: PromptDimension, compatibilities=None) -> Prompt
         enabled=bool(dim.enabled) if dim.enabled is not None else True,
         created_at=dim.created_at,
         updated_at=dim.updated_at,
-        compatibilities=compatibilities if compatibilities is not None else _compat_dict_from_dim(dim),
+        compatibilities=compatibilities,
     )
+
+
+def _iter_compat_entries(compat: DimensionCompatibilities):
+    data = compat.model_dump()
+    for target_dim_type, entry in data.items():
+        if entry is None:
+            continue
+        yield target_dim_type, DimensionCompatEntry(**entry)
+
+
+def _save_compatibilities(
+    db: Session,
+    dim: PromptDimension,
+    compat: DimensionCompatibilities,
+):
+    """写入本维度的策略 + 正向边（mode 单向，不改写对端策略）。"""
+    db.query(PromptDimensionCompatibility).filter(
+        PromptDimensionCompatibility.dimension_id == dim.dimension_id
+    ).delete()
+    db.query(PromptDimensionCompatPolicy).filter(
+        PromptDimensionCompatPolicy.dimension_id == dim.dimension_id
+    ).delete()
+
+    for target_dim_type, entry in _iter_compat_entries(compat):
+        if target_dim_type == dim.dimension_type:
+            continue
+
+        if entry.mode == "unrestricted":
+            continue
+
+        db.add(
+            PromptDimensionCompatPolicy(
+                dimension_id=dim.dimension_id,
+                target_dimension_type=target_dim_type,
+                mode=entry.mode,
+            )
+        )
+
+        relation = "blocked" if entry.mode == "blocklist" else "compatible"
+        for target_item_id in entry.items:
+            db.add(
+                PromptDimensionCompatibility(
+                    dimension_id=dim.dimension_id,
+                    source_dimension_type=dim.dimension_type,
+                    target_dimension_type=target_dim_type,
+                    target_item_id=target_item_id,
+                    relation_type=relation,
+                    is_active=True,
+                )
+            )
 
 
 @router.get("/dimension-types", response_model=List[DimensionTypeResponse])
@@ -134,53 +226,17 @@ def create_prompt_dimension(
     db.flush()
 
     if dimension.compatibilities:
-        compat_data = dimension.compatibilities.dict()
-        for target_dim_type, target_items in compat_data.items():
-            if target_items:
-                for target_item_id in target_items:
-                    comp = PromptDimensionCompatibility(
-                        dimension_id=new_dim.dimension_id,
-                        source_dimension_type=new_dim.dimension_type,
-                        target_dimension_type=target_dim_type,
-                        target_item_id=target_item_id,
-                        relation_type="compatible",
-                        is_active=True
-                    )
-                    db.add(comp)
-
-                    target_dim = db.query(PromptDimension).filter(
-                        PromptDimension.product_type == dimension.product_type,
-                        PromptDimension.dimension_type == target_dim_type,
-                        PromptDimension.item_id == target_item_id
-                    ).first()
-                    if target_dim:
-                        reverse_comp = PromptDimensionCompatibility(
-                            dimension_id=target_dim.dimension_id,
-                            source_dimension_type=target_dim_type,
-                            target_dimension_type=new_dim.dimension_type,
-                            target_item_id=new_dim.item_id,
-                            relation_type="compatible",
-                            is_active=True
-                        )
-                        db.add(reverse_comp)
+        try:
+            _save_compatibilities(db, new_dim, dimension.compatibilities)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     db.commit()
     db.refresh(new_dim)
 
     dimension_service.clear_cache()
 
-    return _to_dimension_response(
-        new_dim,
-        dimension.compatibilities or {
-            "scenes": [],
-            "lighting": [],
-            "styles": [],
-            "compositions": [],
-            "details": [],
-            "quality": [],
-            "viewpoints": [],
-        },
-    )
+    return _to_dimension_response(new_dim)
 
 
 @router.get("/{dimension_id}", response_model=PromptDimensionResponse)
@@ -215,54 +271,19 @@ def update_prompt_dimension(
         dimension.enabled = update_data.enabled
 
     if update_data.compatibilities is not None:
-        db.query(PromptDimensionCompatibility).filter(
-            PromptDimensionCompatibility.dimension_id == dimension_id
-        ).delete()
-
-        db.query(PromptDimensionCompatibility).filter(
-            PromptDimensionCompatibility.target_dimension_type == dimension.dimension_type,
-            PromptDimensionCompatibility.target_item_id == dimension.item_id
-        ).delete()
-
-        compat_data = update_data.compatibilities.dict()
-        for target_dim_type, target_items in compat_data.items():
-            if target_items:
-                for target_item_id in target_items:
-                    comp = PromptDimensionCompatibility(
-                        dimension_id=dimension.dimension_id,
-                        source_dimension_type=dimension.dimension_type,
-                        target_dimension_type=target_dim_type,
-                        target_item_id=target_item_id,
-                        relation_type="compatible",
-                        is_active=True
-                    )
-                    db.add(comp)
-
-                    target_dim = db.query(PromptDimension).filter(
-                        PromptDimension.product_type == dimension.product_type,
-                        PromptDimension.dimension_type == target_dim_type,
-                        PromptDimension.item_id == target_item_id
-                    ).first()
-                    if target_dim:
-                        reverse_comp = PromptDimensionCompatibility(
-                            dimension_id=target_dim.dimension_id,
-                            source_dimension_type=target_dim_type,
-                            target_dimension_type=dimension.dimension_type,
-                            target_item_id=dimension.item_id,
-                            relation_type="compatible",
-                            is_active=True
-                        )
-                        db.add(reverse_comp)
+        try:
+            _save_compatibilities(
+                db, dimension, update_data.compatibilities
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     db.commit()
     db.refresh(dimension)
 
     dimension_service.clear_cache()
 
-    return _to_dimension_response(
-        dimension,
-        update_data.compatibilities if update_data.compatibilities is not None else None,
-    )
+    return _to_dimension_response(dimension)
 
 
 @router.delete("/{dimension_id}", status_code=204)

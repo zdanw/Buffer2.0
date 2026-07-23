@@ -5,14 +5,22 @@ export interface DimensionType {
   display_name: string;
 }
 
+/** unrestricted = 全部兼容；allowlist 空列表 = 都不兼容；allowlist 有项 = 白名单 */
+export type CompatMode = 'unrestricted' | 'allowlist' | 'blocklist';
+
+export interface DimensionCompatEntry {
+  mode: CompatMode;
+  items: string[];
+}
+
 export interface DimensionCompatibilities {
-  scenes?: string[];
-  lighting?: string[];
-  styles?: string[];
-  compositions?: string[];
-  details?: string[];
-  quality?: string[];
-  viewpoints?: string[];
+  scenes?: DimensionCompatEntry;
+  lighting?: DimensionCompatEntry;
+  styles?: DimensionCompatEntry;
+  compositions?: DimensionCompatEntry;
+  details?: DimensionCompatEntry;
+  quality?: DimensionCompatEntry;
+  viewpoints?: DimensionCompatEntry;
 }
 
 export const ALL_DIMENSION_TYPES = [
@@ -26,6 +34,27 @@ export const ALL_DIMENSION_TYPES = [
 ] as const;
 
 export type DimensionTypeKey = typeof ALL_DIMENSION_TYPES[number]['key'];
+
+export function emptyCompatEntry(mode: CompatMode = 'unrestricted'): DimensionCompatEntry {
+  return { mode, items: [] };
+}
+
+export function getCompatEntry(
+  compat: DimensionCompatibilities | undefined,
+  key: string
+): DimensionCompatEntry {
+  const entry = compat?.[key as keyof DimensionCompatibilities];
+  if (entry && typeof entry === 'object' && 'mode' in entry) {
+    return { mode: entry.mode, items: entry.items || [] };
+  }
+  // 兼容旧 API：string[] —— 空 = 全部兼容，非空 = 白名单
+  if (Array.isArray(entry)) {
+    return entry.length === 0
+      ? emptyCompatEntry('unrestricted')
+      : { mode: 'allowlist', items: entry };
+  }
+  return emptyCompatEntry('unrestricted');
+}
 
 export interface PromptDimension {
   dimension_id: string;

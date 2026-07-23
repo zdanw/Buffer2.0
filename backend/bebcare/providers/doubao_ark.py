@@ -69,7 +69,7 @@ class DoubaoArkImageProvider:
             data["image"] = reference_images
         data.update(self.extra_params)
 
-        response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=120)
+        response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=600)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:

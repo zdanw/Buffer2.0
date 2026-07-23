@@ -179,7 +179,7 @@ class AliyunMaasMultimodalProvider:
             self._generation_url(),
             headers=self._headers(),
             json=payload,
-            timeout=180,
+            timeout=600,
         )
         try:
             response.raise_for_status()

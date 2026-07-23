@@ -2,10 +2,56 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from functools import lru_cache
 from sqlalchemy.orm import Session
-from bebcare.models.prompt_dimension import PromptDimension, PromptDimensionCompatibility, DimensionType
+from bebcare.models.prompt_dimension import (
+    PromptDimension,
+    PromptDimensionCompatibility,
+    PromptDimensionCompatPolicy,
+    DimensionType,
+    CompatMode,
+)
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
+from bebcare.schemas.prompt_dimension import COMPAT_TARGET_TYPES
+
+
+def _compat_entries_for_dim(dim: PromptDimension) -> dict:
+    """返回 {target_type: {"mode": ..., "items": [...]}}，供生成链路使用。"""
+    policy_by_type = {
+        p.target_dimension_type: p.mode
+        for p in (dim.compat_policies or [])
+    }
+    allow_items = {t: [] for t in COMPAT_TARGET_TYPES}
+    block_items = {t: [] for t in COMPAT_TARGET_TYPES}
+
+    for comp in dim.compatibilities or []:
+        t = comp.target_dimension_type
+        if t not in allow_items:
+            continue
+        rel = comp.relation_type or "compatible"
+        if rel == "blocked":
+            block_items[t].append(comp.target_item_id)
+        else:
+            allow_items[t].append(comp.target_item_id)
+
+    result = {}
+    for t in COMPAT_TARGET_TYPES:
+        mode = policy_by_type.get(t) or CompatMode.UNRESTRICTED.value
+        if mode == CompatMode.ALLOWLIST.value:
+            # 空 items = 都不兼容
+            result[t] = {"mode": "allowlist", "items": allow_items[t]}
+        elif mode == CompatMode.BLOCKLIST.value and block_items[t]:
+            result[t] = {"mode": "blocklist", "items": block_items[t]}
+        else:
+            result[t] = {"mode": "unrestricted", "items": []}
+    return result
+
+
+def _apply_compat_to_dim_dict(dim_dict: dict, dim: PromptDimension) -> dict:
+    for key, entry in _compat_entries_for_dim(dim).items():
+        dim_dict[f"compatible_{key}_mode"] = entry["mode"]
+        if entry["mode"] in ("allowlist", "blocklist") and entry["items"]:
+            dim_dict[f"compatible_{key}"] = entry["items"]
+    return dim_dict
 
 
 class DimensionService:
@@ -34,23 +80,7 @@ class DimensionService:
                 if dim.lighting:
                     dim_dict["lighting"] = dim.lighting
 
-                compatibilities = {
-                    "scenes": [],
-                    "lighting": [],
-                    "styles": [],
-                    "compositions": [],
-                    "details": [],
-                    "quality": [],
-                    "viewpoints": [],
-                }
-                for comp in dim.compatibilities:
-                    if comp.target_dimension_type in compatibilities:
-                        compatibilities[comp.target_dimension_type].append(comp.target_item_id)
-                
-                for key, values in compatibilities.items():
-                    if values:
-                        dim_dict[f"compatible_{key}"] = values
-
+                _apply_compat_to_dim_dict(dim_dict, dim)
                 result[dim.dimension_type].append(dim_dict)
 
             return result
@@ -68,6 +98,12 @@ class DimensionService:
         target_dim_type: str
     ) -> list:
         try:
+            all_target_dims = db.query(PromptDimension).filter(
+                PromptDimension.product_type == product_type,
+                PromptDimension.dimension_type == target_dim_type,
+                PromptDimension.enabled.is_(True),
+            ).all()
+
             source_dim = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == source_dim_type,
@@ -76,43 +112,22 @@ class DimensionService:
             ).first()
 
             if not source_dim:
-                all_target_dims = db.query(PromptDimension).filter(
-                    PromptDimension.product_type == product_type,
-                    PromptDimension.dimension_type == target_dim_type,
-                    PromptDimension.enabled.is_(True),
-                ).all()
-                return [
-                    {"id": dim.item_id, "name": dim.name}
-                    for dim in all_target_dims
-                ]
+                return [{"id": dim.item_id, "name": dim.name} for dim in all_target_dims]
 
-            compatible_item_ids = {
-                comp.target_item_id
-                for comp in source_dim.compatibilities
-            }
+            entries = _compat_entries_for_dim(source_dim)
+            entry = entries.get(target_dim_type) or {"mode": "unrestricted", "items": []}
+            mode = entry["mode"]
+            item_ids = set(entry["items"])
 
-            if not compatible_item_ids:
-                all_target_dims = db.query(PromptDimension).filter(
-                    PromptDimension.product_type == product_type,
-                    PromptDimension.dimension_type == target_dim_type,
-                    PromptDimension.enabled.is_(True),
-                ).all()
-                return [
-                    {"id": dim.item_id, "name": dim.name}
-                    for dim in all_target_dims
-                ]
+            if mode == "allowlist":
+                # 空白名单 = 都不兼容，不回退到全部
+                pool = [d for d in all_target_dims if d.item_id in item_ids]
+            elif mode == "blocklist":
+                pool = [d for d in all_target_dims if d.item_id not in item_ids]
+            else:
+                pool = all_target_dims
 
-            compatible_dims = db.query(PromptDimension).filter(
-                PromptDimension.product_type == product_type,
-                PromptDimension.dimension_type == target_dim_type,
-                PromptDimension.item_id.in_(compatible_item_ids),
-                PromptDimension.enabled.is_(True),
-            ).all()
-
-            return [
-                {"id": dim.item_id, "name": dim.name}
-                for dim in compatible_dims
-            ]
+            return [{"id": dim.item_id, "name": dim.name} for dim in pool]
 
         except Exception:
             return []
@@ -142,23 +157,7 @@ class DimensionService:
                 if dim.lighting:
                     dim_dict["lighting"] = dim.lighting
 
-                compatibilities = {
-                    "scenes": [],
-                    "lighting": [],
-                    "styles": [],
-                    "compositions": [],
-                    "details": [],
-                    "quality": [],
-                    "viewpoints": [],
-                }
-                for comp in dim.compatibilities:
-                    if comp.target_dimension_type in compatibilities:
-                        compatibilities[comp.target_dimension_type].append(comp.target_item_id)
-                
-                for key, values in compatibilities.items():
-                    if values:
-                        dim_dict[f"compatible_{key}"] = values
-
+                _apply_compat_to_dim_dict(dim_dict, dim)
                 result.append(dim_dict)
 
             return result
@@ -169,32 +168,22 @@ class DimensionService:
 
     def initialize_default_dimensions(self, db: Session):
         db.query(PromptDimensionCompatibility).delete()
+        db.query(PromptDimensionCompatPolicy).delete()
         db.query(PromptDimension).delete()
         db.commit()
 
+        # 初始七大维度一律全部兼容（无策略行 = unrestricted）
         for product_type, product_dimensions in DIMENSIONS.items():
             for dim_type, items in product_dimensions.items():
                 for item in items:
-                    new_dim = PromptDimension(
-                        product_type=product_type,
-                        dimension_type=dim_type,
-                        item_id=item["id"],
-                        name=item["name"]
+                    db.add(
+                        PromptDimension(
+                            product_type=product_type,
+                            dimension_type=dim_type,
+                            item_id=item["id"],
+                            name=item["name"],
+                        )
                     )
-                    db.add(new_dim)
-                    db.flush()
-
-                    if "compatible_with" in item:
-                        for target_item_id in item["compatible_with"]:
-                            comp = PromptDimensionCompatibility(
-                                dimension_id=new_dim.dimension_id,
-                                source_dimension_type=dim_type,
-                                target_dimension_type="scenes",
-                                target_item_id=target_item_id,
-                                relation_type="compatible",
-                                is_active=True
-                            )
-                            db.add(comp)
 
         db.commit()
         self.clear_cache()

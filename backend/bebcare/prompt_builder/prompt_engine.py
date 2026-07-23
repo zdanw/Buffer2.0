@@ -101,6 +101,30 @@ class PromptEngine:
         
         return DIMENSIONS.get(product_type, DIMENSIONS["Night Lights"])
     
+    def _pool_by_compat(
+        self,
+        scene: dict,
+        compat_key: str,
+        all_items: list,
+        unrestricted_fallback=None,
+    ) -> list:
+        """按场景上的兼容三态筛选候选。空 allowlist = 都不兼容，不回退。"""
+        items = all_items or []
+        mode = scene.get(f"compatible_{compat_key}_mode") or "unrestricted"
+        id_set = set(scene.get(f"compatible_{compat_key}", []) or [])
+
+        if mode == "allowlist":
+            return [x for x in items if x.get("id") in id_set]
+        if mode == "blocklist":
+            pool = [x for x in items if x.get("id") not in id_set]
+            return pool if pool else list(items)
+
+        if unrestricted_fallback is not None:
+            pool = unrestricted_fallback()
+        else:
+            pool = list(items)
+        return pool if pool else list(items)
+
     def _select_scene(self, product_type: str = "Night Lights", db=None) -> dict:
         """选择一个场景"""
         dimensions = self._get_dimensions(product_type, db)
@@ -112,139 +136,112 @@ class PromptEngine:
     def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的光线"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_lighting_ids = scene.get("compatible_lighting", [])
-        
-        if compatible_lighting_ids:
-            compatible_lighting = [
-                light for light in dimensions["lighting"]
-                if light.get("id") in compatible_lighting_ids
-            ]
-        else:
+        lighting = dimensions.get("lighting") or []
+
+        def unrestricted():
+            # 无显式 mode 且带有旧式白名单 id 时，按白名单处理（静态 DIMENSIONS）
+            if scene.get("compatible_lighting") and not scene.get("compatible_lighting_mode"):
+                ids = set(scene["compatible_lighting"])
+                return [light for light in lighting if light.get("id") in ids]
             scene_time = scene.get("time", "day")
-            compatible_lighting = [
-                light for light in dimensions["lighting"]
+            return [
+                light for light in lighting
                 if light.get("time") == scene_time or light.get("time") is None
             ]
-        
-        if not compatible_lighting:
-            compatible_lighting = dimensions["lighting"]
-        
+
+        compatible_lighting = self._pool_by_compat(scene, "lighting", lighting, unrestricted)
         if not compatible_lighting:
             return {"id": "default", "name": "默认光线"}
-        
         return random.choice(compatible_lighting)
     
     def _select_style(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的风格"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_style_ids = scene.get("compatible_styles", [])
-        
-        if compatible_style_ids:
-            compatible_styles = [
-                style for style in dimensions["styles"]
-                if style.get("id") in compatible_style_ids
-            ]
-        else:
+        styles = dimensions.get("styles") or []
+
+        def unrestricted():
+            if scene.get("compatible_styles") and not scene.get("compatible_styles_mode"):
+                ids = set(scene["compatible_styles"])
+                return [style for style in styles if style.get("id") in ids]
             scene_id = scene.get("id")
-            compatible_styles = [
-                style for style in dimensions["styles"]
+            return [
+                style for style in styles
                 if not style.get("compatible_with") or scene_id in style["compatible_with"]
             ]
-        
-        if not compatible_styles:
-            compatible_styles = dimensions["styles"]
-        
+
+        compatible_styles = self._pool_by_compat(scene, "styles", styles, unrestricted)
         if not compatible_styles:
             return {"id": "default", "name": "默认风格"}
-        
         return random.choice(compatible_styles)
     
     def _select_details(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的细节/道具"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_detail_ids = scene.get("compatible_details", [])
-        
-        if compatible_detail_ids:
-            compatible_details = [
-                detail for detail in dimensions["details"]
-                if detail.get("id") in compatible_detail_ids
-            ]
-        else:
+        details = dimensions.get("details") or []
+
+        def unrestricted():
+            if scene.get("compatible_details") and not scene.get("compatible_details_mode"):
+                ids = set(scene["compatible_details"])
+                return [detail for detail in details if detail.get("id") in ids]
             scene_id = scene.get("id")
-            compatible_details = [
-                detail for detail in dimensions["details"]
+            return [
+                detail for detail in details
                 if not detail.get("compatible_with") or scene_id in detail["compatible_with"]
             ]
-        
-        if not compatible_details:
-            compatible_details = dimensions["details"]
-        
+
+        compatible_details = self._pool_by_compat(scene, "details", details, unrestricted)
         if not compatible_details:
             return {"id": "default", "name": "默认细节"}
-        
         return random.choice(compatible_details)
     
     def _select_viewpoint(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的视角"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_viewpoint_ids = scene.get("compatible_viewpoints", [])
-        
-        if compatible_viewpoint_ids:
-            compatible_viewpoints = [
-                viewpoint for viewpoint in dimensions["viewpoints"]
-                if viewpoint.get("id") in compatible_viewpoint_ids
-            ]
-        else:
-            compatible_viewpoints = dimensions["viewpoints"]
-        
-        if not compatible_viewpoints:
-            compatible_viewpoints = dimensions["viewpoints"]
-        
+        viewpoints = dimensions.get("viewpoints") or []
+
+        def unrestricted():
+            if scene.get("compatible_viewpoints") and not scene.get("compatible_viewpoints_mode"):
+                ids = set(scene["compatible_viewpoints"])
+                return [v for v in viewpoints if v.get("id") in ids]
+            return list(viewpoints)
+
+        compatible_viewpoints = self._pool_by_compat(scene, "viewpoints", viewpoints, unrestricted)
         if not compatible_viewpoints:
             return {"id": "default", "name": "默认视角"}
-        
         return random.choice(compatible_viewpoints)
     
     def _select_composition(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的构图"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_composition_ids = scene.get("compatible_compositions", [])
-        
-        if compatible_composition_ids:
-            compatible_compositions = [
-                composition for composition in dimensions["compositions"]
-                if composition.get("id") in compatible_composition_ids
-            ]
-        else:
-            compatible_compositions = dimensions["compositions"]
-        
-        if not compatible_compositions:
-            compatible_compositions = dimensions["compositions"]
-        
+        compositions = dimensions.get("compositions") or []
+
+        def unrestricted():
+            if scene.get("compatible_compositions") and not scene.get("compatible_compositions_mode"):
+                ids = set(scene["compatible_compositions"])
+                return [c for c in compositions if c.get("id") in ids]
+            return list(compositions)
+
+        compatible_compositions = self._pool_by_compat(
+            scene, "compositions", compositions, unrestricted
+        )
         if not compatible_compositions:
             return {"id": "default", "name": "默认构图"}
-        
         return random.choice(compatible_compositions)
     
     def _select_quality(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
         """根据场景选择兼容的画质"""
         dimensions = self._get_dimensions(product_type, db)
-        compatible_quality_ids = scene.get("compatible_quality", [])
-        
-        if compatible_quality_ids:
-            compatible_qualities = [
-                quality for quality in dimensions["quality"]
-                if quality.get("id") in compatible_quality_ids
-            ]
-        else:
-            compatible_qualities = dimensions["quality"]
-        
-        if not compatible_qualities:
-            compatible_qualities = dimensions["quality"]
-        
+        qualities = dimensions.get("quality") or []
+
+        def unrestricted():
+            if scene.get("compatible_quality") and not scene.get("compatible_quality_mode"):
+                ids = set(scene["compatible_quality"])
+                return [q for q in qualities if q.get("id") in ids]
+            return list(qualities)
+
+        compatible_qualities = self._pool_by_compat(scene, "quality", qualities, unrestricted)
         if not compatible_qualities:
             return {"id": "default", "name": "默认画质"}
-        
         return random.choice(compatible_qualities)
     
     def _select_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:

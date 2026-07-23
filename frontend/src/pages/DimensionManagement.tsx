@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-react';
-import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities } from '@/api/dimensions';
-import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES } from '@/api/dimensions';
+import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
+import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import {
   LIMITS,
@@ -135,39 +135,33 @@ function removeCompatCacheItem(productType: string, dimensionType: string, itemI
   entry.options[dimensionType] = bucket.filter((x) => x.id !== itemId);
 }
 
-/**
- * 编辑兼容关系后，按双向边本地修正当前页其他行的计数，避免整表重新筛选请求。
- */
-function syncReverseCompatInList(
+/** 兼容策略为单向，仅替换当前编辑行 */
+function syncEditedCompatInList(
   rows: PromptDimension[],
   edited: PromptDimension,
-  prevCompat: DimensionCompatibilities | undefined,
-  nextCompat: DimensionCompatibilities | undefined
 ): PromptDimension[] {
-  return rows.map((row) => {
-    if (row.dimension_id === edited.dimension_id) {
-      return { ...row, ...edited };
-    }
+  return rows.map((row) =>
+    row.dimension_id === edited.dimension_id ? { ...row, ...edited } : row
+  );
+}
 
-    const targetType = row.dimension_type as keyof DimensionCompatibilities;
-    const sourceType = edited.dimension_type as keyof DimensionCompatibilities;
-    const oldTargets = new Set(prevCompat?.[targetType] || []);
-    const newTargets = new Set(nextCompat?.[targetType] || []);
-    const wasLinked = oldTargets.has(row.item_id);
-    const isLinked = newTargets.has(row.item_id);
-    if (wasLinked === isLinked) return row;
+/** UI 勾选集合：全部兼容视为全选；都不兼容为空；白名单为 items */
+function selectedIdsForUi(entry: DimensionCompatEntry, allItemIds: string[]): string[] {
+  if (entry.mode === 'unrestricted') return allItemIds;
+  return entry.items || [];
+}
 
-    const compat: DimensionCompatibilities = { ...(row.compatibilities || {}) };
-    const reverseList = [...(compat[sourceType] || [])];
-    if (isLinked && !reverseList.includes(edited.item_id)) {
-      reverseList.push(edited.item_id);
-    } else if (!isLinked) {
-      const idx = reverseList.indexOf(edited.item_id);
-      if (idx >= 0) reverseList.splice(idx, 1);
-    }
-    compat[sourceType] = reverseList;
-    return { ...row, compatibilities: compat };
-  });
+function compatLabel(entry: DimensionCompatEntry): string {
+  if (entry.mode === 'unrestricted') return '全部兼容';
+  if (entry.mode === 'allowlist' && (!entry.items || entry.items.length === 0)) return '都不兼容';
+  if (entry.mode === 'blocklist') return `排除${entry.items?.length || 0}项`;
+  return `${entry.items?.length || 0}项`;
+}
+
+/** 列表单元格：全部兼容用 ✔ 节省列宽 */
+function compatTableLabel(entry: DimensionCompatEntry): string {
+  if (entry.mode === 'unrestricted') return '✔';
+  return compatLabel(entry);
 }
 
 export default function DimensionManagement() {
@@ -194,7 +188,7 @@ export default function DimensionManagement() {
     const result: DimensionCompatibilities = {};
     for (const dimType of ALL_DIMENSION_TYPES) {
       if (dimType.key !== excludeType) {
-        result[dimType.key] = [];
+        result[dimType.key] = emptyCompatEntry('unrestricted');
       }
     }
     return result;
@@ -254,15 +248,21 @@ export default function DimensionManagement() {
 
   const toggleSelectAll = async (dimType: string) => {
     const opts = await ensureCompatOptions(formData.product_type);
-    const current = ((formData.compatibilities || {})[dimType as keyof DimensionCompatibilities] || []);
+    const entry = getCompatEntry(formData.compatibilities, dimType);
     const allItems = opts[dimType]?.map(item => item.id) || [];
-    const isAllSelected = allItems.length > 0 && allItems.every(id => current.includes(id));
-    
+    const selected = selectedIdsForUi(entry, allItems);
+    const isAllSelected =
+      entry.mode === 'unrestricted' ||
+      (allItems.length > 0 && allItems.every(id => selected.includes(id)));
+
     setFormData(prev => ({
       ...prev,
       compatibilities: {
         ...(prev.compatibilities || {}),
-        [dimType]: isAllSelected ? [] : allItems
+        // 全选 → 全部兼容；取消全选 → 都不兼容
+        [dimType]: isAllSelected
+          ? emptyCompatEntry('allowlist')
+          : emptyCompatEntry('unrestricted'),
       }
     }));
   };
@@ -398,13 +398,10 @@ export default function DimensionManagement() {
           name: submitData.name,
           compatibilities: submitData.compatibilities,
         };
-        const prevCompat = selectedDimension.compatibilities;
         const updated = await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
         // 本地更新列表 + 就地改缓存名称；不清空兼容选项缓存
         upsertCompatCacheItem(updated);
-        setDimensions((prev) =>
-          syncReverseCompatInList(prev, updated, prevCompat, updated.compatibilities)
-        );
+        setDimensions((prev) => syncEditedCompatInList(prev, updated));
       } else {
         const created = await createPromptDimension(submitData);
         upsertCompatCacheItem(created);
@@ -672,18 +669,24 @@ export default function DimensionManagement() {
                       </span>
                     </td>
                     {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => {
-                      const compatList = dimension.compatibilities?.[dimType.key as keyof DimensionCompatibilities];
+                      const entry = getCompatEntry(dimension.compatibilities, dimType.key);
                       const isSelf = dimension.dimension_type === dimType.key;
-                      const count = compatList?.length || 0;
+                      const label = compatTableLabel(entry);
                       return (
                         <td key={dimType.key} className="px-6 py-4 text-sm">
                           {isSelf ? (
                             <span className="text-gray-300 text-xs">-</span>
-                          ) : count > 0 ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${dimType.color}`}>
-                              {count}项
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              entry.mode === 'unrestricted'
+                                ? 'bg-gray-100 text-gray-600'
+                                : entry.mode === 'allowlist' && entry.items.length === 0
+                                  ? 'bg-red-50 text-red-600'
+                                  : dimType.color
+                            }`}>
+                              {label}
                             </span>
-                          ) : '-'}
+                          )}
                         </td>
                       );
                     })}
@@ -807,11 +810,14 @@ export default function DimensionManagement() {
                       </div>
                     )}
                     {getCompatibleDimensionTypes(formData.dimension_type).map((dimType) => {
-                  const current = ((formData.compatibilities || {})[dimType.key as keyof DimensionCompatibilities] || []);
+                  const entry = getCompatEntry(formData.compatibilities, dimType.key);
                   const allItems = allDimensions[dimType.key]?.map(item => item.id) || [];
-                  const isAllSelected = allItems.length > 0 && allItems.every(id => current.includes(id));
+                  const current = selectedIdsForUi(entry, allItems);
+                  const isAllSelected =
+                    entry.mode === 'unrestricted' ||
+                    (allItems.length > 0 && allItems.every(id => current.includes(id)));
                   const isExpanded = expandedDimensions[dimType.key] || false;
-                  const selectedCount = current.length;
+                  const statusText = compatLabel(entry);
                   
                   return (
                     <div key={dimType.key} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -822,9 +828,7 @@ export default function DimensionManagement() {
                       >
                         <span className="font-medium text-gray-700">
                           兼容{dimType.label}
-                          {selectedCount > 0 && (
-                            <span className="ml-2 text-xs font-normal text-indigo-600">已选 {selectedCount}</span>
-                          )}
+                          <span className="ml-2 text-xs font-normal text-indigo-600">{statusText}</span>
                         </span>
                         <span className="flex items-center gap-2">
                           <input
@@ -864,12 +868,23 @@ export default function DimensionManagement() {
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={(e) => {
-                                      const newList = e.target.checked
-                                        ? [...current, item.id]
-                                        : current.filter(id => id !== item.id);
+                                      let nextIds: string[];
+                                      if (e.target.checked) {
+                                        nextIds = [...current, item.id];
+                                      } else {
+                                        // 从「全部兼容」取消某一项 → 变为除该项外的白名单
+                                        nextIds = current.filter(id => id !== item.id);
+                                      }
+                                      const nextEntry: DimensionCompatEntry =
+                                        allItems.length > 0 && allItems.every(id => nextIds.includes(id))
+                                          ? emptyCompatEntry('unrestricted')
+                                          : { mode: 'allowlist', items: nextIds };
                                       setFormData({
                                         ...formData,
-                                        compatibilities: { ...(formData.compatibilities || {}), [dimType.key]: newList },
+                                        compatibilities: {
+                                          ...(formData.compatibilities || {}),
+                                          [dimType.key]: nextEntry,
+                                        },
                                       });
                                     }}
                                     className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"

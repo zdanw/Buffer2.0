@@ -1,23 +1,50 @@
-from pydantic import BaseModel, Field
-from uuid import UUID
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
-from typing import List, Optional, Dict
-from bebcare.models.prompt_dimension import DimensionType
+from typing import List, Optional, Literal
+
+
+CompatMode = Literal["unrestricted", "allowlist", "blocklist"]
+
+COMPAT_TARGET_TYPES = (
+    "scenes",
+    "lighting",
+    "styles",
+    "compositions",
+    "details",
+    "quality",
+    "viewpoints",
+)
+
+
+class DimensionCompatEntry(BaseModel):
+    mode: CompatMode = Field("unrestricted", description="unrestricted | allowlist | blocklist")
+    items: List[str] = Field(default_factory=list, description="白名单或黑名单 item_id")
+
+    @model_validator(mode="after")
+    def normalize_by_mode(self):
+        if self.mode == "unrestricted":
+            self.items = []
+        elif self.mode == "blocklist" and not self.items:
+            # 空排除 ≡ 不限制
+            self.mode = "unrestricted"
+            self.items = []
+        # allowlist + 空 items = 都不兼容（显式保留）
+        return self
+
+
+class DimensionCompatibilities(BaseModel):
+    scenes: Optional[DimensionCompatEntry] = None
+    lighting: Optional[DimensionCompatEntry] = None
+    styles: Optional[DimensionCompatEntry] = None
+    compositions: Optional[DimensionCompatEntry] = None
+    details: Optional[DimensionCompatEntry] = None
+    quality: Optional[DimensionCompatEntry] = None
+    viewpoints: Optional[DimensionCompatEntry] = None
 
 
 class DimensionTypeResponse(BaseModel):
     name: str
     display_name: str
-
-
-class DimensionCompatibilities(BaseModel):
-    scenes: Optional[List[str]] = Field(None, description="兼容的场景item_id列表")
-    lighting: Optional[List[str]] = Field(None, description="兼容的光线item_id列表")
-    styles: Optional[List[str]] = Field(None, description="兼容的风格item_id列表")
-    compositions: Optional[List[str]] = Field(None, description="兼容的构图item_id列表")
-    details: Optional[List[str]] = Field(None, description="兼容的细节item_id列表")
-    quality: Optional[List[str]] = Field(None, description="兼容的画质item_id列表")
-    viewpoints: Optional[List[str]] = Field(None, description="兼容的视角item_id列表")
 
 
 class PromptDimensionBase(BaseModel):

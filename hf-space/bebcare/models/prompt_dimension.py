@@ -1,5 +1,5 @@
 from enum import Enum
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
 import uuid
@@ -29,6 +29,12 @@ class DimensionType(str, Enum):
         return names[self.value]
 
 
+class CompatMode(str, Enum):
+    UNRESTRICTED = "unrestricted"
+    ALLOWLIST = "allowlist"
+    BLOCKLIST = "blocklist"
+
+
 class PromptDimension(Base):
     __tablename__ = "prompt_dimensions"
 
@@ -49,6 +55,11 @@ class PromptDimension(Base):
         back_populates="dimension",
         cascade="all, delete-orphan"
     )
+    compat_policies = relationship(
+        "PromptDimensionCompatPolicy",
+        back_populates="dimension",
+        cascade="all, delete-orphan"
+    )
 
 
 class PromptDimensionCompatibility(Base):
@@ -59,11 +70,33 @@ class PromptDimensionCompatibility(Base):
     source_dimension_type = Column(String(50), nullable=False)
     target_dimension_type = Column(String(50), nullable=False)
     target_item_id = Column(String(100), nullable=False)
+    # compatible = 白名单边；blocked = 黑名单边
     relation_type = Column(String(20), nullable=False, default="compatible")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     dimension = relationship("PromptDimension", back_populates="compatibilities")
+
+
+class PromptDimensionCompatPolicy(Base):
+    """每个源维度项 × 目标维度类型的兼容策略。"""
+    __tablename__ = "prompt_dimension_compat_policies"
+    __table_args__ = (
+        UniqueConstraint(
+            "dimension_id",
+            "target_dimension_type",
+            name="uq_compat_policy_dim_target",
+        ),
+    )
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    dimension_id = Column(String(36), ForeignKey("prompt_dimensions.dimension_id", ondelete="CASCADE"), nullable=False, index=True)
+    target_dimension_type = Column(String(50), nullable=False)
+    mode = Column(String(20), nullable=False, default=CompatMode.UNRESTRICTED.value)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    dimension = relationship("PromptDimension", back_populates="compat_policies")
 
 
 class ProductDimension(Base):
