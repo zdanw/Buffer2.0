@@ -41,8 +41,12 @@ export default function PublishCalendar() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadTasks = useCallback(async (force = false) => {
+    if (force) setRefreshing(true);
+    else setLoading(true);
     try {
       if (force) invalidateCache('tasks');
 
@@ -78,6 +82,9 @@ export default function PublishCalendar() {
       }
     } catch (error) {
       console.error('Failed to load calendar data:', error);
+    } finally {
+      if (force) setRefreshing(false);
+      else setLoading(false);
     }
   }, []);
 
@@ -342,16 +349,22 @@ export default function PublishCalendar() {
         </div>
         <button
           onClick={() => loadTasks(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          disabled={refreshing || loading}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 ${refreshing || loading ? 'animate-spin' : ''}`} />
           刷新
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className={`grid grid-cols-3 gap-6 ${loading || refreshing ? 'opacity-70 pointer-events-none' : ''}`}>
         <div className="col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
+            {(loading || refreshing) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10 rounded-xl">
+                <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+              </div>
+            )}
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={prevMonth}

@@ -67,16 +67,21 @@ export default function ImageProviderSettings() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = async (opts?: { silent?: boolean }) => {
     try {
-      if (!opts?.silent) setLoading(true);
+      if (opts?.silent) setRefreshing(true);
+      else setLoading(true);
       const data = await listImageProviders();
       setProviders(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || '加载失败');
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (opts?.silent) setRefreshing(false);
+      else setLoading(false);
     }
   };
 
@@ -186,6 +191,7 @@ export default function ImageProviderSettings() {
     }
 
     try {
+      setSaving(true);
       if (editingId) {
         const payload: Record<string, unknown> = {
           name: form.name,
@@ -216,16 +222,21 @@ export default function ImageProviderSettings() {
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(Array.isArray(detail) ? detail[0]?.msg : detail || '保存失败');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('确定删除该 Provider？')) return;
+    setDeletingId(id);
     try {
       await deleteImageProvider(id);
       setProviders((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       setError(err.response?.data?.detail || '删除失败');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -264,10 +275,11 @@ export default function ImageProviderSettings() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => void load()}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
+            onClick={() => void load({ silent: true })}
+            disabled={refreshing || loading}
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             刷新
           </button>
           <button
@@ -343,9 +355,14 @@ export default function ImageProviderSettings() {
               <button
                 type="button"
                 onClick={() => void handleDelete(p.id)}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                disabled={deletingId === p.id}
+                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
               >
-                <Trash2 className="w-5 h-5" />
+                {deletingId === p.id ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
@@ -547,15 +564,17 @@ export default function ImageProviderSettings() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  disabled={saving}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  disabled={saving}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  保存
+                  {saving ? '保存中…' : '保存'}
                 </button>
               </div>
             </form>

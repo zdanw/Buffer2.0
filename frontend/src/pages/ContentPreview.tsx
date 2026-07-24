@@ -97,6 +97,7 @@ export default function ContentPreview() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [saveDraftStatus, setSaveDraftStatus] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +172,7 @@ export default function ContentPreview() {
   }, [taskId, isGenerating]);
 
   const loadProducts = async (force = false) => {
+    if (!force) setProductsLoading(true);
     try {
       if (force) invalidateCache('products');
       const data = force
@@ -187,6 +189,8 @@ export default function ContentPreview() {
       });
     } catch (error) {
       console.error('Failed to load products:', error);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -353,18 +357,26 @@ export default function ContentPreview() {
         <div className="col-span-1 space-y-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">选择产品</label>
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">请选择产品</option>
-              {products.map((product) => (
-                <option key={product.product_id} value={product.product_id}>
-                  {product.product_name}
-                </option>
-              ))}
-            </select>
+            {productsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                加载产品中…
+              </div>
+            ) : (
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                disabled={refreshing}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">请选择产品</option>
+                {products.map((product) => (
+                  <option key={product.product_id} value={product.product_id}>
+                    {product.product_name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">

@@ -85,8 +85,21 @@ class ContentGenerator:
 
         return self._retry_request(make_request, max_retries=3, initial_delay=2.0)
     
+    def _db_session(self, db=None):
+        """短生命周期 Session：调用方未传入时自建，用完即关。"""
+        from bebcare.database import SessionLocal
+
+        if db is not None:
+            return db, False
+        return SessionLocal(), True
+
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
-        prompt = prompt_engine.build_copywriting_prompt(product_info, platform, db)
+        session, own = self._db_session(db)
+        try:
+            prompt = prompt_engine.build_copywriting_prompt(product_info, platform, session)
+        finally:
+            if own:
+                session.close()
         return self._call_deepseek(prompt, prompt_engine.system_prompt, 500)
     
     def generate_image(self, product_info: Dict, platform: str, 
@@ -102,19 +115,30 @@ class ContentGenerator:
         
         selected_dimensions = None
         image_prompt = None
-        
-        if use_scene_reference:
-            scene_prompt_result = prompt_engine.build_scene_reference_prompt(
-                product_info, platform, style_hint, db
-            )
-            positive_prompt = scene_prompt_result["prompt"]
-            image_prompt = positive_prompt
-            selected_dimensions = scene_prompt_result.get("dimensions")
-        else:
-            image_prompt_result = prompt_engine.build_image_prompt(product_info, platform, style_hint, db)
-            meta_prompt = image_prompt_result["prompt"]
-            selected_dimensions = image_prompt_result.get("dimensions", None)
-            
+        positive_prompt = None
+        meta_prompt = None
+
+        # 仅在查维度/拼提示词时占用连接，不跨 DeepSeek / 出图 API
+        session, own = self._db_session(db)
+        try:
+            if use_scene_reference:
+                scene_prompt_result = prompt_engine.build_scene_reference_prompt(
+                    product_info, platform, style_hint, session
+                )
+                positive_prompt = scene_prompt_result["prompt"]
+                image_prompt = positive_prompt
+                selected_dimensions = scene_prompt_result.get("dimensions")
+            else:
+                image_prompt_result = prompt_engine.build_image_prompt(
+                    product_info, platform, style_hint, session
+                )
+                meta_prompt = image_prompt_result["prompt"]
+                selected_dimensions = image_prompt_result.get("dimensions", None)
+        finally:
+            if own:
+                session.close()
+
+        if not use_scene_reference:
             # 详细中文图像描述通常远超 200 tokens；1024 覆盖完整提示词
             positive_prompt = self._call_deepseek(meta_prompt, self.image_prompt_system_prompt, 1024)
             image_prompt = positive_prompt
@@ -123,7 +147,12 @@ class ContentGenerator:
 
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
-        provider, resolved_model = resolve_image_provider(db, provider_id, model_id)
+        session, own = self._db_session(db)
+        try:
+            provider, resolved_model = resolve_image_provider(session, provider_id, model_id)
+        finally:
+            if own:
+                session.close()
 
         def make_image_request():
             return provider.generate(

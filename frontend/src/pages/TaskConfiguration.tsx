@@ -30,6 +30,9 @@ export default function TaskConfiguration() {
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TaskCreate>({
     name: '',
     cron: '0 10 * * *',
@@ -71,6 +74,7 @@ export default function TaskConfiguration() {
       console.error('Failed to load tasks:', error);
     } finally {
       if (keepRows) setListBusy(false);
+      setInitialLoading(false);
     }
   };
 
@@ -189,6 +193,7 @@ export default function TaskConfiguration() {
     }
     if (alertValidationErrors(errors)) return;
 
+    setSaving(true);
     try {
       if (isEdit && selectedTask) {
         const updated = await updateTask(selectedTask.task_id, formData);
@@ -210,11 +215,14 @@ export default function TaskConfiguration() {
     } catch (error) {
       console.error('Failed to save task:', error);
       alert('保存失败，请检查输入后重试');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (taskId: string) => {
     if (confirm('确定删除该任务吗？')) {
+      setDeletingId(taskId);
       try {
         await deleteTask(taskId);
         invalidateCache('tasks');
@@ -226,6 +234,8 @@ export default function TaskConfiguration() {
         }
       } catch (error) {
         console.error('Failed to delete task:', error);
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -375,23 +385,33 @@ export default function TaskConfiguration() {
                 >
                   <Edit2 className="w-5 h-5" />
                 </button>
-                <button
+                  <button
                   onClick={() => handleDelete(task.task_id)}
-                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  disabled={deletingId === task.task_id}
+                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  {deletingId === task.task_id ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
           </div>
         ))}
 
-        {tasks.length === 0 && (
+        {initialLoading && tasks.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-gray-500 text-sm">加载中...</p>
+          </div>
+        ) : tasks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">暂无定时任务，点击上方按钮创建</p>
           </div>
-        )}
+        ) : null}
         
         {total > 0 && (
           <div className="mt-4">
@@ -399,6 +419,7 @@ export default function TaskConfiguration() {
               current={currentPage}
               total={total}
               pageSize={pageSize}
+              disabled={listBusy}
               onChange={(page) => void loadTasks(page, undefined, { keepRows: true })}
               onPageSizeChange={handlePageSizeChange}
             />
@@ -691,15 +712,17 @@ export default function TaskConfiguration() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isEdit ? '保存修改' : '创建任务'}
+                  {saving ? '保存中…' : isEdit ? '保存修改' : '创建任务'}
                 </button>
               </div>
             </form>

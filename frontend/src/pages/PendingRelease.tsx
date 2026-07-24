@@ -26,6 +26,8 @@ export default function PendingRelease() {
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [discardingId, setDiscardingId] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([loadDrafts(1), loadTasks()]);
@@ -61,6 +63,7 @@ export default function PendingRelease() {
       console.error('Failed to load drafts:', error);
     } finally {
       if (keepRows) setListBusy(false);
+      setInitialLoading(false);
     }
   };
 
@@ -148,6 +151,7 @@ export default function PendingRelease() {
 
   const handleDiscard = async (draftId: string) => {
     if (confirm('确定要丢弃这个草稿吗？此操作不可撤销。')) {
+      setDiscardingId(draftId);
       try {
         await discardDraft(draftId);
         const remaining = drafts.length - 1;
@@ -158,6 +162,8 @@ export default function PendingRelease() {
       } catch (error) {
         console.error('Failed to discard:', error);
         alert('操作失败，请重试');
+      } finally {
+        setDiscardingId(null);
       }
     }
   };
@@ -194,7 +200,12 @@ export default function PendingRelease() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">草稿列表</h3>
           
-          {drafts.length === 0 ? (
+          {initialLoading && drafts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-gray-500 text-sm">加载中...</p>
+            </div>
+          ) : drafts.length === 0 ? (
             <div className="text-center py-12">
               <Eye className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500">暂无待发布草稿</p>
@@ -227,9 +238,14 @@ export default function PendingRelease() {
                           e.stopPropagation();
                           handleDiscard(draft.draft_id);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                        disabled={discardingId === draft.draft_id}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded disabled:opacity-50"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {discardingId === draft.draft_id ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     
@@ -266,6 +282,7 @@ export default function PendingRelease() {
                     current={currentPage}
                     total={total}
                     pageSize={pageSize}
+                    disabled={listBusy}
                     onChange={(page) => void loadDrafts(page, undefined, { keepRows: true })}
                     onPageSizeChange={handlePageSizeChange}
                   />

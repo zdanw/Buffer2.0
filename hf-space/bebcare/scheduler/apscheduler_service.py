@@ -191,11 +191,11 @@ class APSchedulerService:
     def execute_auto_task(self, task_id, target_categories, target_products, platforms,
                           reference_image_count, run_count_per_execution, use_scene_reference=False):
         logger.info(f"Executing auto task {task_id} at {datetime.now()}")
-        
-        session = Session(bind=engine)
-        try:
-            for _ in range(run_count_per_execution):
-                execution_id = str(uuid.uuid4())
+
+        for _ in range(run_count_per_execution):
+            execution_id = str(uuid.uuid4())
+            session = Session(bind=engine)
+            try:
                 execution = TaskExecution(
                     execution_id=execution_id,
                     task_id=task_id,
@@ -203,11 +203,29 @@ class APSchedulerService:
                 )
                 session.add(execution)
                 session.commit()
-                
-                try:
-                    result = self._execute_single_run(session, task_id, target_categories, target_products, platforms,
-                                                      reference_image_count, use_scene_reference)
-                    
+            finally:
+                session.close()
+
+            result = None
+            error_message = None
+            try:
+                # 生成过程不持有调度 Session，由 ContentGenerator 短生命周期占用
+                result = self._execute_single_run(
+                    task_id, target_categories, target_products, platforms,
+                    reference_image_count, use_scene_reference,
+                )
+            except Exception as e:
+                error_message = str(e)
+                logger.error(f"Error executing task workflow: {str(e)}", exc_info=True)
+
+            session = Session(bind=engine)
+            try:
+                execution = session.query(TaskExecution).filter(
+                    TaskExecution.execution_id == execution_id
+                ).first()
+                if not execution:
+                    continue
+                if result is not None:
                     execution.status = "SUCCESS"
                     execution.generated_images = result.get("images", [])
                     execution.published_platforms = result.get("platforms", [])
@@ -216,13 +234,15 @@ class APSchedulerService:
                     execution.image_prompt = result.get("image_prompt")
                     execution.reference_product_images = result.get("reference_product_images", [])
                     execution.reference_scene_images = result.get("reference_scene_images", [])
-                except Exception as e:
+                else:
                     execution.status = "FAILED"
-                    execution.error_message = str(e)
-                    logger.error(f"Error executing task workflow: {str(e)}", exc_info=True)
-                
+                    execution.error_message = error_message
                 session.commit()
-            
+            finally:
+                session.close()
+
+        session = Session(bind=engine)
+        try:
             task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
             if task:
                 task.last_run_at = datetime.now()
@@ -230,7 +250,6 @@ class APSchedulerService:
                     job = self.running_tasks[str(task_id)]
                     task.next_run_at = job.next_run_time
                 session.commit()
-                
         finally:
             session.close()
     
@@ -238,7 +257,15 @@ class APSchedulerService:
                             reference_image_count, generate_image_count, generate_copy_count,
                             use_scene_reference=False):
         logger.info(f"Executing manual task {task_id} at {datetime.now()}")
-        
+
+        product_info = None
+        reference_image_urls = []
+        reference_product_images = []
+        reference_scene_images = []
+        image_provider_id = None
+        image_model = None
+        product_id_str = None
+
         session = Session(bind=engine)
         try:
             if target_products and len(target_products) > 0:
@@ -262,9 +289,10 @@ class APSchedulerService:
             reference_scene_images = selected["reference_scene_images"]
             use_scene_reference = selected["use_scene_reference"]
             logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
-            
+
+            product_id_str = str(product.product_id)
             product_info = {
-                "product_id": str(product.product_id),
+                "product_id": product_id_str,
                 "product_name": product.product_name,
                 "category": product.category,
                 "description": product.description,
@@ -278,12 +306,18 @@ class APSchedulerService:
             task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
             image_provider_id = task_cfg.image_provider_id if task_cfg else None
             image_model = task_cfg.image_model if task_cfg else None
-            
+        except Exception as e:
+            logger.error(f"Error preparing manual task {task_id}: {str(e)}", exc_info=True)
+            return
+        finally:
+            session.close()
+
+        try:
             copywritings = []
             for i in range(generate_copy_count):
                 try:
                     copywriting = content_generator.generate_copywriting(
-                        product_info, platforms[0] if platforms else "instagram", db=session
+                        product_info, platforms[0] if platforms else "instagram"
                     )
                     copywritings.append(copywriting)
                     logger.info(f"Generated copywriting {i+1}/{generate_copy_count}: {copywriting[:100]}...")
@@ -307,7 +341,6 @@ class APSchedulerService:
                         product_info,
                         platforms[0] if platforms else "instagram",
                         reference_image_urls,
-                        db=session,
                         image_provider_id=image_provider_id,
                         image_model=image_model,
                     )
@@ -335,86 +368,95 @@ class APSchedulerService:
 
             if not copywritings or not images:
                 raise Exception("Manual task produced empty copywritings or images; draft not saved")
-            
-            draft = ManualTaskDraft(
-                draft_id=str(uuid.uuid4()),
-                task_id=task_id,
-                product_id=str(product.product_id),
-                images=images,
-                copywritings=copywritings,
-                dimensions=dimensions_list,
-                image_prompts=image_prompts_list,
-                reference_product_images=reference_product_images,
-                reference_scene_images=reference_scene_images,
-                status="pending"
-            )
-            session.add(draft)
-            session.commit()
-            
-            logger.info(f"Manual task {task_id} completed, draft saved with {len(images)} images and {len(copywritings)} copywritings")
-            
-            task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-            if task:
-                task.last_run_at = datetime.now()
-                if str(task_id) in self.running_tasks:
-                    job = self.running_tasks[str(task_id)]
-                    task.next_run_at = job.next_run_time
+
+            session = Session(bind=engine)
+            try:
+                draft = ManualTaskDraft(
+                    draft_id=str(uuid.uuid4()),
+                    task_id=task_id,
+                    product_id=product_id_str,
+                    images=images,
+                    copywritings=copywritings,
+                    dimensions=dimensions_list,
+                    image_prompts=image_prompts_list,
+                    reference_product_images=reference_product_images,
+                    reference_scene_images=reference_scene_images,
+                    status="pending"
+                )
+                session.add(draft)
                 session.commit()
-                
+
+                logger.info(
+                    f"Manual task {task_id} completed, draft saved with {len(images)} images and {len(copywritings)} copywritings"
+                )
+
+                task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+                if task:
+                    task.last_run_at = datetime.now()
+                    if str(task_id) in self.running_tasks:
+                        job = self.running_tasks[str(task_id)]
+                        task.next_run_at = job.next_run_time
+                    session.commit()
+            finally:
+                session.close()
+
         except Exception as e:
             logger.error(f"Error executing manual task {task_id}: {str(e)}", exc_info=True)
+    
+    def _execute_single_run(self, task_id, target_categories, target_products, platforms,
+                            reference_image_count, use_scene_reference=False):
+        session = Session(bind=engine)
+        try:
+            if target_products and len(target_products) > 0:
+                product = session.query(Product).filter(
+                    Product.product_id.in_(target_products)
+                ).order_by(func.random()).first()
+            else:
+                product = session.query(Product).filter(
+                    Product.category.in_(target_categories)
+                ).order_by(func.random()).first()
+            
+            if not product:
+                logger.error("No product found in target categories or products")
+                return {"images": [], "platforms": [], "copywriting": ""}
+            
+            selected = select_reference_images(
+                session, product.product_id, reference_image_count, use_scene_reference
+            )
+            reference_image_urls = selected["reference_images"]
+            reference_product_images = selected["reference_product_images"]
+            reference_scene_images = selected["reference_scene_images"]
+            use_scene_reference = selected["use_scene_reference"]
+            logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
+            logger.info(f"Scene reference mode: {use_scene_reference}")
+            
+            product_info = {
+                "product_id": str(product.product_id),
+                "product_name": product.product_name,
+                "category": product.category,
+                "description": product.description,
+                "selling_points": product.selling_points,
+                "brand_voice": product.brand_voice,
+                "reference_images": reference_image_urls,
+                "platform": platforms[0] if platforms else "instagram",
+                "use_scene_reference": use_scene_reference,
+            }
+
+            task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            image_provider_id = task_cfg.image_provider_id if task_cfg else None
+            image_model = task_cfg.image_model if task_cfg else None
         finally:
             session.close()
-    
-    def _execute_single_run(self, session, task_id, target_categories, target_products, platforms,
-                            reference_image_count, use_scene_reference=False):
-        if target_products and len(target_products) > 0:
-            product = session.query(Product).filter(
-                Product.product_id.in_(target_products)
-            ).order_by(func.random()).first()
-        else:
-            product = session.query(Product).filter(
-                Product.category.in_(target_categories)
-            ).order_by(func.random()).first()
         
-        if not product:
-            logger.error("No product found in target categories or products")
-            return {"images": [], "platforms": [], "copywriting": ""}
-        
-        selected = select_reference_images(
-            session, product.product_id, reference_image_count, use_scene_reference
+        copywriting = content_generator.generate_copywriting(
+            product_info, platforms[0] if platforms else "instagram"
         )
-        reference_image_urls = selected["reference_images"]
-        reference_product_images = selected["reference_product_images"]
-        reference_scene_images = selected["reference_scene_images"]
-        use_scene_reference = selected["use_scene_reference"]
-        logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
-        logger.info(f"Scene reference mode: {use_scene_reference}")
-        
-        product_info = {
-            "product_id": str(product.product_id),
-            "product_name": product.product_name,
-            "category": product.category,
-            "description": product.description,
-            "selling_points": product.selling_points,
-            "brand_voice": product.brand_voice,
-            "reference_images": reference_image_urls,
-            "platform": platforms[0] if platforms else "instagram",
-            "use_scene_reference": use_scene_reference,
-        }
-
-        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-        image_provider_id = task_cfg.image_provider_id if task_cfg else None
-        image_model = task_cfg.image_model if task_cfg else None
-        
-        copywriting = content_generator.generate_copywriting(product_info, platforms[0] if platforms else "instagram", db=session)
         logger.info(f"Generated copywriting: {copywriting[:100]}...")
 
         image_result = content_generator.generate_image(
             product_info,
             platforms[0] if platforms else "instagram",
             reference_image_urls,
-            db=session,
             image_provider_id=image_provider_id,
             image_model=image_model,
         )

@@ -40,18 +40,18 @@ def select_reference_images(session, product_id, reference_count, use_scene_refe
             effective_scene = False
         product_urls = [img.cdn_url for img in product_images]
     else:
-        reference_images = (
+        # 未启用场景参考时只选产品图，避免场景图混入参考集
+        product_images = (
             session.query(ProductImage)
-            .filter(ProductImage.product_id == product_id)
+            .filter(
+                ProductImage.product_id == product_id,
+                ProductImage.image_type == "product",
+            )
             .order_by(func.random())
             .limit(reference_count)
             .all()
         )
-        for img in reference_images:
-            if img.image_type == "scene":
-                scene_urls.append(img.cdn_url)
-            else:
-                product_urls.append(img.cdn_url)
+        product_urls = [img.cdn_url for img in product_images]
 
     return {
         "reference_images": scene_urls + product_urls,

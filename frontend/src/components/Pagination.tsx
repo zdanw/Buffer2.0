@@ -7,6 +7,8 @@ interface PaginationProps {
   onChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
+  /** 加载中时禁用翻页与每页条数切换 */
+  disabled?: boolean;
 }
 
 export default function Pagination({ 
@@ -15,7 +17,8 @@ export default function Pagination({
   pageSize, 
   onChange,
   onPageSizeChange,
-  pageSizeOptions = [5, 10, 20, 50]
+  pageSizeOptions = [5, 10, 20, 50],
+  disabled = false,
 }: PaginationProps) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(current, pages);
@@ -41,42 +44,45 @@ export default function Pagination({
   };
 
   const handlePrev = () => {
-    if (currentPage > 1) {
+    if (!disabled && currentPage > 1) {
       onChange(currentPage - 1);
     }
   };
 
   const handleNext = () => {
-    if (currentPage < pages) {
+    if (!disabled && currentPage < pages) {
       onChange(currentPage + 1);
     }
   };
 
   const handleFirst = () => {
-    if (currentPage > 1) {
+    if (!disabled && currentPage > 1) {
       onChange(1);
     }
   };
 
   const handleLast = () => {
-    if (currentPage < pages) {
+    if (!disabled && currentPage < pages) {
       onChange(pages);
     }
   };
 
+  const navDisabled = disabled || currentPage <= 1;
+  const nextDisabled = disabled || currentPage >= pages;
+
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+    <div className={`flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 ${disabled ? 'opacity-70' : ''}`}>
       <div className="flex-1 flex justify-between sm:hidden">
         <button
           onClick={handlePrev}
-          disabled={currentPage <= 1}
+          disabled={navDisabled}
           className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           上一页
         </button>
         <button
           onClick={handleNext}
-          disabled={currentPage >= pages}
+          disabled={nextDisabled}
           className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           下一页
@@ -98,8 +104,9 @@ export default function Pagination({
               <span className="text-sm text-gray-500">每页显示:</span>
               <select
                 value={pageSize}
+                disabled={disabled}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pageSizeOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
@@ -112,14 +119,14 @@ export default function Pagination({
           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
             <button
               onClick={handleFirst}
-              disabled={currentPage <= 1}
+              disabled={navDisabled}
               className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <SkipBack className="w-4 h-4" />
             </button>
             <button
               onClick={handlePrev}
-              disabled={currentPage <= 1}
+              disabled={navDisabled}
               className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -128,8 +135,9 @@ export default function Pagination({
               typeof page === 'number' ? (
                 <button
                   key={index}
-                  onClick={() => onChange(page)}
-                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                  onClick={() => !disabled && onChange(page)}
+                  disabled={disabled}
+                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium disabled:cursor-not-allowed ${
                     page === currentPage
                       ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
                       : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -145,14 +153,14 @@ export default function Pagination({
             ))}
             <button
               onClick={handleNext}
-              disabled={currentPage >= pages}
+              disabled={nextDisabled}
               className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               onClick={handleLast}
-              disabled={currentPage >= pages}
+              disabled={nextDisabled}
               className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <SkipForward className="w-4 h-4" />

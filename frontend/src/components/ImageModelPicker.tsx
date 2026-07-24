@@ -28,14 +28,18 @@ export default function ImageModelPicker({
   const [models, setModels] = useState<ImageModelInfo[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingProviders, setLoadingProviders] = useState(true);
 
   useEffect(() => {
     void (async () => {
+      setLoadingProviders(true);
       try {
         const list = await listImageProviders();
         setProviders(list.filter((p) => p.is_active));
       } catch (e) {
         console.error('Failed to load image providers:', e);
+      } finally {
+        setLoadingProviders(false);
       }
     })();
   }, []);
@@ -90,10 +94,12 @@ export default function ImageModelPicker({
       )}
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Provider</label>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Provider {loadingProviders ? '（加载中…）' : ''}
+        </label>
         <select
           value={value.image_provider_id || ''}
-          disabled={disabled}
+          disabled={disabled || loadingProviders}
           onChange={(e) => {
             const id = e.target.value || null;
             const provider = providers.find((p) => p.id === id);

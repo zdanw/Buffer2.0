@@ -24,6 +24,9 @@ const generateRandomPassword = (): string => {
 function UserManagement() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -46,13 +49,15 @@ function UserManagement() {
 
   const fetchUsers = async (opts?: { silent?: boolean }) => {
     try {
-      if (!opts?.silent) setLoading(true);
+      if (opts?.silent) setRefreshing(true);
+      else setLoading(true);
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || '加载用户列表失败');
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (opts?.silent) setRefreshing(false);
+      else setLoading(false);
     }
   };
 
@@ -79,6 +84,7 @@ function UserManagement() {
     }
 
     try {
+      setSaving(true);
       const userData = {
         ...newUser,
         email: newUser.email || undefined,
@@ -92,6 +98,8 @@ function UserManagement() {
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(Array.isArray(detail) ? detail[0].msg : detail || '创建用户失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -125,6 +133,7 @@ function UserManagement() {
     }
 
     try {
+      setSaving(true);
       const updateData: UpdateUserData = { ...editForm };
       if (!updateData.password) {
         delete updateData.password;
@@ -136,6 +145,8 @@ function UserManagement() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.detail || '更新用户失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -146,6 +157,7 @@ function UserManagement() {
 
     setError('');
     setSuccess('');
+    setDeletingId(userId);
 
     try {
       await deleteUser(userId);
@@ -154,6 +166,8 @@ function UserManagement() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.detail || '删除用户失败');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -176,10 +190,10 @@ function UserManagement() {
           <button
             type="button"
             onClick={() => void fetchUsers({ silent: true })}
-            disabled={loading}
+            disabled={loading || refreshing}
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             刷新
           </button>
           <button
@@ -287,13 +301,19 @@ function UserManagement() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleSaveEdit(user.user_id)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          disabled={saving}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
                         >
-                          <Check className="w-5 h-5" />
+                          {saving ? (
+                            <RefreshCw className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Check className="w-5 h-5" />
+                          )}
                         </button>
                         <button
                           onClick={() => setEditingUserId(null)}
-                          className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                          disabled={saving}
+                          className="p-1 text-gray-400 hover:bg-gray-100 rounded disabled:opacity-50"
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -347,9 +367,14 @@ function UserManagement() {
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.user_id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          disabled={deletingId === user.user_id}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          {deletingId === user.user_id ? (
+                            <RefreshCw className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -457,15 +482,17 @@ function UserManagement() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  创建
+                  {saving ? '创建中…' : '创建'}
                 </button>
               </div>
             </form>

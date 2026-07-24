@@ -19,6 +19,11 @@ export default function AssetManagement() {
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [listBusy, setListBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [uploadingType, setUploadingType] = useState<'product' | 'scene' | null>(null);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [dimensionTypes, setDimensionTypes] = useState<DimensionType[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,6 +57,7 @@ export default function AssetManagement() {
   ) => {
     const keepRows = Boolean(opts?.keepRows || opts?.silent);
     if (!opts?.silent && !keepRows) setLoading(true);
+    if (keepRows && !opts?.silent) setListBusy(true);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<Product> = await getProducts(page, size);
@@ -65,6 +71,7 @@ export default function AssetManagement() {
       console.error('Failed to load products:', error);
     } finally {
       if (!opts?.silent && !keepRows) setLoading(false);
+      if (keepRows && !opts?.silent) setListBusy(false);
     }
   };
 
@@ -88,6 +95,7 @@ export default function AssetManagement() {
     ) {
       return;
     }
+    setSaving(true);
     try {
       if (isEdit && selectedProduct) {
         const updated = await updateProduct(selectedProduct.product_id, formData);
@@ -111,11 +119,14 @@ export default function AssetManagement() {
     } catch (error) {
       console.error('Failed to save product:', error);
       alert('保存失败，请检查输入后重试');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (productId: string) => {
     if (confirm('确定删除该产品及其所有图片吗？')) {
+      setDeleting(true);
       try {
         await deleteProduct(productId);
         invalidateCache('products');
@@ -127,14 +138,17 @@ export default function AssetManagement() {
         setTotal(t => Math.max(0, t - 1));
       } catch (error) {
         console.error('Failed to delete product:', error);
+      } finally {
+        setDeleting(false);
       }
     }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, imageType: 'product' | 'scene') => {
-    if (!e.target.files || !selectedProduct) return;
+    if (!e.target.files || !selectedProduct || uploadingType) return;
     const files = Array.from(e.target.files);
-    
+    e.target.value = '';
+    setUploadingType(imageType);
     try {
       const response = await uploadProductImages(selectedProduct.product_id, files, imageType);
       if (response.failed && response.failed.length > 0) {
@@ -142,24 +156,36 @@ export default function AssetManagement() {
       }
     } catch (error) {
       console.error('Failed to upload images:', error);
+      alert('图片上传失败，请重试');
     } finally {
-      const updated = await getProduct(selectedProduct.product_id);
-      setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
-      setSelectedProduct(updated);
+      try {
+        const updated = await getProduct(selectedProduct.product_id);
+        setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+        setSelectedProduct(updated);
+      } catch (error) {
+        console.error('Failed to refresh product after upload:', error);
+      }
+      setUploadingType(null);
     }
   };
 
   const handleImageDelete = async (imageId: string) => {
-    if (!selectedProduct) return;
+    if (!selectedProduct || deletingImageId) return;
     if (confirm('确定删除该图片吗？')) {
+      setDeletingImageId(imageId);
       try {
         await deleteProductImage(selectedProduct.product_id, imageId);
       } catch (error) {
         console.error('Failed to delete image:', error);
       } finally {
-        const updated = await getProduct(selectedProduct.product_id);
-        setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
-        setSelectedProduct(updated);
+        try {
+          const updated = await getProduct(selectedProduct.product_id);
+          setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+          setSelectedProduct(updated);
+        } catch (error) {
+          console.error('Failed to refresh product after delete:', error);
+        }
+        setDeletingImageId(null);
       }
     }
   };
@@ -197,12 +223,15 @@ export default function AssetManagement() {
             onClick={() => {
               invalidateCache('products');
               invalidateCache('dimensionTypes');
-              void Promise.all([loadProducts(currentPage), loadDimensionTypes()]);
+              void Promise.all([
+                loadProducts(currentPage, undefined, { keepRows: true }),
+                loadDimensionTypes(),
+              ]);
             }}
-            disabled={loading}
+            disabled={loading || listBusy}
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading || listBusy ? 'animate-spin' : ''}`} />
             刷新
           </button>
           <button
@@ -219,7 +248,7 @@ export default function AssetManagement() {
         <div className="col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <h3 className="font-semibold text-gray-800 mb-4">产品列表</h3>
-            <div className="space-y-2">
+            <div className={`space-y-2 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
               {loading && products.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -250,6 +279,7 @@ export default function AssetManagement() {
                   current={currentPage}
                   total={total}
                   pageSize={pageSize}
+                  disabled={listBusy || loading}
                   onChange={(page) => void loadProducts(page, undefined, { keepRows: true })}
                   onPageSizeChange={handlePageSizeChange}
                 />
@@ -275,9 +305,14 @@ export default function AssetManagement() {
                   </button>
                   <button
                     onClick={() => handleDelete(selectedProduct.product_id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    disabled={deleting}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    {deleting ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -294,13 +329,18 @@ export default function AssetManagement() {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <div className="mb-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      <span>上传产品图像</span>
+                    <label className={`flex items-center gap-2 text-sm font-medium text-gray-700 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      {uploadingType === 'product' ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      <span>{uploadingType === 'product' ? '上传中…' : '上传产品图像'}</span>
                       <input
                         type="file"
                         multiple
                         accept="image/*"
+                        disabled={!!uploadingType}
                         onChange={(e) => handleImageUpload(e, 'product')}
                         className="hidden"
                       />
@@ -308,7 +348,7 @@ export default function AssetManagement() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">产品图像</h4>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'product' ? 'opacity-70' : ''}`}>
                       {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
                         <div key={image.image_id} className="relative group">
                           <img
@@ -322,9 +362,14 @@ export default function AssetManagement() {
                             </button>
                             <button
                               onClick={() => handleImageDelete(image.image_id)}
-                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100"
+                              disabled={deletingImageId === image.image_id || !!uploadingType}
+                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {deletingImageId === image.image_id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </div>
                         </div>
@@ -335,13 +380,18 @@ export default function AssetManagement() {
 
                 <div>
                   <div className="mb-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      <span>上传场景图像</span>
+                    <label className={`flex items-center gap-2 text-sm font-medium text-gray-700 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      {uploadingType === 'scene' ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      <span>{uploadingType === 'scene' ? '上传中…' : '上传场景图像'}</span>
                       <input
                         type="file"
                         multiple
                         accept="image/*"
+                        disabled={!!uploadingType}
                         onChange={(e) => handleImageUpload(e, 'scene')}
                         className="hidden"
                       />
@@ -349,7 +399,7 @@ export default function AssetManagement() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">场景图像</h4>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'scene' ? 'opacity-70' : ''}`}>
                       {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
                         <div key={image.image_id} className="relative group">
                           <img
@@ -363,9 +413,14 @@ export default function AssetManagement() {
                             </button>
                             <button
                               onClick={() => handleImageDelete(image.image_id)}
-                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100"
+                              disabled={deletingImageId === image.image_id || !!uploadingType}
+                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {deletingImageId === image.image_id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </div>
                         </div>
@@ -524,15 +579,17 @@ export default function AssetManagement() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isEdit ? '保存修改' : '添加产品'}
+                  {saving ? '保存中…' : isEdit ? '保存修改' : '添加产品'}
                 </button>
               </div>
             </form>

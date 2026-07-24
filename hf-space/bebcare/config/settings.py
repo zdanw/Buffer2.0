@@ -58,9 +58,9 @@ class Settings(BaseSettings):
     max_concurrent_jobs: int = 1
     job_queue_wait_seconds: int = 120
 
-    # Supabase / Postgres 连接池（免费档连接有限，勿过大）
-    db_pool_size: int = 3
-    db_max_overflow: int = 2
+    # Supabase / Postgres 连接池（免费档连接有限；配合短生命周期 Session）
+    db_pool_size: int = 8
+    db_max_overflow: int = 8
 
     # CLIP/Torch 图文向量（默认关闭；启用需安装 requirements-clip.txt）
     enable_clip: bool = False

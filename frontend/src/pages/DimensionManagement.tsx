@@ -177,8 +177,12 @@ export default function DimensionManagement() {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filtering, setFiltering] = useState(false);
+  const [listBusy, setListBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(false);
   const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
   const [selectedDimension, setSelectedDimension] = useState<PromptDimension | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -298,8 +302,9 @@ export default function DimensionManagement() {
     const silent = Boolean(opts?.silent);
     const keepRows = Boolean(opts?.keepRows) || fromFilter;
     if (!silent && !keepRows) setLoading(true);
-    // 仅点「筛选」时显示筛选中；翻页/改每页条数不走筛选态
+    // 仅点「筛选」时显示筛选中；翻页/改每页条数用 listBusy
     if (fromFilter) setFiltering(true);
+    else if (keepRows && !silent) setListBusy(true);
     const size = newPageSize ?? pageSize;
     // 翻页/改页大小沿用已生效条件；点筛选才用下拉当前值
     const productType = fromFilter ? selectedProductType : appliedProductType;
@@ -330,6 +335,7 @@ export default function DimensionManagement() {
     } finally {
       if (!silent && !keepRows) setLoading(false);
       if (fromFilter) setFiltering(false);
+      else if (keepRows && !silent) setListBusy(false);
     }
   };
 
@@ -423,6 +429,7 @@ export default function DimensionManagement() {
 
   const handleDelete = async (dimensionId: string) => {
     if (confirm('确定删除该维度吗？')) {
+      setDeletingId(dimensionId);
       try {
         const removed = dimensions.find((d) => d.dimension_id === dimensionId);
         await deletePromptDimension(dimensionId);
@@ -437,12 +444,16 @@ export default function DimensionManagement() {
         }
       } catch (error) {
         console.error('Failed to delete dimension:', error);
+      } finally {
+        setDeletingId(null);
       }
     }
   };
 
   const handleToggleEnabled = async (dimension: PromptDimension) => {
+    if (togglingId) return;
     const nextEnabled = dimension.enabled === false;
+    setTogglingId(dimension.dimension_id);
     try {
       const updated = await updatePromptDimension(dimension.dimension_id, { enabled: nextEnabled });
       upsertCompatCacheItem(updated);
@@ -452,11 +463,14 @@ export default function DimensionManagement() {
     } catch (error) {
       console.error('Failed to toggle dimension enabled:', error);
       alert(nextEnabled ? '启用失败，请重试' : '禁用失败，请重试');
+    } finally {
+      setTogglingId(null);
     }
   };
 
   const handleInitialize = async () => {
     if (confirm('确定初始化默认维度数据吗？这将覆盖现有数据。')) {
+      setInitializing(true);
       try {
         await initializeDimensions();
         invalidateCompatCache();
@@ -466,6 +480,8 @@ export default function DimensionManagement() {
         alert('初始化成功');
       } catch (error) {
         console.error('Failed to initialize dimensions:', error);
+      } finally {
+        setInitializing(false);
       }
     }
   };
@@ -531,18 +547,23 @@ export default function DimensionManagement() {
           <button
             type="button"
             onClick={() => void handleRefresh()}
-            disabled={refreshing || loading || filtering}
+            disabled={refreshing || loading || filtering || listBusy}
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing || listBusy ? 'animate-spin' : ''}`} />
             刷新
           </button>
           <button
             onClick={handleInitialize}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            disabled={initializing}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Database className="w-4 h-4" />
-            初始化数据
+            {initializing ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Database className="w-4 h-4" />
+            )}
+            {initializing ? '初始化中…' : '初始化数据'}
           </button>
           <button
             onClick={() => openModal()}
@@ -596,7 +617,7 @@ export default function DimensionManagement() {
         </div>
       </div>
 
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${filtering ? 'opacity-70 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${filtering || listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -653,16 +674,23 @@ export default function DimensionManagement() {
                       <button
                         type="button"
                         onClick={() => void handleToggleEnabled(dimension)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        disabled={togglingId === dimension.dimension_id}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                           dimension.enabled === false ? 'bg-gray-300' : 'bg-indigo-600'
                         }`}
                         title={dimension.enabled === false ? '已禁用（点击启用）' : '已启用（点击禁用）'}
                       >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            dimension.enabled === false ? 'translate-x-1' : 'translate-x-6'
-                          }`}
-                        />
+                        {togglingId === dimension.dimension_id ? (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <RefreshCw className="w-3 h-3 text-white animate-spin" />
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              dimension.enabled === false ? 'translate-x-1' : 'translate-x-6'
+                            }`}
+                          />
+                        )}
                       </button>
                       <span className={`ml-2 text-xs ${dimension.enabled === false ? 'text-red-500' : 'text-gray-500'}`}>
                         {dimension.enabled === false ? '已禁用' : '启用中'}
@@ -700,9 +728,14 @@ export default function DimensionManagement() {
                         </button>
                         <button
                           onClick={() => handleDelete(dimension.dimension_id)}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          disabled={deletingId === dimension.dimension_id}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingId === dimension.dimension_id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -717,6 +750,7 @@ export default function DimensionManagement() {
             current={currentPage}
             total={total}
             pageSize={pageSize}
+            disabled={listBusy || filtering || loading}
             onChange={(page) => loadDimensions(page, undefined, { keepRows: true })}
             onPageSizeChange={handlePageSizeChange}
           />
