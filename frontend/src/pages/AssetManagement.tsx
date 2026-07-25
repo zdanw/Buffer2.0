@@ -323,8 +323,8 @@ export default function AssetManagement() {
                 </div>
               </div>
 
-              <div className="mb-6 grid grid-cols-1 lg:grid-cols-5 gap-5">
-                <div className="lg:col-span-3">
+              <div className="mb-6 space-y-4">
+                <div>
                   <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
                     <FileText className="w-3.5 h-3.5" />
                     产品描述
@@ -332,37 +332,41 @@ export default function AssetManagement() {
                   <p className="text-gray-600 leading-relaxed">
                     {selectedProduct.description || <span className="text-gray-400">暂无描述</span>}
                   </p>
-                  {selectedProduct.brand_voice && (
-                    <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
-                        <Megaphone className="w-3.5 h-3.5" />
-                        品牌调性
-                      </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
+                      <Megaphone className="w-3.5 h-3.5" />
+                      品牌调性
+                    </div>
+                    {selectedProduct.brand_voice ? (
                       <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-sm">
                         {selectedProduct.brand_voice}
                       </span>
-                    </div>
-                  )}
-                </div>
-                <div className="lg:col-span-2">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    核心卖点
+                    ) : (
+                      <p className="text-sm text-gray-400">暂无品牌调性</p>
+                    )}
                   </div>
-                  {(selectedProduct.selling_points || []).filter(Boolean).length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {(selectedProduct.selling_points || []).filter(Boolean).map((point, i) => (
-                        <span
-                          key={`${point}-${i}`}
-                          className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg text-sm leading-snug"
-                        >
-                          {point}
-                        </span>
-                      ))}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      核心卖点
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-400">暂无卖点，点击编辑添加</p>
-                  )}
+                    {(selectedProduct.selling_points || []).filter(Boolean).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(selectedProduct.selling_points || []).filter(Boolean).map((point, i) => (
+                          <span
+                            key={`${point}-${i}`}
+                            className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg text-sm leading-snug"
+                          >
+                            {point}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">暂无卖点，点击编辑添加</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
