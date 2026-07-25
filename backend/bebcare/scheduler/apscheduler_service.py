@@ -9,7 +9,6 @@ from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Produc
 from bebcare.utils.reference_selector import select_reference_images
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from bebcare.database import engine
 import logging
 import threading
@@ -188,58 +187,133 @@ class APSchedulerService:
         finally:
             session.close()
     
+    def _list_target_products(self, session, target_products, target_categories):
+        """按勾选顺序返回产品列表；未勾选产品时按分类列出。"""
+        if target_products and len(target_products) > 0:
+            found = (
+                session.query(Product)
+                .filter(Product.product_id.in_(target_products))
+                .all()
+            )
+            by_id = {str(p.product_id): p for p in found}
+            return [by_id[str(pid)] for pid in target_products if str(pid) in by_id]
+        if target_categories:
+            return (
+                session.query(Product)
+                .filter(Product.category.in_(target_categories))
+                .order_by(Product.product_name)
+                .all()
+            )
+        return []
+
+    def _prepare_product_context(
+        self, session, product, task_id, reference_image_count, use_scene_reference, platforms
+    ):
+        selected = select_reference_images(
+            session, product.product_id, reference_image_count, use_scene_reference
+        )
+        reference_image_urls = selected["reference_images"]
+        effective_scene = selected["use_scene_reference"]
+        logger.info(
+            "Product %s reference images (%s): %s",
+            product.product_id,
+            len(reference_image_urls),
+            reference_image_urls,
+        )
+        logger.info("Scene reference mode: %s", effective_scene)
+
+        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+        product_id_str = str(product.product_id)
+        return {
+            "product_id_str": product_id_str,
+            "product_info": {
+                "product_id": product_id_str,
+                "product_name": product.product_name,
+                "category": product.category,
+                "description": product.description,
+                "selling_points": product.selling_points,
+                "brand_voice": product.brand_voice,
+                "reference_images": reference_image_urls,
+                "platform": platforms[0] if platforms else "instagram",
+                "use_scene_reference": effective_scene,
+            },
+            "reference_image_urls": reference_image_urls,
+            "reference_product_images": selected["reference_product_images"],
+            "reference_scene_images": selected["reference_scene_images"],
+            "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
+            "image_model": task_cfg.image_model if task_cfg else None,
+        }
+
     def execute_auto_task(self, task_id, target_categories, target_products, platforms,
                           reference_image_count, run_count_per_execution, use_scene_reference=False):
         logger.info(f"Executing auto task {task_id} at {datetime.now()}")
 
-        for _ in range(run_count_per_execution):
-            execution_id = str(uuid.uuid4())
-            session = Session(bind=engine)
-            try:
-                execution = TaskExecution(
-                    execution_id=execution_id,
-                    task_id=task_id,
-                    status="RUNNING"
-                )
-                session.add(execution)
-                session.commit()
-            finally:
-                session.close()
+        session = Session(bind=engine)
+        try:
+            products = self._list_target_products(session, target_products, target_categories)
+            product_ids = [str(p.product_id) for p in products]
+        finally:
+            session.close()
 
-            result = None
-            error_message = None
-            try:
-                # 生成过程不持有调度 Session，由 ContentGenerator 短生命周期占用
-                result = self._execute_single_run(
-                    task_id, target_categories, target_products, platforms,
-                    reference_image_count, use_scene_reference,
-                )
-            except Exception as e:
-                error_message = str(e)
-                logger.error(f"Error executing task workflow: {str(e)}", exc_info=True)
+        if not product_ids:
+            logger.error("No product found in target categories or products")
+            return
 
-            session = Session(bind=engine)
-            try:
-                execution = session.query(TaskExecution).filter(
-                    TaskExecution.execution_id == execution_id
-                ).first()
-                if not execution:
-                    continue
-                if result is not None:
-                    execution.status = "SUCCESS"
-                    execution.generated_images = result.get("images", [])
-                    execution.published_platforms = result.get("platforms", [])
-                    execution.copywriting = result.get("copywriting", "")
-                    execution.dimensions = result.get("dimensions")
-                    execution.image_prompt = result.get("image_prompt")
-                    execution.reference_product_images = result.get("reference_product_images", [])
-                    execution.reference_scene_images = result.get("reference_scene_images", [])
-                else:
-                    execution.status = "FAILED"
-                    execution.error_message = error_message
-                session.commit()
-            finally:
-                session.close()
+        # run_count = 完整轮次；每轮按勾选顺序为每个产品各生成一次
+        for round_idx in range(run_count_per_execution):
+            for product_id in product_ids:
+                execution_id = str(uuid.uuid4())
+                session = Session(bind=engine)
+                try:
+                    execution = TaskExecution(
+                        execution_id=execution_id,
+                        task_id=task_id,
+                        status="RUNNING"
+                    )
+                    session.add(execution)
+                    session.commit()
+                finally:
+                    session.close()
+
+                result = None
+                error_message = None
+                try:
+                    result = self._execute_single_run(
+                        task_id, product_id, platforms,
+                        reference_image_count, use_scene_reference,
+                    )
+                except Exception as e:
+                    error_message = str(e)
+                    logger.error(
+                        "Error executing task workflow (round %s, product %s): %s",
+                        round_idx + 1,
+                        product_id,
+                        e,
+                        exc_info=True,
+                    )
+
+                session = Session(bind=engine)
+                try:
+                    execution = session.query(TaskExecution).filter(
+                        TaskExecution.execution_id == execution_id
+                    ).first()
+                    if not execution:
+                        continue
+                    if result is not None:
+                        execution.status = "SUCCESS"
+                        execution.generated_images = result.get("images", [])
+                        execution.published_platforms = result.get("platforms", [])
+                        execution.copywriting = result.get("copywriting", "")
+                        execution.dimensions = result.get("dimensions")
+                        execution.image_prompt = result.get("image_prompt")
+                        execution.reference_product_images = result.get("reference_product_images", [])
+                        execution.reference_scene_images = result.get("reference_scene_images", [])
+                    else:
+                        execution.status = "FAILED"
+                        execution.error_message = error_message
+                    session.commit()
+                finally:
+                    session.close()
 
         session = Session(bind=engine)
         try:
@@ -258,91 +332,59 @@ class APSchedulerService:
                             use_scene_reference=False):
         logger.info(f"Executing manual task {task_id} at {datetime.now()}")
 
-        product_info = None
-        reference_image_urls = []
-        reference_product_images = []
-        reference_scene_images = []
-        image_provider_id = None
-        image_model = None
-        product_id_str = None
-
+        contexts = []
         session = Session(bind=engine)
         try:
-            if target_products and len(target_products) > 0:
-                product = session.query(Product).filter(
-                    Product.product_id.in_(target_products)
-                ).order_by(func.random()).first()
-            else:
-                product = session.query(Product).filter(
-                    Product.category.in_(target_categories)
-                ).order_by(func.random()).first()
-            
-            if not product:
+            products = self._list_target_products(session, target_products, target_categories)
+            if not products:
                 logger.error("No product found in target categories or products")
                 return
-            
-            selected = select_reference_images(
-                session, product.product_id, reference_image_count, use_scene_reference
-            )
-            reference_image_urls = selected["reference_images"]
-            reference_product_images = selected["reference_product_images"]
-            reference_scene_images = selected["reference_scene_images"]
-            use_scene_reference = selected["use_scene_reference"]
-            logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
-
-            product_id_str = str(product.product_id)
-            product_info = {
-                "product_id": product_id_str,
-                "product_name": product.product_name,
-                "category": product.category,
-                "description": product.description,
-                "selling_points": product.selling_points,
-                "brand_voice": product.brand_voice,
-                "reference_images": reference_image_urls,
-                "platform": platforms[0] if platforms else "instagram",
-                "use_scene_reference": use_scene_reference,
-            }
-
-            task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-            image_provider_id = task_cfg.image_provider_id if task_cfg else None
-            image_model = task_cfg.image_model if task_cfg else None
+            for product in products:
+                contexts.append(
+                    self._prepare_product_context(
+                        session,
+                        product,
+                        task_id,
+                        reference_image_count,
+                        use_scene_reference,
+                        platforms,
+                    )
+                )
         except Exception as e:
             logger.error(f"Error preparing manual task {task_id}: {str(e)}", exc_info=True)
             return
         finally:
             session.close()
 
-        try:
-            copywritings = []
-            for i in range(generate_copy_count):
-                try:
-                    copywriting = content_generator.generate_copywriting(
-                        product_info, platforms[0] if platforms else "instagram"
-                    )
+        platform = platforms[0] if platforms else "instagram"
+        saved_any = False
+
+        for ctx in contexts:
+            product_id_str = ctx["product_id_str"]
+            product_info = ctx["product_info"]
+            try:
+                copywritings = []
+                for i in range(generate_copy_count):
+                    copywriting = content_generator.generate_copywriting(product_info, platform)
                     copywritings.append(copywriting)
-                    logger.info(f"Generated copywriting {i+1}/{generate_copy_count}: {copywriting[:100]}...")
-                except Exception as e:
-                    logger.error(
-                        "Failed to generate copywriting %s/%s for task %s: %s — aborting manual run (no mock)",
+                    logger.info(
+                        "Generated copywriting %s/%s for product %s: %s...",
                         i + 1,
                         generate_copy_count,
-                        task_id,
-                        e,
-                        exc_info=True,
+                        product_id_str,
+                        copywriting[:100],
                     )
-                    raise
 
-            images = []
-            dimensions_list = []
-            image_prompts_list = []
-            for i in range(generate_image_count):
-                try:
+                images = []
+                dimensions_list = []
+                image_prompts_list = []
+                for i in range(generate_image_count):
                     image_result = content_generator.generate_image(
                         product_info,
-                        platforms[0] if platforms else "instagram",
-                        reference_image_urls,
-                        image_provider_id=image_provider_id,
-                        image_model=image_model,
+                        platform,
+                        ctx["reference_image_urls"],
+                        image_provider_id=ctx["image_provider_id"],
+                        image_model=ctx["image_model"],
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -354,111 +396,97 @@ class APSchedulerService:
                     image_prompts_list.append(
                         image_result.get("image_prompt") if isinstance(image_result, dict) else None
                     )
-                    logger.info(f"Generated image {i+1}/{generate_image_count}: {image_urls[0]}")
-                except Exception as e:
-                    logger.error(
-                        "Failed to generate image %s/%s for task %s: %s — aborting manual run (no mock)",
+                    logger.info(
+                        "Generated image %s/%s for product %s: %s",
                         i + 1,
                         generate_image_count,
-                        task_id,
-                        e,
-                        exc_info=True,
+                        product_id_str,
+                        image_urls[0],
                     )
-                    raise
 
-            if not copywritings or not images:
-                raise Exception("Manual task produced empty copywritings or images; draft not saved")
+                if not copywritings or not images:
+                    raise Exception("Manual task produced empty copywritings or images; draft not saved")
 
-            session = Session(bind=engine)
-            try:
-                draft = ManualTaskDraft(
-                    draft_id=str(uuid.uuid4()),
-                    task_id=task_id,
-                    product_id=product_id_str,
-                    images=images,
-                    copywritings=copywritings,
-                    dimensions=dimensions_list,
-                    image_prompts=image_prompts_list,
-                    reference_product_images=reference_product_images,
-                    reference_scene_images=reference_scene_images,
-                    status="pending"
-                )
-                session.add(draft)
-                session.commit()
-
-                logger.info(
-                    f"Manual task {task_id} completed, draft saved with {len(images)} images and {len(copywritings)} copywritings"
-                )
-
-                task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-                if task:
-                    task.last_run_at = datetime.now()
-                    if str(task_id) in self.running_tasks:
-                        job = self.running_tasks[str(task_id)]
-                        task.next_run_at = job.next_run_time
+                session = Session(bind=engine)
+                try:
+                    draft = ManualTaskDraft(
+                        draft_id=str(uuid.uuid4()),
+                        task_id=task_id,
+                        product_id=product_id_str,
+                        images=images,
+                        copywritings=copywritings,
+                        dimensions=dimensions_list,
+                        image_prompts=image_prompts_list,
+                        reference_product_images=ctx["reference_product_images"],
+                        reference_scene_images=ctx["reference_scene_images"],
+                        status="pending"
+                    )
+                    session.add(draft)
                     session.commit()
-            finally:
-                session.close()
+                    saved_any = True
+                    logger.info(
+                        "Manual task %s draft saved for product %s (%s images, %s copywritings)",
+                        task_id,
+                        product_id_str,
+                        len(images),
+                        len(copywritings),
+                    )
+                finally:
+                    session.close()
+            except Exception as e:
+                logger.error(
+                    "Error generating for product %s in manual task %s: %s — continuing with remaining products",
+                    product_id_str,
+                    task_id,
+                    e,
+                    exc_info=True,
+                )
 
-        except Exception as e:
-            logger.error(f"Error executing manual task {task_id}: {str(e)}", exc_info=True)
+        if not saved_any:
+            logger.error("Manual task %s produced no drafts", task_id)
+            return
+
+        session = Session(bind=engine)
+        try:
+            task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            if task:
+                task.last_run_at = datetime.now()
+                if str(task_id) in self.running_tasks:
+                    job = self.running_tasks[str(task_id)]
+                    task.next_run_at = job.next_run_time
+                session.commit()
+        finally:
+            session.close()
     
-    def _execute_single_run(self, task_id, target_categories, target_products, platforms,
+    def _execute_single_run(self, task_id, product_id, platforms,
                             reference_image_count, use_scene_reference=False):
         session = Session(bind=engine)
         try:
-            if target_products and len(target_products) > 0:
-                product = session.query(Product).filter(
-                    Product.product_id.in_(target_products)
-                ).order_by(func.random()).first()
-            else:
-                product = session.query(Product).filter(
-                    Product.category.in_(target_categories)
-                ).order_by(func.random()).first()
-            
+            product = session.query(Product).filter(Product.product_id == product_id).first()
             if not product:
-                logger.error("No product found in target categories or products")
+                logger.error("Product not found: %s", product_id)
                 return {"images": [], "platforms": [], "copywriting": ""}
-            
-            selected = select_reference_images(
-                session, product.product_id, reference_image_count, use_scene_reference
+            ctx = self._prepare_product_context(
+                session, product, task_id, reference_image_count, use_scene_reference, platforms
             )
-            reference_image_urls = selected["reference_images"]
-            reference_product_images = selected["reference_product_images"]
-            reference_scene_images = selected["reference_scene_images"]
-            use_scene_reference = selected["use_scene_reference"]
-            logger.info(f"Using reference images ({len(reference_image_urls)}): {reference_image_urls}")
-            logger.info(f"Scene reference mode: {use_scene_reference}")
-            
-            product_info = {
-                "product_id": str(product.product_id),
-                "product_name": product.product_name,
-                "category": product.category,
-                "description": product.description,
-                "selling_points": product.selling_points,
-                "brand_voice": product.brand_voice,
-                "reference_images": reference_image_urls,
-                "platform": platforms[0] if platforms else "instagram",
-                "use_scene_reference": use_scene_reference,
-            }
-
-            task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-            image_provider_id = task_cfg.image_provider_id if task_cfg else None
-            image_model = task_cfg.image_model if task_cfg else None
         finally:
             session.close()
-        
-        copywriting = content_generator.generate_copywriting(
-            product_info, platforms[0] if platforms else "instagram"
-        )
+
+        product_info = ctx["product_info"]
+        reference_image_urls = ctx["reference_image_urls"]
+        reference_product_images = ctx["reference_product_images"]
+        reference_scene_images = ctx["reference_scene_images"]
+        platform = platforms[0] if platforms else "instagram"
+
+        copywriting = content_generator.generate_copywriting(product_info, platform)
         logger.info(f"Generated copywriting: {copywriting[:100]}...")
 
         image_result = content_generator.generate_image(
             product_info,
-            platforms[0] if platforms else "instagram",
+            platform,
             reference_image_urls,
-            image_provider_id=image_provider_id,
-            image_model=image_model,
+            image_provider_id=ctx["image_provider_id"],
+            image_model=ctx["image_model"],
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None
@@ -499,9 +527,9 @@ class APSchedulerService:
         logger.info(f"Publish result: {publish_result}")
 
         success_platforms = []
-        for platform, result in publish_result.items():
+        for platform_name, result in publish_result.items():
             if result.get("success"):
-                success_platforms.append(platform)
+                success_platforms.append(platform_name)
         published_platforms = success_platforms
 
         if not published_platforms:

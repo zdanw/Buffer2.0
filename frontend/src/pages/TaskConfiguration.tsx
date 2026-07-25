@@ -169,7 +169,7 @@ export default function TaskConfiguration() {
       if (formData.platforms.length === 0) errors.push('自动模式请至少选择一个发布平台');
       errors.push(
         intInRange(
-          '运行次数',
+          '轮次',
           formData.run_count_per_execution,
           LIMITS.runCount.min,
           LIMITS.runCount.max
@@ -363,7 +363,7 @@ export default function TaskConfiguration() {
                   </span>
                   {task.mode === 'auto' && (
                     <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                      每次运行: {task.run_count_per_execution} 次
+                      每轮: {task.run_count_per_execution} 次（覆盖全部已选产品）
                     </span>
                   )}
                   {task.mode === 'manual' && (
@@ -520,7 +520,7 @@ export default function TaskConfiguration() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">选择产品</label>
-                <p className="text-xs text-gray-500 mb-2">选择具体产品（优先）或选择分类</p>
+                <p className="text-xs text-gray-500 mb-2">勾选多个产品时，每次执行会按勾选顺序为每个产品各生成一次</p>
                 {products.length > 0 ? (
                   <div className="space-y-2">
                     {categories.map((category) => {
@@ -631,7 +631,7 @@ export default function TaskConfiguration() {
                 </div>
                 {formData.mode === 'auto' ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">运行次数</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">轮次</label>
                     <input
                       type="number"
                       value={formData.run_count_per_execution}
@@ -640,6 +640,7 @@ export default function TaskConfiguration() {
                       max="5"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500 mt-1">每轮按顺序覆盖全部已选产品</p>
                   </div>
                 ) : (
                   <div>
