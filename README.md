@@ -31,4 +31,13 @@ app_port: 7860
 
 ## 说明
 
-业务代码副本在 `hf-space/`；开发请改 `backend/`，再同步到 `hf-space/` 后重新部署。
+业务代码副本在 `hf-space/`（及魔搭 `space4/`）；**开发请改 `backend/`**，再同步后部署：
+
+```bash
+python scripts/sync_deploy_copies.py          # 同步
+python scripts/sync_deploy_copies.py --check  # 检查是否漂移
+```
+
+`DEEPSEEK_API_URL` 可填 OpenAI 兼容 base（如 `https://api.deepseek.com/v1`），代码会自动补全 `/chat/completions`。
+
+CI（`.github/workflows/ci.yml`）会跑后端 `pytest`、前端 build，以及 `--check` 漂移门禁。

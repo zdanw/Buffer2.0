@@ -1,5 +1,6 @@
-import sys
+import argparse
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -15,24 +16,25 @@ Base.metadata.create_all(bind=engine)
 
 def generate_password(length: int = 12) -> str:
     alphabet = string.ascii_letters + string.digits + string.punctuation
-    password = ''.join(secrets.choice(alphabet) for _ in range(length))
-    return password
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-def reset_admin_password():
+def reset_admin_password(password: str | None = None):
     db: Session = SessionLocal()
     try:
-        admin_username = "admin"
+        admin_username = os.getenv("ADMIN_USERNAME", "admin")
 
         admin_user = db.query(User).filter(User.username == admin_username).first()
         if not admin_user:
             print(f"管理员账户 {admin_username} 不存在")
             return
 
-        password = generate_password()
-        hashed_password = get_password_hash(password)
+        if not password:
+            password = os.getenv("ADMIN_PASSWORD") or generate_password()
 
-        admin_user.hashed_password = hashed_password
+        admin_user.hashed_password = get_password_hash(password)
+        admin_user.is_active = True
+        admin_user.is_admin = True
         db.commit()
 
         print("=" * 50)
@@ -53,4 +55,12 @@ def reset_admin_password():
 
 
 if __name__ == "__main__":
-    reset_admin_password()
+    parser = argparse.ArgumentParser(description="重置管理员密码")
+    parser.add_argument(
+        "--password",
+        "-p",
+        default=None,
+        help="新密码；也可设环境变量 ADMIN_PASSWORD；都不传则随机生成",
+    )
+    args = parser.parse_args()
+    reset_admin_password(args.password)

@@ -1,17 +1,18 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { lazy, Suspense, useState, useEffect, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-import AssetManagement from './pages/AssetManagement';
-import DimensionManagement from './pages/DimensionManagement';
-import TaskConfiguration from './pages/TaskConfiguration';
-import PendingRelease from './pages/PendingRelease';
-import ContentPreview from './pages/ContentPreview';
-import PublishCalendar from './pages/PublishCalendar';
-import UserManagement from './pages/UserManagement';
-import ImageProviderSettings from './pages/ImageProviderSettings';
-import Login from './pages/Login';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
+
+const AssetManagement = lazy(() => import('./pages/AssetManagement'));
+const DimensionManagement = lazy(() => import('./pages/DimensionManagement'));
+const TaskConfiguration = lazy(() => import('./pages/TaskConfiguration'));
+const PendingRelease = lazy(() => import('./pages/PendingRelease'));
+const ContentPreview = lazy(() => import('./pages/ContentPreview'));
+const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
+const Login = lazy(() => import('./pages/Login'));
 
 const TAB_ROUTES: Record<string, string> = {
   'assets': '/assets',
@@ -34,6 +35,37 @@ const ROUTE_TABS: Record<string, string> = {
   '/image-models': 'image-models',
   '/users': 'users',
 };
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+    </div>
+  );
+}
+
+function AppShellFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+    </div>
+  );
+}
+
+function lazyPanel(id: string, activeTab: string, mountedTabs: Set<string>, Page: ComponentType) {
+  if (!mountedTabs.has(id)) return null;
+  return (
+    <div
+      key={id}
+      className={activeTab === id ? 'h-full' : 'hidden'}
+      aria-hidden={activeTab !== id}
+    >
+      <Suspense fallback={<PageFallback />}>
+        <Page />
+      </Suspense>
+    </div>
+  );
+}
 
 function AppContent() {
   const location = useLocation();
@@ -84,25 +116,8 @@ function AppContent() {
     }
   };
 
-  const tabPanel = (id: string, node: ReactNode) => {
-    if (!mountedTabs.has(id)) return null;
-    return (
-      <div
-        key={id}
-        className={activeTab === id ? 'h-full' : 'hidden'}
-        aria-hidden={activeTab !== id}
-      >
-        {node}
-      </div>
-    );
-  };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <AppShellFallback />;
   }
 
   return (
@@ -113,20 +128,24 @@ function AppContent() {
         isAdmin={currentUser?.is_admin || false}
       />
       <main className="flex-1 overflow-auto">
-        {tabPanel('assets', <AssetManagement />)}
-        {tabPanel('dimensions', <DimensionManagement />)}
-        {tabPanel('tasks', <TaskConfiguration />)}
-        {tabPanel('pending', <PendingRelease />)}
-        {tabPanel('preview', <ContentPreview />)}
-        {tabPanel('calendar', <PublishCalendar />)}
-        {currentUser?.is_admin ? tabPanel('image-models', <ImageProviderSettings />) : null}
-        {currentUser?.is_admin ? tabPanel('users', <UserManagement />) : null}
+        {lazyPanel('assets', activeTab, mountedTabs, AssetManagement)}
+        {lazyPanel('dimensions', activeTab, mountedTabs, DimensionManagement)}
+        {lazyPanel('tasks', activeTab, mountedTabs, TaskConfiguration)}
+        {lazyPanel('pending', activeTab, mountedTabs, PendingRelease)}
+        {lazyPanel('preview', activeTab, mountedTabs, ContentPreview)}
+        {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
+        {currentUser?.is_admin
+          ? lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)
+          : null}
+        {currentUser?.is_admin
+          ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
+          : null}
       </main>
     </div>
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const token = getToken();
   if (!token) {
     return <Navigate to="/login" />;
@@ -138,7 +157,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={<AppShellFallback />}>
+              <Login />
+            </Suspense>
+          }
+        />
         <Route path="/" element={<Navigate to="/assets" />} />
         <Route
           path="/*"

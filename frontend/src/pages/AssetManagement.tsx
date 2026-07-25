@@ -269,6 +269,12 @@ export default function AssetManagement() {
                   >
                     <h4 className="font-medium text-gray-800">{product.product_name}</h4>
                     <p className="text-sm text-gray-500">{product.category}</p>
+                    {(product.selling_points || []).filter(Boolean).length > 0 && (
+                      <p className="text-xs text-amber-700/80 mt-1.5 truncate">
+                        {(product.selling_points || []).filter(Boolean).slice(0, 2).join(' · ')}
+                        {(product.selling_points || []).filter(Boolean).length > 2 ? ' …' : ''}
+                      </p>
+                    )}
                   </div>
                 ))
               )}
@@ -317,25 +323,60 @@ export default function AssetManagement() {
                 </div>
               </div>
 
-              <div className="mb-6">
-                <p className="text-gray-600">{selectedProduct.description}</p>
-                {selectedProduct.brand_voice && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
-                    {selectedProduct.brand_voice}
-                  </span>
-                )}
+              <div className="mb-6 grid grid-cols-1 lg:grid-cols-5 gap-5">
+                <div className="lg:col-span-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
+                    <FileText className="w-3.5 h-3.5" />
+                    产品描述
+                  </div>
+                  <p className="text-gray-600 leading-relaxed">
+                    {selectedProduct.description || <span className="text-gray-400">暂无描述</span>}
+                  </p>
+                  {selectedProduct.brand_voice && (
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                        <Megaphone className="w-3.5 h-3.5" />
+                        品牌调性
+                      </span>
+                      <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-sm">
+                        {selectedProduct.brand_voice}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="lg:col-span-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    核心卖点
+                  </div>
+                  {(selectedProduct.selling_points || []).filter(Boolean).length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedProduct.selling_points || []).filter(Boolean).map((point, i) => (
+                        <span
+                          key={`${point}-${i}`}
+                          className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg text-sm leading-snug"
+                        >
+                          {point}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">暂无卖点，点击编辑添加</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <div className="mb-3">
-                    <label className={`flex items-center gap-2 text-sm font-medium text-gray-700 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-800">产品图像</h4>
+                    <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
                       {uploadingType === 'product' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
                         <Upload className="w-4 h-4" />
                       )}
-                      <span>{uploadingType === 'product' ? '上传中…' : '上传产品图像'}</span>
+                      <span>{uploadingType === 'product' ? '上传中…' : '上传'}</span>
                       <input
                         type="file"
                         multiple
@@ -346,47 +387,45 @@ export default function AssetManagement() {
                       />
                     </label>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-3">产品图像</h4>
-                    <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'product' ? 'opacity-70' : ''}`}>
-                      {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
-                        <div key={image.image_id} className="relative group">
-                          <img
-                            src={image.cdn_url}
-                            alt=""
-                            className="w-full aspect-square object-cover rounded-lg"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                            <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleImageDelete(image.image_id)}
-                              disabled={deletingImageId === image.image_id || !!uploadingType}
-                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
-                            >
-                              {deletingImageId === image.image_id ? (
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
+                  <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'product' ? 'opacity-70' : ''}`}>
+                    {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
+                      <div key={image.image_id} className="relative group">
+                        <img
+                          src={image.cdn_url}
+                          alt=""
+                          className="w-full aspect-square object-cover rounded-lg"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                          <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleImageDelete(image.image_id)}
+                            disabled={deletingImageId === image.image_id || !!uploadingType}
+                            className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            {deletingImageId === image.image_id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 <div>
-                  <div className="mb-3">
-                    <label className={`flex items-center gap-2 text-sm font-medium text-gray-700 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-800">场景图像</h4>
+                    <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
                       {uploadingType === 'scene' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
                         <Upload className="w-4 h-4" />
                       )}
-                      <span>{uploadingType === 'scene' ? '上传中…' : '上传场景图像'}</span>
+                      <span>{uploadingType === 'scene' ? '上传中…' : '上传'}</span>
                       <input
                         type="file"
                         multiple
@@ -397,35 +436,32 @@ export default function AssetManagement() {
                       />
                     </label>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-3">场景图像</h4>
-                    <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'scene' ? 'opacity-70' : ''}`}>
-                      {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
-                        <div key={image.image_id} className="relative group">
-                          <img
-                            src={image.cdn_url}
-                            alt=""
-                            className="w-full aspect-square object-cover rounded-lg"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                            <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleImageDelete(image.image_id)}
-                              disabled={deletingImageId === image.image_id || !!uploadingType}
-                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
-                            >
-                              {deletingImageId === image.image_id ? (
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
+                  <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'scene' ? 'opacity-70' : ''}`}>
+                    {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
+                      <div key={image.image_id} className="relative group">
+                        <img
+                          src={image.cdn_url}
+                          alt=""
+                          className="w-full aspect-square object-cover rounded-lg"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                          <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleImageDelete(image.image_id)}
+                            disabled={deletingImageId === image.image_id || !!uploadingType}
+                            className="p-2 bg-white rounded-full text-red-600 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            {deletingImageId === image.image_id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

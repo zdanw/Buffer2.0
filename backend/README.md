@@ -57,6 +57,16 @@ python scripts/stamp_existing_db.py
 
 上线到 Supabase：在控制台拿到 Session 连接串 → 写入生产 `DATABASE_URL` → `APP_ENV=production` → 部署前/启动时执行 `alembic upgrade head`。
 
+## 测试
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+pytest -q
+```
+
+覆盖 auth / generate 契约与少量单元测试。CI 见 `.github/workflows/ci.yml`（含前端 build 与 deploy 副本漂移检查）。
+
 ## API 接口
 
 前缀为 `/v1`：

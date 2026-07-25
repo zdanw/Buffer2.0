@@ -2,11 +2,16 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import hashlib
+import hmac
 import binascii
 import os
 from sqlalchemy.orm import Session
 from bebcare.config.settings import settings
 from bebcare.models.user import User
+
+TOKEN_TYPE_ACCESS = "access"
+TOKEN_TYPE_REFRESH = "refresh"
+
 
 def hash_password(password: str) -> str:
     salt = hashlib.sha256(os.urandom(60)).hexdigest().encode('ascii')
@@ -19,7 +24,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     stored_password = hashed_password[64:]
     pwdhash = hashlib.pbkdf2_hmac('sha512', plain_password.encode('utf-8'), salt.encode('ascii'), 100000)
     pwdhash = binascii.hexlify(pwdhash).decode('ascii')
-    return pwdhash == stored_password
+    return hmac.compare_digest(pwdhash, stored_password)
 
 def get_password_hash(password: str) -> str:
     return hash_password(password)
@@ -30,14 +35,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": TOKEN_TYPE_ACCESS})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=7)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": TOKEN_TYPE_REFRESH})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 

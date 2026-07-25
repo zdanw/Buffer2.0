@@ -6,7 +6,14 @@ from datetime import timedelta
 from typing import List, Optional
 from bebcare.database import get_db
 from bebcare.models.user import User
-from bebcare.services.auth_service import authenticate_user, create_access_token, create_refresh_token, get_password_hash, get_user
+from bebcare.services.auth_service import (
+    TOKEN_TYPE_ACCESS,
+    authenticate_user,
+    create_access_token,
+    create_refresh_token,
+    get_password_hash,
+    get_user,
+)
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.services.auth_scheme import oauth2_scheme
 from bebcare.schemas.auth import Token, UserCreate, UserUpdate, UserResponse, RefreshTokenRequest
@@ -49,6 +56,9 @@ def refresh_access_token(
     )
     try:
         payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
+        # Reject access tokens; allow legacy tokens that omit type
+        if payload.get("type") == TOKEN_TYPE_ACCESS:
+            raise credentials_exception
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception

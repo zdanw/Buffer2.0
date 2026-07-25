@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from bebcare.database import get_db
-from bebcare.services.auth_service import get_user
+from bebcare.services.auth_service import TOKEN_TYPE_REFRESH, get_user
 from bebcare.services.auth_scheme import oauth2_scheme
 from bebcare.config.settings import settings
 from bebcare.schemas.auth import TokenData
@@ -19,6 +19,9 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        # Reject refresh tokens used as Bearer (legacy tokens without type still allowed)
+        if payload.get("type") == TOKEN_TYPE_REFRESH:
+            raise credentials_exception
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception

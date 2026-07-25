@@ -1,8 +1,6 @@
 ﻿.env
 __pycache__/
 *.pyc
-*.pyo
 chroma_data/
-Long-CLIP/
+Long-CLIP/checkpoints/*.pt
 *.db
-.DS_Store

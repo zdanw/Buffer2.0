@@ -2,6 +2,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -36,7 +38,19 @@ def list_products(
     
     offset = (page - 1) * page_size
     products = query.order_by(Product.created_at.desc()).offset(offset).limit(page_size).all()
-    
+
+    dims_by_product: dict[str, list] = defaultdict(list)
+    if products:
+        product_ids = [p.product_id for p in products]
+        all_dims = (
+            db.query(ProductDimension)
+            .filter(ProductDimension.product_id.in_(product_ids))
+            .order_by(ProductDimension.dimension_type)
+            .all()
+        )
+        for dim in all_dims:
+            dims_by_product[dim.product_id].append(dim)
+
     result = []
     for product in products:
         product_images = []
@@ -56,14 +70,9 @@ def list_products(
                 product_images.append(img_dict)
             else:
                 scene_images.append(img_dict)
-        
-        dimensions = db.query(ProductDimension).filter(
-            ProductDimension.product_id == product.product_id
-        ).order_by(ProductDimension.dimension_type).all()
-        
-        product_dimensions = []
-        for dim in dimensions:
-            dim_dict = {
+
+        product_dimensions = [
+            {
                 "id": dim.id,
                 "dimension_id": dim.dimension_id,
                 "dimension_type": dim.dimension_type,
@@ -72,9 +81,10 @@ def list_products(
                 "time": dim.time,
                 "lighting": dim.lighting,
                 "is_custom": dim.is_custom,
-                "created_at": dim.created_at
+                "created_at": dim.created_at,
             }
-            product_dimensions.append(dim_dict)
+            for dim in dims_by_product.get(product.product_id, [])
+        ]
         
         product_dict = {
             "product_id": product.product_id,

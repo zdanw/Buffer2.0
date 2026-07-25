@@ -1,5 +1,5 @@
 import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette, Cpu } from 'lucide-react';
-import { removeToken } from '../api/auth';
+import { clearAuth } from '../api/auth';
 
 interface SidebarProps {
   activeTab: string;
@@ -23,7 +23,7 @@ const adminMenuItems = [
 
 export default function Sidebar({ activeTab, onTabChange, isAdmin }: SidebarProps) {
   const handleLogout = () => {
-    removeToken();
+    clearAuth();
     window.location.href = '/login';
   };
 

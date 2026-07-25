@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # 本地默认 SQLite；生产请设为 Supabase Postgres 连接串
     database_url: str = _DEFAULT_SQLITE_URL
 
-    # DeepSeek API配置
+    # DeepSeek API配置（可为 OpenAI 兼容 base，如 …/v1；调用时会补全 /chat/completions）
     deepseek_api_key: str
     deepseek_api_url: str = "https://api.deepseek.com/v1"
 

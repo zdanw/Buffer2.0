@@ -12,6 +12,7 @@ from .prompt_dimension import (
     CompatMode,
 )
 from .image_provider import ImageProviderConfig
+from .generate_task import GenerateTask
 
 __all__ = [
     "Product",
@@ -29,4 +30,5 @@ __all__ = [
     "DimensionType",
     "CompatMode",
     "ImageProviderConfig",
+    "GenerateTask",
 ]

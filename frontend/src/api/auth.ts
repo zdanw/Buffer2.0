@@ -21,7 +21,7 @@ export interface UpdateUserData {
 
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   token_type: string;
 }
 
@@ -60,7 +60,7 @@ export const listUsers = async (): Promise<UserResponse[]> => {
 };
 
 export const createUser = async (data: CreateUserData): Promise<UserResponse> => {
-  const response = await axiosInstance.post('/auth/users/', data);
+  const response = await axiosInstance.post('/auth/users', data);
   return response.data;
 };
 

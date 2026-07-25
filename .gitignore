@@ -115,5 +115,8 @@ dmypy.json
 chroma_data/
 checkpoints/*.pt
 
+# Nested ModelScope deploy copy (own git repo / credentials — keep local only)
+space4/
+
 # Node
 node_modules/

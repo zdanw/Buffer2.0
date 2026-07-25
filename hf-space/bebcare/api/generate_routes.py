@@ -6,13 +6,17 @@ from bebcare.models import Product
 from bebcare.schemas.generate import GenerateRequest, GenerateResponse
 from bebcare.generator.content_generator import ContentGenerator
 from bebcare.utils.reference_selector import select_reference_images
+from bebcare.services.generate_task_store import (
+    create_generate_task,
+    get_generate_task,
+    update_generate_task,
+)
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/generate", tags=["generate"])
-
-generate_tasks = {}
 
 
 def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
@@ -59,7 +63,11 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
 
 
 @router.post("/", response_model=GenerateResponse)
-def generate_content(request: GenerateRequest, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
+def generate_content(
+    request: GenerateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     product = db.query(Product).filter(Product.product_id == request.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -67,16 +75,12 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
     product_info = _build_product_info(product, request, db)
 
     task_id = str(uuid4())
-    generate_tasks[task_id] = {
-        "status": "PENDING",
-        "result": None,
-        "product_info": product_info,
-    }
+    create_generate_task(task_id, status="PENDING")
 
-    def run_generation(task_id: str, product_info: dict):
+    async def run_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting generation task", task_id)
-            generate_tasks[task_id]["status"] = "PROGRESS"
+            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
 
             platform = product_info.get("platform", "instagram")
             reference_images = product_info.get("reference_images", [])
@@ -84,11 +88,11 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
             generator = ContentGenerator()
             style_hint = product_info.get("style_hint", None)
 
-            # 不传入请求级 Session；生成器内部短生命周期占用连接
-            copywriting_text = generator.generate_copywriting(product_info, platform)
-            generate_tasks[task_id]["copywriting"] = copywriting_text
+            copywriting_text = await generator.generate_copywriting_async(
+                product_info, platform
+            )
 
-            image_result = generator.generate_image(
+            image_result = await generator.generate_image_async(
                 product_info,
                 platform,
                 reference_images,
@@ -101,33 +105,46 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db), ba
             if not image_urls:
                 raise Exception("Image generation returned no URLs")
 
-            generate_tasks[task_id]["image"] = image_urls
-            generate_tasks[task_id]["status"] = "SUCCESS"
-            generate_tasks[task_id]["result"] = {
-                "text": copywriting_text,
-                "image": image_urls[0],
-                "dimensions": image_result.get("dimensions", None),
-                "image_prompt": image_result.get("image_prompt", None),
-                "reference_product_images": product_info.get("reference_product_images", []),
-                "reference_scene_images": product_info.get("reference_scene_images", []),
-                "warning": image_result.get("warning"),
-            }
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="SUCCESS",
+                set_result=True,
+                result={
+                    "text": copywriting_text,
+                    "image": image_urls[0],
+                    "dimensions": image_result.get("dimensions", None),
+                    "image_prompt": image_result.get("image_prompt", None),
+                    "reference_product_images": product_info.get(
+                        "reference_product_images", []
+                    ),
+                    "reference_scene_images": product_info.get(
+                        "reference_scene_images", []
+                    ),
+                    "warning": image_result.get("warning"),
+                },
+            )
             logger.info("[%s] Generation completed: %s images", task_id, len(image_urls))
         except Exception as e:
             logger.exception("[%s] Task failed: %s", task_id, e)
-            generate_tasks[task_id]["status"] = "FAILURE"
-            generate_tasks[task_id]["result"] = {"error": str(e)}
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": str(e)},
+            )
 
-    if background_tasks:
-        background_tasks.add_task(run_generation, task_id, product_info)
-    else:
-        run_generation(task_id, product_info)
-
+    background_tasks.add_task(run_generation, task_id, product_info)
     return {"task_id": task_id, "status": "queued"}
 
 
 @router.post("/copywriting/", response_model=GenerateResponse)
-def generate_copywriting_only(request: GenerateRequest, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
+def generate_copywriting_only(
+    request: GenerateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     product = db.query(Product).filter(Product.product_id == request.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -144,43 +161,49 @@ def generate_copywriting_only(request: GenerateRequest, db: Session = Depends(ge
     }
 
     task_id = str(uuid4())
-    generate_tasks[task_id] = {
-        "status": "PENDING",
-        "result": None,
-        "product_info": product_info,
-    }
+    create_generate_task(task_id, status="PENDING")
 
-    def run_copywriting_generation(task_id: str, product_info: dict):
+    async def run_copywriting_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting copywriting generation", task_id)
-            generate_tasks[task_id]["status"] = "PROGRESS"
+            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
 
             generator = ContentGenerator()
-            copywriting_text = generator.generate_copywriting(
+            copywriting_text = await generator.generate_copywriting_async(
                 product_info, product_info.get("platform", "instagram")
             )
 
-            generate_tasks[task_id]["status"] = "SUCCESS"
-            generate_tasks[task_id]["result"] = {
-                "text": copywriting_text,
-                "image": None,
-            }
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="SUCCESS",
+                set_result=True,
+                result={
+                    "text": copywriting_text,
+                    "image": None,
+                },
+            )
             logger.info("[%s] Copywriting completed", task_id)
         except Exception as e:
             logger.exception("[%s] Task failed: %s", task_id, e)
-            generate_tasks[task_id]["status"] = "FAILURE"
-            generate_tasks[task_id]["result"] = {"error": str(e)}
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": str(e)},
+            )
 
-    if background_tasks:
-        background_tasks.add_task(run_copywriting_generation, task_id, product_info)
-    else:
-        run_copywriting_generation(task_id, product_info)
-
+    background_tasks.add_task(run_copywriting_generation, task_id, product_info)
     return {"task_id": task_id, "status": "queued"}
 
 
 @router.post("/image/", response_model=GenerateResponse)
-def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
+def generate_image_only(
+    request: GenerateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     product = db.query(Product).filter(Product.product_id == request.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -188,16 +211,12 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
     product_info = _build_product_info(product, request, db)
 
     task_id = str(uuid4())
-    generate_tasks[task_id] = {
-        "status": "PENDING",
-        "result": None,
-        "product_info": product_info,
-    }
+    create_generate_task(task_id, status="PENDING")
 
-    def run_image_generation(task_id: str, product_info: dict):
+    async def run_image_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting image generation", task_id)
-            generate_tasks[task_id]["status"] = "PROGRESS"
+            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
 
             platform = product_info.get("platform", "instagram")
             reference_images = product_info.get("reference_images", [])
@@ -205,7 +224,7 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
             generator = ContentGenerator()
             style_hint = product_info.get("style_hint", None)
 
-            image_result = generator.generate_image(
+            image_result = await generator.generate_image_async(
                 product_info,
                 platform,
                 reference_images,
@@ -218,33 +237,45 @@ def generate_image_only(request: GenerateRequest, db: Session = Depends(get_db),
             if not image_urls:
                 raise Exception("Image generation returned no URLs")
 
-            generate_tasks[task_id]["status"] = "SUCCESS"
-            generate_tasks[task_id]["result"] = {
-                "text": None,
-                "image": image_urls[0],
-                "dimensions": image_result.get("dimensions", None),
-                "image_prompt": image_result.get("image_prompt", None),
-                "reference_product_images": product_info.get("reference_product_images", []),
-                "reference_scene_images": product_info.get("reference_scene_images", []),
-                "warning": image_result.get("warning"),
-            }
-            logger.info("[%s] Image generation completed: %s images", task_id, len(image_urls))
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="SUCCESS",
+                set_result=True,
+                result={
+                    "text": None,
+                    "image": image_urls[0],
+                    "dimensions": image_result.get("dimensions", None),
+                    "image_prompt": image_result.get("image_prompt", None),
+                    "reference_product_images": product_info.get(
+                        "reference_product_images", []
+                    ),
+                    "reference_scene_images": product_info.get(
+                        "reference_scene_images", []
+                    ),
+                    "warning": image_result.get("warning"),
+                },
+            )
+            logger.info(
+                "[%s] Image generation completed: %s images", task_id, len(image_urls)
+            )
         except Exception as e:
             logger.exception("[%s] Task failed: %s", task_id, e)
-            generate_tasks[task_id]["status"] = "FAILURE"
-            generate_tasks[task_id]["result"] = {"error": str(e)}
+            await asyncio.to_thread(
+                update_generate_task,
+                task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": str(e)},
+            )
 
-    if background_tasks:
-        background_tasks.add_task(run_image_generation, task_id, product_info)
-    else:
-        run_image_generation(task_id, product_info)
-
+    background_tasks.add_task(run_image_generation, task_id, product_info)
     return {"task_id": task_id, "status": "queued"}
 
 
 @router.get("/status/{task_id}")
 def get_generate_status(task_id: str):
-    task = generate_tasks.get(task_id)
+    task = get_generate_task(task_id)
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

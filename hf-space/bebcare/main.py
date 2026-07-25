@@ -1,6 +1,12 @@
 from fastapi import FastAPI, Depends, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from bebcare.api import product_router, task_router, generate_router, publish_router, auth_router, prompt_dimension_router, image_provider_router
+from bebcare.api.product_routes import router as product_router
+from bebcare.api.task_routes import router as task_router
+from bebcare.api.generate_routes import router as generate_router
+from bebcare.api.publish_routes import router as publish_router
+from bebcare.api.auth_routes import router as auth_router
+from bebcare.api.prompt_dimension_routes import router as prompt_dimension_router
+from bebcare.api.image_provider_routes import router as image_provider_router
 from bebcare.database import init_db
 from bebcare.config.settings import settings
 from bebcare.logging_config import setup_logging

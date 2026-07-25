@@ -7,7 +7,8 @@ function resolveTargetHost() {
 }
 
 const TARGET_HOST = resolveTargetHost();
-const TIMEOUT_MS = 30000;
+// Align with frontend axios timeout (60s); long generate jobs use async poll.
+const TIMEOUT_MS = 60000;
 
 function resolveAllowedOrigin(req) {
   const configured = (process.env.ALLOWED_ORIGINS || '')
