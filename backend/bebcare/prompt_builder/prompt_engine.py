@@ -82,24 +82,45 @@ class PromptEngine:
 7. 帖子长度必须为120-200字（包含所有文本和话题标签）
 """
 
+    _EMPTY_DIMENSIONS = {
+        "scenes": [],
+        "lighting": [],
+        "styles": [],
+        "details": [],
+        "viewpoints": [],
+        "compositions": [],
+        "quality": [],
+    }
+
     def _get_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:
-        """获取指定产品类型的维度配置"""
+        """获取指定产品类型的维度配置。
+
+        新类目在 DB 无维度时不得跨类目回退到 Night Lights，否则会污染提示词。
+        无数据时返回空池，由 _select_* 使用「默认*」占位。
+        """
         if db is not None and dimension_service is not None:
             try:
                 result = dimension_service.get_dimensions_by_product_type(product_type, db)
-                if result.get("scenes"):
+                if any(result.get(key) for key in self._EMPTY_DIMENSIONS):
                     return result
-                logger.warning(
-                    "No scenes in DB for product_type '%s', falling back to static DIMENSIONS",
+                logger.info(
+                    "No enabled dimensions in DB for product_type '%s'",
                     product_type,
                 )
             except Exception as e:
-                logger.exception('dimension_service.get_dimensions_by_product_type failed: %s', e)
-        
-        if product_type not in DIMENSIONS:
-            logger.warning("Product type '%s' not found in DIMENSIONS, falling back to 'Night Lights'", product_type)
-        
-        return DIMENSIONS.get(product_type, DIMENSIONS["Night Lights"])
+                logger.exception(
+                    "dimension_service.get_dimensions_by_product_type failed: %s", e
+                )
+
+        if product_type in DIMENSIONS:
+            return DIMENSIONS[product_type]
+
+        logger.warning(
+            "No dimensions for product_type '%s' (DB empty / not in static seed); "
+            "using empty pools instead of Night Lights fallback",
+            product_type,
+        )
+        return {key: list(values) for key, values in self._EMPTY_DIMENSIONS.items()}
     
     def _pool_by_compat(
         self,
