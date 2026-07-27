@@ -124,7 +124,20 @@ def generate_content(
                     "warning": image_result.get("warning"),
                 },
             )
-            logger.info("[%s] Generation completed: %s images", task_id, len(image_urls))
+            warning = image_result.get("warning")
+            if warning:
+                logger.error(
+                    "[%s] [CDN] Generation completed with CDN warning: %s "
+                    "(images=%s first_url=%s)",
+                    task_id,
+                    warning,
+                    len(image_urls),
+                    (image_urls[0][:160] if image_urls else None),
+                )
+            else:
+                logger.info(
+                    "[%s] Generation completed: %s images", task_id, len(image_urls)
+                )
         except Exception as e:
             logger.exception("[%s] Task failed: %s", task_id, e)
             await asyncio.to_thread(
@@ -256,9 +269,22 @@ def generate_image_only(
                     "warning": image_result.get("warning"),
                 },
             )
-            logger.info(
-                "[%s] Image generation completed: %s images", task_id, len(image_urls)
-            )
+            warning = image_result.get("warning")
+            if warning:
+                logger.error(
+                    "[%s] [CDN] Image generation completed with CDN warning: %s "
+                    "(images=%s first_url=%s)",
+                    task_id,
+                    warning,
+                    len(image_urls),
+                    (image_urls[0][:160] if image_urls else None),
+                )
+            else:
+                logger.info(
+                    "[%s] Image generation completed: %s images",
+                    task_id,
+                    len(image_urls),
+                )
         except Exception as e:
             logger.exception("[%s] Task failed: %s", task_id, e)
             await asyncio.to_thread(

@@ -13,8 +13,9 @@ from bebcare.models import Product, ProductImage
 from bebcare.models.prompt_dimension import ProductDimension
 from bebcare.schemas.product import ProductCreate, ProductUpdate, ProductResponse, ImageUploadResponse
 from bebcare.knowledge_base.chroma_client import chroma_client
-from bebcare.utils.image_utils import calculate_phash, get_image_dimensions, download_image
+from bebcare.utils.image_utils import calculate_phash, get_image_dimensions
 from bebcare.utils.github_uploader import github_uploader
+from PIL import Image
 import uuid
 import io
 
@@ -282,19 +283,27 @@ async def upload_product_images(
     
     for file in all_files:
         try:
-            logger.info('Processing file: %s', file.filename)
-            
             file_content = file.file.read()
-            logger.debug('File size: %s bytes', len(file_content))
-            
-            cdn_url = github_uploader.upload_file(file_content, file.filename)
-            logger.info('Uploaded to CDN: %s', cdn_url)
-            
-            image = download_image(cdn_url)
-            logger.debug('Downloaded image successfully')
-            
+            logger.info(
+                "[CDN] product upload start product_id=%s filename=%s bytes=%s",
+                product_id,
+                file.filename,
+                len(file_content),
+            )
+
+            # Process locally — jsDelivr often 404s for seconds/minutes after GitHub write
+            image = Image.open(io.BytesIO(file_content))
+            image.load()
             phash = calculate_phash(image)
             width, height = get_image_dimensions(image)
+
+            cdn_url = github_uploader.upload_file(file_content, file.filename)
+            logger.info(
+                "[CDN] product upload ok product_id=%s filename=%s cdn_url=%s",
+                product_id,
+                file.filename,
+                cdn_url,
+            )
             logger.debug('Image dimensions: %sx%s, phash: %s', width, height, phash)
             
             embedding = chroma_client.get_image_embedding(image)
@@ -344,7 +353,12 @@ async def upload_product_images(
             db.commit()
             
         except Exception as e:
-            logger.exception('Error processing file %s: %s', file.filename, e)
+            logger.exception(
+                "[CDN] product upload failed product_id=%s filename=%s err=%s",
+                product_id,
+                file.filename,
+                e,
+            )
             db.rollback()
             failed.append(file.filename)
     

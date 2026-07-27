@@ -227,17 +227,40 @@ def reupload_draft_cdn(draft_id: str, db: Session = Depends(get_db)):
             continue
         try:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            logger.info(
+                "[CDN] draft reupload start draft_id=%s index=%s", draft_id, i
+            )
             cdn_url = persist_image_url_to_cdn(
                 url, f"draft_{draft_id}_retry_{i}_{timestamp}.jpg"
             )
             updated.append(cdn_url)
+            logger.info(
+                "[CDN] draft reupload ok draft_id=%s index=%s cdn_url=%s",
+                draft_id,
+                i,
+                cdn_url,
+            )
         except Exception as e:
-            logger.warning("CDN reupload failed for draft %s image %s: %s", draft_id, i, e)
+            logger.exception(
+                "[CDN] draft reupload failed draft_id=%s index=%s err=%s",
+                draft_id,
+                i,
+                e,
+            )
             updated.append(url)
             failed.append({"index": i, "error": str(e)})
 
     draft.images = updated
     db.commit()
+
+    if failed:
+        logger.error(
+            "[CDN] draft reupload finished with failures draft_id=%s failed=%s",
+            draft_id,
+            failed,
+        )
+    else:
+        logger.info("[CDN] draft reupload finished ok draft_id=%s", draft_id)
 
     return {
         "success": len(failed) == 0,

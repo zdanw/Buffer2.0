@@ -42,20 +42,23 @@ class ContentGenerator:
         self.doubao_model_id = settings.doubao_model_id
 
         self.image_prompt_system_prompt = """
-你是一位专业的AI图像提示词工程师，专注于婴儿产品领域。
-你的任务是将产品信息和维度选项转换为详细、生动、富有感染力的中文图像描述，让AI图像生成器能够完美理解并生成高质量图片。
+You are a professional AI image prompt engineer for a premium baby-product brand (Bebcare).
+Convert the product info and dimension choices into ONE detailed English image prompt for an AI image generator.
 
-遵循以下指南：
-1. 仅输出图像提示词，不要额外文本或解释
-2. 使用丰富细腻的描述性语言，包含大量感官细节和具体形容词
-3. 将场景、光线、构图、风格、画质、细节道具等元素自然融合，形成连贯的叙事
-4. 注重光影层次：描述光线的方向、质感、色温，以及光影如何塑造产品形态和氛围
-5. 强调材质表现：描述产品的材质质感（如哑光、细腻、圆润、柔软等），以及材质之间的对比
-6. 营造情感氛围：通过场景和细节传递宁静、安全、温暖、陪伴等婴儿产品特有的情感
-7. 采用生活方式叙事：描述产品在真实生活场景中的使用状态，增强画面的故事感和代入感
-8. 确保适合商业产品摄影，同时具备艺术感染力和视觉冲击力
-9. 描述要有层次感：从前景到背景，从主体到细节，逐步展开，形成完整的画面构图
-10. 使用精确的色彩描述：避免笼统的颜色词，使用具体的色调描述（如米白色针织棉布、马卡龙色系、温暖金色等）
+Output rules:
+1. Output ONLY the final English image prompt — no Chinese, no titles, no explanation
+2. Lead with product fidelity: describe the product first, then scene, lighting, composition, style, and details
+3. Hard constraints (never violate; weave them into the prompt, do not list them as a checklist):
+   - Keep product shape, structure, part count, and relative layout exactly as described (and as in reference images if any)
+   - Keep product color, materials, textures, and any on-product print/logo unchanged
+   - Do NOT invent extra products, missing/extra parts, warped geometry, or recolored surfaces
+   - Do NOT add text, watermarks, QR codes, URLs, captions, or brand names in the scene (on-product print only if specified)
+4. Soft quality guidance (only after fidelity is satisfied):
+   - Rich sensory detail: light direction, quality, color temperature; material finish (matte, soft-touch, rounded edges)
+   - Lifestyle narrative suited to baby products: calm, safe, warm, companion-like mood
+   - Commercial product photography with clear foreground-to-background depth
+   - Precise color language (e.g. cream knitted cotton, soft pastel accents, warm golden key light)
+5. Naturally fuse scene, viewpoint, composition, style, quality, props, and lighting into one coherent paragraph or short continuous prompt
 """
 
     async def _retry_request_async(
@@ -238,6 +241,11 @@ class ContentGenerator:
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
         cdn_upload_failed = False
+        logger.info(
+            "[CDN] persist batch start product_id=%s count=%s",
+            product_id,
+            len(image_urls),
+        )
         for i, url in enumerate(image_urls):
             file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
             try:
@@ -246,8 +254,12 @@ class ContentGenerator:
                 )
             except Exception as e:
                 cdn_upload_failed = True
-                logger.warning(
-                    "CDN upload failed, falling back to temporary image URL: %s",
+                logger.exception(
+                    "[CDN] persist batch item failed product_id=%s index=%s "
+                    "file_name=%s err=%s; falling back to temporary URL",
+                    product_id,
+                    i,
+                    file_name,
                     e,
                 )
                 cdn_urls.append(url)
@@ -258,8 +270,21 @@ class ContentGenerator:
             "image_prompt": image_prompt,
         }
         if cdn_upload_failed:
+            logger.error(
+                "[CDN] persist batch finished with failures product_id=%s "
+                "ok=%s failed=%s",
+                product_id,
+                sum(1 for u in cdn_urls if "cdn.jsdelivr.net" in str(u)),
+                sum(1 for u in cdn_urls if "cdn.jsdelivr.net" not in str(u)),
+            )
             result["warning"] = (
                 "上传 GitHub CDN 失败，已使用临时图片链接展示；请尽快发布（链接可能过期）"
+            )
+        else:
+            logger.info(
+                "[CDN] persist batch ok product_id=%s count=%s",
+                product_id,
+                len(cdn_urls),
             )
         return result
 
