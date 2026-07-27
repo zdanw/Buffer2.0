@@ -63,6 +63,8 @@ export interface ManualTaskDraft {
   selected_image?: string;
   selected_copy?: string;
   published_platforms?: string[];
+  /** 是否仍有图片未成功上传到 GitHub CDN（临时链接） */
+  cdn_upload_failed?: boolean;
   created_at: string;
 }
 
@@ -170,5 +172,18 @@ export const publishDraft = async (draftId: string, request: DraftPublishRequest
 
 export const discardDraft = async (draftId: string): Promise<{ success: boolean; draft_id: string }> => {
   const response = await axiosInstance.post(`/tasks/drafts/${draftId}/discard/`);
+  return response.data;
+};
+
+export const reuploadDraftCdn = async (
+  draftId: string
+): Promise<{
+  success: boolean;
+  draft_id: string;
+  images: string[];
+  cdn_upload_failed: boolean;
+  failed: Array<{ index: number; error: string }>;
+}> => {
+  const response = await axiosInstance.post(`/tasks/drafts/${draftId}/reupload-cdn/`);
   return response.data;
 };

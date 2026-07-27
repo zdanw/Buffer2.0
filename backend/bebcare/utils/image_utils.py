@@ -64,12 +64,22 @@ def download_image(url):
     
     return _retry_request(download_func, max_retries=3, initial_delay=2.0)
 
+def is_github_cdn_url(image_url) -> bool:
+    """Return True if the URL is already on our GitHub/jsDelivr CDN."""
+    return bool(image_url and "cdn.jsdelivr.net" in str(image_url))
+
+
+def any_non_cdn_image(images) -> bool:
+    """True when any non-empty image URL is not yet on GitHub CDN."""
+    return any(url and not is_github_cdn_url(url) for url in (images or []))
+
+
 def persist_image_url_to_cdn(image_url, file_name=None):
     """Download a remote (often temporary) image and upload to GitHub CDN."""
     from bebcare.utils.github_uploader import github_uploader
     from datetime import datetime
 
-    if image_url and "cdn.jsdelivr.net" in image_url:
+    if is_github_cdn_url(image_url):
         return image_url
 
     image = download_image(image_url)

@@ -7,10 +7,17 @@ from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft
 from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest, DraftCreateRequest
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.publisher.buffer_publisher import buffer_publisher
-from bebcare.utils.image_utils import persist_image_url_to_cdn
+from bebcare.utils.image_utils import (
+    any_non_cdn_image,
+    is_github_cdn_url,
+    persist_image_url_to_cdn,
+)
 import uuid
 import json
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 def validate_cron(cron: str):
     fields = cron.split()
@@ -178,6 +185,7 @@ def get_drafts(
                 "selected_image": draft.selected_image,
                 "selected_copy": draft.selected_copy,
                 "published_platforms": published_platforms,
+                "cdn_upload_failed": any_non_cdn_image(images),
                 "created_at": draft.created_at
             })
         
@@ -192,6 +200,52 @@ def get_drafts(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load drafts: {str(e)}")
+
+@router.post("/drafts/{draft_id}/reupload-cdn/")
+def reupload_draft_cdn(draft_id: str, db: Session = Depends(get_db)):
+    """Retry uploading draft images that are still on temporary (non-CDN) URLs."""
+    draft = db.query(ManualTaskDraft).filter(ManualTaskDraft.draft_id == draft_id).first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    if draft.status != "pending":
+        raise HTTPException(status_code=400, detail="Draft is not pending")
+
+    try:
+        images = json.loads(draft.images) if isinstance(draft.images, str) else (draft.images or [])
+    except (json.JSONDecodeError, TypeError):
+        images = []
+
+    if not images:
+        raise HTTPException(status_code=400, detail="Draft has no images to upload")
+
+    updated = []
+    failed = []
+    for i, url in enumerate(images):
+        if not url or is_github_cdn_url(url):
+            updated.append(url)
+            continue
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            cdn_url = persist_image_url_to_cdn(
+                url, f"draft_{draft_id}_retry_{i}_{timestamp}.jpg"
+            )
+            updated.append(cdn_url)
+        except Exception as e:
+            logger.warning("CDN reupload failed for draft %s image %s: %s", draft_id, i, e)
+            updated.append(url)
+            failed.append({"index": i, "error": str(e)})
+
+    draft.images = updated
+    db.commit()
+
+    return {
+        "success": len(failed) == 0,
+        "draft_id": draft_id,
+        "images": updated,
+        "cdn_upload_failed": len(failed) > 0,
+        "failed": failed,
+    }
 
 @router.post("/drafts/{draft_id}/publish/")
 def publish_draft(draft_id: str, request: DraftPublishRequest, db: Session = Depends(get_db)):

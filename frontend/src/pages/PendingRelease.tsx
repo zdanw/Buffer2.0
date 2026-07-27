@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw } from 'lucide-react';
 import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
-import { getDrafts, publishDraft, discardDraft } from '@/api/tasks';
+import { getDrafts, publishDraft, discardDraft, reuploadDraftCdn } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -10,6 +10,11 @@ import Pagination from '@/components/Pagination';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+const CDN_MARKER = 'cdn.jsdelivr.net';
+
+function isCdnUrl(url: string) {
+  return Boolean(url && url.includes(CDN_MARKER));
+}
 
 export default function PendingRelease() {
   const [drafts, setDrafts] = useState<ManualTaskDraft[]>([]);
@@ -28,6 +33,7 @@ export default function PendingRelease() {
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
+  const [reuploading, setReuploading] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadDrafts(1), loadTasks()]);
@@ -168,6 +174,35 @@ export default function PendingRelease() {
     }
   };
 
+  const handleReuploadCdn = async () => {
+    if (!selectedDraftId) return;
+    setReuploading(true);
+    try {
+      const result = await reuploadDraftCdn(selectedDraftId);
+      setDrafts((prev) =>
+        prev.map((d) =>
+          d.draft_id === selectedDraftId
+            ? {
+                ...d,
+                images: result.images,
+                cdn_upload_failed: result.cdn_upload_failed,
+              }
+            : d
+        )
+      );
+      if (result.success) {
+        alert('重新上传成功');
+      } else {
+        alert('部分图片重新上传失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('Failed to reupload CDN:', error);
+      alert('重新上传失败，请重试');
+    } finally {
+      setReuploading(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => formatServerDateTime(dateStr);
 
   const selectedDraft = drafts.find(d => d.draft_id === selectedDraftId);
@@ -252,6 +287,9 @@ export default function PendingRelease() {
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span>{draft.images.length} 张图片</span>
                       <span>{draft.copywritings.length} 条文案</span>
+                      {(draft.cdn_upload_failed ?? draft.images.some((img) => !isCdnUrl(img))) && (
+                        <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">CDN 上传失败</span>
+                      )}
                     </div>
 
                     <div className="mt-3 flex gap-2">
@@ -302,6 +340,29 @@ export default function PendingRelease() {
             </div>
           ) : (
             <div className="space-y-6">
+              {(selectedDraft.cdn_upload_failed ??
+                selectedDraft.images.some((img) => !isCdnUrl(img))) && (
+                <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-amber-800">CDN 上传失败</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        部分图片仍使用临时链接，可能过期。请重新上传到 GitHub CDN 后再发布。
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleReuploadCdn()}
+                      disabled={reuploading}
+                      className="shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${reuploading ? 'animate-spin' : ''}`} />
+                      {reuploading ? '上传中...' : '重新上传'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">选择图片</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -323,6 +384,11 @@ export default function PendingRelease() {
                       {selectedImageIndex === idx && (
                         <div className="absolute top-2 right-2 bg-indigo-600 text-white p-1 rounded-full">
                           <Check className="w-4 h-4" />
+                        </div>
+                      )}
+                      {!isCdnUrl(img) && (
+                        <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded">
+                          未上传 CDN
                         </div>
                       )}
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 flex justify-between items-center">
