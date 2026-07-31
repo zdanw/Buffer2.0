@@ -24,6 +24,7 @@ interface PreviewState {
   selectedProduct: string;
   selectedPlatforms: string[];
   useSceneReference: boolean;
+  useVisionImagePrompt: boolean;
   imageProviderId?: string | null;
   imageModel?: string | null;
   generatedContent: {
@@ -53,6 +54,7 @@ const loadStateFromStorage = (): PreviewState => {
     selectedProduct: '',
     selectedPlatforms: ['instagram'],
     useSceneReference: false,
+    useVisionImagePrompt: false,
     imageProviderId: null,
     imageModel: null,
     generatedContent: null,
@@ -77,6 +79,9 @@ export default function ContentPreview() {
   const [selectedProduct, setSelectedProduct] = useState<string>(savedState.selectedProduct);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(savedState.selectedPlatforms);
   const [useSceneReference, setUseSceneReference] = useState(savedState.useSceneReference);
+  const [useVisionImagePrompt, setUseVisionImagePrompt] = useState(
+    savedState.useVisionImagePrompt ?? false
+  );
   const [imageProviderId, setImageProviderId] = useState<string | null>(savedState.imageProviderId ?? null);
   const [imageModel, setImageModel] = useState<string | null>(savedState.imageModel ?? null);
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
@@ -118,6 +123,7 @@ export default function ContentPreview() {
       selectedProduct,
       selectedPlatforms,
       useSceneReference,
+      useVisionImagePrompt,
       imageProviderId,
       imageModel,
       generatedContent,
@@ -125,7 +131,7 @@ export default function ContentPreview() {
       isGenerating,
       generatingType,
     });
-  }, [selectedProduct, selectedPlatforms, useSceneReference, imageProviderId, imageModel, generatedContent, taskId, isGenerating, generatingType]);
+  }, [selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -243,6 +249,7 @@ export default function ContentPreview() {
         platform: selectedPlatforms[0],
         style_hint: 'storytelling',
         use_scene_reference: useSceneReference,
+        use_vision_image_prompt: useVisionImagePrompt,
         image_provider_id: imageProviderId || undefined,
         image_model: imageModel || undefined,
       };
@@ -409,6 +416,26 @@ export default function ContentPreview() {
                   type="checkbox"
                   checked={useSceneReference}
                   onChange={() => setUseSceneReference(!useSceneReference)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-700">视觉模型写图像 Prompt</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  关闭：旧方案（文本/模板）。开启：视觉模型仅看参考图自主写 Prompt。可与「场景图像参考」同时开启——场景图+产品图会分别标注后交给视觉模型
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useVisionImagePrompt}
+                  onChange={() => setUseVisionImagePrompt(!useVisionImagePrompt)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>

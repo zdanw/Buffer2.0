@@ -13,9 +13,18 @@ class Settings(BaseSettings):
     # 本地默认 SQLite；生产请设为 Supabase Postgres 连接串
     database_url: str = _DEFAULT_SQLITE_URL
 
-    # DeepSeek API配置（可为 OpenAI 兼容 base，如 …/v1；调用时会补全 /chat/completions）
+    # DeepSeek API配置（百炼云 OpenAI 兼容；base 如 …/v1，调用时会补全 /chat/completions）
     deepseek_api_key: str
-    deepseek_api_url: str = "https://api.deepseek.com/v1"
+    deepseek_api_url: str = (
+        "https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+    )
+    deepseek_model: str = "deepseek-v4-pro"
+
+    # 图像 Prompt 多模态（可选；开关在任务/预览侧，默认走纯文本 DeepSeek）
+    # 未单独配置时复用 DEEPSEEK_* 的 key/url；模型须为支持视觉的百炼兼容模型（如 qwen-vl-max）
+    vision_api_key: str | None = None
+    vision_api_url: str | None = None
+    vision_model: str = "qwen3.5-omni-plus-2026-03-15"
 
     # Doubao API配置
     doubao_api_key: str

@@ -19,6 +19,7 @@ class ScheduledTask(Base):
     generate_copy_count = Column(Integer, default=1)
     enabled = Column(Boolean, default=True)
     use_scene_reference = Column(Boolean, default=False)
+    use_vision_image_prompt = Column(Boolean, default=False)
     image_provider_id = Column(String(36), nullable=True)
     image_model = Column(String(255), nullable=True)
     last_run_at = Column(DateTime)

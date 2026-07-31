@@ -46,6 +46,7 @@ export default function TaskConfiguration() {
     generate_copy_count: 3,
     enabled: true,
     use_scene_reference: false,
+    use_vision_image_prompt: false,
     image_provider_id: null,
     image_model: null,
   });
@@ -144,6 +145,7 @@ export default function TaskConfiguration() {
       generate_copy_count: 3,
       enabled: true,
       use_scene_reference: false,
+      use_vision_image_prompt: false,
       image_provider_id: null,
       image_model: null,
     });
@@ -257,6 +259,7 @@ export default function TaskConfiguration() {
         generate_copy_count: task.generate_copy_count || 3,
         enabled: task.enabled,
         use_scene_reference: task.use_scene_reference || false,
+        use_vision_image_prompt: task.use_vision_image_prompt || false,
         image_provider_id: task.image_provider_id || null,
         image_model: task.image_model || null,
       });
@@ -276,6 +279,7 @@ export default function TaskConfiguration() {
         generate_copy_count: 3,
         enabled: true,
         use_scene_reference: false,
+        use_vision_image_prompt: false,
         image_provider_id: null,
         image_model: null,
       });
@@ -689,6 +693,20 @@ export default function TaskConfiguration() {
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
                 <label className="text-sm font-medium text-gray-700">启用场景参考图</label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.use_vision_image_prompt || false}
+                  onChange={(e) =>
+                    setFormData({ ...formData, use_vision_image_prompt: e.target.checked })
+                  }
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                <label className="text-sm font-medium text-gray-700">
+                  视觉模型写图像 Prompt（可与场景参考同时开；场景+产品图分别识别）
+                </label>
               </div>
 
               <div>

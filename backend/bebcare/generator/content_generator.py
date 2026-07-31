@@ -11,6 +11,8 @@ from bebcare.utils.image_utils import persist_image_url_to_cdn
 
 logger = logging.getLogger(__name__)
 
+_MAX_VISION_REF_IMAGES = 3
+
 
 def deepseek_chat_completions_url(base_url: str) -> str:
     """Accept base (…/v1) or full …/chat/completions; always return the chat endpoint."""
@@ -37,28 +39,59 @@ class ContentGenerator:
     def __init__(self):
         self.deepseek_api_key = settings.deepseek_api_key
         self.deepseek_api_url = deepseek_chat_completions_url(settings.deepseek_api_url)
+        self.deepseek_model = settings.deepseek_model
         self.doubao_api_key = settings.doubao_api_key
         self.doubao_api_url = settings.doubao_api_url
         self.doubao_model_id = settings.doubao_model_id
 
-        self.image_prompt_system_prompt = """
-You are a professional AI image prompt engineer for a premium baby-product brand (Bebcare).
-Convert the product info and dimension choices into ONE detailed English image prompt for an AI image generator.
+        self.vision_api_key = (settings.vision_api_key or settings.deepseek_api_key or "").strip()
+        self.vision_api_url = deepseek_chat_completions_url(
+            settings.vision_api_url or settings.deepseek_api_url
+        )
+        self.vision_model = (settings.vision_model or "qwen-vl-max").strip()
 
-Output rules:
-1. Output ONLY the final English image prompt — no Chinese, no titles, no explanation
-2. Lead with product fidelity: describe the product first, then scene, lighting, composition, style, and details
-3. Hard constraints (never violate; weave them into the prompt, do not list them as a checklist):
-   - Keep product shape, structure, part count, and relative layout exactly as described (and as in reference images if any)
-   - Keep product color, materials, textures, and any on-product print/logo unchanged
-   - Do NOT invent extra products, missing/extra parts, warped geometry, or recolored surfaces
-   - Do NOT add text, watermarks, QR codes, URLs, captions, or brand names in the scene (on-product print only if specified)
-4. Soft quality guidance (only after fidelity is satisfied):
-   - Rich sensory detail: light direction, quality, color temperature; material finish (matte, soft-touch, rounded edges)
-   - Lifestyle narrative suited to baby products: calm, safe, warm, companion-like mood
-   - Commercial product photography with clear foreground-to-background depth
-   - Precise color language (e.g. cream knitted cotton, soft pastel accents, warm golden key light)
-5. Naturally fuse scene, viewpoint, composition, style, quality, props, and lighting into one coherent paragraph or short continuous prompt
+        self.image_prompt_system_prompt = """
+你是一位专业的AI图像提示词工程师，专注于婴儿产品领域。
+你的任务是将产品信息和维度选项转换为详细、生动、富有感染力的中文图像描述，让AI图像生成器能够完美理解并生成高质量图片。
+
+遵循以下指南：
+1. 仅输出图像提示词，不要额外文本或解释
+2. 使用丰富细腻的描述性语言，包含大量感官细节和具体形容词
+3. 将场景、光线、构图、风格、画质、细节道具等元素自然融合，形成连贯的叙事
+4. 注重光影层次：描述光线的方向、质感、色温，以及光影如何塑造产品形态和氛围
+5. 强调材质表现：描述产品的材质质感（如哑光、细腻、圆润、柔软等），以及材质之间的对比
+6. 营造情感氛围：通过场景和细节传递宁静、安全、温暖、陪伴等婴儿产品特有的情感
+7. 采用生活方式叙事：描述产品在真实生活场景中的使用状态，增强画面的故事感和代入感
+8. 确保适合商业产品摄影，同时具备艺术感染力和视觉冲击力
+9. 描述要有层次感：从前景到背景，从主体到细节，逐步展开，形成完整的画面构图
+10. 使用精确的色彩描述：避免笼统的颜色词，使用具体的色调描述（如米白色针织棉布、马卡龙色系、温暖金色等）
+"""
+
+        self.vision_image_prompt_system_prompt = """
+你是一位专业的AI图像提示词工程师，专注于婴儿产品商业摄影。
+你将仅根据用户提供的参考图，自主撰写一段最终中文图像提示词，供下游图像生成模型使用。
+
+遵循以下指南：
+1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
+2. 先仔细观察参考图中的产品外形、颜色、材质、比例、部件与印刷标识
+3. 产品外观必须以参考图为准，禁止改色、变形、缺失或编造参考图中不存在的部件
+4. 可自主设计合理的场景、光线、构图与生活方式氛围，但不得覆盖产品保真要求
+5. 使用丰富细腻的描述性语言，包含光影、材质与情感氛围
+6. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
+7. 适合高端婴儿产品商业摄影，画面干净、温暖、有代入感
+"""
+
+        self.vision_scene_image_prompt_system_prompt = """
+你是一位专业的AI图像提示词工程师，专注于婴儿产品「场景融合」商业摄影。
+用户会分别提供场景参考图与产品参考图。你仅根据这些图片，自主撰写一段最终中文图像提示词，供下游图生图模型把产品融入场景。
+
+遵循以下指南：
+1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
+2. 产品外形、颜色、材质、比例、角度与印刷标识必须以产品参考图为准，禁止改色、变形或编造部件
+3. 场景构图、空间布局、整体色调与光线方向应尽量沿用场景参考图，可做轻度氛围优化
+4. 明确描述：将产品自然放入场景中的位置关系、尺度与融合方式；若场景中有其他产品，用本次产品替换
+5. 道具不得遮挡或改变产品主体；禁止文字、水印、二维码、网址或额外品牌名
+6. 适合高端婴儿产品生活方式摄影，画面干净、温暖、有代入感
 """
 
     async def _retry_request_async(
@@ -88,7 +121,7 @@ Output rules:
 
         async def request_once(token_limit: int):
             data = {
-                "model": "deepseek-v4-flash",
+                "model": self.deepseek_model,
                 "messages": [
                     {"role": "system", "content": system_prompt or prompt_engine.system_prompt},
                     {"role": "user", "content": prompt},
@@ -130,6 +163,150 @@ Output rules:
     def _call_deepseek(self, prompt: str, system_prompt: str = None, max_tokens: int = 300) -> str:
         return _run_sync(self._call_deepseek_async(prompt, system_prompt, max_tokens))
 
+    @staticmethod
+    def _ref_urls_to_data_urls(
+        reference_images: List[str], max_images: int = _MAX_VISION_REF_IMAGES
+    ) -> List[str]:
+        from bebcare.providers.aliyun_maas import _image_url_to_data_url
+
+        out = []
+        for url in reference_images:
+            if not url:
+                continue
+            out.append(_image_url_to_data_url(url))
+            if len(out) >= max_images:
+                break
+        return out
+
+    def _build_vision_user_content(
+        self, product_info: Dict, reference_images: List[str]
+    ) -> tuple[List[dict], str]:
+        """Build multimodal user content. Scene mode labels scene vs product images."""
+        product_name = (product_info.get("product_name") or "产品").strip()
+        use_scene = bool(product_info.get("use_scene_reference", False))
+        scene_urls = [u for u in (product_info.get("reference_scene_images") or []) if u]
+        product_urls = [u for u in (product_info.get("reference_product_images") or []) if u]
+
+        # 调度等路径可能未拆分；回退到扁平参考图列表
+        if use_scene and not scene_urls and reference_images:
+            scene_urls = [reference_images[0]]
+            product_urls = product_urls or [u for u in reference_images[1:] if u]
+        if not product_urls and reference_images:
+            product_urls = [u for u in reference_images if u]
+
+        user_content: List[dict] = []
+        system_prompt = self.vision_image_prompt_system_prompt
+
+        if use_scene and scene_urls and product_urls:
+            system_prompt = self.vision_scene_image_prompt_system_prompt
+            # 1 张场景 + 最多 2 张产品，总计不超过上限
+            scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
+            remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
+            product_data = self._ref_urls_to_data_urls(product_urls, remain)
+            user_content.append({"type": "text", "text": "【场景参考图】"})
+            for u in scene_data:
+                user_content.append({"type": "image_url", "image_url": {"url": u}})
+            user_content.append({"type": "text", "text": "【产品参考图】"})
+            for u in product_data:
+                user_content.append({"type": "image_url", "image_url": {"url": u}})
+            user_content.append(
+                {
+                    "type": "text",
+                    "text": (
+                        f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
+                        "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
+                        "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
+                    ),
+                }
+            )
+        else:
+            data_urls = self._ref_urls_to_data_urls(
+                product_urls or reference_images or [], _MAX_VISION_REF_IMAGES
+            )
+            for u in data_urls:
+                user_content.append({"type": "image_url", "image_url": {"url": u}})
+            user_content.append(
+                {
+                    "type": "text",
+                    "text": (
+                        f"请仅根据以上参考图，为「{product_name}」自主生成一段最终中文图像提示词。"
+                        "外观以参考图为准；场景与光线由你自主决定。"
+                    ),
+                }
+            )
+
+        return user_content, system_prompt
+
+    async def _call_vision_image_prompt_async(
+        self,
+        product_info: Dict,
+        reference_images: List[str],
+        max_tokens: int = 1024,
+    ) -> str:
+        """Multimodal: read reference images only → autonomously write final Chinese image prompt.
+
+        Scene mode: scene + product images labeled separately (still no meta-prompt).
+        """
+        if not self.vision_api_key:
+            raise ValueError("VISION_API_KEY / DEEPSEEK_API_KEY is required for vision image prompt")
+
+        user_content, system_prompt = await asyncio.to_thread(
+            self._build_vision_user_content, product_info, reference_images or []
+        )
+        has_image = any(
+            isinstance(p, dict) and p.get("type") == "image_url" for p in user_content
+        )
+        if not has_image:
+            raise ValueError("vision image prompt requires at least one readable reference image")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.vision_api_key}",
+        }
+
+        async def request_once(token_limit: int):
+            data = {
+                "model": self.vision_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                "temperature": 0.7,
+                "max_tokens": token_limit,
+            }
+            # DeepSeek V4 only; Qwen-VL 等视觉模型不传 thinking
+            if "deepseek" in (self.vision_model or "").lower():
+                data["thinking"] = {"type": "disabled"}
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(self.vision_api_url, headers=headers, json=data)
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError:
+                logger.error(
+                    "Vision API %s: %s",
+                    response.status_code,
+                    (response.text or "")[:2000],
+                )
+                raise
+            choice = response.json()["choices"][0]
+            content = (choice["message"].get("content") or "").strip()
+            return content, choice.get("finish_reason")
+
+        async def make_request():
+            content, finish_reason = await request_once(max_tokens)
+            retry_limit = max_tokens
+            if finish_reason == "length":
+                retry_limit = min(max(max_tokens * 2, 1024), 4096)
+                if retry_limit > max_tokens:
+                    content, finish_reason = await request_once(retry_limit)
+            if finish_reason == "length":
+                raise Exception(f"Vision output truncated after max_tokens={retry_limit}")
+            if not content:
+                raise Exception("Vision model returned empty image prompt")
+            return content
+
+        return await self._retry_request_async(make_request, max_retries=3, initial_delay=2.0)
+
     def _db_session(self, db=None):
         """短生命周期 Session：调用方未传入时自建，用完即关。"""
         from bebcare.database import SessionLocal
@@ -166,45 +343,84 @@ Output rules:
         from bebcare.providers.registry import resolve_image_provider
 
         use_scene_reference = product_info.get("use_scene_reference", False)
+        use_vision = bool(product_info.get("use_vision_image_prompt", False))
+        refs = [u for u in (reference_images or []) if u]
 
         selected_dimensions = None
         image_prompt = None
         positive_prompt = None
         meta_prompt = None
 
-        # 仅在查维度/拼提示词时占用连接，不跨 DeepSeek / 出图 API
-        session, own = self._db_session(db)
-        try:
-            if use_scene_reference:
-                scene_prompt_result = await asyncio.to_thread(
-                    prompt_engine.build_scene_reference_prompt,
-                    product_info,
-                    platform,
-                    style_hint,
-                    session,
+        if use_vision and refs:
+            try:
+                positive_prompt = await self._call_vision_image_prompt_async(
+                    product_info, refs, 1024
                 )
-                positive_prompt = scene_prompt_result["prompt"]
                 image_prompt = positive_prompt
-                selected_dimensions = scene_prompt_result.get("dimensions")
-            else:
-                image_prompt_result = await asyncio.to_thread(
-                    prompt_engine.build_image_prompt,
-                    product_info,
-                    platform,
-                    style_hint,
-                    session,
+                dim_label = (
+                    "视觉模型自主(场景融合)"
+                    if use_scene_reference
+                    else "视觉模型自主"
                 )
-                meta_prompt = image_prompt_result["prompt"]
-                selected_dimensions = image_prompt_result.get("dimensions", None)
-        finally:
-            if own:
-                session.close()
-
-        if not use_scene_reference:
-            positive_prompt = await self._call_deepseek_async(
-                meta_prompt, self.image_prompt_system_prompt, 1024
+                selected_dimensions = {
+                    "scene": "参考场景图+视觉模型" if use_scene_reference else dim_label,
+                    "viewpoint": dim_label,
+                    "composition": dim_label,
+                    "style": dim_label,
+                    "quality": dim_label,
+                    "details": dim_label,
+                    "lighting": dim_label,
+                }
+                logger.info(
+                    "Image prompt built via vision model=%s refs=%s scene=%s (no meta-prompt)",
+                    self.vision_model,
+                    min(len(refs), _MAX_VISION_REF_IMAGES),
+                    bool(use_scene_reference),
+                )
+            except Exception as e:
+                logger.exception(
+                    "Vision image prompt failed, falling back to text path: %s", e
+                )
+                use_vision = False
+        elif use_vision and not refs:
+            logger.warning(
+                "use_vision_image_prompt=True but no reference images; falling back to text path"
             )
-            image_prompt = positive_prompt
+            use_vision = False
+
+        if not use_vision:
+            # 旧方案：PromptEngine meta-prompt → DeepSeek / 场景模板
+            session, own = self._db_session(db)
+            try:
+                if use_scene_reference:
+                    scene_prompt_result = await asyncio.to_thread(
+                        prompt_engine.build_scene_reference_prompt,
+                        product_info,
+                        platform,
+                        style_hint,
+                        session,
+                    )
+                    meta_prompt = scene_prompt_result["prompt"]
+                    positive_prompt = meta_prompt
+                    image_prompt = positive_prompt
+                    selected_dimensions = scene_prompt_result.get("dimensions")
+                else:
+                    image_prompt_result = await asyncio.to_thread(
+                        prompt_engine.build_image_prompt,
+                        product_info,
+                        platform,
+                        style_hint,
+                        session,
+                    )
+                    meta_prompt = image_prompt_result["prompt"]
+                    selected_dimensions = image_prompt_result.get("dimensions", None)
+                    positive_prompt = await self._call_deepseek_async(
+                        meta_prompt, self.image_prompt_system_prompt, 1024
+                    )
+                    image_prompt = positive_prompt
+            finally:
+                if own:
+                    session.close()
 
         negative_prompt = prompt_engine.build_negative_prompt()
 

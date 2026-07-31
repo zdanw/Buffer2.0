@@ -234,8 +234,15 @@ class APSchedulerService:
                 "selling_points": product.selling_points,
                 "brand_voice": product.brand_voice,
                 "reference_images": reference_image_urls,
+                "reference_product_images": selected["reference_product_images"],
+                "reference_scene_images": selected["reference_scene_images"],
                 "platform": platforms[0] if platforms else "instagram",
                 "use_scene_reference": effective_scene,
+                "use_vision_image_prompt": bool(
+                    getattr(task_cfg, "use_vision_image_prompt", False)
+                )
+                if task_cfg
+                else False,
             },
             "reference_image_urls": reference_image_urls,
             "reference_product_images": selected["reference_product_images"],

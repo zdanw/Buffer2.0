@@ -14,6 +14,7 @@ export interface ScheduledTask {
   generate_copy_count: number;
   enabled: boolean;
   use_scene_reference: boolean;
+  use_vision_image_prompt?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
   created_at: string;
@@ -91,6 +92,7 @@ export interface TaskCreate {
   generate_copy_count?: number;
   enabled?: boolean;
   use_scene_reference?: boolean;
+  use_vision_image_prompt?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
 }

@@ -38,6 +38,6 @@ python scripts/sync_deploy_copies.py          # 同步
 python scripts/sync_deploy_copies.py --check  # 检查是否漂移
 ```
 
-`DEEPSEEK_API_URL` 可填 OpenAI 兼容 base（如 `https://api.deepseek.com/v1`），代码会自动补全 `/chat/completions`。
+`DEEPSEEK_API_URL` 可填百炼云 OpenAI 兼容 base（如 `…/compatible-mode/v1`），代码会自动补全 `/chat/completions`；模型默认 `deepseek-v4-pro`（可用 `DEEPSEEK_MODEL` 覆盖）。
 
 CI（`.github/workflows/ci.yml`）会跑后端 `pytest`、前端 build，以及 `--check` 漂移门禁。

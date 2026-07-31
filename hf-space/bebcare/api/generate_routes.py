@@ -57,6 +57,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "platform": request.platform,
         "style_hint": request.style_hint,
         "use_scene_reference": selected["use_scene_reference"],
+        "use_vision_image_prompt": bool(request.use_vision_image_prompt),
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
     }

@@ -7,6 +7,7 @@ class GenerateRequest(BaseModel):
     reference_count: int = 4
     style_hint: Optional[str] = None
     use_scene_reference: bool = False
+    use_vision_image_prompt: bool = False
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
 

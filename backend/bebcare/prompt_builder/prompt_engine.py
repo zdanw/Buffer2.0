@@ -386,7 +386,7 @@ Clip it anywhere, calm anytime. 🍼
 - 细节/道具：{selected_dimensions['details']['name']}
 - 光线：{selected_dimensions['lighting']['name']}
 
-## 硬约束（必须遵守，优先级高于风格与氛围；写入最终英文提示词）
+## 硬约束（必须遵守，优先级高于风格与氛围；写入最终中文提示词）
 1. 产品外形、结构、部件数量与相对位置不可改变；有参考图时，外观以参考图为准
 2. 产品颜色、材质、纹理、印刷/标识必须与描述一致，禁止改色、变形、缺失或多余部件
 3. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
@@ -394,7 +394,7 @@ Clip it anywhere, calm anytime. 🍼
 {nunito_constraint}
 
 ## 输出要求
-- 仅输出一段最终英文图像提示词（English only）
+- 仅输出一段最终中文图像提示词
 - 先写产品保真描述，再融合场景/光线/构图/风格/画质/细节
 """
         
@@ -436,23 +436,24 @@ Clip it anywhere, calm anytime. 🍼
         }
 
         prompt = f"""
-Composite the following {product_name} product image into the scene reference.
-Preserve the product subject exactly: position, angle, scale, and appearance must not change.
+将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
 
-Hard constraints (must obey):
-1. Keep product position, angle, size, and appearance fully unchanged
-2. Keep product color, materials, and texture details fully unchanged
-3. Keep the original scene composition and layout essentially unchanged
-4. Keep the original lighting direction and overall color grade consistent
-5. Only lightly refine the background; do not over-edit
-6. Do not add text, watermarks, QR codes, URLs, or extra brand names in the image
+## 硬约束（必须遵守）
+1. 保持产品的位置、角度、大小、外观完全不变
+2. 保持产品的颜色、材质、纹理细节完全不变
+3. 保持原场景的构图结构和布局基本不变
+4. 保持原图像的光线方向和整体色调一致
+5. 仅对背景进行轻微优化，避免过度改动
+6. 画面中禁止生成文字、水印、二维码、网址或额外品牌名
+7. 若场景参考图中出现其他产品，使用本次提供的{product_name}将其替换
 
-Soft guidance (must not violate hard constraints):
-- Style lean: {dimensions_info['style']}
-- Quality lean: {dimensions_info['quality']}
-- Optional light props/details: {dimensions_info['details']} (must not occlude or alter the product)
+## 软引导（不得违反硬约束）
+- 风格倾向：{dimensions_info['style']}
+- 画质倾向：{dimensions_info['quality']}
+- 可轻微增加的细节/道具：{dimensions_info['details']}（不得遮挡或改变产品）
 
-Priority: 1) product fidelity → 2) scene structure fidelity → 3) style/quality/detail soft guidance
+## 优先级
+1）产品保真 → 2）场景结构保真 → 3）风格/画质/细节软引导
 """
 
         return {
