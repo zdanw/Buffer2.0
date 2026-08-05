@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import httpx
@@ -12,6 +13,7 @@ from bebcare.utils.image_utils import persist_image_url_to_cdn
 logger = logging.getLogger(__name__)
 
 _MAX_VISION_REF_IMAGES = 3
+_RECENT_IMAGE_PROMPT_LIMIT = 3
 
 
 def deepseek_chat_completions_url(base_url: str) -> str:
@@ -178,14 +180,110 @@ class ContentGenerator:
                 break
         return out
 
+    @staticmethod
+    def _format_recent_prompt_avoidance(recent_prompts: List[str]) -> str:
+        lines = [p.strip() for p in (recent_prompts or []) if p and str(p).strip()]
+        if not lines:
+            return ""
+        numbered = "\n".join(f"{i}. {p}" for i, p in enumerate(lines, 1))
+        return (
+            "\n\n以下是该产品最近已使用的图像提示词。本次必须在场景空间、光线方向/色温、"
+            "构图景别、主要道具上明显不同；禁止复用相同空间或光影套路。"
+            "产品外观仍以参考图为准，禁止改色、变形。\n"
+            f"{numbered}"
+        )
+
+    def _fetch_recent_image_prompts(
+        self,
+        product_id: str,
+        db=None,
+        limit: int = _RECENT_IMAGE_PROMPT_LIMIT,
+        extra_prompts: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Newest-first recent image prompts for a product (in-batch + DB)."""
+        product_id = (product_id or "").strip()
+        out: List[str] = []
+        seen = set()
+
+        def _add(text: str) -> bool:
+            text = (text or "").strip()
+            if not text or text in seen:
+                return False
+            seen.add(text)
+            out.append(text)
+            return len(out) >= limit
+
+        for p in reversed(list(extra_prompts or [])):
+            if _add(p):
+                return out
+
+        if not product_id:
+            return out
+
+        from bebcare.models.task import ManualTaskDraft, TaskExecution
+
+        session, own = self._db_session(db)
+        try:
+            rows = []
+            drafts = (
+                session.query(ManualTaskDraft)
+                .filter(
+                    ManualTaskDraft.product_id == product_id,
+                    ManualTaskDraft.image_prompts.isnot(None),
+                )
+                .order_by(ManualTaskDraft.created_at.desc())
+                .limit(20)
+                .all()
+            )
+            for draft in drafts:
+                for idx, prompt in enumerate(draft.image_prompts or []):
+                    if prompt and str(prompt).strip():
+                        rows.append((draft.created_at, idx, str(prompt).strip()))
+
+            executions = (
+                session.query(TaskExecution)
+                .filter(
+                    TaskExecution.product_id == product_id,
+                    TaskExecution.status == "SUCCESS",
+                    TaskExecution.image_prompt.isnot(None),
+                )
+                .order_by(TaskExecution.created_at.desc())
+                .limit(limit * 3)
+                .all()
+            )
+            for ex in executions:
+                if ex.image_prompt and str(ex.image_prompt).strip():
+                    rows.append((ex.created_at, 0, str(ex.image_prompt).strip()))
+
+            rows.sort(
+                key=lambda r: (r[0] or datetime.min, r[1]),
+                reverse=True,
+            )
+            for _, _, prompt in rows:
+                if _add(prompt):
+                    break
+        except Exception:
+            logger.exception(
+                "Failed to fetch recent image prompts for product_id=%s", product_id
+            )
+        finally:
+            if own:
+                session.close()
+
+        return out
+
     def _build_vision_user_content(
-        self, product_info: Dict, reference_images: List[str]
+        self,
+        product_info: Dict,
+        reference_images: List[str],
+        recent_prompts: Optional[List[str]] = None,
     ) -> tuple[List[dict], str]:
         """Build multimodal user content. Scene mode labels scene vs product images."""
         product_name = (product_info.get("product_name") or "产品").strip()
         use_scene = bool(product_info.get("use_scene_reference", False))
         scene_urls = [u for u in (product_info.get("reference_scene_images") or []) if u]
         product_urls = [u for u in (product_info.get("reference_product_images") or []) if u]
+        avoid_text = self._format_recent_prompt_avoidance(recent_prompts or [])
 
         # 调度等路径可能未拆分；回退到扁平参考图列表
         if use_scene and not scene_urls and reference_images:
@@ -216,6 +314,7 @@ class ContentGenerator:
                         f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
                         "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
                         "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
+                        f"{avoid_text}"
                     ),
                 }
             )
@@ -231,6 +330,7 @@ class ContentGenerator:
                     "text": (
                         f"请仅根据以上参考图，为「{product_name}」自主生成一段最终中文图像提示词。"
                         "外观以参考图为准；场景与光线由你自主决定。"
+                        f"{avoid_text}"
                     ),
                 }
             )
@@ -242,6 +342,7 @@ class ContentGenerator:
         product_info: Dict,
         reference_images: List[str],
         max_tokens: int = 1024,
+        recent_prompts: Optional[List[str]] = None,
     ) -> str:
         """Multimodal: read reference images only → autonomously write final Chinese image prompt.
 
@@ -251,7 +352,10 @@ class ContentGenerator:
             raise ValueError("VISION_API_KEY / DEEPSEEK_API_KEY is required for vision image prompt")
 
         user_content, system_prompt = await asyncio.to_thread(
-            self._build_vision_user_content, product_info, reference_images or []
+            self._build_vision_user_content,
+            product_info,
+            reference_images or [],
+            recent_prompts or [],
         )
         has_image = any(
             isinstance(p, dict) and p.get("type") == "image_url" for p in user_content
@@ -353,8 +457,15 @@ class ContentGenerator:
 
         if use_vision and refs:
             try:
+                recent_prompts = await asyncio.to_thread(
+                    self._fetch_recent_image_prompts,
+                    str(product_info.get("product_id") or ""),
+                    db,
+                    _RECENT_IMAGE_PROMPT_LIMIT,
+                    product_info.get("avoid_image_prompts") or [],
+                )
                 positive_prompt = await self._call_vision_image_prompt_async(
-                    product_info, refs, 1024
+                    product_info, refs, 1024, recent_prompts
                 )
                 image_prompt = positive_prompt
                 dim_label = (
@@ -372,10 +483,12 @@ class ContentGenerator:
                     "lighting": dim_label,
                 }
                 logger.info(
-                    "Image prompt built via vision model=%s refs=%s scene=%s (no meta-prompt)",
+                    "Image prompt built via vision model=%s refs=%s scene=%s "
+                    "recent_avoid=%s (no meta-prompt)",
                     self.vision_model,
                     min(len(refs), _MAX_VISION_REF_IMAGES),
                     bool(use_scene_reference),
+                    len(recent_prompts),
                 )
             except Exception as e:
                 logger.exception(

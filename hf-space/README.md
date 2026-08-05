@@ -11,17 +11,19 @@ app_port: 7860
 
 全自动社媒内容生成与发布系统后端（Hugging Face Space 部署包）。
 
-本目录为可独立推送到 HF Space 的自包含副本，与仓库内 `backend/` 源码对应。
+本目录为可独立推送到 HF Space 的自包含副本，与仓库内 `backend/` 源码对应。**开发请改 `backend/`**，再执行：
+
+```bash
+python scripts/sync_deploy_copies.py
+```
 
 ## 部署到 Hugging Face Space
 
-**重要：** HF 只认仓库**根目录**的 `Dockerfile` 与带 `sdk: docker` 的 `README.md`，**不会**读取子目录 `hf-space/Dockerfile`。
+**重要：** HF 只认仓库**根目录**的 `Dockerfile` 与带 `sdk: docker` 的 `README.md`，**不会**读取本目录下的 `Dockerfile`。
 
-推荐两种方式（二选一）：
+### 方式 A：推送整个单体仓库（推荐）
 
-### 方式 A：推送整个单体仓库（当前推荐）
-
-把本 Git 仓库推到 Space 远程。根目录已有：
+将本 Git 仓库推到 Space 远程。根目录已有：
 
 - `README.md`（`sdk: docker` + `app_port: 7860`，**不要**写 `app_file`）
 - `Dockerfile`（从 `hf-space/` 复制应用代码）
@@ -42,6 +44,7 @@ docker run --rm -p 7860:7860 --env-file .env bebcare-api
 ```
 
 Secrets / Variables 配置环境变量后等待构建；探活：`GET /health`。
+
 ## 环境变量
 
 完整模板见 `.env.example`。HF Space 生产建议：
@@ -55,16 +58,16 @@ Secrets / Variables 配置环境变量后等待构建；探活：`GET /health`�
 | `SCHEDULER_MAX_WORKERS` | `2` |
 | `DB_POOL_SIZE` | `3` |
 | `ENABLE_CLIP` | `false`（开启需额外依赖与 Long-CLIP） |
-| `LOG_LEVEL` | `INFO`（`DEBUG`/`WARNING`/`ERROR`；日志在 Space → Logs） |
+| `LOG_LEVEL` | `INFO` |
 | `ALLOWED_ORIGINS` | 前端域名白名单（逗号分隔，禁止 `*`） |
 
-必填密钥类：`DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、`BUFFER_API_TOKEN`、`GITHUB_*`、`SECRET_KEY`、`ADMIN_PASSWORD`。
+必填密钥：`DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、`BUFFER_API_TOKEN`、`GITHUB_*`、`SECRET_KEY`、`ADMIN_PASSWORD`。
 
-生产环境禁止使用 SQLite；未配置 Postgres 时启动会失败。
+生产禁止使用 SQLite；未配置 Postgres 时启动会失败。
 
 ## API
 
-前缀 `/v1`。根路径 `/` 与 `/health` 可用于探活。
+前缀 `/v1`。探活：`GET /`、`GET /health`。完整契约见运行中的 `/docs`。
 
 ## 技术栈
 

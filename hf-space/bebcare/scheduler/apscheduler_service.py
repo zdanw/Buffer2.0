@@ -275,6 +275,7 @@ class APSchedulerService:
                     execution = TaskExecution(
                         execution_id=execution_id,
                         task_id=task_id,
+                        product_id=str(product_id),
                         status="RUNNING"
                     )
                     session.add(execution)
@@ -386,6 +387,10 @@ class APSchedulerService:
                 dimensions_list = []
                 image_prompts_list = []
                 for i in range(generate_image_count):
+                    # 本批次已生成的 prompt 尚未入库，一并作为避让上下文
+                    product_info["avoid_image_prompts"] = [
+                        p for p in image_prompts_list if p
+                    ]
                     image_result = content_generator.generate_image(
                         product_info,
                         platform,
