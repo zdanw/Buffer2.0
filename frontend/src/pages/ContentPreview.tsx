@@ -698,6 +698,15 @@ export default function ContentPreview() {
                       alt="Generated"
                       className="w-full aspect-square object-cover rounded-lg shadow-md"
                     />
+                    <div className="mt-3 rounded-lg border border-gray-200 bg-slate-50 px-3 py-2.5 text-left">
+                      <p className="text-xs font-medium text-gray-800 mb-1.5">入景审图清单</p>
+                      <ul className="text-[11px] text-gray-600 space-y-1 list-disc list-inside">
+                        <li>接触：底边是否贴面？有无接触阴影？</li>
+                        <li>透视：是否与台面/墙角线一致？是否像立牌？</li>
+                        <li>姿态：台面直立/墙面侧立是否合理？</li>
+                        <li>反光：玻璃或金属亮面是否死黑无环境？</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
                 {generatedContent.text && (

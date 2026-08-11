@@ -10,7 +10,7 @@ class TaskBase(BaseModel):
     target_categories: List[str] = []
     target_products: List[str] = []
     platforms: List[str] = Field(default=["instagram"], description="支持的平台: instagram, tiktok, facebook")
-    reference_image_count: int = 3
+    reference_image_count: int = 2
     run_count_per_execution: int = 1
     generate_image_count: int = 1
     generate_copy_count: int = 1

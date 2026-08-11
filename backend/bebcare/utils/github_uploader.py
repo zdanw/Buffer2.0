@@ -108,7 +108,7 @@ class GitHubUploader:
             }
 
             try:
-                response = requests.put(url, json=data, headers=headers, timeout=90)
+                response = requests.put(url, json=data, headers=headers, timeout=120)
             except requests.RequestException as e:
                 last_error = e
                 logger.warning(

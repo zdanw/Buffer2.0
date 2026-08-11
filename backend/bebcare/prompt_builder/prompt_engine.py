@@ -7,6 +7,7 @@ import json
 import random
 
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
+from bebcare.prompt_builder.placement_rules import build_physics_placement_block
 
 try:
     from bebcare.services.dimension_service import dimension_service
@@ -19,7 +20,8 @@ NEGATIVE_PROMPT = {
         "商标", "标志", "品牌名称", "标签", "边框",
         "徽章", "平台标志", "产品形状改变",
         "无关产品", "颜色篡改", "缺失部件",
-        "模糊", "扭曲", "低质量", "丑陋"
+        "模糊", "扭曲", "低质量", "丑陋",
+        "悬空", "贴纸感", "无接触阴影", "漂浮",
     ],
     "soft_suggestions": [
         "避免重复构图",
@@ -69,17 +71,13 @@ WRITING_STYLES = [
 class PromptEngine:
     def __init__(self):
         self.system_prompt = """
-你是Bebcare高端婴儿品牌的专业营销专家。
-你擅长创建高质量的英文社交媒体文案和图像提示词。
+你是Bebcare高端婴儿品牌的专业营销专家，只负责撰写英文社交媒体文案。
 
 遵循以下原则：
 1. 保持专业而温暖的语调，适合婴儿产品
 2. 突出产品核心卖点
-3. 使用适当的表情符号增强情感表达
-4. 确保内容符合目标平台特点
-5. 图像提示词必须包含详细的场景、光线和构图描述
-6. 社交媒体帖子输出仅限英文
-7. 帖子长度必须为120-200字（包含所有文本和话题标签）
+3. 语调与表达贴合目标平台特点
+4. 仅输出英文帖子内容
 """
 
     _EMPTY_DIMENSIONS = {
@@ -395,7 +393,9 @@ Clip it anywhere, calm anytime. 🍼
 
 ## 输出要求
 - 仅输出一段最终中文图像提示词
+- 优先级：产品外观保真 > 场景可用 > 氛围文采；信息密、可执行，避免堆砌华丽空词
 - 先写产品保真描述，再融合场景/光线/构图/风格/画质/细节
+- 入景须有合理承托与接触，透视自然，禁止悬空与贴纸感
 """
         
         dimensions_info = {
@@ -435,17 +435,22 @@ Clip it anywhere, calm anytime. 🍼
             "lighting": selected_dimensions['lighting']['name'],
         }
 
+        physics = build_physics_placement_block(product_info)
+
         prompt = f"""
-将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
+将后面的{product_name}图片自然融合到场景中。
 
 ## 硬约束（必须遵守）
-1. 保持产品的位置、角度、大小、外观完全不变
-2. 保持产品的颜色、材质、纹理细节完全不变
+1. 外观保真：颜色、材质、纹理、部件与印刷标识完全不变；禁止改色、变形或编造部件
+2. 摆放自适应：允许为贴合承托面与场景透视调整画面中的投影角度与接触关系（不改产品造型）
 3. 保持原场景的构图结构和布局基本不变
 4. 保持原图像的光线方向和整体色调一致
 5. 仅对背景进行轻微优化，避免过度改动
 6. 画面中禁止生成文字、水印、二维码、网址或额外品牌名
 7. 若场景参考图中出现其他产品，使用本次提供的{product_name}将其替换
+
+## 物理入景（须遵守，简短）
+{physics}
 
 ## 软引导（不得违反硬约束）
 - 风格倾向：{dimensions_info['style']}
@@ -453,7 +458,7 @@ Clip it anywhere, calm anytime. 🍼
 - 可轻微增加的细节/道具：{dimensions_info['details']}（不得遮挡或改变产品）
 
 ## 优先级
-1）产品保真 → 2）场景结构保真 → 3）风格/画质/细节软引导
+1）产品外观保真 → 2）场景结构保真 → 3）自然入景（接触/透视） → 4）风格/画质/细节软引导
 """
 
         return {

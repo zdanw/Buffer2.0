@@ -363,6 +363,16 @@ export default function PendingRelease() {
                 </div>
               )}
 
+              <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-medium text-gray-800 mb-2">入景审图清单</p>
+                <ul className="text-xs text-gray-600 space-y-1.5 list-disc list-inside">
+                  <li>接触：产品底边是否贴合承托面？有无接触阴影？</li>
+                  <li>透视：是否与台面/墙角线一致？是否像立牌贴纸？</li>
+                  <li>姿态：台面直立/墙面侧立等是否合理？</li>
+                  <li>反光：玻璃或金属亮面是否死黑无环境？</li>
+                </ul>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">选择图片</label>
                 <div className="grid grid-cols-2 gap-3">

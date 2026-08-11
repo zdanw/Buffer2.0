@@ -13,7 +13,7 @@ class ScheduledTask(Base):
     target_categories = Column(JSON)
     target_products = Column(JSON)
     platforms = Column(JSON)
-    reference_image_count = Column(Integer, default=3)
+    reference_image_count = Column(Integer, default=2)
     run_count_per_execution = Column(Integer, default=1)
     generate_image_count = Column(Integer, default=1)
     generate_copy_count = Column(Integer, default=1)
