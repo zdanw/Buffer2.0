@@ -17,9 +17,12 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("brands", sa.Column("logo_url", sa.String(length=500), nullable=True))
-    op.execute("UPDATE brands SET is_system = 0 WHERE slug = 'bebcare'")
+    brands = sa.table("brands", sa.column("is_system"), sa.column("slug"))
+    # Use boolean bind (not 0/1) so Postgres and SQLite both accept it
+    op.execute(brands.update().where(brands.c.slug == "bebcare").values(is_system=False))
 
 
 def downgrade() -> None:
+    brands = sa.table("brands", sa.column("is_system"), sa.column("slug"))
+    op.execute(brands.update().where(brands.c.slug == "bebcare").values(is_system=True))
     op.drop_column("brands", "logo_url")
-    op.execute("UPDATE brands SET is_system = 1 WHERE slug = 'bebcare'")
