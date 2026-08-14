@@ -4,20 +4,17 @@ import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
-import {
-  LIMITS,
-  alertValidationErrors,
-  cronFormat,
-  intInRange,
-  maxLen,
-  required,
-} from '@/lib/formValidation';
+import { LIMITS, alertValidationErrors } from '@/lib/formValidation';
+import { useValidators } from '@/i18n/helpers';
+import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
 import ImageModelPicker from '@/components/ImageModelPicker';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
 export default function TaskConfiguration() {
+  const { t } = useI18n();
+  const { required, maxLen, cronFormat, intInRange } = useValidators();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -156,22 +153,22 @@ export default function TaskConfiguration() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Array<string | null> = [
-      required('任务名称', formData.name),
-      maxLen('任务名称', formData.name, LIMITS.taskName),
+      required(t('tasks.taskName'), formData.name),
+      maxLen(t('tasks.taskName'), formData.name, LIMITS.taskName),
       cronFormat(formData.cron),
-      formData.target_products.length === 0 ? '请至少选择一个目标产品' : null,
+      formData.target_products.length === 0 ? t('tasks.selectProductsLabel') : null,
       intInRange(
-        '参考图数量',
+        t('tasks.referenceImageCount'),
         formData.reference_image_count,
         LIMITS.referenceImageCount.min,
         LIMITS.referenceImageCount.max
       ),
     ];
     if (formData.mode === 'auto') {
-      if (formData.platforms.length === 0) errors.push('自动模式请至少选择一个发布平台');
+      if (formData.platforms.length === 0) errors.push(t('tasks.selectPlatformRequired'));
       errors.push(
         intInRange(
-          '轮次',
+          t('tasks.runCount'),
           formData.run_count_per_execution,
           LIMITS.runCount.min,
           LIMITS.runCount.max
@@ -180,13 +177,13 @@ export default function TaskConfiguration() {
     } else {
       errors.push(
         intInRange(
-          '生成图片数量',
+          t('tasks.generateImageCount'),
           formData.generate_image_count,
           LIMITS.generateImageCount.min,
           LIMITS.generateImageCount.max
         ),
         intInRange(
-          '生成文案数量',
+          t('tasks.generateCopyCount'),
           formData.generate_copy_count,
           LIMITS.generateCopyCount.min,
           LIMITS.generateCopyCount.max
@@ -216,14 +213,14 @@ export default function TaskConfiguration() {
       resetForm();
     } catch (error) {
       console.error('Failed to save task:', error);
-      alert('保存失败，请检查输入后重试');
+      alert(t('tasks.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (taskId: string) => {
-    if (confirm('确定删除该任务吗？')) {
+    if (confirm(t('tasks.confirmDelete'))) {
       setDeletingId(taskId);
       try {
         await deleteTask(taskId);
@@ -290,17 +287,24 @@ export default function TaskConfiguration() {
   const formatCron = (cron: string) => {
     const parts = cron.split(' ');
     if (parts.length >= 5) {
-      return `${parts[2]}日 ${parts[1]}:${parts[0].padStart(2, '0')}`;
+      return t('tasks.cronDisplay', {
+        day: parts[2],
+        hour: parts[1],
+        minute: parts[0].padStart(2, '0'),
+      });
     }
     return cron;
   };
+
+  const formatPlatformList = (platforms: string[] | undefined) =>
+    (platforms || []).map((platform) => t(`platforms.${platform}`)).join(', ');
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">任务配置</h2>
-          <p className="text-gray-500 mt-1">管理定时发布任务</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('tasks.title')}</h2>
+          <p className="text-gray-500 mt-1">{t('tasks.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -310,14 +314,14 @@ export default function TaskConfiguration() {
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
           <button
             onClick={() => openModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            添加任务
+            {t('tasks.addTask')}
           </button>
         </div>
       </div>
@@ -337,14 +341,14 @@ export default function TaskConfiguration() {
                       ? 'bg-green-100 text-green-700'
                       : 'bg-gray-100 text-gray-500'
                   }`}>
-                    {task.enabled ? '运行中' : '已禁用'}
+                    {task.enabled ? t('tasks.running') : t('tasks.disabled')}
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     task.mode === 'auto'
                       ? 'bg-blue-100 text-blue-700'
                       : 'bg-amber-100 text-amber-700'
                   }`}>
-                    {task.mode === 'auto' ? '自动发布' : '手动发布'}
+                    {task.mode === 'auto' ? t('tasks.autoPublish') : t('tasks.manualPublish')}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-4 text-sm text-gray-500">
@@ -353,30 +357,30 @@ export default function TaskConfiguration() {
                     {formatCron(task.cron)}
                   </span>
                   {((task.target_products || []).length > 0) ? (
-                    <span>产品: {(task.target_products || []).length} 个</span>
+                    <span>{t('tasks.productsCount', { count: (task.target_products || []).length })}</span>
                   ) : (
-                    <span>分类: {(task.target_categories || []).join(', ')}</span>
+                    <span>{t('tasks.categories', { list: (task.target_categories || []).join(', ') })}</span>
                   )}
                   {task.mode === 'auto' && (
-                    <span>平台: {(task.platforms || []).join(', ')}</span>
+                    <span>{t('tasks.platforms', { list: formatPlatformList(task.platforms) })}</span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-3 mt-3">
                   <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                    参考图: {task.reference_image_count}
+                    {t('tasks.referenceImages', { count: task.reference_image_count })}
                   </span>
                   {task.mode === 'auto' && (
                     <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                      每轮: {task.run_count_per_execution} 次（覆盖全部已选产品）
+                      {t('tasks.runsPerRound', { count: task.run_count_per_execution })}
                     </span>
                   )}
                   {task.mode === 'manual' && (
                     <>
                       <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded text-xs">
-                        生成图片: {task.generate_image_count} 张
+                        {t('tasks.imagesPerRun', { count: task.generate_image_count })}
                       </span>
                       <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded text-xs">
-                        生成文案: {task.generate_copy_count} 条
+                        {t('tasks.copiesPerRun', { count: task.generate_copy_count })}
                       </span>
                     </>
                   )}
@@ -408,12 +412,12 @@ export default function TaskConfiguration() {
         {initialLoading && tasks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-gray-500 text-sm">加载中...</p>
+            <p className="text-gray-500 text-sm">{t('common.loading')}</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">暂无定时任务，点击上方按钮创建</p>
+            <p className="text-gray-500">{t('tasks.noTasks')}</p>
           </div>
         ) : null}
         
@@ -436,7 +440,7 @@ export default function TaskConfiguration() {
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
-                {isEdit ? '编辑任务' : '添加任务'}
+                {isEdit ? t('tasks.editTask') : t('tasks.addTask')}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
@@ -445,7 +449,7 @@ export default function TaskConfiguration() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">任务名称</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.taskName')}</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -457,7 +461,7 @@ export default function TaskConfiguration() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">任务模式</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('tasks.taskMode')}</label>
                 <div className="flex gap-4">
                   <label
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
@@ -474,7 +478,7 @@ export default function TaskConfiguration() {
                       className="sr-only"
                     />
                     <Clock className="w-4 h-4" />
-                    自动发布
+                    {t('tasks.autoPublish')}
                   </label>
                   <label
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
@@ -491,20 +495,20 @@ export default function TaskConfiguration() {
                       className="sr-only"
                     />
                     <Zap className="w-4 h-4" />
-                    手动发布
+                    {t('tasks.manualPublish')}
                   </label>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   {formData.mode === 'auto' 
-                    ? '系统按CRON定时生成内容并自动发布到平台'
-                    : '系统按CRON定时生成候选内容，保存到待发布列表等待审核'}
+                    ? t('tasks.autoDesc')
+                    : t('tasks.manualDesc')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CRON 表达式
-                  <span className="text-gray-400 font-normal ml-2">格式: 分 时 日 月 周</span>
+                  {t('tasks.cronExpression')}
+                  <span className="text-gray-400 font-normal ml-2">{t('tasks.cronHint')}</span>
                 </label>
                 <input
                   type="text"
@@ -513,18 +517,18 @@ export default function TaskConfiguration() {
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
                     formData.cron.split(' ').filter(Boolean).length !== 5 ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="0 10 * * *"
+                  placeholder={t('tasks.cronPlaceholder')}
                   required
                   maxLength={LIMITS.cron}
                 />
                 {formData.cron.split(' ').filter(Boolean).length !== 5 && formData.cron && (
-                  <p className="text-red-500 text-xs mt-1">CRON 表达式格式错误，需要5个字段: 分 时 日 月 周</p>
+                  <p className="text-red-500 text-xs mt-1">{t('tasks.cronInvalid')}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">选择产品</label>
-                <p className="text-xs text-gray-500 mb-2">勾选多个产品时，每次执行会按勾选顺序为每个产品各生成一次</p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('tasks.selectProducts')}</label>
+                <p className="text-xs text-gray-500 mb-2">{t('tasks.multiProductHint')}</p>
                 {products.length > 0 ? (
                   <div className="space-y-2">
                     {categories.map((category) => {
@@ -545,7 +549,7 @@ export default function TaskConfiguration() {
                                 <ChevronRight className="w-4 h-4 text-gray-500" />
                               )}
                               <span className="font-medium text-gray-700">{category}</span>
-                              <span className="text-sm text-gray-500">({categoryProducts.length} 个产品)</span>
+                              <span className="text-sm text-gray-500">{t('tasks.productsInCategory', { count: categoryProducts.length })}</span>
                             </div>
                           </button>
                           {isExpanded && (
@@ -583,17 +587,17 @@ export default function TaskConfiguration() {
                   </div>
                 ) : (
                   <div className="text-gray-400 text-sm py-2">
-                    暂无可用产品，请先在素材管理中添加产品
+                    {t('tasks.noProducts')}
                   </div>
                 )}
                 {(formData.target_products.length === 0) && products.length > 0 && (
-                  <p className="text-red-500 text-xs mt-1">请至少选择一个产品</p>
+                  <p className="text-red-500 text-xs mt-1">{t('tasks.selectProductRequired')}</p>
                 )}
               </div>
 
               {formData.mode === 'auto' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">发布平台</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.publishPlatformsLabel')}</label>
                   <div className="flex flex-wrap gap-2">
                     {PLATFORMS.map((platform) => (
                       <label
@@ -614,7 +618,7 @@ export default function TaskConfiguration() {
                           }}
                           className="sr-only"
                         />
-                        {platform}
+                        {t(`platforms.${platform}`)}
                       </label>
                     ))}
                   </div>
@@ -623,7 +627,7 @@ export default function TaskConfiguration() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">参考图数量</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.referenceImageCount')}</label>
                   <input
                     type="number"
                     value={formData.reference_image_count}
@@ -635,7 +639,7 @@ export default function TaskConfiguration() {
                 </div>
                 {formData.mode === 'auto' ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">轮次</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.runCount')}</label>
                     <input
                       type="number"
                       value={formData.run_count_per_execution}
@@ -644,11 +648,11 @@ export default function TaskConfiguration() {
                       max="5"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
-                    <p className="text-xs text-gray-500 mt-1">每轮按顺序覆盖全部已选产品</p>
+                    <p className="text-xs text-gray-500 mt-1">{t('tasks.runCoversAll')}</p>
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">生成图片数量</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.generateImageCount')}</label>
                     <input
                       type="number"
                       value={formData.generate_image_count}
@@ -663,7 +667,7 @@ export default function TaskConfiguration() {
 
               {formData.mode === 'manual' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">生成文案数量</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.generateCopyCount')}</label>
                   <input
                     type="number"
                     value={formData.generate_copy_count}
@@ -682,7 +686,7 @@ export default function TaskConfiguration() {
                   onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
-                <label className="text-sm font-medium text-gray-700">启用任务</label>
+                <label className="text-sm font-medium text-gray-700">{t('tasks.enableTask')}</label>
               </div>
 
               <div className="flex items-center gap-2">
@@ -692,7 +696,7 @@ export default function TaskConfiguration() {
                   onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
-                <label className="text-sm font-medium text-gray-700">启用场景参考图</label>
+                <label className="text-sm font-medium text-gray-700">{t('tasks.enableSceneReference')}</label>
               </div>
 
               <div className="flex items-center gap-2">
@@ -705,12 +709,12 @@ export default function TaskConfiguration() {
                   className="w-4 h-4 text-indigo-600 rounded"
                 />
                 <label className="text-sm font-medium text-gray-700">
-                  视觉模型写图像 Prompt（可与场景参考同时开；场景+产品图分别识别）
+                  {t('tasks.visionImagePrompt')}
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">图像模型</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.imageModel')}</label>
                 <ImageModelPicker
                   compact
                   value={{
@@ -734,14 +738,14 @@ export default function TaskConfiguration() {
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? '保存中…' : isEdit ? '保存修改' : '创建任务'}
+                  {saving ? t('common.saving') : isEdit ? t('common.save') : t('tasks.createTask')}
                 </button>
               </div>
             </form>

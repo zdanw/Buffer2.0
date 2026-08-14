@@ -1,6 +1,8 @@
 import { lazy, Suspense, useState, useEffect, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import { useI18n } from './i18n/useI18n';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
 
@@ -70,11 +72,13 @@ function lazyPanel(id: string, activeTab: string, mountedTabs: Set<string>, Page
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const initialTab = ROUTE_TABS[location.pathname] || 'assets';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [mountedTabs, setMountedTabs] = useState(() => new Set<string>([initialTab]));
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -114,6 +118,7 @@ function AppContent() {
       // 清空查询串，避免内容预览页保活时把 ?product_id=&platform= 写到其他页
       navigate({ pathname: route, search: '' });
     }
+    setSidebarOpen(false);
   };
 
   if (loading) {
@@ -126,8 +131,21 @@ function AppContent() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         isAdmin={currentUser?.is_admin || false}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto">
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-200"
+            aria-label={t('nav.openMenu')}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="text-sm font-semibold text-gray-900">{t('brand.name')}</span>
+        </div>
         {lazyPanel('assets', activeTab, mountedTabs, AssetManagement)}
         {lazyPanel('dimensions', activeTab, mountedTabs, DimensionManagement)}
         {lazyPanel('tasks', activeTab, mountedTabs, TaskConfiguration)}

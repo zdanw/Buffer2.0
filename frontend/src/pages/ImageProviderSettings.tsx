@@ -21,6 +21,8 @@ import {
   type ImageProviderType,
   type ManualModelEntry,
 } from '@/api/imageProviders';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
+import { useI18n } from '@/i18n/useI18n';
 
 const EMPTY_FORM: ImageProviderCreate = {
   name: '',
@@ -34,19 +36,16 @@ const EMPTY_FORM: ImageProviderCreate = {
   is_default: false,
 };
 
-const TYPE_PRESETS: Record<ImageProviderType, { label: string; base_url: string; list: boolean }> = {
+const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean }> = {
   openai_compatible: {
-    label: 'OpenAI 兼容',
     base_url: 'https://api.openai.com/v1',
     list: true,
   },
   doubao_ark: {
-    label: '豆包 Ark',
     base_url: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
     list: false,
   },
   aliyun_maas: {
-    label: '阿里云 MaaS 图生图',
     base_url:
       'https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
     list: true,
@@ -54,6 +53,7 @@ const TYPE_PRESETS: Record<ImageProviderType, { label: string; base_url: string;
 };
 
 export default function ImageProviderSettings() {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -71,6 +71,9 @@ export default function ImageProviderSettings() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const providerTypeLabel = (type: ImageProviderType) =>
+    t(`imageProviders.providerTypes.${type}`);
+
   const load = async (opts?: { silent?: boolean }) => {
     try {
       if (opts?.silent) setRefreshing(true);
@@ -78,7 +81,7 @@ export default function ImageProviderSettings() {
       const data = await listImageProviders();
       setProviders(data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '加载失败');
+      setError(err.response?.data?.detail || t('common.loadFailed'));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -182,11 +185,11 @@ export default function ImageProviderSettings() {
     e.preventDefault();
     setError('');
     if (!form.name.trim() || !form.base_url.trim()) {
-      setError('名称与 Base URL 必填');
+      setError(t('imageProviders.validation.nameAndUrlRequired'));
       return;
     }
     if (!editingId && !form.api_key.trim()) {
-      setError('创建时必须填写 API Key');
+      setError(t('imageProviders.validation.apiKeyRequired'));
       return;
     }
 
@@ -206,7 +209,7 @@ export default function ImageProviderSettings() {
         if (form.api_key.trim()) payload.api_key = form.api_key.trim();
         const updated = await updateImageProvider(editingId, payload);
         setProviders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-        setSuccess('已更新');
+        setSuccess(t('common.updated'));
       } else {
         const created = await createImageProvider({
           ...form,
@@ -214,27 +217,27 @@ export default function ImageProviderSettings() {
           manual_models: form.manual_models || [],
         });
         setProviders((prev) => [created, ...prev]);
-        setSuccess('已创建');
+        setSuccess(t('common.created'));
       }
       setShowModal(false);
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0]?.msg : detail || '保存失败');
+      setError(Array.isArray(detail) ? detail[0]?.msg : detail || t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定删除该 Provider？')) return;
+    if (!confirm(t('imageProviders.confirmDelete'))) return;
     setDeletingId(id);
     try {
       await deleteImageProvider(id);
       setProviders((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
-      setError(err.response?.data?.detail || '删除失败');
+      setError(err.response?.data?.detail || t('common.deleteFailed'));
     } finally {
       setDeletingId(null);
     }
@@ -251,7 +254,7 @@ export default function ImageProviderSettings() {
         setError('');
       }, 4000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '测试失败');
+      setError(err.response?.data?.detail || t('imageProviders.test.failed'));
     } finally {
       setTestingId(null);
     }
@@ -266,29 +269,29 @@ export default function ImageProviderSettings() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">图像模型</h2>
-          <p className="text-gray-500 mt-1">配置图像生成 Provider（API Key 加密存储于服务端）</p>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('imageProviders.title')}</h2>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">{t('imageProviders.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => void load({ silent: true })}
             disabled={refreshing || loading}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 sm:px-4 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-indigo-700 text-sm"
           >
             <Plus className="w-5 h-5" />
-            添加 Provider
+            {t('imageProviders.addProvider')}
           </button>
         </div>
       </div>
@@ -307,37 +310,37 @@ export default function ImageProviderSettings() {
         {providers.map((p) => (
           <div
             key={p.id}
-            className="bg-white rounded-xl border border-gray-200 p-5 flex justify-between items-start"
+            className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start"
           >
-            <div>
-              <div className="flex items-center gap-2 mb-1">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900">{p.name}</h3>
                 {p.is_default && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-700">默认</span>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-700">{t('common.default')}</span>
                 )}
                 {!p.is_active && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">停用</span>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">{t('common.disabled')}</span>
                 )}
                 <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
-                  {TYPE_PRESETS[p.provider_type]?.label || p.provider_type}
+                  {providerTypeLabel(p.provider_type)}
                 </span>
               </div>
               <p className="text-sm text-gray-500 break-all">{p.base_url}</p>
               <p className="text-xs text-gray-400 mt-1">
-                Key: {p.api_key_masked}
-                {p.default_model ? ` · 默认: ${p.default_model}` : ''}
+                {t('imageProviders.keyLabel')}: {p.api_key_masked}
+                {p.default_model ? ` · ${t('imageProviders.defaultModel')}: ${p.default_model}` : ''}
                 {(p.manual_models?.length || 0) > 0
-                  ? ` · 手动模型 ${p.manual_models!.length} 个`
+                  ? ` · ${t('imageProviders.manualModelsCount').replace('{{count}}', String(p.manual_models!.length))}`
                   : ''}
               </p>
             </div>
-            <div className="flex gap-2 ml-4 shrink-0">
+            <div className="flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => void handleTest(p.id)}
                 disabled={testingId === p.id}
                 className="p-2 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
-                title="测试连接"
+                title={t('imageProviders.testConnection')}
               >
                 {testingId === p.id ? (
                   <RefreshCw className="w-5 h-5 animate-spin" />
@@ -370,17 +373,17 @@ export default function ImageProviderSettings() {
 
         {providers.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
-            尚未配置图像 Provider。未配置时仍使用环境变量中的豆包。
+            {t('imageProviders.emptyState')}
           </div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold">
-                {editingId ? '编辑 Provider' : '添加 Provider'}
+                {editingId ? t('imageProviders.editProvider') : t('imageProviders.addProvider')}
               </h3>
               <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
@@ -389,8 +392,13 @@ export default function ImageProviderSettings() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">名称</label>
+                <LabelWithTooltip
+                  htmlFor="provider-name"
+                  label={t('imageProviders.fields.name.label')}
+                  tooltip={t('imageProviders.fields.name.tooltip')}
+                />
                 <input
+                  id="provider-name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -399,15 +407,20 @@ export default function ImageProviderSettings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                <LabelWithTooltip
+                  htmlFor="provider-type"
+                  label={t('imageProviders.fields.type.label')}
+                  tooltip={t('imageProviders.fields.type.tooltip')}
+                />
                 <select
+                  id="provider-type"
                   value={form.provider_type}
                   onChange={(e) => {
-                    const t = e.target.value as ImageProviderType;
-                    const preset = TYPE_PRESETS[t];
+                    const providerType = e.target.value as ImageProviderType;
+                    const preset = TYPE_PRESETS[providerType];
                     setForm({
                       ...form,
-                      provider_type: t,
+                      provider_type: providerType,
                       base_url: preset.base_url,
                       supports_list_models: preset.list,
                     });
@@ -416,15 +429,20 @@ export default function ImageProviderSettings() {
                 >
                   {(Object.keys(TYPE_PRESETS) as ImageProviderType[]).map((k) => (
                     <option key={k} value={k}>
-                      {TYPE_PRESETS[k].label}
+                      {providerTypeLabel(k)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                <LabelWithTooltip
+                  htmlFor="provider-base-url"
+                  label={t('imageProviders.fields.baseUrl.label')}
+                  tooltip={t('imageProviders.fields.baseUrl.tooltip')}
+                />
                 <input
+                  id="provider-base-url"
                   value={form.base_url}
                   onChange={(e) => setForm({ ...form, base_url: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -433,11 +451,14 @@ export default function ImageProviderSettings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  API Key {editingId ? '（留空则不修改）' : ''}
-                </label>
+                <LabelWithTooltip
+                  htmlFor="provider-api-key"
+                  label={editingId ? t('imageProviders.fields.apiKey.labelOptional') : t('imageProviders.fields.apiKey.label')}
+                  tooltip={t('imageProviders.fields.apiKey.tooltip')}
+                />
                 <div className="relative">
                   <input
+                    id="provider-api-key"
                     type={showKey ? 'text' : 'password'}
                     value={form.api_key}
                     onChange={(e) => setForm({ ...form, api_key: e.target.value })}
@@ -455,21 +476,27 @@ export default function ImageProviderSettings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">默认 Model ID</label>
+                <LabelWithTooltip
+                  htmlFor="provider-default-model"
+                  label={t('imageProviders.fields.defaultModel.label')}
+                  tooltip={t('imageProviders.fields.defaultModel.tooltip')}
+                />
                 <input
+                  id="provider-default-model"
                   value={form.default_model || ''}
                   onChange={(e) => setForm({ ...form, default_model: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="如 qwen-image-2.0 / qwen-image-edit（图生图）"
+                  placeholder={t('imageProviders.fields.defaultModel.placeholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  手动模型列表
-                </label>
+                <LabelWithTooltip
+                  label={t('imageProviders.fields.manualModels.label')}
+                  tooltip={t('imageProviders.fields.manualModels.tooltip')}
+                />
                 <p className="text-xs text-gray-500 mb-2">
-                  同一 Provider / API Key 下可维护多个 Model ID；点击模型 ID 弹出说明文档
+                  {t('imageProviders.fields.manualModels.hint')}
                 </p>
                 <div className="space-y-2 mb-2">
                   <input
@@ -482,21 +509,21 @@ export default function ImageProviderSettings() {
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder="Model ID，如 qwen-image-2.0"
+                    placeholder={t('imageProviders.fields.manualModels.modelIdPlaceholder')}
                   />
                   <textarea
                     value={newModelDesc}
                     onChange={(e) => setNewModelDesc(e.target.value)}
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder="模型描述（可选）：用途、分辨率、是否支持图生图等"
+                    placeholder={t('imageProviders.fields.manualModels.descriptionPlaceholder')}
                   />
                   <button
                     type="button"
                     onClick={addManualModel}
                     className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
                   >
-                    添加到列表
+                    {t('imageProviders.fields.manualModels.addToList')}
                   </button>
                 </div>
                 {(form.manual_models || []).length > 0 ? (
@@ -510,18 +537,20 @@ export default function ImageProviderSettings() {
                           type="button"
                           onClick={() => openModelDoc(m)}
                           className="text-left flex-1 font-mono text-sm text-indigo-700 hover:text-indigo-900 hover:underline break-all"
-                          title="点击查看说明文档"
+                          title={t('imageProviders.fields.manualModels.viewDoc')}
                         >
                           {m.id}
                           {m.description ? (
-                            <span className="ml-2 text-xs text-gray-400 font-sans">有说明</span>
+                            <span className="ml-2 text-xs text-gray-400 font-sans">
+                              {t('imageProviders.fields.manualModels.hasDoc')}
+                            </span>
                           ) : null}
                         </button>
                         <button
                           type="button"
                           onClick={() => removeManualModel(m.id)}
                           className="text-gray-400 hover:text-red-600 shrink-0"
-                          title="移除"
+                          title={t('imageProviders.fields.manualModels.remove')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -529,35 +558,83 @@ export default function ImageProviderSettings() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-gray-400">暂无手动模型，可先添加常用图生图 Model ID</p>
+                  <p className="text-xs text-gray-400">{t('imageProviders.fields.manualModels.empty')}</p>
                 )}
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-start gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={!!form.supports_list_models}
                   onChange={(e) => setForm({ ...form, supports_list_models: e.target.checked })}
+                  className="mt-0.5"
                 />
-                支持 GET /models 拉取列表
+                <span className="flex-1">
+                  {t('imageProviders.fields.supportsListModels.label')}
+                  <span className="group relative ml-1.5 inline-flex align-middle">
+                    <button
+                      type="button"
+                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      aria-label={t('imageProviders.fields.supportsListModels.tooltip')}
+                    >
+                      <span className="sr-only">{t('imageProviders.fields.supportsListModels.tooltip')}</span>
+                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
+                    </button>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      {t('imageProviders.fields.supportsListModels.tooltip')}
+                    </span>
+                  </span>
+                </span>
               </label>
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-start gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={!!form.is_default}
                   onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
+                  className="mt-0.5"
                 />
-                设为全局默认
+                <span className="flex-1">
+                  {t('imageProviders.fields.isDefault.label')}
+                  <span className="group relative ml-1.5 inline-flex align-middle">
+                    <button
+                      type="button"
+                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      aria-label={t('imageProviders.fields.isDefault.tooltip')}
+                    >
+                      <span className="sr-only">{t('imageProviders.fields.isDefault.tooltip')}</span>
+                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
+                    </button>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      {t('imageProviders.fields.isDefault.tooltip')}
+                    </span>
+                  </span>
+                </span>
               </label>
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-start gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={form.is_active !== false}
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                  className="mt-0.5"
                 />
-                启用
+                <span className="flex-1">
+                  {t('imageProviders.fields.isActive.label')}
+                  <span className="group relative ml-1.5 inline-flex align-middle">
+                    <button
+                      type="button"
+                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      aria-label={t('imageProviders.fields.isActive.tooltip')}
+                    >
+                      <span className="sr-only">{t('imageProviders.fields.isActive.tooltip')}</span>
+                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
+                    </button>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      {t('imageProviders.fields.isActive.tooltip')}
+                    </span>
+                  </span>
+                </span>
               </label>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -567,14 +644,14 @@ export default function ImageProviderSettings() {
                   disabled={saving}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? '保存中…' : '保存'}
+                  {saving ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -587,7 +664,7 @@ export default function ImageProviderSettings() {
           <div className="bg-white rounded-xl p-5 w-full max-w-md shadow-xl mx-4">
             <div className="flex justify-between items-start gap-3 mb-4">
               <div>
-                <h4 className="text-lg font-semibold text-gray-900">模型说明</h4>
+                <h4 className="text-lg font-semibold text-gray-900">{t('imageProviders.modelDoc.title')}</h4>
                 <p className="font-mono text-sm text-indigo-700 break-all mt-1">{docModelId}</p>
               </div>
               <button
@@ -604,7 +681,7 @@ export default function ImageProviderSettings() {
               rows={8}
               autoFocus
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              placeholder="在此填写模型说明文档：用途、分辨率、图生图能力、注意事项等"
+              placeholder={t('imageProviders.modelDoc.placeholder')}
             />
             <div className="flex justify-end gap-2 mt-4">
               <button
@@ -612,14 +689,14 @@ export default function ImageProviderSettings() {
                 onClick={closeModelDoc}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={saveModelDoc}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
               >
-                确定
+                {t('common.confirm')}
               </button>
             </div>
           </div>

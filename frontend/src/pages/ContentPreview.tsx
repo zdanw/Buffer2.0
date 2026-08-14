@@ -16,8 +16,19 @@ import { createDraft } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import ImageModelPicker from '@/components/ImageModelPicker';
+import { useI18n } from '@/i18n/useI18n';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+const DIMENSION_FIELD_KEYS: Record<string, string> = {
+  scene: 'scenes',
+  lighting: 'lighting',
+  style: 'styles',
+  composition: 'compositions',
+  details: 'details',
+  quality: 'quality',
+  viewpoint: 'viewpoints',
+};
+const DIMENSION_FIELDS = ['scene', 'lighting', 'style', 'composition', 'details', 'quality', 'viewpoint'] as const;
 const STORAGE_KEY = 'bebcare_content_preview_state';
 
 interface PreviewState {
@@ -73,6 +84,7 @@ const saveStateToStorage = (state: PreviewState) => {
 };
 
 export default function ContentPreview() {
+  const { t } = useI18n();
   const savedState = loadStateFromStorage();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -202,11 +214,11 @@ export default function ContentPreview() {
 
   const handleGenerate = async (type: 'all' | 'copywriting' | 'image') => {
     if (!selectedProduct) {
-      alert('请先选择产品');
+      alert(t('preview.selectProductFirst'));
       return;
     }
     if (selectedPlatforms.length === 0) {
-      alert('请至少选择一个发布平台');
+      alert(t('preview.selectPlatform'));
       return;
     }
     if (isGenerating) return;
@@ -268,17 +280,17 @@ export default function ContentPreview() {
       setIsGenerating(false);
       setGeneratingType(null);
       setTaskId(null);
-      alert('生成请求失败，请稍后重试');
+      alert(t('preview.generateFailed'));
     }
   };
 
   const handlePublish = async () => {
     if (!generatedContent || !generatedContent.text) {
-      alert('请先生成文案后再发布');
+      alert(t('preview.generateCopyFirst'));
       return;
     }
     if (selectedPlatforms.length === 0) {
-      alert('请至少选择一个发布平台');
+      alert(t('preview.selectPlatform'));
       return;
     }
     
@@ -295,7 +307,7 @@ export default function ContentPreview() {
     } catch (error) {
       console.error('Failed to publish content:', error);
       setPublishStatus('failed');
-      alert('发布失败，请重试');
+      alert(t('preview.publishFailed'));
     } finally {
       setIsPublishing(false);
     }
@@ -303,7 +315,7 @@ export default function ContentPreview() {
 
   const handleSaveDraft = async () => {
     if (!generatedContent?.text && !generatedContent?.image) {
-      alert('请先生成文案或图片后再保存');
+      alert(t('preview.generateBeforeSave'));
       return;
     }
 
@@ -326,7 +338,7 @@ export default function ContentPreview() {
     } catch (error) {
       console.error('Failed to save draft:', error);
       setSaveDraftStatus('failed');
-      alert('保存到待发布失败，请重试');
+      alert(t('preview.saveFailed'));
     } finally {
       setIsSavingDraft(false);
     }
@@ -346,8 +358,8 @@ export default function ContentPreview() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">内容预览</h2>
-          <p className="text-gray-500 mt-1">生成并预览社媒内容</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('preview.title')}</h2>
+          <p className="text-gray-500 mt-1">{t('preview.subtitle')}</p>
         </div>
         <button
           type="button"
@@ -356,18 +368,18 @@ export default function ContentPreview() {
           className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          刷新
+          {t('common.refresh')}
         </button>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-1 space-y-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择产品</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.selectProduct')}</label>
             {productsLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                加载产品中…
+                {t('preview.loadingProducts')}
               </div>
             ) : (
               <select
@@ -376,7 +388,7 @@ export default function ContentPreview() {
                 disabled={refreshing}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
               >
-                <option value="">请选择产品</option>
+                <option value="">{t('fields.selectProductPlaceholder')}</option>
                 {products.map((product) => (
                   <option key={product.product_id} value={product.product_id}>
                     {product.product_name}
@@ -387,7 +399,7 @@ export default function ContentPreview() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">发布平台 (多选)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.publishPlatforms')}</label>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((p) => (
                 <button
@@ -408,8 +420,8 @@ export default function ContentPreview() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-gray-700">启用场景图像参考</div>
-                <p className="text-xs text-gray-500 mt-1">开启后将从场景图像中选择参考图，结合产品图像进行生成</p>
+                <div className="text-sm font-medium text-gray-700">{t('preview.enableSceneReference')}</div>
+                <p className="text-xs text-gray-500 mt-1">{t('preview.sceneRefHint')}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -426,9 +438,9 @@ export default function ContentPreview() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-gray-700">视觉模型写图像 Prompt</div>
+                <div className="text-sm font-medium text-gray-700">{t('preview.visionImagePrompt')}</div>
                 <p className="text-xs text-gray-500 mt-1">
-                  关闭：旧方案（文本/模板）。开启：视觉模型仅看参考图自主写 Prompt。可与「场景图像参考」同时开启——场景图+产品图会分别标注后交给视觉模型
+                  {t('preview.visionHint')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -465,12 +477,12 @@ export default function ContentPreview() {
               {isGenerating && generatingType === 'all' ? (
                 <>
                   <RefreshCw className="w-5 h-5 animate-spin" />
-                  生成中...
+                  {t('preview.generating')}
                 </>
               ) : (
                 <>
                   <Play className="w-5 h-5" />
-                  生成内容
+                  {t('preview.generateContent')}
                 </>
               )}
             </button>
@@ -492,7 +504,7 @@ export default function ContentPreview() {
                 ) : (
                   <>
                     <FileText className="w-4 h-4" />
-                    仅生成文案
+                    {t('preview.generateCopyOnly')}
                   </>
                 )}
               </button>
@@ -513,7 +525,7 @@ export default function ContentPreview() {
                 ) : (
                   <>
                     <Image className="w-4 h-4" />
-                    仅生成图片
+                    {t('preview.generateImageOnly')}
                   </>
                 )}
               </button>
@@ -533,12 +545,12 @@ export default function ContentPreview() {
                 {isSavingDraft ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    保存中...
+                    {t('preview.saving')}
                   </>
                 ) : (
                   <>
                     <BookmarkPlus className="w-5 h-5" />
-                    保存到待发布
+                    {t('preview.saveToPending')}
                   </>
                 )}
               </button>
@@ -557,12 +569,12 @@ export default function ContentPreview() {
                 {isPublishing ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    发布中...
+                    {t('preview.publishing')}
                   </>
                 ) : (
                   <>
                     <Send className="w-5 h-5" />
-                    发布到 {selectedPlatforms.join(', ')}
+                    {t('preview.publishTo', { platforms: selectedPlatforms.join(', ') })}
                   </>
                 )}
               </button>
@@ -578,8 +590,8 @@ export default function ContentPreview() {
                 generateStatus.status === 'SUCCESS' ? 'text-green-700' :
                 generateStatus.status === 'FAILURE' ? 'text-red-700' : 'text-yellow-700'
               }`}>
-                {generateStatus.status === 'SUCCESS' ? '生成成功' :
-                 generateStatus.status === 'FAILURE' ? '生成失败' : '处理中...'}
+                {generateStatus.status === 'SUCCESS' ? t('preview.generateSuccess') :
+                 generateStatus.status === 'FAILURE' ? t('preview.generateError') : t('preview.processing')}
               </p>
               {generateStatus.status === 'FAILURE' && generateStatus.result?.error && (
                 <p className="text-sm text-red-600 mt-1">{generateStatus.result.error}</p>
@@ -589,7 +601,7 @@ export default function ContentPreview() {
 
           {generatedContent?.warning && (
             <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="font-medium text-amber-800">CDN 上传失败</p>
+              <p className="font-medium text-amber-800">{t('pending.cdnFailed')}</p>
               <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
             </div>
           )}
@@ -601,10 +613,10 @@ export default function ContentPreview() {
               {saveDraftStatus === 'success' ? (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="font-medium text-green-700">已保存到待发布</span>
+                  <span className="font-medium text-green-700">{t('preview.savedToPending')}</span>
                 </>
               ) : (
-                <span className="font-medium text-red-700">保存失败</span>
+                <span className="font-medium text-red-700">{t('preview.saveError')}</span>
               )}
             </div>
           )}
@@ -616,11 +628,11 @@ export default function ContentPreview() {
               {publishStatus === 'success' ? (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="font-medium text-green-700">发布成功</span>
+                  <span className="font-medium text-green-700">{t('preview.publishSuccess')}</span>
                 </>
               ) : (
                 <>
-                  <span className="font-medium text-red-700">发布失败</span>
+                  <span className="font-medium text-red-700">{t('preview.publishFailed')}</span>
                 </>
               )}
             </div>
@@ -640,44 +652,26 @@ export default function ContentPreview() {
                 <>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    维度信息
+                    {t('fields.dimensionInfo')}
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">场景</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.scene}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">光线</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.lighting}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">风格</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.style}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">构图</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.composition}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">细节</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.details}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">画质</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.quality}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12">视角</span>
-                      <span className="text-xs text-gray-800 truncate">{generatedContent.dimensions.viewpoint}</span>
-                    </div>
+                    {DIMENSION_FIELDS.map((field) => (
+                      <div key={field} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-12">
+                          {t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}
+                        </span>
+                        <span className="text-xs text-gray-800 truncate">
+                          {generatedContent.dimensions![field]}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
               
               {generatedContent.image_prompt && (
                 <div className="mt-3">
-                  <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                  <h4 className="text-xs font-medium text-gray-600 mb-2">{t('fields.imagePrompt')}</h4>
                   <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap">
                     {generatedContent.image_prompt}
                   </div>
@@ -695,7 +689,7 @@ export default function ContentPreview() {
                   <div className="w-full max-w-sm mb-6">
                     <img
                       src={generatedContent.image}
-                      alt="Generated"
+                      alt={t('preview.generatedAlt')}
                       className="w-full aspect-square object-cover rounded-lg shadow-md"
                     />
                   </div>
@@ -710,16 +704,16 @@ export default function ContentPreview() {
                 {!generatedContent.image && !generatedContent.text && (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400">
                     <ImageIcon className="w-20 h-20 mb-4" />
-                    <p className="text-lg">预览区域</p>
-                    <p className="text-sm mt-1">选择产品并点击生成按钮</p>
+                    <p className="text-lg">{t('preview.previewArea')}</p>
+                    <p className="text-sm mt-1">{t('preview.selectAndGenerate')}</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
                 <ImageIcon className="w-20 h-20 mb-4" />
-                <p className="text-lg">预览区域</p>
-                <p className="text-sm mt-1">选择产品并点击生成按钮</p>
+                <p className="text-lg">{t('preview.previewArea')}</p>
+                <p className="text-sm mt-1">{t('preview.selectAndGenerate')}</p>
               </div>
             )}
           </div>
@@ -741,7 +735,7 @@ export default function ContentPreview() {
             </button>
             <img
               src={previewImage}
-              alt="参考图预览"
+              alt={t('preview.referencePreviewAlt')}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />

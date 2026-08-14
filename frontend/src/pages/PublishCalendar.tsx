@@ -6,6 +6,20 @@ import { getTasks, getAllExecutions } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime, parseServerDate } from '@/lib/datetime';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
+import { useI18n } from '@/i18n/useI18n';
+import { localeToIntl } from '@/i18n/localeUtils';
+
+const DIMENSION_FIELD_KEYS: Record<string, string> = {
+  scene: 'scenes',
+  lighting: 'lighting',
+  style: 'styles',
+  composition: 'compositions',
+  details: 'details',
+  quality: 'quality',
+  viewpoint: 'viewpoints',
+};
+const DIMENSION_FIELDS = ['scene', 'lighting', 'style', 'composition', 'details', 'quality', 'viewpoint'] as const;
+const CALENDAR_WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 interface CalendarEvent {
   id: string;
@@ -35,6 +49,7 @@ interface GroupedEvents {
 
 export default function PublishCalendar() {
   const location = useLocation();
+  const { t, locale } = useI18n();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [executions, setExecutions] = useState<Map<string, TaskExecution[]>>(new Map());
@@ -241,7 +256,7 @@ export default function PublishCalendar() {
   };
 
   const formatMonth = () => {
-    return currentDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+    return currentDate.toLocaleDateString(localeToIntl(locale), { year: 'numeric', month: 'long' });
   };
 
   const getStatusIcon = (status: string) => {
@@ -294,11 +309,10 @@ export default function PublishCalendar() {
       const dateKey = `${event.year}-${event.month}-${event.day}`;
       if (!grouped[dateKey]) {
         const date = new Date(event.year, event.month, event.day);
-        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
         grouped[dateKey] = {
           date: date,
-          dateLabel: `${event.month + 1}月${event.day}日`,
-          weekday: weekdays[date.getDay()],
+          dateLabel: t('calendar.monthDay', { month: event.month + 1, day: event.day }),
+          weekday: t(`calendar.weekdayLong.${CALENDAR_WEEKDAYS[date.getDay()]}`),
           events: [],
         };
       }
@@ -313,14 +327,14 @@ export default function PublishCalendar() {
       return (
         <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
           <Zap className="w-3 h-3" />
-          手动
+          {t('calendar.manual')}
         </span>
       );
     }
     return (
       <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
         <Clock className="w-3 h-3" />
-        自动
+        {t('calendar.auto')}
       </span>
     );
   };
@@ -344,8 +358,8 @@ export default function PublishCalendar() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">发布日历</h2>
-          <p className="text-gray-500 mt-1">查看和管理发布计划</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('calendar.title')}</h2>
+          <p className="text-gray-500 mt-1">{t('calendar.subtitle')}</p>
         </div>
         <button
           onClick={() => loadTasks(true)}
@@ -353,7 +367,7 @@ export default function PublishCalendar() {
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing || loading ? 'animate-spin' : ''}`} />
-          刷新
+          {t('common.refresh')}
         </button>
       </div>
 
@@ -384,9 +398,9 @@ export default function PublishCalendar() {
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {['日', '一', '二', '三', '四', '五', '六'].map((day) => (
+              {CALENDAR_WEEKDAYS.map((day) => (
                 <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
-                  {day}
+                  {t(`calendar.weekdays.${day}`)}
                 </div>
               ))}
             </div>
@@ -420,7 +434,7 @@ export default function PublishCalendar() {
                       {hasExecutions && dayEvents.length === 0 && (
                         <div className="flex items-center gap-1 text-xs bg-green-50 rounded px-1 py-0.5 border border-green-200">
                           <CheckCircle className="w-3 h-3 text-green-500" />
-                          <span className="truncate max-w-[80px]">已发布</span>
+                          <span className="truncate max-w-[80px]">{t('calendar.published')}</span>
                         </div>
                       )}
                     </div>
@@ -434,9 +448,9 @@ export default function PublishCalendar() {
         <div className="col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">即将发布</h3>
+              <h3 className="font-semibold text-gray-800">{t('calendar.upcoming')}</h3>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {groupedEvents.reduce((n, g) => n + g.events.length, 0)} 个任务
+                {t('calendar.tasksCount', { count: groupedEvents.reduce((n, g) => n + g.events.length, 0) })}
               </span>
             </div>
             
@@ -451,7 +465,7 @@ export default function PublishCalendar() {
                           <span className="text-xs text-indigo-600 ml-2">{group.weekday}</span>
                         </div>
                         <span className="text-xs text-indigo-500 bg-white px-2 py-0.5 rounded-full">
-                          {group.events.length} 个任务
+                          {t('calendar.tasksCount', { count: group.events.length })}
                         </span>
                       </div>
                     </div>
@@ -497,8 +511,8 @@ export default function PublishCalendar() {
             ) : (
               <div className="text-center py-12">
                 <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-gray-500 text-sm">暂无发布计划</p>
-                <p className="text-gray-400 text-xs mt-1">在任务配置中创建定时任务</p>
+                <p className="text-gray-500 text-sm">{t('calendar.noSchedule')}</p>
+                <p className="text-gray-400 text-xs mt-1">{t('calendar.createTaskHint')}</p>
               </div>
             )}
           </div>
@@ -510,7 +524,12 @@ export default function PublishCalendar() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800">
-                {selectedDay.date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                {selectedDay.date.toLocaleDateString(localeToIntl(locale), {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'long',
+                })}
               </h3>
               <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
@@ -527,10 +546,10 @@ export default function PublishCalendar() {
                         {getExecutionStatusIcon(execution.status)}
                         <div>
                           <div className="font-medium text-gray-800">
-                            {task?.name || '未知任务'}
+                            {task?.name || t('calendar.unknownTask')}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {formatServerDateTime(execution.created_at, {
+                            {formatServerDateTime(execution.created_at, locale, t('datetime.unknown'), {
                               year: 'numeric',
                               month: 'numeric',
                               day: 'numeric',
@@ -546,7 +565,7 @@ export default function PublishCalendar() {
                         <div className="mb-4">
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                             <FileText className="w-4 h-4" />
-                            文案内容
+                            {t('fields.copyContent')}
                           </div>
                           <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 whitespace-pre-wrap">
                             {execution.copywriting}
@@ -558,7 +577,7 @@ export default function PublishCalendar() {
                         <div>
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                             <Image className="w-4 h-4" />
-                            发布图片
+                            {t('calendar.publishImages')}
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             {(execution.generated_images || []).map((img, index) => (
@@ -570,7 +589,7 @@ export default function PublishCalendar() {
                               >
                                 <img
                                   src={img}
-                                  alt={`Generated image ${index + 1}`}
+                                  alt={t('calendar.generatedAlt', { n: index + 1 })}
                                   className="w-full h-40 object-cover"
                                 />
                                 <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
@@ -591,7 +610,7 @@ export default function PublishCalendar() {
 
                       {((execution.published_platforms || []).length > 0) && (
                         <div className="mt-4">
-                          <div className="text-sm text-gray-500 mb-2">发布平台</div>
+                          <div className="text-sm text-gray-500 mb-2">{t('fields.publishPlatformsLabel')}</div>
                           <div className="flex flex-wrap gap-2">
                             {(execution.published_platforms || []).map((platform) => (
                               <span
@@ -609,56 +628,26 @@ export default function PublishCalendar() {
                         <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
                           {execution.dimensions && (
                             <>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-3">维度信息</h4>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('fields.dimensionInfo')}</h4>
                               <div className="grid grid-cols-2 gap-2">
-                                {execution.dimensions.scene && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">场景</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.scene}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.lighting && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">光线</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.lighting}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.style && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">风格</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.style}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.composition && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">构图</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.composition}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.details && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">细节</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.details}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.quality && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">画质</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.quality}</span>
-                                  </div>
-                                )}
-                                {execution.dimensions.viewpoint && (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-xs text-gray-500 w-12 shrink-0">视角</span>
-                                    <span className="text-xs text-gray-800">{execution.dimensions.viewpoint}</span>
-                                  </div>
-                                )}
+                                {DIMENSION_FIELDS.map((field) => {
+                                  const value = execution.dimensions![field];
+                                  if (!value) return null;
+                                  return (
+                                    <div key={field} className="flex items-start gap-2">
+                                      <span className="text-xs text-gray-500 w-12 shrink-0">
+                                        {t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}
+                                      </span>
+                                      <span className="text-xs text-gray-800">{value}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </>
                           )}
                           {execution.image_prompt && (
                             <div className={execution.dimensions ? 'mt-3' : ''}>
-                              <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                              <h4 className="text-xs font-medium text-gray-600 mb-2">{t('fields.imagePrompt')}</h4>
                               <div className="text-xs text-gray-700 bg-white p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap border border-gray-100">
                                 {execution.image_prompt}
                               </div>
@@ -669,7 +658,7 @@ export default function PublishCalendar() {
 
                       {execution.error_message && (
                         <div className="mt-4 p-3 bg-red-50 rounded-lg text-sm text-red-600">
-                          错误信息: {execution.error_message}
+                          {t('calendar.errorInfo', { message: execution.error_message })}
                         </div>
                       )}
                     </div>
@@ -678,14 +667,12 @@ export default function PublishCalendar() {
               </div>
             ) : selectedDay.tasks.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-500 mb-2">当天计划任务（尚未产生执行记录）</p>
+                <p className="text-sm text-gray-500 mb-2">{t('calendar.scheduledNoExecution')}</p>
                 {selectedDay.tasks.map((task) => (
                   <div key={task.task_id} className="border border-gray-200 rounded-lg p-4">
                     <div className="font-medium text-gray-800">{task.name}</div>
                     <div className="text-sm text-gray-500 mt-1">
-                      {task.mode === 'manual'
-                        ? '手动模式：到点后会生成草稿到「待发布」，不会直接写入发布记录'
-                        : '自动模式：到点后会自动生成并发布'}
+                      {task.mode === 'manual' ? t('calendar.manualDesc') : t('calendar.autoDesc')}
                     </div>
                   </div>
                 ))}
@@ -693,7 +680,7 @@ export default function PublishCalendar() {
             ) : (
               <div className="text-center py-12">
                 <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-gray-500">当天暂无发布记录</p>
+                <p className="text-gray-500">{t('calendar.noRecordsToday')}</p>
               </div>
             )}
           </div>
@@ -715,7 +702,7 @@ export default function PublishCalendar() {
             </button>
             <img
               src={previewImage}
-              alt="预览"
+              alt={t('calendar.previewAlt')}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, Package, FolderOpen, FileText, Sparkles, Megaphone } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import type { DimensionType } from '@/api/dimensions';
@@ -8,12 +8,15 @@ import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import {
   LIMITS,
   alertValidationErrors,
-  maxLen,
-  required,
+  createValidators,
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
+import { useI18n } from '@/i18n/useI18n';
 
 export default function AssetManagement() {
+  const { t } = useI18n();
+  const v = createValidators(t);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -84,13 +87,13 @@ export default function AssetManagement() {
     const sellingJoined = (formData.selling_points || []).filter(Boolean).join(',');
     if (
       alertValidationErrors([
-        required('产品名称', formData.product_name),
-        maxLen('产品名称', formData.product_name, LIMITS.productName),
-        required('分类', formData.category),
-        maxLen('分类', formData.category, LIMITS.category),
-        maxLen('描述', formData.description, LIMITS.description),
-        maxLen('卖点', sellingJoined, LIMITS.sellingPointsJoined),
-        maxLen('品牌调性', formData.brand_voice, LIMITS.brandVoice),
+        v.required(t('assets.productName'), formData.product_name),
+        v.maxLen(t('assets.productName'), formData.product_name, LIMITS.productName),
+        v.required(t('assets.category'), formData.category),
+        v.maxLen(t('assets.category'), formData.category, LIMITS.category),
+        v.maxLen(t('assets.description'), formData.description, LIMITS.description),
+        v.maxLen(t('assets.sellingPoints'), sellingJoined, LIMITS.sellingPointsJoined),
+        v.maxLen(t('assets.brandVoice'), formData.brand_voice, LIMITS.brandVoice),
       ])
     ) {
       return;
@@ -118,14 +121,14 @@ export default function AssetManagement() {
       setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
     } catch (error) {
       console.error('Failed to save product:', error);
-      alert('保存失败，请检查输入后重试');
+      alert(t('assets.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (productId: string) => {
-    if (confirm('确定删除该产品及其所有图片吗？')) {
+    if (confirm(t('assets.confirmDeleteProduct'))) {
       setDeleting(true);
       try {
         await deleteProduct(productId);
@@ -152,11 +155,15 @@ export default function AssetManagement() {
     try {
       const response = await uploadProductImages(selectedProduct.product_id, files, imageType);
       if (response.failed && response.failed.length > 0) {
-        alert(`${response.uploaded.length} 张图片上传成功，${response.failed.length} 张失败: ${response.failed.join(', ')}`);
+        alert(t('assets.uploadPartialFail', {
+          uploaded: response.uploaded.length,
+          failed: response.failed.length,
+          list: response.failed.join(', '),
+        }));
       }
     } catch (error) {
       console.error('Failed to upload images:', error);
-      alert('图片上传失败，请重试');
+      alert(t('assets.uploadFailed'));
     } finally {
       try {
         const updated = await getProduct(selectedProduct.product_id);
@@ -171,7 +178,7 @@ export default function AssetManagement() {
 
   const handleImageDelete = async (imageId: string) => {
     if (!selectedProduct || deletingImageId) return;
-    if (confirm('确定删除该图片吗？')) {
+    if (confirm(t('assets.confirmDeleteImage'))) {
       setDeletingImageId(imageId);
       try {
         await deleteProductImage(selectedProduct.product_id, imageId);
@@ -214,8 +221,8 @@ export default function AssetManagement() {
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">素材管理</h2>
-          <p className="text-gray-500 mt-1">管理产品和图片素材</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('assets.title')}</h2>
+          <p className="text-gray-500 mt-1">{t('assets.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -232,14 +239,14 @@ export default function AssetManagement() {
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${loading || listBusy ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
           <button
             onClick={() => openModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            添加产品
+            {t('assets.addProduct')}
           </button>
         </div>
       </div>
@@ -247,15 +254,15 @@ export default function AssetManagement() {
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-800 mb-4">产品列表</h3>
+            <h3 className="font-semibold text-gray-800 mb-4">{t('assets.productList')}</h3>
             <div className={`space-y-2 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
               {loading && products.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <span className="text-gray-500 text-sm">服务正在启动中，请稍候...</span>
+                  <span className="text-gray-500 text-sm">{t('assets.startingUp')}</span>
                 </div>
               ) : products.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">暂无产品</div>
+                <div className="text-center py-8 text-gray-400 text-sm">{t('assets.noProducts')}</div>
               ) : (
                 products.map((product) => (
                   <div
@@ -327,30 +334,30 @@ export default function AssetManagement() {
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
                     <FileText className="w-3.5 h-3.5" />
-                    产品描述
+                    {t('assets.productDescription')}
                   </div>
                   <p className="text-gray-600 leading-relaxed">
-                    {selectedProduct.description || <span className="text-gray-400">暂无描述</span>}
+                    {selectedProduct.description || <span className="text-gray-400">{t('assets.noDescription')}</span>}
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
                       <Megaphone className="w-3.5 h-3.5" />
-                      品牌调性
+                      {t('assets.brandVoice')}
                     </div>
                     {selectedProduct.brand_voice ? (
                       <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-sm">
                         {selectedProduct.brand_voice}
                       </span>
                     ) : (
-                      <p className="text-sm text-gray-400">暂无品牌调性</p>
+                      <p className="text-sm text-gray-400">{t('assets.noBrandVoice')}</p>
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
                       <Sparkles className="w-3.5 h-3.5" />
-                      核心卖点
+                      {t('assets.coreSellingPoints')}
                     </div>
                     {(selectedProduct.selling_points || []).filter(Boolean).length > 0 ? (
                       <div className="flex flex-wrap gap-2">
@@ -364,7 +371,7 @@ export default function AssetManagement() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-400">暂无卖点，点击编辑添加</p>
+                      <p className="text-sm text-gray-400">{t('assets.noSellingPoints')}</p>
                     )}
                   </div>
                 </div>
@@ -373,14 +380,14 @@ export default function AssetManagement() {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-gray-800">产品图像</h4>
+                    <h4 className="font-semibold text-gray-800">{t('assets.productImages')}</h4>
                     <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
                       {uploadingType === 'product' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
                         <Upload className="w-4 h-4" />
                       )}
-                      <span>{uploadingType === 'product' ? '上传中…' : '上传'}</span>
+                      <span>{uploadingType === 'product' ? t('assets.uploading') : t('assets.upload')}</span>
                       <input
                         type="file"
                         multiple
@@ -422,14 +429,14 @@ export default function AssetManagement() {
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-gray-800">场景图像</h4>
+                    <h4 className="font-semibold text-gray-800">{t('assets.sceneImages')}</h4>
                     <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
                       {uploadingType === 'scene' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
                         <Upload className="w-4 h-4" />
                       )}
-                      <span>{uploadingType === 'scene' ? '上传中…' : '上传'}</span>
+                      <span>{uploadingType === 'scene' ? t('assets.uploading') : t('assets.upload')}</span>
                       <input
                         type="file"
                         multiple
@@ -474,7 +481,7 @@ export default function AssetManagement() {
                 <div className="mt-6">
                   <h4 className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
                     <Palette className="w-5 h-5" />
-                    关联维度
+                    {t('assets.linkedDimensions')}
                   </h4>
                   <div className="grid grid-cols-7 gap-4">
                     {dimensionTypes.map((dimType) => {
@@ -489,7 +496,7 @@ export default function AssetManagement() {
                                 {dim.name}
                               </div>
                             ))}
-                            {dims.length === 0 && <div className="text-xs text-gray-400">-</div>}
+                            {dims.length === 0 && <div className="text-xs text-gray-400">{t('assets.noDimensions')}</div>}
                           </div>
                         </div>
                       );
@@ -501,7 +508,7 @@ export default function AssetManagement() {
           ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
               <Image className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">请选择一个产品查看详情</p>
+              <p className="text-gray-500">{t('assets.selectProductHint')}</p>
             </div>
           )}
         </div>
@@ -512,7 +519,7 @@ export default function AssetManagement() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
-                {isEdit ? '编辑产品' : '添加产品'}
+                {isEdit ? t('assets.editProduct') : t('assets.addProduct')}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
@@ -522,13 +529,10 @@ export default function AssetManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>产品名称</span>
-                      <TooltipWrapper icon={<Package className="w-4 h-4" />} text="产品的名称，用于识别和展示" />
-                      
-                    </div>
-                  </label>
+                  <LabelWithTooltip
+                    label={t('assets.productName')}
+                    tooltip={t('assets.tooltips.productName')}
+                  />
                   <input
                     type="text"
                     value={formData.product_name}
@@ -539,13 +543,10 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>分类</span>
-                      <TooltipWrapper icon={<FolderOpen className="w-4 h-4" />} text="产品所属分类，如Audio Monitor、Night Lights" />
-                      
-                    </div>
-                  </label>
+                  <LabelWithTooltip
+                    label={t('assets.category')}
+                    tooltip={t('assets.tooltips.category')}
+                  />
                   <input
                     type="text"
                     value={formData.category}
@@ -556,13 +557,10 @@ export default function AssetManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>描述</span>
-                      <TooltipWrapper icon={<FileText className="w-4 h-4" />} text="产品的详细描述，用于生成文案和图像提示词" />
-                      
-                    </div>
-                  </label>
+                  <LabelWithTooltip
+                    label={t('assets.description')}
+                    tooltip={t('assets.tooltips.description')}
+                  />
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -571,37 +569,31 @@ export default function AssetManagement() {
                     maxLength={LIMITS.description}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
-                    {(formData.description || '').length}/{LIMITS.description}
+                    {t('common.charCount', { current: (formData.description || '').length, max: LIMITS.description })}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>卖点</span>
-                      <TooltipWrapper icon={<Sparkles className="w-4 h-4" />} text="产品的核心卖点，用逗号分隔多个卖点，用于生成文案" />
-                      
-                    </div>
-                  </label>
+                  <LabelWithTooltip
+                    label={t('assets.sellingPoints')}
+                    tooltip={t('assets.tooltips.sellingPoints')}
+                  />
                   <input
                     type="text"
                     value={(formData.selling_points || []).join(',')}
-                    onChange={(e) => setFormData({ ...formData, selling_points: e.target.value.split(',').map(t => t.trim()) })}
+                    onChange={(e) => setFormData({ ...formData, selling_points: e.target.value.split(',').map(s => s.trim()) })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="用逗号分隔"
+                    placeholder={t('assets.sellingPointsPlaceholder')}
                     maxLength={LIMITS.sellingPointsJoined}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
-                    {(formData.selling_points || []).filter(Boolean).join(',').length}/{LIMITS.sellingPointsJoined}
+                    {t('common.charCount', { current: (formData.selling_points || []).filter(Boolean).join(',').length, max: LIMITS.sellingPointsJoined })}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>品牌调性</span>
-                      <TooltipWrapper icon={<Megaphone className="w-4 h-4" />} text={`品牌的语言风格和调性，影响生成文案的语气（最多 ${LIMITS.brandVoice} 字）`} />
-                      
-                    </div>
-                  </label>
+                  <LabelWithTooltip
+                    label={t('assets.brandVoice')}
+                    tooltip={t('assets.tooltips.brandVoice', { max: LIMITS.brandVoice })}
+                  />
                   <input
                     type="text"
                     value={formData.brand_voice}
@@ -610,7 +602,7 @@ export default function AssetManagement() {
                     maxLength={LIMITS.brandVoice}
                   />
                   <p className={`mt-1 text-xs text-right ${(formData.brand_voice || '').length >= LIMITS.brandVoice ? 'text-red-500' : 'text-gray-400'}`}>
-                    {(formData.brand_voice || '').length}/{LIMITS.brandVoice}
+                    {t('common.charCount', { current: (formData.brand_voice || '').length, max: LIMITS.brandVoice })}
                   </p>
                 </div>
               </div>
@@ -622,14 +614,14 @@ export default function AssetManagement() {
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? '保存中…' : isEdit ? '保存修改' : '添加产品'}
+                  {saving ? t('common.saving') : isEdit ? t('assets.saveChanges') : t('assets.addProduct')}
                 </button>
               </div>
             </form>
@@ -644,7 +636,7 @@ export default function AssetManagement() {
             <button onClick={() => setPreviewImage(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
               <X className="w-8 h-8" />
             </button>
-            <img src={previewImage} alt="预览" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+            <img src={previewImage} alt={t('assets.previewAlt')} className="max-w-full max-h-[90vh] object-contain rounded-lg" />
           </div>
         </div>
       )}
@@ -657,27 +649,5 @@ function Image(props: { className?: string }) {
     <svg className={props.className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
-  );
-}
-
-function TooltipWrapper(props: { icon: React.ReactNode; text: string }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  
-  return (
-    <div className="relative group">
-      <span 
-        className="cursor-help text-gray-500 hover:text-indigo-600 transition-colors"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        {props.icon}
-      </span>
-      {showTooltip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50 whitespace-nowrap">
-          {props.text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-        </div>
-      )}
-    </div>
   );
 }

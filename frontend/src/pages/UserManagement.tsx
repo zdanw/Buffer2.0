@@ -5,12 +5,10 @@ import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff } from '
 import {
   LIMITS,
   alertValidationErrors,
-  emailFormat,
-  maxLen,
-  minLen,
-  required,
 } from '@/lib/formValidation';
-import { formatServerDate } from '@/lib/datetime';
+import { useValidators } from '@/i18n/helpers';
+import { useI18n } from '@/i18n/useI18n';
+import { formatServerDateTime } from '@/lib/datetime';
 
 const generateRandomPassword = (): string => {
  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -22,6 +20,8 @@ const generateRandomPassword = (): string => {
 };
 
 function UserManagement() {
+  const { t, locale } = useI18n();
+  const { required, maxLen, minLen, emailFormat } = useValidators();
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,7 +54,7 @@ function UserManagement() {
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '加载用户列表失败');
+      setError(err.response?.data?.detail || t('users.loadFailed'));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -71,13 +71,13 @@ function UserManagement() {
     setSuccess('');
     if (
       alertValidationErrors([
-        required('用户名', newUser.username),
-        minLen('用户名', newUser.username, LIMITS.username.min),
-        maxLen('用户名', newUser.username, LIMITS.username.max),
-        emailFormat('邮箱', newUser.email, true),
-        required('密码', newUser.password),
-        minLen('密码', newUser.password, LIMITS.password.min),
-        maxLen('密码', newUser.password, LIMITS.password.max),
+        required(t('users.username'), newUser.username),
+        minLen(t('users.username'), newUser.username, LIMITS.username.min),
+        maxLen(t('users.username'), newUser.username, LIMITS.username.max),
+        emailFormat(t('users.email'), newUser.email, true),
+        required(t('users.password'), newUser.password),
+        minLen(t('users.password'), newUser.password, LIMITS.password.min),
+        maxLen(t('users.password'), newUser.password, LIMITS.password.max),
       ])
     ) {
       return;
@@ -93,11 +93,11 @@ function UserManagement() {
       setUsers((prev) => [...prev, created]);
       setShowCreateModal(false);
       setNewUser({ username: '', email: '', password: generateRandomPassword(), is_admin: false });
-      setSuccess('用户创建成功');
+      setSuccess(t('users.createSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0].msg : detail || '创建用户失败');
+      setError(Array.isArray(detail) ? detail[0].msg : detail || t('users.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -120,12 +120,12 @@ function UserManagement() {
     setSuccess('');
     if (
       alertValidationErrors([
-        emailFormat('邮箱', editForm.email, true),
+        emailFormat(t('users.email'), editForm.email, true),
         editForm.password
-          ? minLen('密码', editForm.password, LIMITS.password.min)
+          ? minLen(t('users.password'), editForm.password, LIMITS.password.min)
           : null,
         editForm.password
-          ? maxLen('密码', editForm.password, LIMITS.password.max)
+          ? maxLen(t('users.password'), editForm.password, LIMITS.password.max)
           : null,
       ])
     ) {
@@ -141,17 +141,17 @@ function UserManagement() {
       const updated = await updateUser(userId, updateData);
       setUsers((prev) => prev.map((u) => (u.user_id === updated.user_id ? updated : u)));
       setEditingUserId(null);
-      setSuccess('用户信息更新成功');
+      setSuccess(t('users.updateSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '更新用户失败');
+      setError(err.response?.data?.detail || t('users.updateFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('确定要删除该用户吗？')) {
+    if (!window.confirm(t('users.confirmDelete'))) {
       return;
     }
 
@@ -162,10 +162,10 @@ function UserManagement() {
     try {
       await deleteUser(userId);
       setUsers((prev) => prev.filter((u) => u.user_id !== userId));
-      setSuccess('用户删除成功');
+      setSuccess(t('users.deleteSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || '删除用户失败');
+      setError(err.response?.data?.detail || t('users.deleteFailed'));
     } finally {
       setDeletingId(null);
     }
@@ -183,8 +183,8 @@ function UserManagement() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">用户管理</h1>
-          <p className="text-gray-500 mt-1">管理系统用户和权限</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('users.title')}</h1>
+          <p className="text-gray-500 mt-1">{t('users.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -194,14 +194,14 @@ function UserManagement() {
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            添加用户
+            {t('users.addUser')}
           </button>
         </div>
       </div>
@@ -223,25 +223,25 @@ function UserManagement() {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                用户名
+                {t('users.username')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                邮箱
+                {t('users.email')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                密码
+                {t('users.password')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                角色
+                {t('users.role')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                状态
+                {t('users.status')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                创建时间
+                {t('users.createdAt')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                操作
+                {t('fields.actions')}
               </th>
             </tr>
           </thead>
@@ -260,7 +260,7 @@ function UserManagement() {
                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                         maxLength={LIMITS.email}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
-                        placeholder="可选"
+                        placeholder={t('users.emailPlaceholder')}
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -271,7 +271,7 @@ function UserManagement() {
                         minLength={LIMITS.password.min}
                         maxLength={LIMITS.password.max}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
-                        placeholder="留空则不修改"
+                        placeholder={t('users.passwordKeepBlank')}
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -280,8 +280,8 @@ function UserManagement() {
                         onChange={(e) => setEditForm({ ...editForm, is_admin: e.target.value === 'admin' })}
                         className="px-3 py-1 border border-gray-300 rounded-md text-sm"
                       >
-                        <option value="user">普通用户</option>
-                        <option value="admin">管理员</option>
+                        <option value="user">{t('users.regularUser')}</option>
+                        <option value="admin">{t('users.admin')}</option>
                       </select>
                     </td>
                     <td className="px-6 py-4">
@@ -290,12 +290,12 @@ function UserManagement() {
                         onChange={(e) => setEditForm({ ...editForm, is_active: e.target.value === 'active' })}
                         className="px-3 py-1 border border-gray-300 rounded-md text-sm"
                       >
-                        <option value="active">启用</option>
-                        <option value="inactive">禁用</option>
+                        <option value="active">{t('users.enabled')}</option>
+                        <option value="inactive">{t('users.disabled')}</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatServerDate(user.created_at)}
+                      {formatServerDateTime(user.created_at, locale, t('datetime.unknown'))}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -331,10 +331,10 @@ function UserManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {user.email || '-'}
+                      {user.email || t('users.emptyEmail')}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-mono">
-                      ********
+                      {t('users.passwordMask')}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -342,7 +342,7 @@ function UserManagement() {
                           ? 'bg-purple-100 text-purple-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {user.is_admin ? '管理员' : '普通用户'}
+                        {user.is_admin ? t('users.admin') : t('users.regularUser')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -351,11 +351,11 @@ function UserManagement() {
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {user.is_active ? '启用' : '禁用'}
+                        {user.is_active ? t('users.enabled') : t('users.disabled')}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatServerDate(user.created_at)}
+                      {formatServerDateTime(user.created_at, locale, t('datetime.unknown'))}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -390,7 +390,7 @@ function UserManagement() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">添加新用户</h2>
+              <h2 className="text-xl font-bold text-gray-800">{t('users.addNewUser')}</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="p-1 text-gray-400 hover:text-gray-600"
@@ -402,7 +402,7 @@ function UserManagement() {
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  用户名
+                  {t('users.username')}
                 </label>
                 <input
                   type="text"
@@ -412,13 +412,13 @@ function UserManagement() {
                   minLength={LIMITS.username.min}
                   maxLength={LIMITS.username.max}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="请输入用户名"
+                  placeholder={t('users.usernamePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  邮箱 <span className="text-gray-400 font-normal">(可选)</span>
+                  {t('users.emailOptional')}
                 </label>
                 <input
                   type="email"
@@ -426,13 +426,13 @@ function UserManagement() {
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   maxLength={LIMITS.email}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="请输入邮箱（可选）"
+                  placeholder={t('users.emailPlaceholderFull')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  密码
+                  {t('users.password')}
                 </label>
                 <div className="relative">
                   <input
@@ -443,7 +443,7 @@ function UserManagement() {
                     minLength={LIMITS.password.min}
                     maxLength={LIMITS.password.max}
                     className="w-full px-4 py-2 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="系统已自动生成密码"
+                    placeholder={t('users.autoPasswordHint')}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <button
@@ -457,7 +457,7 @@ function UserManagement() {
                       type="button"
                       onClick={() => setNewUser({ ...newUser, password: generateRandomPassword() })}
                       className="p-1 text-gray-400 hover:text-gray-600"
-                      title="生成随机密码"
+                      title={t('users.generatePassword')}
                     >
                       <RefreshCw className="w-5 h-5" />
                     </button>
@@ -474,7 +474,7 @@ function UserManagement() {
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="is_admin" className="text-sm text-gray-700">
-                  设为管理员
+                  {t('users.setAdmin')}
                 </label>
               </div>
 
@@ -485,14 +485,14 @@ function UserManagement() {
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? '创建中…' : '创建'}
+                  {saving ? t('users.creating') : t('users.create')}
                 </button>
               </div>
             </form>
