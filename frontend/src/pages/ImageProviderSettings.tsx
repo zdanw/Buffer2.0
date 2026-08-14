@@ -22,6 +22,7 @@ import {
   type ManualModelEntry,
 } from '@/api/imageProviders';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
 
 const EMPTY_FORM: ImageProviderCreate = {
@@ -385,7 +386,12 @@ export default function ImageProviderSettings() {
               <h3 className="text-xl font-semibold">
                 {editingId ? t('imageProviders.editProvider') : t('imageProviders.addProvider')}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label={t('common.close')}
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -569,21 +575,9 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, supports_list_models: e.target.checked })}
                   className="mt-0.5"
                 />
-                <span className="flex-1">
+                <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                   {t('imageProviders.fields.supportsListModels.label')}
-                  <span className="group relative ml-1.5 inline-flex align-middle">
-                    <button
-                      type="button"
-                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                      aria-label={t('imageProviders.fields.supportsListModels.tooltip')}
-                    >
-                      <span className="sr-only">{t('imageProviders.fields.supportsListModels.tooltip')}</span>
-                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
-                    </button>
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                      {t('imageProviders.fields.supportsListModels.tooltip')}
-                    </span>
-                  </span>
+                  <HelpTooltip content={t('imageProviders.fields.supportsListModels.tooltip')} />
                 </span>
               </label>
 
@@ -594,21 +588,9 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
                   className="mt-0.5"
                 />
-                <span className="flex-1">
+                <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                   {t('imageProviders.fields.isDefault.label')}
-                  <span className="group relative ml-1.5 inline-flex align-middle">
-                    <button
-                      type="button"
-                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                      aria-label={t('imageProviders.fields.isDefault.tooltip')}
-                    >
-                      <span className="sr-only">{t('imageProviders.fields.isDefault.tooltip')}</span>
-                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
-                    </button>
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                      {t('imageProviders.fields.isDefault.tooltip')}
-                    </span>
-                  </span>
+                  <HelpTooltip content={t('imageProviders.fields.isDefault.tooltip')} />
                 </span>
               </label>
 
@@ -619,21 +601,9 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   className="mt-0.5"
                 />
-                <span className="flex-1">
+                <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                   {t('imageProviders.fields.isActive.label')}
-                  <span className="group relative ml-1.5 inline-flex align-middle">
-                    <button
-                      type="button"
-                      className="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                      aria-label={t('imageProviders.fields.isActive.tooltip')}
-                    >
-                      <span className="sr-only">{t('imageProviders.fields.isActive.tooltip')}</span>
-                      <span className="inline-block h-4 w-4 rounded-full border border-gray-300 text-[10px] leading-4 text-center">?</span>
-                    </button>
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                      {t('imageProviders.fields.isActive.tooltip')}
-                    </span>
-                  </span>
+                  <HelpTooltip content={t('imageProviders.fields.isActive.tooltip')} />
                 </span>
               </label>
 

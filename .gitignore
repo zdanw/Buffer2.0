@@ -123,3 +123,7 @@ space4/
 
 # Node
 node_modules/
+
+# Local dev control (logs, pid files)
+.dev/
+*.err.log

@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useEffect, type ComponentType, type ReactNode
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import BrandLogo from './components/BrandLogo';
 import { useI18n } from './i18n/useI18n';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
@@ -144,7 +145,10 @@ function AppContent() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-semibold text-gray-900">{t('brand.name')}</span>
+          <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <BrandLogo size="sm" />
+            {t('brand.name')}
+          </span>
         </div>
         {lazyPanel('assets', activeTab, mountedTabs, AssetManagement)}
         {lazyPanel('dimensions', activeTab, mountedTabs, DimensionManagement)}

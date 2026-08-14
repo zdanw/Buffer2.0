@@ -6,6 +6,7 @@ from bebcare.models import Product
 from bebcare.schemas.generate import GenerateRequest, GenerateResponse
 from bebcare.generator.content_generator import ContentGenerator
 from bebcare.utils.reference_selector import select_reference_images
+from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.generate_task_store import (
     create_generate_task,
     get_generate_task,
@@ -44,7 +45,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
             request.reference_count,
         )
 
-    return {
+    base = {
         "product_id": str(product.product_id),
         "product_name": product.product_name,
         "category": product.category,
@@ -61,6 +62,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
     }
+    return enrich_product_info(db, product, base)
 
 
 @router.post("/", response_model=GenerateResponse)
@@ -163,7 +165,7 @@ def generate_copywriting_only(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    product_info = {
+    base = {
         "product_id": str(product.product_id),
         "product_name": product.product_name,
         "category": product.category,
@@ -173,6 +175,7 @@ def generate_copywriting_only(
         "platform": request.platform,
         "style_hint": request.style_hint,
     }
+    product_info = enrich_product_info(db, product, base)
 
     task_id = str(uuid4())
     create_generate_task(task_id, status="PENDING")

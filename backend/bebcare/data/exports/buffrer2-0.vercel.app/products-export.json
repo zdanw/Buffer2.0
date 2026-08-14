@@ -1,0 +1,1190 @@
+{
+  "exported_at": "2026-08-14T04:00:17.592574+00:00",
+  "source_url": "https://buffrer2-0.vercel.app",
+  "categories": [
+    "Audio Monitor",
+    "Bottle Warmer",
+    "Air Purifiers",
+    "Wearable Breast Pump",
+    "Video Monitor",
+    "Night Lights"
+  ],
+  "product_count": 8,
+  "products": [
+    {
+      "product_id": "5031c039-ae77-4973-8581-d76dd2d17a90",
+      "product_name": "Bebcare Warm Go Warmer",
+      "category": "Bottle Warmer",
+      "description": "便携式暖奶器——您随时随地进行喂养的理想伴侣。这款外观时尚的白色暖奶器配备了用户友好的数字显示屏，可同时显示摄氏度和华氏度，助您精准掌控宝宝奶水的温度。它提供三种不同的加热模式，让您可以根据具体需求灵活调整加热过程。USB-C 充电设计让您摆脱电源插座的束缚，非常适合旅行、夜间喂奶或忙碌的外出行程。其精心设计的防漏结构让您在将暖奶器放入尿布包或手提包携带时倍感安心。直观的控制面板设有简单的“加”和“减”按键，便于调节温度，而坚固耐用的构造则足以应对日常频繁使用。无论加热母乳还是配方奶，这款小巧的暖奶器都能保持恒温，且易于收纳在包中，是追求喂养灵活性的现代父母的必备好物。",
+      "selling_points": [
+        "便携，自定义加热，多个温度选择，内置电池，操作简单，持久耐用"
+      ],
+      "brand_voice": "现代务实、便携自由、精密贴心、简约精致、母婴安心、灵活省心",
+      "created_at": "2026-07-22T08:03:12.638207",
+      "updated_at": "2026-07-27T00:35:57.621313",
+      "product_images": [
+        {
+          "image_id": "eae5853d-ca3d-4269-b9bc-60c928e51282",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080353_Bebcare WarmGo Milk Warmer_1.jpg",
+          "phash": "8ccc3353315337d9",
+          "width": 2000,
+          "height": 1500,
+          "image_type": "product",
+          "uploaded_at": "2026-07-22T08:03:55.818335"
+        },
+        {
+          "image_id": "4f1173c4-2aad-437c-98a3-0c515f7bf323",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080350_Bebcare WarmGo Milk Warmer_2.jpg",
+          "phash": "cc7832071172af7b",
+          "width": 1500,
+          "height": 2000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-22T08:03:52.572203"
+        },
+        {
+          "image_id": "784c4df7-7d0c-41f2-97b6-5f63509c42cc",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080347_Bebcare WarmGo Milk Warmer_3.jpg",
+          "phash": "c917364cd9638f64",
+          "width": 1500,
+          "height": 2000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-22T08:03:49.605245"
+        },
+        {
+          "image_id": "df0c983c-88d9-4102-9b06-717414cbe6dd",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080356_Bebcare WarmGo Portable Milk Warmer USB-C Rechargeable.png",
+          "phash": "e6999966996698cc",
+          "width": 800,
+          "height": 800,
+          "image_type": "product",
+          "uploaded_at": "2026-07-22T08:03:58.557311"
+        }
+      ],
+      "scene_images": [
+        {
+          "image_id": "850a4ca1-1f12-406b-8f58-e94501872c26",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080444_Bebcare Motion - BBCHK26964 Baby Central.jpg",
+          "phash": "a08b7f32e44bd169",
+          "width": 1536,
+          "height": 2048,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-22T08:04:46.901877"
+        },
+        {
+          "image_id": "0b5b2810-f5d4-4c9d-9447-1395dcf135c1",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260722_080435_Alexis Waggoner_Bebcare Motion_1.jpg",
+          "phash": "d4eba885de3aa10d",
+          "width": 576,
+          "height": 1024,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-22T08:04:43.589380"
+        }
+      ],
+      "dimensions": []
+    },
+    {
+      "product_id": "2ed8102e-953d-4cbc-b1bc-6f8d925708b8",
+      "product_name": "Bebcare Flow",
+      "category": "Wearable Breast Pump",
+      "description": "Bebcare Flow 穿戴式吸奶器集便捷与创新于一体。这款外观时尚的白色吸奶器支持 USB-C 充电，配备直观的 LED 显示屏及自动关机功能。其紧凑便携的设计让您可以随时随地隐蔽、舒适地吸奶。该产品提供多种速度设置和舒适模式以满足您的个性化需求，同时柔和的按摩功能有助于促进乳汁分泌。可更换的吸乳罩尺寸与柔软的硅胶隔膜确保了不同体型用户的舒适佩戴体验。运行时的电磁场（EMF）和辐射水平极低。精心设计的结构让清洁与维护变得简单，纤薄的外形则使其能轻松穿戴在衣物内。无论居家还是外出，这款穿戴式吸奶器都能为您提供实用的吸乳解决方案。产品尺寸：宽 10 厘米，高 10 厘米，厚 5 厘米。",
+      "selling_points": [
+        "多档位吸力调节，穿戴式轻薄机身，低电磁场，低辐射设计"
+      ],
+      "brand_voice": "现代、贴心、科技友好、舒适安全、自在便携、精致务实",
+      "created_at": "2026-07-13T04:50:53.352567",
+      "updated_at": "2026-07-25T06:23:48.029680",
+      "product_images": [
+        {
+          "image_id": "b11d0357-970f-4b52-ac29-c2b577e65a2d",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_073049_Bebcare Flow Breast Pump Transparent  2pcs.png",
+          "phash": "85337a4c27ec6bc2",
+          "width": 912,
+          "height": 1029,
+          "image_type": "product",
+          "uploaded_at": "2026-07-16T07:30:51.509516"
+        },
+        {
+          "image_id": "5292b074-66e6-44e1-895f-78775b3aa0e7",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_073046_Bebcare Flow Breast Pump Transparent 1pc.png",
+          "phash": "911b5fb26ec868cc",
+          "width": 519,
+          "height": 585,
+          "image_type": "product",
+          "uploaded_at": "2026-07-16T07:30:48.856530"
+        },
+        {
+          "image_id": "8ac2899b-bf85-4cdf-a9cf-67fe863c28b7",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_073032_Bebcare Flow Breast Pump 09-07-2026_2.jpg",
+          "phash": "ea89d5369e386961",
+          "width": 1600,
+          "height": 2133,
+          "image_type": "product",
+          "uploaded_at": "2026-07-16T07:30:42.929420"
+        },
+        {
+          "image_id": "7a80e91f-65d8-46c6-91b7-39fec8f3e2e3",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_073043_Bebcare Flow Breast Pump 09-07-2026.jpg",
+          "phash": "e64642b9b9b9b8b0",
+          "width": 1600,
+          "height": 2133,
+          "image_type": "product",
+          "uploaded_at": "2026-07-16T07:30:45.584065"
+        }
+      ],
+      "scene_images": [
+        {
+          "image_id": "788fcce5-3881-4514-bf87-2ce2d1b3f94e",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074402_Bebcare Hear Lifestyle by StorkBrands_2.jpg",
+          "phash": "b6cf3a856330c936",
+          "width": 1024,
+          "height": 1024,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:04.397089"
+        },
+        {
+          "image_id": "b1c95a18-7439-4b53-9d9c-033e53ec3330",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074422_Amber Heuer_3.jpg",
+          "phash": "80d5bd62feaf4c80",
+          "width": 1512,
+          "height": 2016,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:24.773454"
+        },
+        {
+          "image_id": "526e52c2-fa7a-489b-bcd4-5b84f50dcc0c",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074414_350317d1-07b5-4f78-a831-f29b22052250.JPG",
+          "phash": "819ec6de71fa0e0c",
+          "width": 1600,
+          "height": 1129,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:15.908111"
+        },
+        {
+          "image_id": "f5978852-a7be-4c9f-ab46-a23669c51960",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074411_f74a3589-bbae-49cd-a320-2a8ab1a7a4f7.JPG",
+          "phash": "8ee3c11e9e49c92e",
+          "width": 1600,
+          "height": 1200,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:13.256526"
+        },
+        {
+          "image_id": "f9ca4091-b7a3-40c8-a072-0c94316479c9",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074407_Morgan Wyatt.jpg",
+          "phash": "f6c1c99d723292c9",
+          "width": 607,
+          "height": 1077,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:10.262571"
+        },
+        {
+          "image_id": "242438e2-273b-47a4-8ce7-39bf3506e4d6",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260716_074404_Bebcare Hear Lifestyle by StorkBrands_1.jpg",
+          "phash": "adece01386ca999d",
+          "width": 1024,
+          "height": 1024,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-16T07:44:06.399257"
+        }
+      ],
+      "dimensions": []
+    },
+    {
+      "product_id": "724f1d77-5de4-401a-bb18-4411e37a1995",
+      "product_name": "Video Baby Monitor",
+      "category": "Video Monitor",
+      "description": "Bebcare Motion 是一款非 Wi-Fi 视频婴儿监视器，拥有众多强大功能，包括支持多个摄像头、双向通话、夜视、温度显示、缩放、数字云台控制以及播放摇篮曲等，旨在成为您在忙碌时的眼睛和耳朵。Motion 配备高品质 4.3 英寸“真彩”显示屏，让您在最远 800 英尺（约 244 米）的距离也能随时查看宝宝的情况。我们的监视器采用超低辐射模式，确保宝宝免受有害物质的侵害。温度过高或过低时会发出贴心的警告，并配有夜灯和可选的呼吸传感器，方便您随时查看宝宝的生命体征。白噪音消除器可有效消除静电噪音，让您只在宝宝需要您时才会醒来。Motion 还支持连接多达 4 个摄像头并支持分屏显示。Motion 拥有长达 20 小时的待机时间，可提供清晰的音视频，让您安心度过每一天。设计经久耐用，甚至可以代代相传。\n\n婴儿端云台摄像头\n白色圆润机身，底座印有 bebcare字体(Nunito字体）和 logo，正面大圆电源按键，镜头外圈银色金属装饰，支持电动上下左右 360° 旋转，无死角监控婴儿床。\n4.3 英寸父母手持显示屏\n整机白色便携机身，屏幕带保护膜，侧边实体功能按键（音量、对讲、云台控制），脱离 WiFi 独立无线连接，无需联网也能看护。印有 bebcare字体(Nunito字体）和 logo。",
+      "selling_points": [
+        "无 WiFi 高清监护仪，4.3 英寸真彩大屏，800 英尺远距离夜视监控， 4 摄像头分屏查看，双向对讲、摇篮曲、温感报警、可选呼吸监测，低辐射设计"
+      ],
+      "brand_voice": "安全低辐、功能齐全、长效耐用",
+      "created_at": "2026-07-09T08:22:16.099245",
+      "updated_at": "2026-07-10T01:09:04.185031",
+      "product_images": [
+        {
+          "image_id": "b2bc2146-2ff2-41e3-a863-a10e70cd078d",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013419_7acb295caf457ce77fe4079f87afe0b5.jpg",
+          "phash": "c12ab671c946ba6d",
+          "width": 3024,
+          "height": 4032,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:34:22.611012"
+        },
+        {
+          "image_id": "83a03e86-587e-43f8-830f-d929546444e1",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013413_9b8b30c54e8da6bde39a0b6ab69fa2a3.JPG",
+          "phash": "ade99216d06c6e72",
+          "width": 789,
+          "height": 591,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:34:14.555794"
+        },
+        {
+          "image_id": "49df21fc-4ac1-4c7e-9317-fb49f4057f14",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013414_2e0adfb6a844655b320ec04f200052a0.jpg",
+          "phash": "ccf4644a29ec5bd2",
+          "width": 3024,
+          "height": 4032,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:34:18.528104"
+        },
+        {
+          "image_id": "b3dfa721-d916-4a49-9738-273365cd2600",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013514_e879a860a427b387a019986fd61bb448.jpg",
+          "phash": "cdc91985369ee09d",
+          "width": 4000,
+          "height": 3000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:35:21.424106"
+        },
+        {
+          "image_id": "7bca7a6b-8e19-43ac-8c86-13da381afdd7",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013547_ddfe45cf0ca7eb8d9bb49c6839f824e8.jpg",
+          "phash": "e2850d9a1cfd66e4",
+          "width": 4032,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:35:50.793002"
+        },
+        {
+          "image_id": "610efa77-4763-4418-92e2-f2751397c7fb",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013628_f5566d0cfebaf3605cf21e0ffdeb75b0.jpg",
+          "phash": "c4ec8cb31bec8671",
+          "width": 4000,
+          "height": 3000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:36:32.504047"
+        },
+        {
+          "image_id": "2849c9d8-8515-40c5-9113-e69338678c82",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013632_26bca3cf51c7b7046187fff521d8f8dc.jpg",
+          "phash": "8ff0f40e0696f469",
+          "width": 1600,
+          "height": 1200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:36:35.241755"
+        },
+        {
+          "image_id": "6bb19f13-550d-4b61-9703-db97ff0e3d07",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013657_5be4d5c9f5ae100b02c938208bd0e41d.jpg",
+          "phash": "bbc4814f32bfd04c",
+          "width": 3024,
+          "height": 4032,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:37:00.586693"
+        },
+        {
+          "image_id": "ca708031-e06d-4c5d-98c1-9ce5fd519a07",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013701_b99fecc91b4ea0ffb7ce93481b2e8a5d.jpg",
+          "phash": "a4c8b1d7aa154bb6",
+          "width": 668,
+          "height": 1200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:37:02.739025"
+        },
+        {
+          "image_id": "87b6577c-ff04-4263-9835-56ac41234e1f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013703_8d0f5251aab2873605c07e5dfaab2b05.jpg",
+          "phash": "e623c1de6e27d118",
+          "width": 1600,
+          "height": 1600,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:37:05.656203"
+        },
+        {
+          "image_id": "a5c9a91e-fe23-4119-abf2-94505691f21b",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013706_baa9dcd7d9ec1dc7cc7931de7ee374c7.jpg",
+          "phash": "c2e0fd903b77941c",
+          "width": 1800,
+          "height": 2400,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:37:09.644723"
+        },
+        {
+          "image_id": "321d06a4-d908-41e4-a738-d6d62600d6e5",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013710_34a7767d808c7c39b35894cef0fe1555.jpg",
+          "phash": "ec92d36d989a6592",
+          "width": 6500,
+          "height": 4875,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:37:14.937342"
+        },
+        {
+          "image_id": "596ebec7-c46d-454f-81ff-54058e46c645",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013816_671cde8f166645152b641e16b9119ca7.jpg",
+          "phash": "e9b0866fb8904fc6",
+          "width": 6500,
+          "height": 4875,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:38:19.738346"
+        },
+        {
+          "image_id": "dbe4536e-56f7-4852-b8e1-27fcf70c5aa8",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013820_15c4ab71c16acb1e970012d6de9f8ce1.jpg",
+          "phash": "b73a0acc39c3c7c2",
+          "width": 2458,
+          "height": 1639,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:38:22.374946"
+        },
+        {
+          "image_id": "71edeb3b-5a15-480c-911b-ebf380ccbcee",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013823_1f5e878f3291c067fb6a4e3f5780add0.jpg",
+          "phash": "d4542b1b646db39a",
+          "width": 3500,
+          "height": 2625,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:38:25.940206"
+        },
+        {
+          "image_id": "c1a3a728-e6ce-4269-a037-f4cbaad7eae8",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013826_73eed2142a814da23b3d8c0abc6be73b.jpg",
+          "phash": "8d8a173d48be7496",
+          "width": 608,
+          "height": 1000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:38:28.661972"
+        },
+        {
+          "image_id": "3a0e7d2d-b566-4379-a145-4b07e4944948",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013903_ba1bb66f876ad14a72542f8b919de24f.jpg",
+          "phash": "a0009d3f8ed972cf",
+          "width": 3024,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:39:06.379852"
+        },
+        {
+          "image_id": "2223495c-9377-45c1-a63d-30c138e1197e",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013906_852f27e85d953f2072c1a9b0c370d851.jpg",
+          "phash": "bbc2853c7a4b8cb4",
+          "width": 4374,
+          "height": 2241,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:39:09.955419"
+        },
+        {
+          "image_id": "671b2116-3d61-4db6-bdac-6192a6921a2e",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013945_95b1af0c80b922f759c5424884e272d6.jpg",
+          "phash": "add29ae5bc40331e",
+          "width": 4032,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:39:49.791604"
+        }
+      ],
+      "scene_images": [
+        {
+          "image_id": "4d4a2b99-9796-4f12-a28f-3071b3d98100",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014026_EmptyName001.jpg",
+          "phash": "f242acbdcd589a8a",
+          "width": 2397,
+          "height": 1599,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:28.204779"
+        },
+        {
+          "image_id": "ea5a1506-bd61-4337-80fa-752bef31a54f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014028_EmptyName002.jpg",
+          "phash": "ed88d3a545a39a2e",
+          "width": 1884,
+          "height": 1257,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:30.288610"
+        },
+        {
+          "image_id": "68678661-bc85-4a02-9c93-a313c2c4a932",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014031_EmptyName003.jpg",
+          "phash": "dadab45a31c2f868",
+          "width": 1881,
+          "height": 1254,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:32.988382"
+        },
+        {
+          "image_id": "cdc845e8-f05e-4928-a466-674302ad9555",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014033_EmptyName004.jpg",
+          "phash": "b872a6bde464cc8c",
+          "width": 2206,
+          "height": 1472,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:35.692704"
+        },
+        {
+          "image_id": "cb77ed82-e435-417c-aa73-096206d8f714",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014036_EmptyName005.jpg",
+          "phash": "e7e2928dd11fc825",
+          "width": 2396,
+          "height": 1598,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:39.190851"
+        },
+        {
+          "image_id": "473c72ae-0d63-4a90-82ab-130b16d2b7c2",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014040_EmptyName006.jpg",
+          "phash": "e6cea94b0fa545a8",
+          "width": 2360,
+          "height": 1574,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:41.885190"
+        },
+        {
+          "image_id": "d04bf665-2b76-4e64-bbbe-8d3c6ef93e9b",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014042_EmptyName008.jpg",
+          "phash": "e6a9999366894dac",
+          "width": 1526,
+          "height": 2288,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:45.383649"
+        },
+        {
+          "image_id": "c43c10b7-ba4f-4478-acfd-dff742fe9cb4",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014046_EmptyName009.jpg",
+          "phash": "e2efa58454de02b5",
+          "width": 1639,
+          "height": 2458,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:48.547120"
+        },
+        {
+          "image_id": "02d1e56e-7723-4aaf-9b23-d8b2a8f5fd8a",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014049_EmptyName012.jpg",
+          "phash": "9987f2e4d683be40",
+          "width": 2055,
+          "height": 1371,
+          "image_type": "scene",
+          "uploaded_at": "2026-07-10T01:40:51.392651"
+        }
+      ],
+      "dimensions": []
+    },
+    {
+      "product_id": "21346591-105f-4b48-97db-bf0fe1890acd",
+      "product_name": "Bebcare Air Purifiers",
+      "category": "Air Purifiers",
+      "description": "Bebcare Air 是一款革命性的智能便携式防护系统，专为您和宝宝打造。Air 随时随地守护宝宝的健康，过滤环境中的各种有害物质。您可以把它想象成宝宝呼吸空气的降噪耳机。\n\nBebcare Air 由荷兰知名消费电子产品设计工作室 Studio Mango B.V. 合作设计。\n\nBebcare Air 构建了一个移动的防护堡垒，确保您的宝宝免受空气中看不见的有害物质的侵害。那些看不见的有害物质才是最重要的。Air 独特的 H11 EPA 活性炭过滤器采用我们专有的空气净化系统，可去除高达 99.97% 的 0.3 微米及以上的空气颗粒物。活性炭过滤器与 H11 EPA 过滤器相辅相成，去除挥发性有机化合物 (VOC) 和异味，让宝宝倍感舒适。智能传感器可检测 PM2.5 颗粒物浓度，并仅在需要时启动空气过滤系统，无论何时何地，都能为您的宝宝创造一个安静安全的环境。\n\n奶米白哑光塑料机身，顶部做了圆弧卡通造型，印着闭眼微笑的简笔线条，风格软萌母婴风；机身正面布满密集小圆透气孔用于进出风，中段有横向通风栅，底部印有品牌名 bebcare(Nunito字体），小巧圆润无尖锐边角，专为母婴家庭设计。",
+      "selling_points": [
+        "滤除 99.97%0.3μm 颗粒物，智能 PM2.5 感应自动启停，静音运行，随身移动"
+      ],
+      "brand_voice": "专业防护、精致高端、安心便携",
+      "created_at": "2026-07-09T08:20:50.310941",
+      "updated_at": "2026-07-09T08:25:23.722023",
+      "product_images": [
+        {
+          "image_id": "14bfcdbb-aa88-43cd-a7c7-83e2f3fd5ea3",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014507_460225cbff3e395ab9566aafc27e6765.jpg",
+          "phash": "d97cac9372ac0783",
+          "width": 1800,
+          "height": 2400,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:09.377620"
+        },
+        {
+          "image_id": "68c6b9ae-8dbb-4d65-9f8a-772e88e045c9",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014529_a304d43101c8a215a591fb1901767e12.JPG",
+          "phash": "c14d69c976f6825a",
+          "width": 3500,
+          "height": 3500,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:32.206514"
+        },
+        {
+          "image_id": "c70e5a6b-4bc3-42b3-9704-af8f34b11145",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014514_d680c2cc21acef41f189db2f731eca33.jpg",
+          "phash": "fe994916e765c848",
+          "width": 2400,
+          "height": 3200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:16.569788"
+        },
+        {
+          "image_id": "350dde1a-dd27-4e2d-b58f-73daedfc0f18",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014510_20240108_bebcare1862s.jpg",
+          "phash": "d4d64fb84c9e60b8",
+          "width": 3500,
+          "height": 2625,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:13.233609"
+        },
+        {
+          "image_id": "04618c10-ebe7-4259-8084-d098ae19c904",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014456_9d20ab95dad4c9e50b586d7bff52427f.jpg",
+          "phash": "9e1d63b8c746988d",
+          "width": 1200,
+          "height": 1600,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:44:58.331611"
+        },
+        {
+          "image_id": "c4da71e7-b3f6-4416-ae25-af5269a004ad",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014458_27f71bce8bfb1e35f121eb5230a9b5ce.jpg",
+          "phash": "c94aa2a4b5b5b6b4",
+          "width": 1147,
+          "height": 881,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:00.625634"
+        },
+        {
+          "image_id": "8aadd425-8c97-4e25-b609-cadbefbd4775",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014501_30e5a27dece834f4453159d551453c39.jpg",
+          "phash": "949dbae2583199e6",
+          "width": 1800,
+          "height": 2400,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:03.376633"
+        },
+        {
+          "image_id": "c9910c58-c865-411a-946e-181abe5c9cfb",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014504_6182bfb2a086ada7a85884245dd1d906.jpg",
+          "phash": "8c6172d10aeaba3f",
+          "width": 1200,
+          "height": 1600,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:45:06.199875"
+        }
+      ],
+      "scene_images": [],
+      "dimensions": []
+    },
+    {
+      "product_id": "c5192c14-4ec7-4528-9736-621c9924f4fc",
+      "product_name": "Audio Baby Monitor",
+      "category": "Audio Monitor",
+      "description": "Bebcare Hear 是一款超低辐射的婴儿音频监护器。Hear 套装包含父母和宝宝各一个设备，可传输清晰的音频，传输距离可达 2000 英尺（约 610 米），让您即使在家中忙于家务，也能随时了解宝宝的安全状况。这款婴儿音频监护器让您与宝宝保持联系。\n可选的传感器能让您在夜间监测宝宝的呼吸，同时星光夜灯和摇篮曲也能帮助宝宝入睡。白噪音消除器确保您不会受到夜间背景噪音和窸窣声的干扰。远距离音频功能确保即使您远离宝宝，也能与宝宝进行清晰的沟通。Bebcare Hear 配备可充电电池，单次充电即可提供长达 70 小时的待机时间。它拥有清晰的接收效果和所有必要的功能，让您随时了解宝宝的状况，堪称明星产品。无需 Wi-Fi，开箱即可轻松使用。\n\n1. 婴儿端（Baby Unit，大主机）\n外观：扁圆飞碟造型，纯白色哑光机身，顶部银色金属细圆环包边；顶面密布星星造型的收音麦克风开孔，机身正面印有灰色小写品牌文字 bebcare(Nunito字体）；侧边带有 USB 充电接口、功能按键。\n内置功能：可播放白噪音、摇篮曲哄睡，采集宝宝房间声音，支持双向语音对讲，低辐射无线信号发射。\n2. 家长端（Parent Unit，小主机）\n外观：尺寸比婴儿端更小的圆形机身，同样白 + 银色镶边设计，背部带可粘贴固定的小支架；正面是黑色 LED 高清数显屏幕，搭配四周物理操控按键。\n屏幕显示：可绿色数字实时显示婴儿房环境温度，附带音量信号、VOX 声音唤醒、连接状态指示灯；可远程监听、调节音量、开启对讲、设置麦克风灵敏度，超出连接范围会报警提醒。",
+      "selling_points": [
+        "2000 英尺高清音频传输，无需 WiFi，单次充电待机可达 70 小时，"
+      ],
+      "brand_voice": "安全安心、简约省心、专业守护",
+      "created_at": "2026-07-09T08:20:34.102679",
+      "updated_at": "2026-07-09T08:27:04.461048",
+      "product_images": [
+        {
+          "image_id": "6cf76402-d2d1-4d7f-bb53-ba2a23e4e00f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015218_bd6f8147f83d7569521082198be06c30.png",
+          "phash": "d1d3a72c0ee0b56c",
+          "width": 1800,
+          "height": 1800,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:52:21.582341"
+        },
+        {
+          "image_id": "96dfb177-9570-4dea-a2e6-5b08dbcd3522",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015224_d778da128f64beda6ab14f36a5547dbc.jpg",
+          "phash": "892a76d4c9b97646",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:52:27.240740"
+        },
+        {
+          "image_id": "85344d8c-7a2b-4138-a454-51aad94a0b17",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014938_8ba63bf5fc17ed19175d51ba80899a47.jpg",
+          "phash": "b6cf3a856330c936",
+          "width": 1024,
+          "height": 1024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:40.452098"
+        },
+        {
+          "image_id": "b62a828a-3b02-4cd1-9c99-d8c85f8859b3",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014935_9a1e0543358a2ae06910df79e215b8a9.jpg",
+          "phash": "adece01386ca999d",
+          "width": 1024,
+          "height": 1024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:37.396537"
+        },
+        {
+          "image_id": "2b40d24a-e930-41a3-8a0f-6c5647963db3",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014931_f8a6d7cddfdb03473ddcfe7dcddaf16f.jpg",
+          "phash": "94e10b9f607c93d9",
+          "width": 2625,
+          "height": 3500,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:34.479453"
+        },
+        {
+          "image_id": "efa76e3b-9483-42d9-84e5-e0a94df42c8f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014925_cbf1b6ae0d37eabca010a7be32520c41.jpg",
+          "phash": "94e10b9f607c93d9",
+          "width": 2625,
+          "height": 3500,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:30.866734"
+        },
+        {
+          "image_id": "7dcc217c-a8ce-4124-a95b-8750abc38ee9",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014922_b337585aa497fda48b77b765dfedb8df.jpg",
+          "phash": "95e41b9a67656c92",
+          "width": 3500,
+          "height": 2625,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:25.137836"
+        },
+        {
+          "image_id": "d8e1dc13-7a62-4bc2-8f53-b3b886a4214b",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014918_07e07a3a96055864ccefbb98301333ef.jpg",
+          "phash": "94e10b9f607d83d9",
+          "width": 2625,
+          "height": 3500,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:21.862806"
+        },
+        {
+          "image_id": "535a6e1c-a4c6-4897-8e78-e5b6e07c99e6",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014731_0c66a6b7993e9867a8bcba6d29d3fb0b.jpg",
+          "phash": "a615e0e9d7463371",
+          "width": 635,
+          "height": 847,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:47:32.983064"
+        },
+        {
+          "image_id": "7d61418c-9db1-449f-81cb-5ea432ff17ba",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014726_cc59f04e3d9a44cd6aa319a34bde5d3f.jpg",
+          "phash": "e9921e2d963c6936",
+          "width": 2000,
+          "height": 2667,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:47:30.168215"
+        },
+        {
+          "image_id": "81a76415-ab92-4de1-b9a5-69b20ae9a582",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014722_1b237915bdee876194084881be4c88df.jpg",
+          "phash": "b4b74bc8362b4867",
+          "width": 4032,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:47:26.534862"
+        },
+        {
+          "image_id": "d424e7f0-7878-45b9-9958-d3f36186dff1",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014657_82edfe12bc76c24ba73b0ff9036389ce.jpeg",
+          "phash": "ea8851ee7c1d130f",
+          "width": 4032,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:47:00.514265"
+        },
+        {
+          "image_id": "e48bbe5f-3c9c-4d2a-abf2-bff20c703e1f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014619_45734e3bf2d3e8993a0ac11e695bb77e.JPG",
+          "phash": "88e65b1c69c734ba",
+          "width": 3024,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:46:22.773137"
+        },
+        {
+          "image_id": "f115c88e-ebac-4afd-83ca-86b2f40cc87a",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014616_3bde02842cc275705a16797d9f71dacf.jpg",
+          "phash": "9c612e1ce19cd9e3",
+          "width": 1469,
+          "height": 1469,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:46:18.444477"
+        },
+        {
+          "image_id": "81227082-5714-49f3-abb6-3566ddd7335d",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014612_72a42b0b28afcbb02e9e60d3f318698c.jpg",
+          "phash": "d194b6e12cbb4b98",
+          "width": 1200,
+          "height": 1200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:46:15.904211"
+        },
+        {
+          "image_id": "de35dc1a-60a8-4428-8037-378b5069b0d7",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_014941_0772d5f23467719f356ecfd4348d9e3d.jpg",
+          "phash": "e6f9b4c619896634",
+          "width": 1296,
+          "height": 728,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:49:42.910192"
+        },
+        {
+          "image_id": "a88b73ed-ba44-4012-9030-f3e88d3d434c",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015013_7ffebaf05ee90bb62be2affa5ba32bf1.jpg",
+          "phash": "c8b3b34833b44cfc",
+          "width": 1400,
+          "height": 1700,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:50:16.458680"
+        },
+        {
+          "image_id": "4babcf71-c07f-445b-ae99-985c4999c723",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015016_3b7d6e4a438be9bc1ff522ffa8986725.jpg",
+          "phash": "bbc4c41bb4649b99",
+          "width": 3024,
+          "height": 4032,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:50:20.394890"
+        },
+        {
+          "image_id": "4c66bb13-68e2-4eab-943b-1593f7f18de1",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015021_cd4a0a9d93362a9ad1b2f7b828c653ef.jpg",
+          "phash": "d254ddaa11d23c3d",
+          "width": 4032,
+          "height": 3024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:50:24.837388"
+        },
+        {
+          "image_id": "04c55670-8a56-4812-8d69-817b843357f4",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015126_e9d2308d477b79c8f0bd374e6215107a.jpg",
+          "phash": "9c056ff1a596944e",
+          "width": 3000,
+          "height": 4000,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:51:30.270287"
+        },
+        {
+          "image_id": "748af810-5c93-4b18-bca0-765f81afc042",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015130_7c3225780ebbc8f2d1e5b6b182163ba2.JPG",
+          "phash": "bee1c13c1ec1e61a",
+          "width": 792,
+          "height": 602,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:51:32.302880"
+        },
+        {
+          "image_id": "f96c4797-6b04-4fdb-a087-5d5672ba913b",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_015133_d968018b18e75f2247becfac1621c1d8.jpg",
+          "phash": "d8796f2818c79738",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:51:35.145941"
+        }
+      ],
+      "scene_images": [],
+      "dimensions": []
+    },
+    {
+      "product_id": "e512097a-42cc-45e1-90fc-86e8ee86c14c",
+      "product_name": "Bebcare Lola",
+      "category": "Night Lights",
+      "description": "Bebcare Lola 夜灯带时钟，是居家或外出时的完美伴侣。它内置白噪音功能，提供多达 6 首摇篮曲和白噪音。Lola 拥有可调节亮度，并发出柔和的彩色氛围光，在深夜工作时提供恰到好处的照明，不会过于刺眼。Lola 具备基本的防水功能，经久耐用，非常适合卧室、客厅、办公室等场所。其小巧的尺寸也使其成为旅行的理想之选。这款多功能且防风雨的夜灯，让您随时随地享受舒缓的光线。",
+      "selling_points": [
+        "白噪音 + 6 首摇篮曲 + 多色柔光触控调光，自带清晰时钟显示屏，防水抗摔机身，小巧便携"
+      ],
+      "brand_voice": "温柔治愈、多功能实用、简约安心",
+      "created_at": "2026-07-09T08:17:48.430019",
+      "updated_at": "2026-07-09T08:17:48.430023",
+      "product_images": [
+        {
+          "image_id": "81ebb899-7f8f-4a70-80fb-131ed64c5f87",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013139_DDA7B1A4A4E1181626FB249069D4AAFF.png",
+          "phash": "905f606ece916d72",
+          "width": 1024,
+          "height": 1365,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:31:42.133511"
+        },
+        {
+          "image_id": "574b3eb4-33c8-4ddc-a91b-ba6170e286bb",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011257_qza.jpg",
+          "phash": "92696d534b4a996d",
+          "width": 6500,
+          "height": 4875,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:13:01.334785"
+        },
+        {
+          "image_id": "31f27222-585e-4be5-ba09-2b348a8f55a4",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_012033_ertd.jpg",
+          "phash": "c74ab871c887674e",
+          "width": 1819,
+          "height": 1819,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:20:35.162916"
+        },
+        {
+          "image_id": "937e9df2-a6f4-4254-85e9-761679f633fe",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_012728_zxc.jpg",
+          "phash": "e0afb9c6c1328f38",
+          "width": 2400,
+          "height": 3200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:27:31.653372"
+        },
+        {
+          "image_id": "5ee8d201-0675-419a-8fc9-f5a0b1adb5f0",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013044_qwesd.jpg",
+          "phash": "e09b1c4d6f1c5956",
+          "width": 2400,
+          "height": 3200,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:30:46.456847"
+        },
+        {
+          "image_id": "cee4e2e1-2881-40de-966a-8595bd68b851",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013128_99fc9e9543224ed41857df0ae0e926ef.jpg",
+          "phash": "9998369e998b89d9",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:31:30.675199"
+        },
+        {
+          "image_id": "e2b0748c-80f0-482b-91e5-cbfc13c7849f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013131_7c153b4a66bab3e39ba3d4a5de90b316.jpg",
+          "phash": "8991969ec9c995dc",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:31:33.089361"
+        },
+        {
+          "image_id": "d9bffd8a-936a-49e9-8d17-c59776d1cf85",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013133_a6ec0836dc3afd24140ab26a8a7d53a7.jpg",
+          "phash": "8915b69ec9c985dc",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:31:36.206385"
+        },
+        {
+          "image_id": "64cbf211-82ff-450e-9bda-ea0452e3167b",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013137_10258b673d514f2a4fc2db708d12a1e2.jpg",
+          "phash": "999836b499cb89d9",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:31:38.882096"
+        },
+        {
+          "image_id": "63f33bce-f5e6-40f8-b5bf-bc606a642ff5",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013210_d04df386124c54060e5e2826abbb2a6b.png",
+          "phash": "c7832f5e757d8028",
+          "width": 1024,
+          "height": 1643,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:13.970069"
+        },
+        {
+          "image_id": "42413c70-7c8c-4b9c-8582-678479e45411",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013214_fc43ad382b448c4bec8799a1914d524c.png",
+          "phash": "90006ffff02b1be4",
+          "width": 1024,
+          "height": 1024,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:16.218929"
+        },
+        {
+          "image_id": "9c1c301a-2690-425d-9004-05a5f915cab0",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013217_107ebd361bcb71fe79dc7ff62a8b2f28.png",
+          "phash": "d4f27b28e0f500f3",
+          "width": 1024,
+          "height": 1188,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:20.770849"
+        },
+        {
+          "image_id": "4ffd0caf-f45f-4e1f-bfea-c9145d6977fb",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013233_2f10f653d7dbc80fcd1b2bf6a4882105.jpg",
+          "phash": "c8432636f6414ddf",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:35.169635"
+        },
+        {
+          "image_id": "cc70b1eb-1399-4c68-a314-aff08695695e",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013235_751d3964b0382b29e03f719dcbb2e664.jpg",
+          "phash": "c080b6c98d3d7d2f",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:38.228875"
+        },
+        {
+          "image_id": "3ded6719-0e1a-4871-a509-cf92ecfc1034",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013239_9523de77997c1cc768a457ed539bfb15.jpg",
+          "phash": "c0d0b6cc8d37274f",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:41.141023"
+        },
+        {
+          "image_id": "8093e5af-38f9-452b-ab7b-89e509901fc5",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_013242_58756b3c53491b4c22aaa8ce1ae25a3c.jpg",
+          "phash": "c0c2b6ec34377e83",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:32:44.105755"
+        }
+      ],
+      "scene_images": [],
+      "dimensions": []
+    },
+    {
+      "product_id": "61691d4f-611d-41d7-ad0c-87b631b2e0ac",
+      "product_name": "Bebcare Luna ",
+      "category": "Night Lights",
+      "description": "Bebcare Luna 便携式夜灯是居家或外出时的完美伴侣。它拥有可调节的亮度设置和柔和的氛围多色灯光，在夜间工作时提供恰到好处的照明，不会过于刺眼。便捷的触控式开关让您只需轻轻一触即可开关灯。其可充电电池确保您随时随地都能拥有照明。Luna 防水耐用，非常适合卧室、客厅、办公室等场所。其小巧的尺寸也使其成为旅行的理想之选。这款多功能且防风雨的夜灯，让您随时随地都能享受柔和的光线。",
+      "selling_points": [
+        "触控调光多色氛围灯，无线便携，防水抗摔耐用"
+      ],
+      "brand_voice": "柔和治愈、便携百搭、坚固实用",
+      "created_at": "2026-07-09T08:17:28.437503",
+      "updated_at": "2026-07-09T08:17:28.437509",
+      "product_images": [
+        {
+          "image_id": "dd2f94de-486d-4d76-84e9-281174590018",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011208_d5131f2a8bd6a5bee10f7572bc84322f.jpg",
+          "phash": "c8392286dde871d7",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:10.107730"
+        },
+        {
+          "image_id": "c479f81b-0352-4931-a807-74a125ca6431",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011211_5cb1ed736d8f8dda0698f1ce2e294912.jpg",
+          "phash": "c9392686dde92197",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:12.689439"
+        },
+        {
+          "image_id": "cc37529a-b9db-4c2d-990e-ec89e993f18a",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011213_787809a7b078a07516249d3cfa415659.jpg",
+          "phash": "c9392686dde92197",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:15.469674"
+        },
+        {
+          "image_id": "f4cf367c-3ae9-421c-bf75-ceae30208e15",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011216_750702b0f22dcafe212b92e99d554d57.jpg",
+          "phash": "c9392686dde92197",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:18.334469"
+        },
+        {
+          "image_id": "04234888-3002-4c5e-9e8e-de155441ade0",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011219_46c22cb9fa09db087f0d4a664fb4c89a.jpg",
+          "phash": "c9392686dde821b7",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:21.025459"
+        },
+        {
+          "image_id": "0b23151b-5b06-438d-875d-55f9554b1958",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011221_7593edb82f3dccac3126a67578642929.jpg",
+          "phash": "c9392686dde82597",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:24.042212"
+        },
+        {
+          "image_id": "3d4f7b5c-5c9d-4242-b449-7d741d9ccbbf",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011224_4b3ca2029a43f4b2232b605cb2d26370.jpg",
+          "phash": "c8392687dde8a0b7",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:26.853322"
+        },
+        {
+          "image_id": "18f3411e-2ea6-413b-8193-cf277289dba3",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011227_dc14d22686bda563829cad0ad908cbc9.jpg",
+          "phash": "c8282786fce895d7",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:29.864711"
+        },
+        {
+          "image_id": "e7df9141-12bc-45f1-9273-4a76767080bd",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011202_ceb34a59f10a63d193893dbd91c0e581.jpg",
+          "phash": "99db8387cc833276",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:04.693078"
+        },
+        {
+          "image_id": "02578594-6ea4-40e9-a5ae-ff34e8d0deb2",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011116_746ec03e68396ce6c7fa23b7b0cc663e.jpg",
+          "phash": "99db8387cca33233",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:11:24.876172"
+        },
+        {
+          "image_id": "19e26cbe-0281-4126-b764-b8bc9d7eda25",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260710_011205_87dce181f5262688a8b6ae127fb4d49d.jpg",
+          "phash": "9cdb93878cc23276",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-10T01:12:07.296436"
+        }
+      ],
+      "scene_images": [],
+      "dimensions": []
+    },
+    {
+      "product_id": "216529b2-30c7-4927-a57b-08e4ab53d2f4",
+      "product_name": "Bebcare Linda",
+      "category": "Night Lights",
+      "description": "这款便携式音乐播放器兼夜灯是宝宝的完美伴侣。Bebcare Linda 内置 10 首舒缓的摇篮曲，并配备柔和的多色夜灯，可轻柔地照亮婴儿房。它支持随机播放、重复播放和自动播放功能，让宝宝伴着喜爱的旋律轻松入睡。可调节音量确保音量适宜，音乐定时器则让父母安心。便携式挂绳方便将其挂在婴儿车或婴儿床上，让音乐和灯光触手可及。内置可充电电池，无需电源线即可轻松播放。其可爱小巧的设计可完美融入任何空间，营造宁静的氛围，帮助宝宝安睡。",
+      "selling_points": [
+        "音乐夜灯二合一，小巧便携可悬挂，快充续航."
+      ],
+      "brand_voice": "温馨治愈、简约实用、精致省心",
+      "created_at": "2026-07-09T07:49:54.942640",
+      "updated_at": "2026-07-09T08:17:06.078170",
+      "product_images": [
+        {
+          "image_id": "6e66a57d-4dea-4a88-ae9c-524d7d2d6da0",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081227_dde2b7c6ed8fbbcb4472a7bc6d8abdc9.jpg",
+          "phash": "fa7835979785302a",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:12:30.180476"
+        },
+        {
+          "image_id": "4f4f2dac-ab92-475f-8680-7ad99543bc92",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081230_5dcb6980261652ac732484fef04e4ca5.jpg",
+          "phash": "89891ef661f107ce",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:12:34.553588"
+        },
+        {
+          "image_id": "3f25e81d-bbb9-494b-b520-70930296b3f4",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081235_dff761b829e055036b93baaa73099c42.jpg",
+          "phash": "a42616fc793396ac",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:12:37.579755"
+        },
+        {
+          "image_id": "0ddbcec2-ea37-4df4-a774-2ea215fd63de",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081300_eb538dbe4060b741084a1e83f3e5f149.jpg",
+          "phash": "a7648e27583d7193",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:05.309020"
+        },
+        {
+          "image_id": "e6ffc072-a3ee-4548-b59f-2adb23950711",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081306_3b3f32b785cd7ea3e123d9bff49005e0.jpg",
+          "phash": "a3658e3d708361d7",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:08.238752"
+        },
+        {
+          "image_id": "aefc4b03-7e7d-4218-876d-ba05bfd07ab2",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081309_faa1e3aea881b4ae214a016d2f4739bd.jpg",
+          "phash": "84ebb296525dd4d1",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:12.615677"
+        },
+        {
+          "image_id": "ad7c7547-1d7c-4ac9-8438-4c4609488960",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081313_6dbceb100f41dd7c188a7bb1cc5b1dcb.jpg",
+          "phash": "ceeea6951d198586",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:16.938263"
+        },
+        {
+          "image_id": "feeb92e2-9797-469c-aeb7-3f72b63158d5",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081317_356998475afbbd7a1bac1bbc14327a51.jpg",
+          "phash": "cceca6b559199594",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:22.393518"
+        },
+        {
+          "image_id": "2361d6ac-54eb-483f-b1b7-a258a6a487f9",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081323_2ff9953114fd70fa43794b13ffc3b367.jpg",
+          "phash": "cceea6955d9990b0",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:25.815586"
+        },
+        {
+          "image_id": "ba0d1d4d-29e8-401b-b84e-6f23bb159853",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081326_87dcf73e3b698b4ad55ddfcee3c50ed9.jpg",
+          "phash": "cceea6955d9990b0",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:31.852798"
+        },
+        {
+          "image_id": "1970788c-f9a0-496b-97d8-f2428c299b7f",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081332_64c4955d5ba0a831abbe9a3f13158763.jpg",
+          "phash": "ccecb69559199296",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:37.551978"
+        },
+        {
+          "image_id": "8b446e0b-3648-4115-83ec-57a0ca0b6d74",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081338_db9efedb4042e867b310315c7fa13f79.jpg",
+          "phash": "cc7cb6b551199296",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:45.123844"
+        },
+        {
+          "image_id": "4591b1d1-211d-4d3b-95d0-b46c4ef6b744",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081345_Linda2.jpg",
+          "phash": "c959b4aad2b4a5ca",
+          "width": 3200,
+          "height": 2400,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:49.054101"
+        },
+        {
+          "image_id": "ef6cc702-54d1-4fa6-8b8e-e49ab47f9bdf",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081349_Linda1.jpg",
+          "phash": "fc8233dc3ce38790",
+          "width": 1800,
+          "height": 2400,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:13:53.714908"
+        },
+        {
+          "image_id": "c075cc47-9e0e-48b1-8914-7fd50fd795a4",
+          "cdn_url": "https://cdn.jsdelivr.net/gh/zdanw/my-image-bed@main/images/20260709_081050_9bcfaeb19843130454f13b9cb5ac904c.jpg",
+          "phash": "ba7828ba95977c28",
+          "width": 1920,
+          "height": 1440,
+          "image_type": "product",
+          "uploaded_at": "2026-07-09T08:10:54.017786"
+        }
+      ],
+      "scene_images": [],
+      "dimensions": []
+    }
+  ]
+}

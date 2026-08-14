@@ -1,3 +1,4 @@
+from .brand import Brand, GENERIC_BRAND_ID, BEBCARE_BRAND_ID
 from .product import Product, ProductImage
 from .task import ScheduledTask, TaskExecution, ManualTaskDraft
 from .publish import PublishRecord
@@ -15,6 +16,9 @@ from .image_provider import ImageProviderConfig
 from .generate_task import GenerateTask
 
 __all__ = [
+    "Brand",
+    "GENERIC_BRAND_ID",
+    "BEBCARE_BRAND_ID",
     "Product",
     "ProductImage",
     "ScheduledTask",

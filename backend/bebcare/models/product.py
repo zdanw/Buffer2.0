@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
+from bebcare.models.brand import GENERIC_BRAND_ID
 import uuid
 from datetime import datetime
 
@@ -9,13 +10,20 @@ class Product(Base):
     
     product_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     product_name = Column(String(255), nullable=False)
+    brand_id = Column(
+        String(36),
+        ForeignKey("brands.brand_id", ondelete="SET NULL"),
+        nullable=True,
+        default=GENERIC_BRAND_ID,
+    )
     category = Column(String(100), nullable=False)
     description = Column(Text)
     selling_points = Column(String(500))
-    brand_voice = Column(String(100))
+    brand_voice = Column(String(100))  # legacy; prefer brand.voice + optional override
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    brand = relationship("Brand", back_populates="products")
     images = relationship("ProductImage", back_populates="product")
 
 class ProductImage(Base):

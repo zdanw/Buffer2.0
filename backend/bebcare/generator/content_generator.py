@@ -96,6 +96,24 @@ class ContentGenerator:
 6. 适合高端婴儿产品生活方式摄影，画面干净、温暖、有代入感
 """
 
+    def _copy_system_prompt(self, product_info: Dict) -> str:
+        return (product_info.get("copy_system_prompt") or "").strip() or prompt_engine.system_prompt
+
+    def _image_system_prompt(self, product_info: Dict) -> str:
+        return (product_info.get("image_system_prompt") or "").strip() or self.image_prompt_system_prompt
+
+    def _vision_image_system_prompt(self, product_info: Dict) -> str:
+        return (
+            (product_info.get("vision_image_system_prompt") or "").strip()
+            or self.vision_image_prompt_system_prompt
+        )
+
+    def _vision_scene_system_prompt(self, product_info: Dict) -> str:
+        return (
+            (product_info.get("vision_scene_system_prompt") or "").strip()
+            or self.vision_scene_image_prompt_system_prompt
+        )
+
     async def _retry_request_async(
         self, func, max_retries=3, initial_delay=2.0, backoff_factor=2.0
     ):
@@ -293,10 +311,10 @@ class ContentGenerator:
             product_urls = [u for u in reference_images if u]
 
         user_content: List[dict] = []
-        system_prompt = self.vision_image_prompt_system_prompt
+        system_prompt = self._vision_image_system_prompt(product_info)
 
         if use_scene and scene_urls and product_urls:
-            system_prompt = self.vision_scene_image_prompt_system_prompt
+            system_prompt = self._vision_scene_system_prompt(product_info)
             # 1 张场景 + 最多 2 张产品，总计不超过上限
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
@@ -428,7 +446,9 @@ class ContentGenerator:
         finally:
             if own:
                 session.close()
-        return await self._call_deepseek_async(prompt, prompt_engine.system_prompt, 500)
+        return await self._call_deepseek_async(
+            prompt, self._copy_system_prompt(product_info), 500
+        )
 
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
         return _run_sync(self.generate_copywriting_async(product_info, platform, db))
@@ -528,7 +548,7 @@ class ContentGenerator:
                     meta_prompt = image_prompt_result["prompt"]
                     selected_dimensions = image_prompt_result.get("dimensions", None)
                     positive_prompt = await self._call_deepseek_async(
-                        meta_prompt, self.image_prompt_system_prompt, 1024
+                        meta_prompt, self._image_system_prompt(product_info), 1024
                     )
                     image_prompt = positive_prompt
             finally:

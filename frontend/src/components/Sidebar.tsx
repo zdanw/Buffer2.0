@@ -1,7 +1,8 @@
-import { Layout, Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette, Cpu, X } from 'lucide-react';
+import { Calendar, Image, Settings, Sparkles, Clock, LogOut, Users, Palette, Cpu, X } from 'lucide-react';
 import { clearAuth } from '../api/auth';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
+import BrandLogo from './BrandLogo';
 
 interface SidebarProps {
   activeTab: string;
@@ -52,8 +53,8 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
       >
       <div className="mb-8 flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Layout className="w-8 h-8 text-indigo-400" />
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+            <BrandLogo size="md" />
             {t('brand.name')}
           </h1>
           <p className="text-indigo-300 text-sm mt-1">{t('brand.tagline')}</p>
