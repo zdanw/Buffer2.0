@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw } from 'lucide-react';
 import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft, reuploadDraftCdn } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
+import { getProducts } from '@/api/products';
+import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
@@ -29,6 +31,7 @@ function isCdnUrl(url: string) {
 
 export default function PendingRelease() {
   const { t, locale } = useI18n();
+  const { activeBrandId } = useBrandContext();
   const [drafts, setDrafts] = useState<ManualTaskDraft[]>([]);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
@@ -46,10 +49,35 @@ export default function PendingRelease() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [reuploading, setReuploading] = useState(false);
+  const [productBrandMap, setProductBrandMap] = useState<Record<string, { brand_id?: string; name?: string; slug?: string }>>({});
 
   useEffect(() => {
-    void Promise.all([loadDrafts(1), loadTasks()]);
-  }, []);
+    void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands()]);
+  }, [activeBrandId]);
+
+  const loadProductBrands = async () => {
+    try {
+      const res = await getProducts(1, 200, activeBrandId || undefined);
+      const map: Record<string, { brand_id?: string; name?: string; slug?: string }> = {};
+      for (const p of res.data) {
+        map[p.product_id] = p.brand
+          ? { brand_id: p.brand.brand_id, name: p.brand.name, slug: p.brand.slug }
+          : { brand_id: p.brand_id };
+      }
+      setProductBrandMap(map);
+    } catch (error) {
+      console.error('Failed to load product brands:', error);
+    }
+  };
+
+  const visibleDrafts = useMemo(() => {
+    if (!activeBrandId) return drafts;
+    return drafts.filter((d) => {
+      if (!d.product_id) return true;
+      const brand = productBrandMap[d.product_id];
+      return brand?.brand_id === activeBrandId;
+    });
+  }, [drafts, activeBrandId, productBrandMap]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -252,7 +280,7 @@ export default function PendingRelease() {
               <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">{t('common.loading')}</p>
             </div>
-          ) : drafts.length === 0 ? (
+          ) : visibleDrafts.length === 0 ? (
             <div className="text-center py-12">
               <Eye className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500">{t('pending.noDrafts')}</p>
@@ -261,7 +289,7 @@ export default function PendingRelease() {
           ) : (
             <>
               <div className={`space-y-3 max-h-[600px] overflow-y-auto ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
-                {drafts.map((draft) => (
+                {visibleDrafts.map((draft) => (
                   <div
                     key={draft.draft_id}
                     className={`border rounded-lg p-4 cursor-pointer transition-all ${

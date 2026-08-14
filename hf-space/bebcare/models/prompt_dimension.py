@@ -37,6 +37,14 @@ class CompatMode(str, Enum):
 
 class PromptDimension(Base):
     __tablename__ = "prompt_dimensions"
+    __table_args__ = (
+        UniqueConstraint(
+            "product_type",
+            "dimension_type",
+            "item_id",
+            name="uq_prompt_dimension_scope_item",
+        ),
+    )
 
     dimension_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     product_type = Column(String(100), nullable=False, index=True)

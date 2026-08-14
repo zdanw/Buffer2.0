@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordRequestForm
@@ -82,6 +83,17 @@ def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ):
     return current_user
+
+
+@router.post("/me/onboarding-complete")
+def complete_onboarding(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    current_user.onboarding_completed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+    return {"status": "ok", "onboarding_completed_at": current_user.onboarding_completed_at}
 
 @router.get("/users", response_model=List[UserResponse])
 def list_users(

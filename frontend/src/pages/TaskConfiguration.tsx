@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight, RefreshC
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getCategories, getProducts, type Product } from '@/api/products';
+import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { LIMITS, alertValidationErrors } from '@/lib/formValidation';
 import { useValidators } from '@/i18n/helpers';
@@ -14,6 +15,7 @@ const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
 export default function TaskConfiguration() {
   const { t } = useI18n();
+  const { activeBrandId } = useBrandContext();
   const { required, maxLen, cronFormat, intInRange } = useValidators();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -50,7 +52,7 @@ export default function TaskConfiguration() {
 
   useEffect(() => {
     void Promise.all([loadTasks(1), loadCategories(), loadProducts()]);
-  }, []);
+  }, [activeBrandId]);
 
   const loadTasks = async (
     page: number = currentPage,
@@ -105,9 +107,10 @@ export default function TaskConfiguration() {
   };
 
   const loadProducts = async () => {
+    const cacheKey = `products:list:100:${activeBrandId || 'all'}`;
     try {
-      const data = await cachedFetch('products:list:100', async () => {
-        const response = await getProducts(1, 100);
+      const data = await cachedFetch(cacheKey, async () => {
+        const response = await getProducts(1, 100, activeBrandId || undefined);
         return response.data;
       });
       setProducts(data);

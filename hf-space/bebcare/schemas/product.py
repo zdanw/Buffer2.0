@@ -3,18 +3,35 @@ from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
 
+class BrandNested(BaseModel):
+    brand_id: str
+    name: str
+    slug: str
+    is_generic: bool = False
+
+    model_config = {"from_attributes": True}
+
+
 class ProductBase(BaseModel):
     product_name: str
     category: str
     description: Optional[str] = None
     selling_points: Optional[List[str]] = None
+    brand_id: Optional[str] = None
     brand_voice: Optional[str] = None
+    use_brand_voice: bool = True
 
 class ProductCreate(ProductBase):
     pass
 
-class ProductUpdate(ProductBase):
-    pass
+class ProductUpdate(BaseModel):
+    product_name: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    selling_points: Optional[List[str]] = None
+    brand_id: Optional[str] = None
+    brand_voice: Optional[str] = None
+    use_brand_voice: Optional[bool] = None
 
 class ProductImageSchema(BaseModel):
     image_id: UUID
@@ -29,6 +46,7 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: datetime
     images: List[ProductImageSchema] = []
+    brand: Optional[BrandNested] = None
     
     model_config = {"from_attributes": True}
     

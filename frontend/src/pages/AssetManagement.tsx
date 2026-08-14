@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { GENERIC_BRAND_ID, getBrand } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -12,11 +13,16 @@ import {
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import BrandPicker from '@/components/BrandPicker';
+import BrandBadge from '@/components/BrandBadge';
+import BrandInheritanceHint from '@/components/BrandInheritanceHint';
+import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
 export default function AssetManagement() {
   const { t } = useI18n();
   const v = createValidators(t);
+  const { activeBrandId } = useBrandContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -32,17 +38,29 @@ export default function AssetManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-  const [formData, setFormData] = useState<ProductCreate>({
+  const [formData, setFormData] = useState<ProductCreate & { use_brand_voice?: boolean }>({
     product_name: '',
     category: '',
     description: '',
     selling_points: [],
     brand_voice: '',
+    brand_id: GENERIC_BRAND_ID,
+    use_brand_voice: false,
   });
+  const [inheritedVoice, setInheritedVoice] = useState<string>('');
 
   useEffect(() => {
     void Promise.all([loadProducts(1), loadDimensionTypes()]);
-  }, []);
+  }, [activeBrandId]);
+
+  useEffect(() => {
+    const brandId = formData.brand_id || GENERIC_BRAND_ID;
+    if (!formData.use_brand_voice) {
+      void getBrand(brandId)
+        .then((kit) => setInheritedVoice(kit.voice || ''))
+        .catch(() => setInheritedVoice(''));
+    }
+  }, [formData.brand_id, formData.use_brand_voice]);
 
   const loadDimensionTypes = async () => {
     try {
@@ -63,7 +81,7 @@ export default function AssetManagement() {
     if (keepRows && !opts?.silent) setListBusy(true);
     const size = newPageSize ?? pageSize;
     try {
-      const response: PaginatedResponse<Product> = await getProducts(page, size);
+      const response: PaginatedResponse<Product> = await getProducts(page, size, activeBrandId || undefined);
       setProducts(response.data);
       setTotal(response.pagination.total);
       setCurrentPage(response.pagination.current);
@@ -93,7 +111,9 @@ export default function AssetManagement() {
         v.maxLen(t('assets.category'), formData.category, LIMITS.category),
         v.maxLen(t('assets.description'), formData.description, LIMITS.description),
         v.maxLen(t('assets.sellingPoints'), sellingJoined, LIMITS.sellingPointsJoined),
-        v.maxLen(t('assets.brandVoice'), formData.brand_voice, LIMITS.brandVoice),
+        ...(formData.use_brand_voice
+          ? [v.maxLen(t('assets.brandVoice'), formData.brand_voice, LIMITS.brandVoice)]
+          : []),
       ])
     ) {
       return;
@@ -118,7 +138,15 @@ export default function AssetManagement() {
         }
       }
       setShowModal(false);
-      setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
+      setFormData({
+        product_name: '',
+        category: '',
+        description: '',
+        selling_points: [],
+        brand_voice: '',
+        brand_id: activeBrandId || GENERIC_BRAND_ID,
+        use_brand_voice: false,
+      });
     } catch (error) {
       console.error('Failed to save product:', error);
       alert(t('assets.saveFailed'));
@@ -207,11 +235,21 @@ export default function AssetManagement() {
         description: product.description,
         selling_points: product.selling_points || [],
         brand_voice: product.brand_voice,
+        brand_id: product.brand_id || GENERIC_BRAND_ID,
+        use_brand_voice: product.use_brand_voice ?? false,
       });
     } else {
       setIsEdit(false);
       setSelectedProduct(null);
-      setFormData({ product_name: '', category: '', description: '', selling_points: [], brand_voice: '' });
+      setFormData({
+        product_name: '',
+        category: '',
+        description: '',
+        selling_points: [],
+        brand_voice: '',
+        brand_id: activeBrandId || GENERIC_BRAND_ID,
+        use_brand_voice: false,
+      });
     }
     setShowModal(true);
   };
@@ -276,6 +314,11 @@ export default function AssetManagement() {
                   >
                     <h4 className="font-medium text-gray-800">{product.product_name}</h4>
                     <p className="text-sm text-gray-500">{product.category}</p>
+                    {product.brand && (
+                      <div className="mt-1">
+                        <BrandBadge brand={{ name: product.brand.name, is_generic: product.brand.slug === 'generic' }} />
+                      </div>
+                    )}
                     {(product.selling_points || []).filter(Boolean).length > 0 && (
                       <p className="text-xs text-amber-700/80 mt-1.5 truncate">
                         {(product.selling_points || []).filter(Boolean).slice(0, 2).join(' · ')}
@@ -308,6 +351,11 @@ export default function AssetManagement() {
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">{selectedProduct.product_name}</h3>
                   <p className="text-gray-500 mt-1">{selectedProduct.category}</p>
+                  {selectedProduct.brand && (
+                    <div className="mt-2">
+                      <BrandBadge brand={{ name: selectedProduct.brand.name, is_generic: selectedProduct.brand.slug === 'generic' }} />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -529,6 +577,14 @@ export default function AssetManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
+                  <LabelWithTooltip label={t('assets.brand')} tooltip={t('assets.tooltips.brand')} />
+                  <BrandPicker
+                    value={formData.brand_id || GENERIC_BRAND_ID}
+                    onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
+                  />
+                  {!formData.use_brand_voice && <BrandInheritanceHint voice={inheritedVoice} className="mt-1" />}
+                </div>
+                <div>
                   <LabelWithTooltip
                     label={t('assets.productName')}
                     tooltip={t('assets.tooltips.productName')}
@@ -590,6 +646,18 @@ export default function AssetManagement() {
                   </p>
                 </div>
                 <div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.use_brand_voice ?? false}
+                      onChange={(e) => setFormData({ ...formData, use_brand_voice: e.target.checked })}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    {t('assets.overrideBrandVoice')}
+                  </label>
+                </div>
+                {formData.use_brand_voice && (
+                <div>
                   <LabelWithTooltip
                     label={t('assets.brandVoice')}
                     tooltip={t('assets.tooltips.brandVoice', { max: LIMITS.brandVoice })}
@@ -605,6 +673,7 @@ export default function AssetManagement() {
                     {t('common.charCount', { current: (formData.brand_voice || '').length, max: LIMITS.brandVoice })}
                   </p>
                 </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">

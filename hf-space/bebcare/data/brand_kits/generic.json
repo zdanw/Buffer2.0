@@ -1,0 +1,43 @@
+{
+  "brand_id": "00000000-0000-0000-0000-000000000001",
+  "slug": "generic",
+  "name": "Generic",
+  "is_generic": true,
+  "is_system": true,
+  "voice": null,
+  "audience": null,
+  "tone_keywords": "neutral, clear, professional",
+  "default_selling_points": [],
+  "default_hashtags": [],
+  "emoji_style": "subtle",
+  "words_to_avoid": null,
+  "logo_font_rule": null,
+  "vertical_pack": "general",
+  "default_product_type": "General",
+  "copy_system_prompt": "You are a professional social media marketing expert.\nYou create high-quality English social posts and image prompts.\n\nFollow these principles:\n1. Match the brand voice when provided; otherwise stay neutral and factual\n2. Highlight core product benefits\n3. Use emojis sparingly and only when appropriate for the platform\n4. Match the target platform tone and length\n5. Image prompts must describe scene, lighting, and composition clearly\n6. Social posts must be in English\n7. Post length 120-200 characters including hashtags when applicable",
+  "image_system_prompt": "You are a professional AI image prompt engineer.\nConvert product information and dimension options into vivid Chinese image descriptions for image generation.\n\nGuidelines:\n1. Output only the image prompt\n2. Use descriptive language with sensory detail\n3. Blend scene, lighting, composition, style, quality, and props naturally\n4. Describe light direction, quality, and color temperature\n5. Describe materials and textures accurately\n6. Keep a commercial product photography tone unless brand context says otherwise\n7. No text overlays, watermarks, or extra logos unless the product includes printed branding",
+  "vision_image_system_prompt": null,
+  "vision_scene_system_prompt": null,
+  "narrative_perspectives": [
+    {"id": "tech_reviewer", "name": "Tech reviewer", "description": "Professional, technical review style"},
+    {"id": "humorist", "name": "Humorist", "description": "Light, witty tone"},
+    {"id": "tech_blogger", "name": "Tech blogger", "description": "Informed, analytical"},
+    {"id": "lifestyle", "name": "Lifestyle enthusiast", "description": "Aspirational everyday use"}
+  ],
+  "writing_styles": [
+    {"id": "种草风", "name": "Recommendation", "description": "Friendly, recommendatory"},
+    {"id": "理性分析", "name": "Analytical", "description": "Logical, benefit-led"},
+    {"id": "温情故事", "name": "Storytelling", "description": "Warm narrative"},
+    {"id": "硬核测评", "name": "In-depth review", "description": "Objective, detailed"},
+    {"id": "幽默搞笑", "name": "Playful", "description": "Light and fun"},
+    {"id": "情感共鸣", "name": "Emotional", "description": "Relatable, emotive"}
+  ],
+  "copy_emoji_hints": "✨💡🎯",
+  "copy_example": null,
+  "image_fallback_selling_points": null,
+  "copy_fallback_selling_points": [],
+  "extra": {
+    "source": "system_default",
+    "notes": "Neutral brand for products without a specific brand kit. No vertical-specific defaults."
+  }
+}

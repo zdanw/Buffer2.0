@@ -6,6 +6,7 @@ import {
   type ImageModelInfo,
 } from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
 
 export interface ImageModelSelection {
   image_provider_id?: string | null;
@@ -89,17 +90,17 @@ export default function ImageModelPicker({
   return (
     <div className={wrapClass}>
       {!compact && (
-        <div>
-          <div className="text-sm font-medium text-gray-700">{t('imageModelPicker.title')}</div>
-          <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
-        </div>
+        <LabelWithTooltip
+          label={t('imageModelPicker.title')}
+          tooltip={t('imageModelPicker.tooltips.title')}
+        />
       )}
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          {t('imageModelPicker.provider')}
-          {loadingProviders ? t('imageModelPicker.loading') : ''}
-        </label>
+        <LabelWithTooltip
+          label={`${t('imageModelPicker.provider')}${loadingProviders ? ` ${t('imageModelPicker.loading')}` : ''}`}
+          tooltip={t('imageModelPicker.tooltips.provider')}
+        />
         <select
           value={value.image_provider_id || ''}
           disabled={disabled || loadingProviders}
@@ -124,10 +125,10 @@ export default function ImageModelPicker({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          {t('imageModelPicker.modelId')}
-          {loadingModels ? t('imageModelPicker.loading') : ''}
-        </label>
+        <LabelWithTooltip
+          label={`${t('imageModelPicker.modelId')}${loadingModels ? ` ${t('imageModelPicker.loading')}` : ''}`}
+          tooltip={t('imageModelPicker.tooltips.modelId')}
+        />
         {models.length > 0 ? (
           <select
             value={value.image_model || ''}

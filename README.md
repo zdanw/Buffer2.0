@@ -152,20 +152,47 @@ ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 ### 4. 数据库迁移
 
+迁移文件：`backend/migrations/versions/`（本地 SQLite 与生产 Postgres 共用）。当前 head：`016_dimension_scope_unique`。
+
+**本地开发**（在 `backend/` 目录）：
+
 ```bash
 cd backend
-alembic upgrade head
+pip install -r requirements.txt
 
-# 改完 models 后
-alembic revision --autogenerate -m "describe change"
-alembic upgrade head
+# 默认 AUTO_MIGRATE=true：重启 uvicorn 即自动升级
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+
+# 或先手动升级再启动
+python -m alembic upgrade head
+python -m alembic current   # 应含 (head) 或 016_dimension_scope_unique
 ```
 
-默认 `AUTO_MIGRATE=true` 时启动会自动升级。已有旧 SQLite 首次切换可：
+**生产（HF Space + Supabase）**：
+
+1. `python scripts/sync_deploy_copies.py` 后部署新镜像
+2. Space Secrets：`APP_ENV=production`、`DATABASE_URL`（Session `5432` + `sslmode=require`）
+3. `AUTO_MIGRATE=true`（单实例推荐）→ 重启 Space；或 `AUTO_MIGRATE=false` 时在发布前执行：
 
 ```bash
-python scripts/stamp_existing_db.py
+cd backend
+export DATABASE_URL="postgresql://..."   # 勿提交到 Git
+export APP_ENV=production
+python -m alembic upgrade head
 ```
+
+大版本迁移前请备份 Supabase。Bebcare 生产可选 `SEED_BABY_DIMENSIONS=true`。详见 `[backend/README.md](backend/README.md)` 与 `[项目说明.md](项目说明.md)` §8.2。
+
+**维护者** — 改完 models 后：
+
+```bash
+cd backend
+python -m alembic revision --autogenerate -m "describe change"
+python -m alembic upgrade head
+python ../scripts/sync_deploy_copies.py
+```
+
+已有本地 SQLite（以前靠 `create_all`）首次切换可：`python scripts/stamp_existing_db.py`（通常启动已自动处理）。
 
 
 
@@ -331,6 +358,7 @@ Bebcare_Buffer2.0/
 | `APP_ENV`                 | 运行环境；production 禁止 SQLite     | `development`     |
 | `DATABASE_URL`            | 数据库连接；本地可省略                   | （SQLite 默认）       |
 | `AUTO_MIGRATE`            | 启动时 alembic upgrade           | `true`            |
+| `SEED_BABY_DIMENSIONS`    | 启动时追加 baby_family 视觉预设   | `false`（Bebcare 生产可 `true`） |
 | `MAX_CONCURRENT_JOBS`     | 全局调度并发                        | `1`               |
 | `SCHEDULER_MAX_WORKERS`   | 调度线程池                         | `2`               |
 | `SCHEDULER_MAX_INSTANCES` | 单任务最大重叠实例                     | `1`               |

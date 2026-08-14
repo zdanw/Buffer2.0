@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from bebcare.api.brand_routes import router as brand_router
 from bebcare.api.product_routes import router as product_router
 from bebcare.api.task_routes import router as task_router
 from bebcare.api.generate_routes import router as generate_router
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 init_db()
 
 app = FastAPI(
-    title="Bebcare AI Studio API",
+    title="PulseForge API",
     description="全自动社媒内容生成与发布系统",
     version="2.0.0"
 )
@@ -79,6 +80,7 @@ app.add_middleware(
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(auth_router)
+api_router.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(product_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(task_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(generate_router, dependencies=[Depends(get_current_active_user)])

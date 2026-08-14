@@ -42,17 +42,104 @@ uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
 
 ## 数据库迁移（Alembic）
 
-本地与生产共用 `migrations/versions/`。
+迁移脚本目录：`migrations/versions/`（本地 SQLite 与生产 Supabase Postgres **共用同一套**）。
+
+当前 head revision：`016_dimension_scope_unique`（链：`013_brands` 品牌表 → `014` 产品品牌语音开关 → `015` 品牌 Logo → `016` 视觉风格作用域唯一约束）。
+
+所有 Alembic 命令均在 **`backend/` 目录**下执行。Windows / 未装全局 CLI 时，请用 `python -m alembic` 代替 `alembic`。
+
+### 拉取代码后：本地开发
+
+1. 安装/更新依赖：`pip install -r requirements.txt`
+2. 确认 `.env` 存在（`cp .env.example .env`）；本地可省略 `DATABASE_URL`（默认 `bebcare.db`）
+3. **升级 schema（二选一）**
+
+**方式 A — 推荐（默认）**  
+保持 `AUTO_MIGRATE=true`，重启后端即可自动 `upgrade head`：
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+```
 
-# 手动升级到最新（可选；默认 AUTO_MIGRATE=true 启动时执行）
-alembic upgrade head
+**方式 B — 先手动迁移再启动**（适合排查迁移错误）：
 
-# 改完 models 后新建迁移
-alembic revision --autogenerate -m "describe change"
-alembic upgrade head
+```bash
+cd backend
+python -m alembic upgrade head
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+4. **验证是否已到 head**：
+
+```bash
+cd backend
+python -m alembic current
+# 期望输出含 016_dimension_scope_unique 或 (head)
+```
+
+启动日志中应出现 `Running database migrations` 或 `Database ready`。
+
+**本地说明**
+
+| 场景 | 行为 |
+|------|------|
+| 全新 SQLite | 迁移建表；首次启动种子管理员与 Generic / Bebcare 品牌 |
+| 旧库无 `alembic_version` 表 | 启动时自动 `stamp head` 并补缺失表 |
+| 仅通用视觉预设 | 默认行为，无需操作 |
+| 需要母婴视觉预设 | `.env` 设 `SEED_BABY_DIMENSIONS=true` 后重启 |
+
+**迁移 016 注意**：会删除 `prompt_dimensions` 中 `(product_type, dimension_type, item_id)` 重复行（每组只保留最小 `dimension_id`）。本地若有自定义重复 ID，升级前请备份 `bebcare.db`。
+
+### 生产部署（HF Space + Supabase）
+
+1. 合并/拉取含新迁移的代码后，同步部署副本：`python scripts/sync_deploy_copies.py`
+2. 在 HF Space **Secrets** 中确认：
+   - `APP_ENV=production`
+   - `DATABASE_URL` = Supabase Session 连接串（端口 `5432`，`sslmode=require`）
+   - `AUTO_MIGRATE=true`（单实例 Space，**推荐**）
+   - Bebcare 生产需要母婴预设时：`SEED_BABY_DIMENSIONS=true`
+3. **升级 schema（二选一）**
+
+**方式 A — 单实例自动（推荐）**  
+`AUTO_MIGRATE=true` 时，部署新镜像后 **重启 / Factory reboot Space**。查看 Logs，应出现 `Running database migrations` 与 `Database ready`。
+
+**方式 B — 手动迁移（多实例、或 `AUTO_MIGRATE=false`）**  
+在能访问生产库的环境执行（**勿将 `DATABASE_URL` 提交到 Git**）：
+
+```bash
+cd backend
+# bash:
+export DATABASE_URL="postgresql://postgres.[ref]:[password]@....supabase.com:5432/postgres?sslmode=require"
+export APP_ENV=production
+python -m alembic upgrade head
+python -m alembic current
+```
+
+```powershell
+# PowerShell:
+cd backend
+$env:DATABASE_URL = "postgresql://..."
+$env:APP_ENV = "production"
+python -m alembic upgrade head
+python -m alembic current
+```
+
+确认 `(head)` 后再发布或重启应用。若 `AUTO_MIGRATE=false`，应用启动**不会**自动迁移，必须由流水线或运维先执行上述命令。
+
+**生产注意**
+
+- 大版本迁移（尤其 `013_brands`、`016_dimension_scope_unique`）前，请在 Supabase Dashboard 做数据库备份
+- `APP_ENV=production` 时禁止使用 SQLite
+- `hf-space/migrations/` 须与 `backend/migrations/` 一致；CI 会跑 `sync_deploy_copies.py --check`
+
+### 维护者：新增迁移
+
+```bash
+cd backend
+python -m alembic revision --autogenerate -m "describe change"
+python -m alembic upgrade head
+python ../scripts/sync_deploy_copies.py
 ```
 
 已有本地 SQLite（以前靠 `create_all`）首次切换时，启动会自动 `stamp`；也可手动：
@@ -60,8 +147,6 @@ alembic upgrade head
 ```bash
 python scripts/stamp_existing_db.py
 ```
-
-上线到 Supabase：写入生产 `DATABASE_URL` → `APP_ENV=production` → 部署前或启动时执行 `alembic upgrade head`。
 
 ## API 概览
 

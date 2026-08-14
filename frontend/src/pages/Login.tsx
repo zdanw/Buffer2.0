@@ -9,6 +9,7 @@ import {
 import { useI18n } from '@/i18n/useI18n';
 import { useValidators } from '@/i18n/helpers';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import BrandLogo from '@/components/BrandLogo';
 
 function Login() {
   const navigate = useNavigate();
@@ -64,6 +65,9 @@ function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <BrandLogo size="xl" className="shadow-md" />
+          </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             {t('login.title')}
           </h1>

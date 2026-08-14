@@ -1,4 +1,5 @@
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,57 @@ from bebcare.models.prompt_dimension import (
 )
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 from bebcare.schemas.prompt_dimension import COMPAT_TARGET_TYPES
+
+
+def generate_random_item_id() -> str:
+    """Random machine ID for user-created visual styles (not derived from display name)."""
+    return f"style_{secrets.token_hex(6)}"
+
+
+def allocate_item_id_for_create(
+    db: Session,
+    product_type: str,
+    dimension_type: str,
+) -> str:
+    """Return a random item_id unique within (product_type, dimension_type)."""
+    return resolve_unique_item_id(
+        db,
+        product_type,
+        dimension_type,
+        generate_random_item_id(),
+    )
+
+
+def resolve_unique_item_id(
+    db: Session,
+    product_type: str,
+    dimension_type: str,
+    base_id: str,
+    *,
+    max_attempts: int = 100,
+) -> str:
+    """Ensure item_id is unique within (product_type, dimension_type). Appends _2, _3, … on clash."""
+    base = (base_id or "").strip()[:100]
+    if not base:
+        base = "style"
+
+    candidate = base
+    for n in range(2, max_attempts + 2):
+        exists = (
+            db.query(PromptDimension)
+            .filter(
+                PromptDimension.product_type == product_type,
+                PromptDimension.dimension_type == dimension_type,
+                PromptDimension.item_id == candidate,
+            )
+            .first()
+        )
+        if not exists:
+            return candidate
+        suffix = f"_{n}"
+        candidate = f"{base[: max(1, 100 - len(suffix))]}{suffix}"
+
+    raise ValueError(f"Could not allocate unique item_id for '{base_id}'")
 
 
 def _compat_entries_for_dim(dim: PromptDimension) -> dict:
@@ -189,6 +241,23 @@ class DimensionService:
         self.clear_cache()
 
         return {"status": "success", "message": "默认维度数据已初始化"}
+
+    def reset_visual_styles(self, db: Session, pack_id: str = "general") -> dict:
+        """Wipe all prompt dimensions and import a single pack."""
+        from bebcare.services.vertical_pack_service import initialize_pack
+
+        db.query(PromptDimensionCompatibility).delete()
+        db.query(PromptDimensionCompatPolicy).delete()
+        db.query(PromptDimension).delete()
+        db.commit()
+        self.clear_cache()
+        result = initialize_pack(pack_id, db)
+        return {
+            "status": "success",
+            "pack_id": pack_id,
+            "message": f"Visual styles reset and imported from pack '{pack_id}'",
+            **{k: v for k, v in result.items() if k not in ("status", "message")},
+        }
 
 
 dimension_service = DimensionService()

@@ -1,0 +1,15 @@
+{
+  "exported_at": "2026-08-14T04:00:17.592574+00:00",
+  "source_url": "https://buffrer2-0.vercel.app",
+  "status": "success",
+  "product_count": 8,
+  "categories": [
+    "Audio Monitor",
+    "Bottle Warmer",
+    "Air Purifiers",
+    "Wearable Breast Pump",
+    "Video Monitor",
+    "Night Lights"
+  ],
+  "products_file": "bebcare\\data\\exports\\buffrer2-0.vercel.app\\products-export.json"
+}

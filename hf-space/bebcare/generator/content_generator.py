@@ -53,36 +53,66 @@ class ContentGenerator:
         self.vision_model = (settings.vision_model or "qwen-vl-max").strip()
 
         self.image_prompt_system_prompt = """
-你是婴儿产品商业摄影的图像提示词工程师。将产品信息与维度选项写成一段最终中文图像提示词。
+你是一位专业的AI图像提示词工程师。
+你的任务是将产品信息和维度选项转换为详细、生动、富有感染力的中文图像描述，让AI图像生成器能够完美理解并生成高质量图片。
 
-优先级：产品外观保真 > 场景可用 > 氛围文采。
-1. 仅输出一段提示词，无解释或标题
-2. 外形、颜色、材质、部件与印刷须与产品信息/参考一致，禁止改色、变形或编造部件
-3. 场景、光线、构图、风格等信息密、可执行；可写光影与材质，避免堆砌华丽空词
-4. 产品须有合理承托与接触，透视自然，禁止悬空与贴纸感
-5. 禁止文字、水印、二维码、网址或额外品牌名（产品自带印刷除外）
-6. 适合高端婴儿产品商业摄影：干净、温暖、有代入感
+遵循以下指南：
+1. 仅输出图像提示词，不要额外文本或解释
+2. 使用丰富细腻的描述性语言，包含大量感官细节和具体形容词
+3. 将场景、光线、构图、风格、画质、细节道具等元素自然融合，形成连贯的叙事
+4. 注重光影层次：描述光线的方向、质感、色温，以及光影如何塑造产品形态和氛围
+5. 强调材质表现：描述产品的材质质感，以及材质之间的对比
+6. 营造符合产品定位的情感氛围
+7. 采用生活方式叙事：描述产品在真实生活场景中的使用状态
+8. 确保适合商业产品摄影，同时具备艺术感染力
+9. 描述要有层次感：从前景到背景，从主体到细节，逐步展开
+10. 使用精确的色彩描述，避免笼统的颜色词
 """
 
         self.vision_image_prompt_system_prompt = """
-你是婴儿产品商业摄影的图像提示词工程师。仅根据参考图撰写一段最终中文图像提示词，供下游图像模型使用。
+你是一位专业的AI图像提示词工程师，专注于商业产品摄影。
+你将仅根据用户提供的参考图，自主撰写一段最终中文图像提示词，供下游图像生成模型使用。
 
-1. 仅输出一段提示词，无说明、标题或列表前缀；描写简洁可执行，避免刷屏式堆砌
-2. 先观察产品外形、颜色、材质、比例、部件与印刷标识
-3. 外观必须以参考图为准，禁止改色、变形、缺失或编造部件
-4. 可自主设计场景与光线，但不得覆盖产品保真；造景时产品须有合理承托与接触
-5. 禁止文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
-6. 适合高端婴儿产品商业摄影：干净、温暖、有代入感
+遵循以下指南：
+1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
+2. 先仔细观察参考图中的产品外形、颜色、材质、比例、部件与印刷标识
+3. 产品外观必须以参考图为准，禁止改色、变形、缺失或编造参考图中不存在的部件
+4. 可自主设计合理的场景、光线、构图与生活方式氛围，但不得覆盖产品保真要求
+5. 使用丰富细腻的描述性语言，包含光影、材质与情感氛围
+6. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
+7. 适合高端商业产品摄影，画面干净、有代入感
 """
 
         self.vision_scene_image_prompt_system_prompt = """
-你为婴儿产品场景融合撰写最终中文图像提示词，供下游图生图使用。
-仅输出一段提示词，无标题或解释。
-优先级：产品外观保真 > 场景结构/光线保真 > 自然入景。
-外观以产品参考图为准（颜色/材质/部件/印刷），禁止改色变形或编造部件；
-不锁定摆放投影角——须与场景透视一致，底部贴合承托面并有接触阴影，禁止悬空与贴纸感。
-场景构图与光线尽量沿用场景参考图；其他产品用本次产品替换；禁文字水印二维码。
+你是一位专业的AI图像提示词工程师，专注于商业产品「场景融合」摄影。
+用户会分别提供场景参考图与产品参考图。你仅根据这些图片，自主撰写一段最终中文图像提示词，供下游图生图模型把产品融入场景。
+
+遵循以下指南：
+1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
+2. 产品外形、颜色、材质、比例、角度与印刷标识必须以产品参考图为准，禁止改色、变形或编造部件
+3. 场景构图、空间布局、整体色调与光线方向应尽量沿用场景参考图，可做轻度氛围优化
+4. 明确描述：将产品自然放入场景中的位置关系、尺度与融合方式；若场景中有其他产品，用本次产品替换
+5. 道具不得遮挡或改变产品主体；禁止文字、水印、二维码、网址或额外品牌名
+6. 适合商业生活方式摄影，画面干净、有代入感
 """
+
+    def _copy_system_prompt(self, product_info: Dict) -> str:
+        return (product_info.get("copy_system_prompt") or "").strip() or prompt_engine.system_prompt
+
+    def _image_system_prompt(self, product_info: Dict) -> str:
+        return (product_info.get("image_system_prompt") or "").strip() or self.image_prompt_system_prompt
+
+    def _vision_image_system_prompt(self, product_info: Dict) -> str:
+        return (
+            (product_info.get("vision_image_system_prompt") or "").strip()
+            or self.vision_image_prompt_system_prompt
+        )
+
+    def _vision_scene_system_prompt(self, product_info: Dict) -> str:
+        return (
+            (product_info.get("vision_scene_system_prompt") or "").strip()
+            or self.vision_scene_image_prompt_system_prompt
+        )
 
     async def _retry_request_async(
         self, func, max_retries=3, initial_delay=2.0, backoff_factor=2.0
@@ -281,10 +311,10 @@ class ContentGenerator:
             product_urls = [u for u in reference_images if u]
 
         user_content: List[dict] = []
-        system_prompt = self.vision_image_prompt_system_prompt
+        system_prompt = self._vision_image_system_prompt(product_info)
 
         if use_scene and scene_urls and product_urls:
-            system_prompt = self.vision_scene_image_prompt_system_prompt
+            system_prompt = self._vision_scene_system_prompt(product_info)
             # 1 张场景 + 最多 2 张产品，总计不超过上限
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
@@ -369,7 +399,7 @@ class ContentGenerator:
             # DeepSeek V4 only; Qwen-VL 等视觉模型不传 thinking
             if "deepseek" in (self.vision_model or "").lower():
                 data["thinking"] = {"type": "disabled"}
-            async with httpx.AsyncClient(timeout=600.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(self.vision_api_url, headers=headers, json=data)
             try:
                 response.raise_for_status()
@@ -416,7 +446,9 @@ class ContentGenerator:
         finally:
             if own:
                 session.close()
-        return await self._call_deepseek_async(prompt, prompt_engine.system_prompt, 500)
+        return await self._call_deepseek_async(
+            prompt, self._copy_system_prompt(product_info), 500
+        )
 
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
         return _run_sync(self.generate_copywriting_async(product_info, platform, db))
@@ -516,7 +548,7 @@ class ContentGenerator:
                     meta_prompt = image_prompt_result["prompt"]
                     selected_dimensions = image_prompt_result.get("dimensions", None)
                     positive_prompt = await self._call_deepseek_async(
-                        meta_prompt, self.image_prompt_system_prompt, 1024
+                        meta_prompt, self._image_system_prompt(product_info), 1024
                     )
                     image_prompt = positive_prompt
             finally:

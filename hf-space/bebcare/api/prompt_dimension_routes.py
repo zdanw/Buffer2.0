@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 from bebcare.database import get_db
 from bebcare.models.prompt_dimension import (
     PromptDimension,
@@ -21,10 +22,15 @@ from bebcare.schemas.prompt_dimension import (
     ProductDimensionCreate,
     ProductDimensionResponse,
 )
-from bebcare.services.dimension_service import dimension_service
+from bebcare.services.dimension_service import dimension_service, allocate_item_id_for_create
+from bebcare.services.auth_dependency import get_current_admin_user
 from bebcare.models import Product
 
 router = APIRouter(prefix="/prompt-dimensions", tags=["prompt-dimensions"])
+
+
+class ResetVisualStylesRequest(BaseModel):
+    pack_id: str = "general"
 
 
 def _empty_compat_dict() -> dict:
@@ -207,19 +213,16 @@ def create_prompt_dimension(
     dimension: PromptDimensionCreate,
     db: Session = Depends(get_db)
 ):
-    existing = db.query(PromptDimension).filter(
-        PromptDimension.product_type == dimension.product_type,
-        PromptDimension.dimension_type == dimension.dimension_type,
-        PromptDimension.item_id == dimension.item_id
-    ).first()
-
-    if existing:
-        raise HTTPException(status_code=400, detail="维度项已存在")
+    item_id = allocate_item_id_for_create(
+        db,
+        dimension.product_type,
+        dimension.dimension_type,
+    )
 
     new_dim = PromptDimension(
         product_type=dimension.product_type,
         dimension_type=dimension.dimension_type,
-        item_id=dimension.item_id,
+        item_id=item_id,
         name=dimension.name
     )
     db.add(new_dim)
@@ -306,9 +309,38 @@ def delete_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
     dimension_service.clear_cache()
 
 
+@router.post("/import-pack/{pack_id}")
+def import_visual_style_pack(
+    pack_id: str,
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+):
+    from bebcare.services.vertical_pack_service import initialize_pack
+
+    try:
+        return initialize_pack(pack_id, db)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/reset")
+def reset_visual_styles(
+    payload: ResetVisualStylesRequest,
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+):
+    return dimension_service.reset_visual_styles(db, pack_id=payload.pack_id)
+
+
 @router.post("/initialize/")
-def initialize_dimensions(db: Session = Depends(get_db)):
-    return dimension_service.initialize_default_dimensions(db)
+def initialize_dimensions(
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+):
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated. Use POST /prompt-dimensions/import-pack/{pack_id} or POST /prompt-dimensions/reset.",
+    )
 
 
 @router.get("/{product_type}/by-type/{dimension_type}")

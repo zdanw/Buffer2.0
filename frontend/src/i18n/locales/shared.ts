@@ -32,6 +32,15 @@ export const sharedEn: TranslationTree = {
     quality: 'Quality',
     viewpoints: 'Viewpoint',
   },
+  dimensionTypeDescriptions: {
+    scenes: 'Where the product appears — room, environment, or lifestyle setting.',
+    lighting: 'Light direction, softness, and color temperature in the image.',
+    styles: 'Overall visual mood — minimal, cozy, editorial, etc.',
+    compositions: 'Camera framing and product placement in the frame.',
+    details: 'Surface textures, props, and micro-elements around the product.',
+    quality: 'Resolution, sharpness, and rendering fidelity hints.',
+    viewpoints: 'Camera angle relative to the product — top-down, eye-level, etc.',
+  },
   compat: {
     unrestricted: 'Fully compatible',
     none: 'None compatible',
@@ -95,6 +104,15 @@ export const sharedZh: TranslationTree = {
     details: '细节',
     quality: '画质',
     viewpoints: '视角',
+  },
+  dimensionTypeDescriptions: {
+    scenes: '产品出现的环境与背景，如房间、场景或生活方式设定。',
+    lighting: '画面光线方向、柔和度与色温。',
+    styles: '整体视觉风格，如简约、温馨、杂志感等。',
+    compositions: '镜头构图与产品在画面中的位置关系。',
+    details: '材质纹理、道具与产品周围的细节元素。',
+    quality: '分辨率、清晰度与渲染质量相关提示。',
+    viewpoints: '相对产品的拍摄角度，如俯拍、平视等。',
   },
   compat: {
     unrestricted: '全部兼容',

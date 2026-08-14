@@ -7,6 +7,7 @@ from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
 from bebcare.utils.reference_selector import select_reference_images
+from bebcare.services.brand_context import enrich_product_info
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
 from bebcare.database import engine
@@ -224,26 +225,28 @@ class APSchedulerService:
 
         task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
         product_id_str = str(product.product_id)
+        base_info = {
+            "product_id": product_id_str,
+            "product_name": product.product_name,
+            "category": product.category,
+            "description": product.description,
+            "selling_points": product.selling_points,
+            "brand_voice": product.brand_voice,
+            "reference_images": reference_image_urls,
+            "reference_product_images": selected["reference_product_images"],
+            "reference_scene_images": selected["reference_scene_images"],
+            "platform": platforms[0] if platforms else "instagram",
+            "use_scene_reference": effective_scene,
+            "use_vision_image_prompt": bool(
+                getattr(task_cfg, "use_vision_image_prompt", False)
+            )
+            if task_cfg
+            else False,
+        }
+        product_info = enrich_product_info(session, product, base_info)
         return {
             "product_id_str": product_id_str,
-            "product_info": {
-                "product_id": product_id_str,
-                "product_name": product.product_name,
-                "category": product.category,
-                "description": product.description,
-                "selling_points": product.selling_points,
-                "brand_voice": product.brand_voice,
-                "reference_images": reference_image_urls,
-                "reference_product_images": selected["reference_product_images"],
-                "reference_scene_images": selected["reference_scene_images"],
-                "platform": platforms[0] if platforms else "instagram",
-                "use_scene_reference": effective_scene,
-                "use_vision_image_prompt": bool(
-                    getattr(task_cfg, "use_vision_image_prompt", False)
-                )
-                if task_cfg
-                else False,
-            },
+            "product_info": product_info,
             "reference_image_urls": reference_image_urls,
             "reference_product_images": selected["reference_product_images"],
             "reference_scene_images": selected["reference_scene_images"],

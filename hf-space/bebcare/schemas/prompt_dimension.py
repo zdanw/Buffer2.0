@@ -50,11 +50,11 @@ class DimensionTypeResponse(BaseModel):
 class PromptDimensionBase(BaseModel):
     product_type: str = Field(..., description="产品类型，与素材 category 一致，如 Night Lights, Audio Monitor")
     dimension_type: str = Field(..., description="维度类型，如 scenes, viewpoints")
-    item_id: str = Field(..., description="维度项ID")
     name: str = Field(..., description="维度项名称")
 
 
 class PromptDimensionCreate(PromptDimensionBase):
+    item_id: Optional[str] = Field(None, description="维度项ID（创建时忽略，由服务端随机生成）")
     compatibilities: Optional[DimensionCompatibilities] = Field(None, description="兼容性配置")
 
 
@@ -66,6 +66,7 @@ class PromptDimensionUpdate(BaseModel):
 
 class PromptDimensionResponse(PromptDimensionBase):
     dimension_id: str
+    item_id: str
     enabled: bool = True
     created_at: datetime
     updated_at: datetime
