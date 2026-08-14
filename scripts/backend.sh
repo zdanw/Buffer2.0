@@ -38,7 +38,7 @@ EOF
 status() {
   local pids code
   pids="$(dev_port_pids "$PORT" | tr '\n' ' ')"
-  code="$(dev_http_code "http://127.0.0.1:${PORT}/health")"
+  code="$(dev_http_code "http://localhost:${PORT}/health")"
   if [ "$code" = "200" ]; then
     echo "running (port $PORT, health OK${pids:+, pid(s) $pids})"
     return 0
@@ -94,7 +94,7 @@ start() {
 
   for i in $(seq 1 30); do
     if dev_port_listening "$PORT"; then
-      if [ "$(dev_http_code "http://127.0.0.1:${PORT}/health")" = "200" ]; then
+      if [ "$(dev_http_code "http://localhost:${PORT}/health")" = "200" ]; then
         echo "backend: started -> http://localhost:${PORT} (log: .dev/backend.log)"
         return 0
       fi

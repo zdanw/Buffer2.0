@@ -17,7 +17,7 @@ $LogFile = Join-Path $DevStateDir "backend.log"
 
 function Get-StatusMessage {
     $pids = @(Get-DevPortPids $Port)
-    $code = Get-DevHttpCode "http://127.0.0.1:$Port/health"
+    $code = Get-DevHttpCode "http://localhost:$Port/health"
     if ($code -eq "200") {
         $pidText = if ($pids.Count) { ", pid(s) $($pids -join ' ')" } else { "" }
         return "running (port $Port, health OK$pidText)"
@@ -29,7 +29,7 @@ function Get-StatusMessage {
 }
 
 function Test-IsRunning {
-    return (Get-DevHttpCode "http://127.0.0.1:$Port/health") -eq "200"
+    return (Get-DevHttpCode "http://localhost:$Port/health") -eq "200"
 }
 
 function Start-Backend {
@@ -62,7 +62,7 @@ function Start-Backend {
         -ArgumentList @("bebcare.main:app", "--host", "0.0.0.0", "--port", "$Port", "--reload")
 
     for ($i = 0; $i -lt 30; $i++) {
-        if ((Get-DevHttpCode "http://127.0.0.1:$Port/health") -eq "200") {
+        if ((Get-DevHttpCode "http://localhost:$Port/health") -eq "200") {
             Write-Host "backend: started -> http://localhost:$Port (log: .dev/backend.log)"
             return
         }

@@ -13,8 +13,8 @@ function Get-DevPortPids([int]$Port) {
 function Stop-DevPort([int]$Port) {
     $pids = @(Get-DevPortPids $Port)
     if ($pids.Count -eq 0) { return $false }
-    foreach ($pid in $pids) {
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    foreach ($processId in $pids) {
+        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     }
     return $true
 }
