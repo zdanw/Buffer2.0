@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Boolean
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
 from bebcare.models.brand import GENERIC_BRAND_ID
@@ -20,6 +20,7 @@ class Product(Base):
     description = Column(Text)
     selling_points = Column(String(500))
     brand_voice = Column(String(100))  # legacy; prefer brand.voice + optional override
+    use_brand_voice = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

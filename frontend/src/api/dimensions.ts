@@ -75,8 +75,8 @@ export interface PromptDimension {
 export interface PromptDimensionCreate {
   product_type: string;
   dimension_type: string;
-  item_id: string;
   name: string;
+  item_id?: string;
   compatibilities?: DimensionCompatibilities;
 }
 
@@ -159,6 +159,17 @@ export const deletePromptDimension = async (dimensionId: string): Promise<void> 
   await axiosInstance.delete(`/prompt-dimensions/${dimensionId}`);
 };
 
+export const importVisualStylePack = async (packId: string): Promise<{ status: string; message: string }> => {
+  const response = await axiosInstance.post(`/prompt-dimensions/import-pack/${packId}`);
+  return response.data;
+};
+
+export const resetVisualStyles = async (packId: string = 'general'): Promise<{ status: string; message: string }> => {
+  const response = await axiosInstance.post('/prompt-dimensions/reset', { pack_id: packId });
+  return response.data;
+};
+
+/** @deprecated Use importVisualStylePack or resetVisualStyles */
 export const initializeDimensions = async (): Promise<{ status: string; message: string }> => {
   const response = await axiosInstance.post('/prompt-dimensions/initialize/');
   return response.data;

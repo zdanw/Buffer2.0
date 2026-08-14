@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap, ZoomIn } from 'lucide-react';
 import type { ScheduledTask, TaskExecution } from '@/api/tasks';
 import { getTasks, getAllExecutions } from '@/api/tasks';
+import { getProducts } from '@/api/products';
+import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime, parseServerDate } from '@/lib/datetime';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
@@ -50,6 +52,7 @@ interface GroupedEvents {
 export default function PublishCalendar() {
   const location = useLocation();
   const { t, locale } = useI18n();
+  const { activeBrandId } = useBrandContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [executions, setExecutions] = useState<Map<string, TaskExecution[]>>(new Map());
@@ -58,6 +61,32 @@ export default function PublishCalendar() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [brandProductIds, setBrandProductIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    void (async () => {
+      if (!activeBrandId) {
+        setBrandProductIds(new Set());
+        return;
+      }
+      try {
+        const res = await getProducts(1, 200, activeBrandId);
+        setBrandProductIds(new Set(res.data.map((p) => p.product_id)));
+      } catch (error) {
+        console.error('Failed to load brand products for calendar:', error);
+      }
+    })();
+  }, [activeBrandId]);
+
+  const taskMatchesBrand = useCallback(
+    (task: ScheduledTask) => {
+      if (!activeBrandId) return true;
+      const targets = task.target_products || [];
+      if (targets.length === 0) return true;
+      return targets.some((id) => brandProductIds.has(id));
+    },
+    [activeBrandId, brandProductIds]
+  );
 
   const loadTasks = useCallback(async (force = false) => {
     if (force) setRefreshing(true);
@@ -112,7 +141,7 @@ export default function PublishCalendar() {
 
   useEffect(() => {
     generateEvents();
-  }, [tasks, executions, currentDate]);
+  }, [tasks, executions, currentDate, activeBrandId, brandProductIds]);
 
   /** 按「年月日」预索引当日执行记录，避免每个格子重复扫描 */
   const executionsByDay = useMemo(() => {
@@ -185,7 +214,7 @@ export default function PublishCalendar() {
     const now = new Date();
     
     tasks.forEach((task) => {
-      if (task.enabled) {
+      if (task.enabled && taskMatchesBrand(task)) {
         const cronParts = task.cron.trim().split(/\s+/);
         if (cronParts.length < 5) return;
         const minute = parseInt(cronParts[0], 10);

@@ -1,0 +1,42 @@
+{
+  "id": "general",
+  "name": "General",
+  "description": "Minimal neutral visual presets for any vertical",
+  "product_types": ["General"],
+  "dimensions": {
+    "General": {
+      "scenes": [
+        {"id": "studio", "name": "Clean studio backdrop with soft gradient", "time": "indoor", "lighting": ["soft", "neutral"]},
+        {"id": "lifestyle", "name": "Modern lifestyle setting with natural context", "time": "day", "lighting": ["natural", "bright"]},
+        {"id": "minimal", "name": "Minimal surface with subtle shadows", "time": "indoor", "lighting": ["soft"]}
+      ],
+      "viewpoints": [
+        {"id": "eye_level", "name": "Eye-level product hero shot at 45 degrees"},
+        {"id": "top_down", "name": "Top-down flat lay composition"},
+        {"id": "macro", "name": "Macro detail close-up"}
+      ],
+      "compositions": [
+        {"id": "centered", "name": "Centered product with balanced negative space"},
+        {"id": "rule_of_thirds", "name": "Rule of thirds with product on intersection"},
+        {"id": "diagonal", "name": "Diagonal leading lines toward product"}
+      ],
+      "styles": [
+        {"id": "clean", "name": "Clean commercial product photography"},
+        {"id": "editorial", "name": "Editorial lifestyle with natural tones"}
+      ],
+      "quality": [
+        {"id": "hd", "name": "High resolution with sharp product detail"},
+        {"id": "natural", "name": "Natural depth of field and realistic lighting"}
+      ],
+      "details": [
+        {"id": "props_minimal", "name": "Minimal complementary props"},
+        {"id": "surface_texture", "name": "Subtle surface texture for depth"}
+      ],
+      "lighting": [
+        {"id": "softbox", "name": "Soft diffused key light", "time": "indoor"},
+        {"id": "window", "name": "Natural window light", "time": "day"},
+        {"id": "rim", "name": "Subtle rim light for separation", "time": "indoor"}
+      ]
+    }
+  }
+}

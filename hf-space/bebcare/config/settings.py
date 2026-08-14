@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # CLIP/Torch 图文向量（默认关闭；启用需安装 requirements-clip.txt）
     enable_clip: bool = False
 
+    # 启动时额外导入 baby_family 视觉预设（Bebcare 生产部署设为 true）
+    seed_baby_dimensions: bool = False
+
     # CORS：白名单来自 ALLOWED_ORIGINS；禁止 * + credentials
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

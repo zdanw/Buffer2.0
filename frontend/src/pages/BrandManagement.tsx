@@ -1,0 +1,451 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Plus, Edit2, Trash2, X, RefreshCw, Lock, Upload } from 'lucide-react';
+import {
+  createBrand,
+  deleteBrand,
+  getBrand,
+  getBrands,
+  uploadBrandLogo,
+  BEBCARE_BRAND_ID,
+  type BrandKit,
+  type BrandSummary,
+  type BrandCreate,
+} from '@/api/brands';
+import BrandBadge from '@/components/BrandBadge';
+import BrandAvatar from '@/components/BrandAvatar';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
+import { LIMITS, alertValidationErrors, createValidators } from '@/lib/formValidation';
+import { useI18n } from '@/i18n/useI18n';
+import { useBrandContext } from '@/context/BrandContext';
+
+type TabId = 'voice' | 'content' | 'advanced';
+
+const EMPTY_FORM: BrandCreate = {
+  name: '',
+  voice: '',
+  audience: '',
+  tone_keywords: '',
+  emoji_style: 'moderate',
+  words_to_avoid: '',
+};
+
+export default function BrandManagement() {
+  const { t } = useI18n();
+  const v = createValidators(t);
+  const { refreshBrands } = useBrandContext();
+  const [brands, setBrands] = useState<BrandSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('voice');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<BrandCreate & { copy_system_prompt?: string; image_system_prompt?: string }>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const isProtectedBrand = (brand: BrandSummary) =>
+    brand.is_generic || brand.brand_id === BEBCARE_BRAND_ID;
+
+  const loadBrands = useCallback(async () => {
+    setLoading(true);
+    try {
+      setBrands(await getBrands());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadBrands();
+  }, [loadBrands]);
+
+  const openCreate = () => {
+    setIsEdit(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setLogoPreview(null);
+    setLogoFile(null);
+    setActiveTab('voice');
+    setShowModal(true);
+  };
+
+  const openEdit = async (summary: BrandSummary) => {
+    setIsEdit(true);
+    setEditingId(summary.brand_id);
+    setActiveTab('voice');
+    setShowModal(true);
+    setLogoFile(null);
+    const kit: BrandKit = await getBrand(summary.brand_id);
+    setLogoPreview(kit.logo_url || null);
+    setForm({
+      name: kit.name,
+      voice: kit.voice || '',
+      audience: kit.audience || '',
+      tone_keywords: kit.tone_keywords || '',
+      emoji_style: kit.emoji_style || 'moderate',
+      words_to_avoid: kit.words_to_avoid || '',
+      default_selling_points: kit.default_selling_points,
+      default_hashtags: kit.default_hashtags,
+      logo_font_rule: kit.logo_font_rule || '',
+      copy_system_prompt: kit.copy_system_prompt || '',
+      image_system_prompt: kit.image_system_prompt || '',
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      alertValidationErrors([
+        v.required(t('brands.name'), form.name),
+        v.maxLen(t('brands.name'), form.name, LIMITS.productName),
+        v.maxLen(t('brands.voice'), form.voice, LIMITS.brandVoice),
+      ])
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEdit && editingId) {
+        const { updateBrand } = await import('@/api/brands');
+        await updateBrand(editingId, form);
+      } else {
+        const created = await createBrand(form);
+        if (logoFile) {
+          await uploadBrandLogo(created.brand_id, logoFile);
+        }
+      }
+      await loadBrands();
+      await refreshBrands();
+      setShowModal(false);
+    } catch (err) {
+      console.error(err);
+      alert(t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (brand: BrandSummary) => {
+    if (isProtectedBrand(brand)) return;
+    if (!window.confirm(t('brands.confirmDelete', { name: brand.name }))) return;
+    try {
+      await deleteBrand(brand.brand_id);
+      await loadBrands();
+      await refreshBrands();
+    } catch (err) {
+      console.error(err);
+      alert(t('common.deleteFailed'));
+    }
+  };
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    if (isEdit && editingId) {
+      setUploadingLogo(true);
+      try {
+        const result = await uploadBrandLogo(editingId, file);
+        setLogoPreview(result.logo_url);
+        setLogoFile(null);
+        await loadBrands();
+        await refreshBrands();
+      } catch (err) {
+        console.error(err);
+        alert(t('brands.logoUploadFailed'));
+      } finally {
+        setUploadingLogo(false);
+      }
+    }
+  };
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'voice', label: t('brands.tabs.voice') },
+    { id: 'content', label: t('brands.tabs.content') },
+    { id: 'advanced', label: t('brands.tabs.advanced') },
+  ];
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{t('brands.title')}</h1>
+          <p className="text-gray-500 mt-1">{t('brands.subtitle')}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void loadBrands()}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            {t('brands.addBrand')}
+          </button>
+        </div>
+      </div>
+
+      {loading && brands.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {brands.map((brand) => (
+            <div
+              key={brand.brand_id}
+              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <BrandAvatar
+                    name={brand.is_generic ? t('brands.generic') : brand.name}
+                    logoUrl={brand.logo_url}
+                    size="lg"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      {brand.is_generic ? t('brands.generic') : brand.name}
+                      {brand.is_generic && <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" aria-label={t('brands.system')} />}
+                    </h3>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {brand.is_generic && <BrandBadge variant="generic" />}
+                      {brand.is_generic && <BrandBadge variant="system" />}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void openEdit(brand)}
+                    className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
+                    aria-label={t('common.edit')}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  {!isProtectedBrand(brand) && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(brand)}
+                      className="p-2 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-50"
+                      aria-label={t('common.delete')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {brand.voice && (
+                <p className="text-sm text-gray-600 line-clamp-2 mb-3">{brand.voice}</p>
+              )}
+              <p className="text-xs text-gray-400">
+                {t('brands.productCount', { count: brand.product_count })}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">
+                {isEdit ? t('brands.editBrand') : t('brands.addBrand')}
+              </h3>
+              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex border-b border-gray-100 px-4 overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {activeTab === 'voice' && (
+                <>
+                  <div className="flex items-center gap-4">
+                    <BrandAvatar name={form.name || t('brands.addBrand')} logoUrl={logoPreview} size="lg" />
+                    <div>
+                      <LabelWithTooltip label={t('brands.logo')} tooltip={t('brands.tooltips.logo')} />
+                      <label className="mt-1 inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <Upload className="w-4 h-4" />
+                        {uploadingLogo ? t('brands.logoUploading') : t('brands.uploadLogo')}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          className="sr-only"
+                          onChange={(e) => void handleLogoChange(e)}
+                          disabled={uploadingLogo}
+                        />
+                      </label>
+                      {!isEdit && (
+                        <p className="mt-1 text-xs text-gray-400">{t('brands.logoCreateHint')}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.name')} tooltip={t('brands.tooltips.name')} />
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      required
+                      disabled={isEdit && brands.find((b) => b.brand_id === editingId)?.is_generic}
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.voice')} tooltip={t('brands.tooltips.voice')} />
+                    <textarea
+                      value={form.voice || ''}
+                      onChange={(e) => setForm({ ...form, voice: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      maxLength={LIMITS.brandVoice}
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.audience')} tooltip={t('brands.tooltips.audience')} />
+                    <input
+                      type="text"
+                      value={form.audience || ''}
+                      onChange={(e) => setForm({ ...form, audience: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.toneKeywords')} tooltip={t('brands.tooltips.toneKeywords')} />
+                    <input
+                      type="text"
+                      value={form.tone_keywords || ''}
+                      onChange={(e) => setForm({ ...form, tone_keywords: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'content' && (
+                <>
+                  <div>
+                    <LabelWithTooltip label={t('brands.defaultHashtags')} tooltip={t('brands.tooltips.hashtags')} />
+                    <input
+                      type="text"
+                      value={(form.default_hashtags || []).join(', ')}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          default_hashtags: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="#brand, #product"
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.emojiStyle')} tooltip={t('brands.tooltips.emojiStyle')} />
+                    <select
+                      value={form.emoji_style || 'moderate'}
+                      onChange={(e) => setForm({ ...form, emoji_style: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="none">{t('brands.emojiNone')}</option>
+                      <option value="minimal">{t('brands.emojiMinimal')}</option>
+                      <option value="moderate">{t('brands.emojiModerate')}</option>
+                      <option value="heavy">{t('brands.emojiHeavy')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.wordsToAvoid')} tooltip={t('brands.tooltips.wordsToAvoid')} />
+                    <input
+                      type="text"
+                      value={form.words_to_avoid || ''}
+                      onChange={(e) => setForm({ ...form, words_to_avoid: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.logoFontRule')} tooltip={t('brands.tooltips.logoFontRule')} />
+                    <input
+                      type="text"
+                      value={form.logo_font_rule || ''}
+                      onChange={(e) => setForm({ ...form, logo_font_rule: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'advanced' && (
+                <>
+                  <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">{t('brands.advancedWarning')}</p>
+                  <div>
+                    <LabelWithTooltip label={t('brands.copySystemPrompt')} tooltip={t('brands.tooltips.copySystemPrompt')} />
+                    <textarea
+                      value={form.copy_system_prompt || ''}
+                      onChange={(e) => setForm({ ...form, copy_system_prompt: e.target.value })}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <LabelWithTooltip label={t('brands.imageSystemPrompt')} tooltip={t('brands.tooltips.imageSystemPrompt')} />
+                    <textarea
+                      value={form.image_system_prompt || ''}
+                      onChange={(e) => setForm({ ...form, image_system_prompt: e.target.value })}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {saving ? t('common.saving') : t('common.save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

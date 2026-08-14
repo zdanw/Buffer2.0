@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from uuid import UUID
 from bebcare.database import get_db
-from bebcare.models import Product, ProductImage
+from bebcare.models import Product, ProductImage, Brand, GENERIC_BRAND_ID
 from bebcare.models.prompt_dimension import ProductDimension
 from bebcare.schemas.product import ProductCreate, ProductUpdate, ProductResponse, ImageUploadResponse
 from bebcare.knowledge_base.chroma_client import chroma_client
@@ -20,6 +20,64 @@ import uuid
 import io
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+def _brand_nested(product: Product) -> dict | None:
+    if not product.brand:
+        return None
+    return {
+        "brand_id": product.brand.brand_id,
+        "name": product.brand.name,
+        "slug": product.brand.slug,
+        "is_generic": bool(product.brand.is_generic),
+    }
+
+
+def _product_to_dict(product: Product, product_dimensions: list | None = None) -> dict:
+    product_images = []
+    scene_images = []
+    for img in product.images:
+        img_dict = {
+            "image_id": img.image_id,
+            "cdn_url": img.cdn_url,
+            "phash": img.phash,
+            "width": img.width,
+            "height": img.height,
+            "image_type": img.image_type,
+            "uploaded_at": img.uploaded_at,
+        }
+        if img.image_type == "product":
+            product_images.append(img_dict)
+        else:
+            scene_images.append(img_dict)
+
+    result = {
+        "product_id": product.product_id,
+        "product_name": product.product_name,
+        "brand_id": product.brand_id,
+        "category": product.category,
+        "description": product.description,
+        "selling_points": product.selling_points.split(",") if product.selling_points else [],
+        "brand_voice": product.brand_voice,
+        "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
+        "created_at": product.created_at,
+        "updated_at": product.updated_at,
+        "product_images": product_images,
+        "scene_images": scene_images,
+        "brand": _brand_nested(product),
+    }
+    if product_dimensions is not None:
+        result["dimensions"] = product_dimensions
+    return result
+
+
+def _resolve_brand_id(db: Session, brand_id: str | None) -> str:
+    if brand_id:
+        exists = db.query(Brand).filter(Brand.brand_id == brand_id).first()
+        if not exists:
+            raise HTTPException(status_code=400, detail="Brand not found")
+        return brand_id
+    return GENERIC_BRAND_ID
 
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
@@ -32,9 +90,15 @@ def get_categories(db: Session = Depends(get_db)):
 def list_products(
     page: int = 1,
     page_size: int = 10,
+    brand_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Product).options(joinedload(Product.images))
+    query = db.query(Product).options(
+        joinedload(Product.images),
+        joinedload(Product.brand),
+    )
+    if brand_id:
+        query = query.filter(Product.brand_id == brand_id)
     total = query.count()
     
     offset = (page - 1) * page_size
@@ -54,24 +118,6 @@ def list_products(
 
     result = []
     for product in products:
-        product_images = []
-        scene_images = []
-        
-        for img in product.images:
-            img_dict = {
-                "image_id": img.image_id,
-                "cdn_url": img.cdn_url,
-                "phash": img.phash,
-                "width": img.width,
-                "height": img.height,
-                "image_type": img.image_type,
-                "uploaded_at": img.uploaded_at
-            }
-            if img.image_type == "product":
-                product_images.append(img_dict)
-            else:
-                scene_images.append(img_dict)
-
         product_dimensions = [
             {
                 "id": dim.id,
@@ -86,21 +132,7 @@ def list_products(
             }
             for dim in dims_by_product.get(product.product_id, [])
         ]
-        
-        product_dict = {
-            "product_id": product.product_id,
-            "product_name": product.product_name,
-            "category": product.category,
-            "description": product.description,
-            "selling_points": product.selling_points.split(",") if product.selling_points else [],
-            "brand_voice": product.brand_voice,
-            "created_at": product.created_at,
-            "updated_at": product.updated_at,
-            "product_images": product_images,
-            "scene_images": scene_images,
-            "dimensions": product_dimensions
-        }
-        result.append(product_dict)
+        result.append(_product_to_dict(product, product_dimensions))
     
     return {
         "data": result,
@@ -114,61 +146,44 @@ def list_products(
 
 @router.post("/", status_code=201)
 def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    resolved_brand_id = _resolve_brand_id(db, product.brand_id)
     new_product = Product(
         product_name=product.product_name,
+        brand_id=resolved_brand_id,
         category=product.category,
         description=product.description,
         selling_points=",".join(product.selling_points) if product.selling_points else None,
-        brand_voice=product.brand_voice
+        brand_voice=product.brand_voice,
+        use_brand_voice=product.use_brand_voice,
     )
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
-    
-    return {
-        "product_id": new_product.product_id,
-        "product_name": new_product.product_name,
-        "category": new_product.category,
-        "description": new_product.description,
-        "selling_points": product.selling_points or [],
-        "brand_voice": new_product.brand_voice,
-        "created_at": new_product.created_at,
-        "updated_at": new_product.updated_at,
-        "product_images": [],
-        "scene_images": []
-    }
+    product = (
+        db.query(Product)
+        .options(joinedload(Product.images), joinedload(Product.brand))
+        .filter(Product.product_id == new_product.product_id)
+        .first()
+    )
+    return _product_to_dict(product, [])
 
 @router.get("/{product_id}")
 def get_product(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(Product).options(joinedload(Product.images)).filter(Product.product_id == product_id).first()
+    product = (
+        db.query(Product)
+        .options(joinedload(Product.images), joinedload(Product.brand))
+        .filter(Product.product_id == product_id)
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
-    product_images = []
-    scene_images = []
-    
-    for img in product.images:
-        img_dict = {
-            "image_id": img.image_id,
-            "cdn_url": img.cdn_url,
-            "phash": img.phash,
-            "width": img.width,
-            "height": img.height,
-            "image_type": img.image_type,
-            "uploaded_at": img.uploaded_at
-        }
-        if img.image_type == "product":
-            product_images.append(img_dict)
-        else:
-            scene_images.append(img_dict)
-    
+
     dimensions = db.query(ProductDimension).filter(
         ProductDimension.product_id == product_id
     ).order_by(ProductDimension.dimension_type).all()
-    
-    product_dimensions = []
-    for dim in dimensions:
-        dim_dict = {
+
+    product_dimensions = [
+        {
             "id": dim.id,
             "dimension_id": dim.dimension_id,
             "dimension_type": dim.dimension_type,
@@ -177,31 +192,26 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
             "time": dim.time,
             "lighting": dim.lighting,
             "is_custom": dim.is_custom,
-            "created_at": dim.created_at
+            "created_at": dim.created_at,
         }
-        product_dimensions.append(dim_dict)
-    
-    return {
-        "product_id": product.product_id,
-        "product_name": product.product_name,
-        "category": product.category,
-        "description": product.description,
-        "selling_points": product.selling_points.split(",") if product.selling_points else [],
-        "brand_voice": product.brand_voice,
-        "created_at": product.created_at,
-        "updated_at": product.updated_at,
-        "product_images": product_images,
-        "scene_images": scene_images,
-        "dimensions": product_dimensions
-    }
+        for dim in dimensions
+    ]
+    return _product_to_dict(product, product_dimensions)
 @router.put("/{product_id}")
 def update_product(product_id: str, product_update: ProductUpdate, db: Session = Depends(get_db)):
-    product = db.query(Product).options(joinedload(Product.images)).filter(Product.product_id == product_id).first()
+    product = (
+        db.query(Product)
+        .options(joinedload(Product.images), joinedload(Product.brand))
+        .filter(Product.product_id == product_id)
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     if product_update.product_name is not None:
         product.product_name = product_update.product_name
+    if product_update.brand_id is not None:
+        product.brand_id = _resolve_brand_id(db, product_update.brand_id)
     if product_update.category is not None:
         product.category = product_update.category
     if product_update.description is not None:
@@ -210,40 +220,12 @@ def update_product(product_id: str, product_update: ProductUpdate, db: Session =
         product.selling_points = ",".join(product_update.selling_points) if product_update.selling_points else None
     if product_update.brand_voice is not None:
         product.brand_voice = product_update.brand_voice
-    
+    if product_update.use_brand_voice is not None:
+        product.use_brand_voice = product_update.use_brand_voice
+
     db.commit()
     db.refresh(product)
-    
-    product_images = []
-    scene_images = []
-    
-    for img in product.images:
-        img_dict = {
-            "image_id": img.image_id,
-            "cdn_url": img.cdn_url,
-            "phash": img.phash,
-            "width": img.width,
-            "height": img.height,
-            "image_type": img.image_type,
-            "uploaded_at": img.uploaded_at
-        }
-        if img.image_type == "product":
-            product_images.append(img_dict)
-        else:
-            scene_images.append(img_dict)
-    
-    return {
-        "product_id": product.product_id,
-        "product_name": product.product_name,
-        "category": product.category,
-        "description": product.description,
-        "selling_points": product.selling_points.split(",") if product.selling_points else [],
-        "brand_voice": product.brand_voice,
-        "created_at": product.created_at,
-        "updated_at": product.updated_at,
-        "product_images": product_images,
-        "scene_images": scene_images
-    }
+    return _product_to_dict(product)
 @router.delete("/{product_id}", status_code=204)
 def delete_product(product_id: str, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.product_id == product_id).first()
@@ -335,6 +317,7 @@ async def upload_product_images(
                     "cdn_url": cdn_url,
                     "phash": phash,
                     "selling_points": product.selling_points,
+                    "brand_id": product.brand_id,
                     "image_type": image_type,
                     "created_at": str(new_image.uploaded_at)
                 }

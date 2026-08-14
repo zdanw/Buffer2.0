@@ -67,20 +67,22 @@ WRITING_STYLES = [
 
 
 class PromptEngine:
-    def __init__(self):
-        self.system_prompt = """
-你是Bebcare高端婴儿品牌的专业营销专家。
-你擅长创建高质量的英文社交媒体文案和图像提示词。
+    DEFAULT_SYSTEM_PROMPT = """
+You are a professional social media marketing expert.
+You create high-quality English social posts and image prompts.
 
-遵循以下原则：
-1. 保持专业而温暖的语调，适合婴儿产品
-2. 突出产品核心卖点
-3. 使用适当的表情符号增强情感表达
-4. 确保内容符合目标平台特点
-5. 图像提示词必须包含详细的场景、光线和构图描述
-6. 社交媒体帖子输出仅限英文
-7. 帖子长度必须为120-200字（包含所有文本和话题标签）
+Follow these principles:
+1. Match the brand voice when provided; otherwise stay neutral and factual
+2. Highlight core product benefits
+3. Use emojis appropriately for the platform
+4. Match the target platform tone and length
+5. Image prompts must describe scene, lighting, and composition clearly
+6. Social posts must be in English
+7. Post length 120-200 characters including hashtags when applicable
 """
+
+    def __init__(self):
+        self.system_prompt = self.DEFAULT_SYSTEM_PROMPT.strip()
 
     _EMPTY_DIMENSIONS = {
         "scenes": [],
@@ -296,31 +298,57 @@ class PromptEngine:
     
     def build_copywriting_prompt(self, product_info: Dict, platform: str, db=None) -> str:
         platform_style = PLATFORM_STYLES.get(platform, PLATFORM_STYLES["instagram"])
-        
+
+        perspectives = product_info.get("narrative_perspectives") or NARRATIVE_PERSPECTIVES
+        styles = product_info.get("writing_styles") or WRITING_STYLES
+
         selling_points = product_info.get('selling_points', [])
         if selling_points is None:
             selling_points = []
         if isinstance(selling_points, str):
             selling_points = selling_points.split(",")
-        
+
         selling_points = [sp.strip() for sp in selling_points if sp.strip()]
-        
+
+        fallback_points = product_info.get("copy_fallback_selling_points") or []
+        if not selling_points and fallback_points and not product_info.get("is_generic_brand"):
+            selling_points = list(fallback_points)
+
         if not selling_points:
-            selling_points = ["高品质产品", "全球父母信赖"]
-        
-        num_points = random.randint(1, min(2, len(selling_points)))
-        selected_points = random.sample(selling_points, num_points)
-        selling_points_str = "\n".join([f"- {sp}" for sp in selected_points])
-        
-        narrative_perspective = random.choice(NARRATIVE_PERSPECTIVES)
-        writing_style = random.choice(WRITING_STYLES)
-        
+            selling_points = []
+
+        if selling_points:
+            num_points = random.randint(1, min(2, len(selling_points)))
+            selected_points = random.sample(selling_points, num_points)
+            selling_points_str = "\n".join([f"- {sp}" for sp in selected_points])
+        else:
+            selling_points_str = "- Highlight the product's core benefits"
+
+        narrative_perspective = random.choice(perspectives)
+        writing_style = random.choice(styles)
+
+        brand_voice = (product_info.get('brand_voice') or '').strip()
+        if not brand_voice and not product_info.get("is_generic_brand"):
+            brand_voice = "专业且温暖"
+        if not brand_voice:
+            brand_voice = "neutral and professional"
+
+        emoji_hints = product_info.get("copy_emoji_hints") or "✨"
+        copy_example = product_info.get("copy_example")
+        example_block = ""
+        if copy_example:
+            example_block = f"""
+示例格式：
+{copy_example}
+"""
+
         prompt = f"""
 为 {platform.upper()} 创建英文社交媒体帖子，需严格遵守以下要求：
 
 产品信息：
 - 名称：{product_info.get('product_name', '')}
 - 描述：{product_info.get('description', '')}
+- 品牌：{product_info.get('brand_name', '')}
 
 核心卖点（选择1-2个突出）：
 {selling_points_str}
@@ -328,22 +356,16 @@ class PromptEngine:
 风格指导：
 - 叙事视角：{narrative_perspective['name']} - {narrative_perspective['description']}
 - 写作风格：{writing_style['name']} - {writing_style['description']}
-- 品牌调性：{product_info.get('brand_voice', '专业且温暖')}
+- 品牌调性：{brand_voice}
 
 强制规则（必须全部遵守！）：
 1. 长度：必须为120-200字（包含所有文本和话题标签）
-2. 表情符号：使用4-6个相关表情符号（🌙🍼✨🤍💤等）
+2. 表情符号：使用4-6个相关表情符号（{emoji_hints}等）
 3. 格式：简短段落（每段1-2句话），段落间换行
 4. 禁止：加粗(**文字**)、斜体(*文字*)、标题、列表、项目符号
 5. 结尾包含2-5个话题标签
 6. 匹配选定的叙事视角和写作风格
-
-示例格式：
-Nighttime just got sweeter with our baby monitor! 🌙
-No WiFi, no radiation—just pure peace of mind. ✨
-Clip it anywhere, calm anytime. 🍼
-#BabyEssentials #SafeSleep
-
+{example_block}
 仅输出帖子内容，无需其他文字。
 """
         return prompt.strip()
@@ -352,7 +374,12 @@ Clip it anywhere, calm anytime. 🍼
         product_name = product_info.get('product_name', '产品')
         product_description = product_info.get('description', '')
         category = product_info.get('category', '')
-        product_type = (product_info.get('product_type') or category or 'Night Lights').strip()
+        product_type = (
+            product_info.get('product_type')
+            or product_info.get('category')
+            or product_info.get('default_product_type')
+            or 'General'
+        ).strip()
         
         selling_points = product_info.get('selling_points', [])
         if selling_points is None:
@@ -361,12 +388,21 @@ Clip it anywhere, calm anytime. 🍼
             selling_points = selling_points.split(",")
         
         selling_points = [sp.strip() for sp in selling_points if sp.strip()]
-        selling_points_str = ", ".join(selling_points) if selling_points else "高品质婴儿产品"
+        image_fallback = product_info.get("image_fallback_selling_points")
+        if not selling_points and image_fallback and not product_info.get("is_generic_brand"):
+            selling_points_str = image_fallback
+        elif selling_points:
+            selling_points_str = ", ".join(selling_points)
+        else:
+            selling_points_str = "high-quality product"
         
         selected_dimensions = self._select_dimensions(product_type, db)
         
         nunito_constraint = ""
-        if 'Nunito' in product_description or 'nunito' in product_description:
+        logo_rule = (product_info.get("logo_font_rule") or "").strip()
+        if logo_rule:
+            nunito_constraint = f"5. {logo_rule}"
+        elif 'Nunito' in product_description or 'nunito' in product_description:
             nunito_constraint = (
                 "5. 产品上印有 bebcare 字符时，必须以 Nunito 字体呈现，且不得额外生成其它文字"
             )
@@ -422,7 +458,12 @@ Clip it anywhere, calm anytime. 🍼
     def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> Dict:
         product_name = product_info.get('product_name', '产品')
         category = product_info.get('category', '')
-        product_type = (product_info.get('product_type') or category or 'Night Lights').strip()
+        product_type = (
+            product_info.get('product_type')
+            or product_info.get('category')
+            or product_info.get('default_product_type')
+            or 'General'
+        ).strip()
 
         selected_dimensions = self._select_dimensions(product_type, db)
         dimensions_info = {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter, ChevronDown } from 'lucide-react';
 import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
-import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
+import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, importVisualStylePack, resetVisualStyles, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import {
   LIMITS,
@@ -9,6 +9,7 @@ import {
   createValidators,
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
 import { useI18n } from '@/i18n/useI18n';
 import { useDimensionTypeLabel } from '@/i18n/useDimensionTypeLabel';
 import type { TranslateFn } from '@/lib/formValidation';
@@ -165,7 +166,7 @@ function compatTableLabel(entry: DimensionCompatEntry, t: TranslateFn): string {
   return compatLabel(entry, t);
 }
 
-export default function DimensionManagement() {
+export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t } = useI18n();
   const dimensionTypeLabel = useDimensionTypeLabel();
   const v = useMemo(() => createValidators(t), [t]);
@@ -187,6 +188,7 @@ export default function DimensionManagement() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
+  const [importAction, setImportAction] = useState('');
   const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
   const [selectedDimension, setSelectedDimension] = useState<PromptDimension | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -202,12 +204,11 @@ export default function DimensionManagement() {
     return result;
   };
 
-  const [formData, setFormData] = useState<PromptDimensionCreate>({
-    product_type: 'Night Lights',
+  const [formData, setFormData] = useState({
+    product_type: 'General',
     dimension_type: 'scenes',
-    item_id: '',
     name: '',
-    compatibilities: createEmptyCompatibilities('scenes'),
+    compatibilities: createEmptyCompatibilities('scenes') as DimensionCompatibilities,
   });
 
   const [allDimensions, setAllDimensions] = useState<CompatOptions>({});
@@ -375,9 +376,8 @@ export default function DimensionManagement() {
 
   const resetForm = () => {
     setFormData({
-      product_type: 'Night Lights',
+      product_type: 'General',
       dimension_type: 'scenes',
-      item_id: '',
       name: '',
       compatibilities: createEmptyCompatibilities('scenes'),
     });
@@ -392,7 +392,6 @@ export default function DimensionManagement() {
         v.required(t('dimensionsPage.productType'), formData.product_type),
         v.maxLen(t('dimensionsPage.productType'), formData.product_type, LIMITS.productType),
         v.required(t('dimensionsPage.dimensionType'), formData.dimension_type),
-        isEdit ? null : v.itemIdFormat(formData.item_id),
         v.required(t('dimensionsPage.name'), formData.name),
         v.maxLen(t('dimensionsPage.name'), formData.name, LIMITS.dimensionName),
       ])
@@ -413,7 +412,12 @@ export default function DimensionManagement() {
         upsertCompatCacheItem(updated);
         setDimensions((prev) => syncEditedCompatInList(prev, updated));
       } else {
-        const created = await createPromptDimension(submitData);
+        const created = await createPromptDimension({
+          product_type: submitData.product_type,
+          dimension_type: submitData.dimension_type,
+          name: submitData.name,
+          compatibilities: submitData.compatibilities,
+        });
         upsertCompatCacheItem(created);
         if (matchesCurrentFilters(created) && currentPage === 1) {
           setDimensions((prev) => [created, ...prev].slice(0, pageSize));
@@ -423,9 +427,16 @@ export default function DimensionManagement() {
       }
       setShowModal(false);
       resetForm();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to save dimension:', error);
-      alert(t('dimensionsPage.saveFailed'));
+      const err = error as { response?: { data?: { detail?: unknown } } };
+      const detail = err.response?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join('; ')
+        : typeof detail === 'string'
+          ? detail
+          : t('dimensionsPage.saveFailed');
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -472,21 +483,51 @@ export default function DimensionManagement() {
     }
   };
 
-  const handleInitialize = async () => {
-    if (confirm(t('dimensionsPage.confirmInit'))) {
-      setInitializing(true);
-      try {
-        await initializeDimensions();
-        invalidateCompatCache();
-        invalidateCache('productTypes');
-        invalidateCache('dimensionTypes');
-        await Promise.all([loadProductTypes(), loadDimensions(1)]);
-        alert(t('dimensionsPage.initSuccess'));
-      } catch (error) {
-        console.error('Failed to initialize dimensions:', error);
-      } finally {
-        setInitializing(false);
-      }
+  const reloadAfterPresetChange = async () => {
+    invalidateCompatCache();
+    invalidateCache('productTypes');
+    invalidateCache('dimensionTypes');
+    await Promise.all([loadProductTypes(), loadDimensions(1)]);
+  };
+
+  const handleImportPreset = async () => {
+    if (!importAction || importAction === 'reset') return;
+    setInitializing(true);
+    try {
+      const result = await importVisualStylePack(importAction);
+      await reloadAfterPresetChange();
+      alert(result.message || t('dimensionsPage.importSuccess'));
+      setImportAction('');
+    } catch (error) {
+      console.error('Failed to import visual style pack:', error);
+      alert(t('dimensionsPage.importFailed'));
+    } finally {
+      setInitializing(false);
+    }
+  };
+
+  const handleResetPresets = async () => {
+    const typed = window.prompt(t('dimensionsPage.confirmReset'));
+    if (typed !== 'RESET') return;
+    setInitializing(true);
+    try {
+      const result = await resetVisualStyles('general');
+      await reloadAfterPresetChange();
+      alert(result.message || t('dimensionsPage.resetSuccess'));
+      setImportAction('');
+    } catch (error) {
+      console.error('Failed to reset visual styles:', error);
+      alert(t('dimensionsPage.resetFailed'));
+    } finally {
+      setInitializing(false);
+    }
+  };
+
+  const handleAdminPresetAction = () => {
+    if (importAction === 'reset') {
+      void handleResetPresets();
+    } else if (importAction) {
+      void handleImportPreset();
     }
   };
 
@@ -494,7 +535,7 @@ export default function DimensionManagement() {
     setExpandedDimensions({});
     setModalOptionsLoading(false);
 
-    const pt = dimension?.product_type || selectedProductType || 'Night Lights';
+    const pt = dimension?.product_type || selectedProductType || 'General';
     const cached = getCachedOptions(pt);
     setAllDimensions(cached || {});
 
@@ -504,7 +545,6 @@ export default function DimensionManagement() {
       setFormData({
         product_type: dimension.product_type,
         dimension_type: dimension.dimension_type,
-        item_id: dimension.item_id,
         name: dimension.name,
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
@@ -519,7 +559,6 @@ export default function DimensionManagement() {
       setFormData({
         product_type: pt,
         dimension_type: dt,
-        item_id: '',
         name: '',
         compatibilities: createEmptyCompatibilities(dt),
       });
@@ -531,9 +570,16 @@ export default function DimensionManagement() {
   };
 
   const getDimensionTypeDisplayName = (typeName: string) => {
-    const found = dimensionTypes.find(dt => dt.name === typeName);
-    if (found?.display_name) return found.display_name;
-    return dimensionTypeLabel(typeName);
+    const localized = dimensionTypeLabel(typeName);
+    if (localized !== typeName) return localized;
+    const found = dimensionTypes.find((dt) => dt.name === typeName);
+    return found?.display_name || typeName;
+  };
+
+  const getDimensionTypeDescription = (typeName: string) => {
+    const key = `dimensionTypeDescriptions.${typeName}`;
+    const desc = t(key);
+    return desc !== key ? desc : '';
   };
 
   const getProductTypeLabel = (value: string) => {
@@ -541,12 +587,16 @@ export default function DimensionManagement() {
     return found?.label || value;
   };
 
+  const compatColCount = ALL_DIMENSION_TYPES.filter((dimType) => dimType.key !== appliedDimensionType).length;
+  const tableColSpan = 5 + compatColCount;
+
   return (
     <div className="min-w-0 p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('dimensionsPage.title')}</h2>
           <p className="text-gray-500 mt-1 text-sm sm:text-base">{t('dimensionsPage.subtitle')}</p>
+          <p className="text-gray-400 mt-1 text-xs sm:text-sm">{t('dimensionsPage.emptyStateHint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
@@ -558,18 +608,37 @@ export default function DimensionManagement() {
             <RefreshCw className={`w-4 h-4 ${refreshing || listBusy ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </button>
-          <button
-            onClick={handleInitialize}
-            disabled={initializing}
-            className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            {initializing ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Database className="w-4 h-4" />
-            )}
-            {initializing ? t('dimensionsPage.initializing') : t('dimensionsPage.initData')}
-          </button>
+          {isAdmin && (
+            <div className="flex items-center gap-1">
+              <div className="relative">
+                <select
+                  value={importAction}
+                  onChange={(e) => setImportAction(e.target.value)}
+                  disabled={initializing}
+                  className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  <option value="">{t('dimensionsPage.importPresets')}</option>
+                  <option value="general">{t('dimensionsPage.importGeneral')}</option>
+                  <option value="baby_family">{t('dimensionsPage.importBaby')}</option>
+                  <option value="reset">{t('dimensionsPage.resetFactory')}</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              <button
+                type="button"
+                onClick={handleAdminPresetAction}
+                disabled={initializing || !importAction}
+                className="flex items-center gap-2 bg-amber-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {initializing ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Database className="w-4 h-4" />
+                )}
+                {initializing ? t('dimensionsPage.applying') : t('dimensionsPage.applyPreset')}
+              </button>
+            </div>
+          )}
           <button
             onClick={() => openModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
@@ -588,7 +657,10 @@ export default function DimensionManagement() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
             <div className="min-w-0">
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.productType')}</label>
+              <LabelWithTooltip
+                label={t('dimensionsPage.productType')}
+                tooltip={t('dimensionsPage.tooltips.productType')}
+              />
               <select
                 value={selectedProductType}
                 onChange={(e) => setSelectedProductType(e.target.value)}
@@ -601,7 +673,10 @@ export default function DimensionManagement() {
               </select>
             </div>
             <div className="min-w-0">
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.dimensionType')}</label>
+              <LabelWithTooltip
+                label={t('dimensionsPage.dimensionType')}
+                tooltip={t('dimensionsPage.tooltips.dimensionType')}
+              />
               <select
                 value={selectedDimensionType}
                 onChange={(e) => setSelectedDimensionType(e.target.value)}
@@ -609,7 +684,7 @@ export default function DimensionManagement() {
               >
                 <option value="">{t('fields.all')}</option>
                 {dimensionTypes.map((type) => (
-                  <option key={type.name} value={type.name}>{type.display_name}</option>
+                  <option key={type.name} value={type.name}>{getDimensionTypeDisplayName(type.name)}</option>
                 ))}
               </select>
             </div>
@@ -632,7 +707,6 @@ export default function DimensionManagement() {
               <tr>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.productType')}</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.dimensionType')}</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.itemId')}</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[10rem]">{t('dimensionsPage.name')}</th>
                 <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('fields.status')}</th>
                 {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => (
@@ -646,15 +720,16 @@ export default function DimensionManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center">
+                  <td colSpan={tableColSpan} className="px-6 py-12 text-center">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                     <span className="text-gray-500 text-sm">{t('common.loading')}</span>
                   </td>
                 </tr>
               ) : dimensions.length === 0 ? (
                 <tr>
-                  <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center text-gray-400 text-sm">
-                    {t('fields.noData')}
+                  <td colSpan={tableColSpan} className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <p>{t('fields.noData')}</p>
+                    <p className="mt-2 text-xs text-gray-400">{t('dimensionsPage.emptyStateHint')}</p>
                   </td>
                 </tr>
               ) : (
@@ -672,11 +747,13 @@ export default function DimensionManagement() {
                         {getDimensionTypeDisplayName(dimension.dimension_type)}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
-                      {dimension.item_id}
-                    </td>
                     <td className="px-3 sm:px-6 py-4 min-w-[10rem] max-w-xs">
-                      <div className="text-sm text-gray-900 break-words">{dimension.name}</div>
+                      <div
+                        className="text-sm text-gray-900 break-words cursor-default"
+                        title={t('dimensionsPage.idTooltip', { id: dimension.item_id })}
+                      >
+                        {dimension.name}
+                      </div>
                     </td>
                     <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <button
@@ -686,6 +763,7 @@ export default function DimensionManagement() {
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                           dimension.enabled === false ? 'bg-gray-300' : 'bg-indigo-600'
                         }`}
+                        aria-label={dimension.enabled === false ? t('dimensionsPage.disabledTitle') : t('dimensionsPage.enabledTitle')}
                         title={dimension.enabled === false ? t('dimensionsPage.disabledTitle') : t('dimensionsPage.enabledTitle')}
                       >
                         {togglingId === dimension.dimension_id ? (
@@ -700,9 +778,6 @@ export default function DimensionManagement() {
                           />
                         )}
                       </button>
-                      <span className={`ml-2 text-xs ${dimension.enabled === false ? 'text-red-500' : 'text-gray-500'}`}>
-                        {dimension.enabled === false ? t('dimensionsPage.disabled') : t('dimensionsPage.enabled')}
-                      </span>
                     </td>
                     {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => {
                       const entry = getCompatEntry(dimension.compatibilities, dimType.key);
@@ -772,7 +847,12 @@ export default function DimensionManagement() {
               <h3 className="text-xl font-semibold text-gray-900">
                 {isEdit ? t('dimensionsPage.editDimension') : t('dimensionsPage.addDimension')}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label={t('common.close')}
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -780,8 +860,13 @@ export default function DimensionManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.productType')}</label>
+                  <LabelWithTooltip
+                    htmlFor="dimension-product-type"
+                    label={t('dimensionsPage.productType')}
+                    tooltip={t('dimensionsPage.tooltips.productType')}
+                  />
                   <select
+                    id="dimension-product-type"
                     value={formData.product_type}
                     onChange={(e) => {
                       const pt = e.target.value;
@@ -802,8 +887,13 @@ export default function DimensionManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.dimensionType')}</label>
+                  <LabelWithTooltip
+                    htmlFor="dimension-type"
+                    label={t('dimensionsPage.dimensionType')}
+                    tooltip={t('dimensionsPage.tooltips.dimensionType')}
+                  />
                   <select
+                    id="dimension-type"
                     value={formData.dimension_type}
                     onChange={(e) => setFormData({ ...formData, dimension_type: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -811,26 +901,23 @@ export default function DimensionManagement() {
                     disabled={isEdit}
                   >
                     {dimensionTypes.map((type) => (
-                      <option key={type.name} value={type.name}>{type.display_name}</option>
+                      <option key={type.name} value={type.name}>{getDimensionTypeDisplayName(type.name)}</option>
                     ))}
                   </select>
+                  {formData.dimension_type && getDimensionTypeDescription(formData.dimension_type) && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {getDimensionTypeDescription(formData.dimension_type)}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.itemIdField')}</label>
-                  <input
-                    type="text"
-                    value={formData.item_id}
-                    onChange={(e) => setFormData({ ...formData, item_id: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
-                    disabled={isEdit}
-                    maxLength={LIMITS.dimensionItemId}
-                    placeholder={t('dimensionsPage.itemIdPlaceholder')}
+                  <LabelWithTooltip
+                    htmlFor="dimension-name"
+                    label={t('dimensionsPage.name')}
+                    tooltip={t('dimensionsPage.tooltips.name')}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.name')}</label>
                   <input
+                    id="dimension-name"
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}

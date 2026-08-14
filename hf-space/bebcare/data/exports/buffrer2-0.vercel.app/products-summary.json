@@ -1,0 +1,50 @@
+[
+  {
+    "product_name": "Bebcare Warm Go Warmer",
+    "category": "Bottle Warmer",
+    "product_images": 4,
+    "scene_images": 2
+  },
+  {
+    "product_name": "Bebcare Flow",
+    "category": "Wearable Breast Pump",
+    "product_images": 4,
+    "scene_images": 6
+  },
+  {
+    "product_name": "Video Baby Monitor",
+    "category": "Video Monitor",
+    "product_images": 19,
+    "scene_images": 9
+  },
+  {
+    "product_name": "Bebcare Air Purifiers",
+    "category": "Air Purifiers",
+    "product_images": 8,
+    "scene_images": 0
+  },
+  {
+    "product_name": "Audio Baby Monitor",
+    "category": "Audio Monitor",
+    "product_images": 22,
+    "scene_images": 0
+  },
+  {
+    "product_name": "Bebcare Lola",
+    "category": "Night Lights",
+    "product_images": 16,
+    "scene_images": 0
+  },
+  {
+    "product_name": "Bebcare Luna ",
+    "category": "Night Lights",
+    "product_images": 11,
+    "scene_images": 0
+  },
+  {
+    "product_name": "Bebcare Linda",
+    "category": "Night Lights",
+    "product_images": 15,
+    "scene_images": 0
+  }
+]

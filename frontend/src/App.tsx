@@ -3,40 +3,61 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import BrandLogo from './components/BrandLogo';
+import BrandSelectorBar from './components/BrandSelectorBar';
+import OnboardingWizard from './components/OnboardingWizard';
+import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
+import { useOnboarding } from './hooks/useOnboarding';
+import { useBrandContext } from './context/BrandContext';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
 
+const BrandManagement = lazy(() => import('./pages/BrandManagement'));
 const AssetManagement = lazy(() => import('./pages/AssetManagement'));
 const DimensionManagement = lazy(() => import('./pages/DimensionManagement'));
 const TaskConfiguration = lazy(() => import('./pages/TaskConfiguration'));
 const PendingRelease = lazy(() => import('./pages/PendingRelease'));
-const ContentPreview = lazy(() => import('./pages/ContentPreview'));
+const Studio = lazy(() => import('./pages/Studio'));
 const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
 const Login = lazy(() => import('./pages/Login'));
 
 const TAB_ROUTES: Record<string, string> = {
-  'assets': '/assets',
-  'dimensions': '/dimensions',
-  'tasks': '/tasks',
-  'pending': '/pending',
-  'preview': '/preview',
-  'calendar': '/calendar',
+  brand: '/brand',
+  products: '/products',
+  'visual-styles': '/visual-styles',
+  studio: '/studio',
+  automations: '/automations',
+  review: '/review',
+  calendar: '/calendar',
   'image-models': '/image-models',
-  'users': '/users',
+  users: '/users',
 };
 
 const ROUTE_TABS: Record<string, string> = {
-  '/assets': 'assets',
-  '/dimensions': 'dimensions',
-  '/tasks': 'tasks',
-  '/pending': 'pending',
-  '/preview': 'preview',
+  '/brand': 'brand',
+  '/products': 'products',
+  '/assets': 'products',
+  '/visual-styles': 'visual-styles',
+  '/dimensions': 'visual-styles',
+  '/studio': 'studio',
+  '/preview': 'studio',
+  '/automations': 'automations',
+  '/tasks': 'automations',
+  '/review': 'review',
+  '/pending': 'review',
   '/calendar': 'calendar',
   '/image-models': 'image-models',
   '/users': 'users',
+};
+
+const LEGACY_REDIRECTS: Record<string, string> = {
+  '/assets': '/products',
+  '/dimensions': '/visual-styles',
+  '/preview': '/studio',
+  '/tasks': '/automations',
+  '/pending': '/review',
 };
 
 function PageFallback() {
@@ -55,7 +76,13 @@ function AppShellFallback() {
   );
 }
 
-function lazyPanel(id: string, activeTab: string, mountedTabs: Set<string>, Page: ComponentType) {
+function lazyPanel<P extends object = object>(
+  id: string,
+  activeTab: string,
+  mountedTabs: Set<string>,
+  Page: ComponentType<P>,
+  pageProps?: P,
+) {
   if (!mountedTabs.has(id)) return null;
   return (
     <div
@@ -64,17 +91,28 @@ function lazyPanel(id: string, activeTab: string, mountedTabs: Set<string>, Page
       aria-hidden={activeTab !== id}
     >
       <Suspense fallback={<PageFallback />}>
-        <Page />
+        <Page {...(pageProps as P)} />
       </Suspense>
     </div>
   );
+}
+
+function LegacyRedirect() {
+  const location = useLocation();
+  const target = LEGACY_REDIRECTS[location.pathname];
+  if (target) {
+    return <Navigate to={{ pathname: target, search: location.search }} replace />;
+  }
+  return <Navigate to="/products" replace />;
 }
 
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const initialTab = ROUTE_TABS[location.pathname] || 'assets';
+  const { brands } = useBrandContext();
+  const { shouldShowOnboarding, skipOnboarding, markComplete } = useOnboarding();
+  const initialTab = ROUTE_TABS[location.pathname] || 'products';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [mountedTabs, setMountedTabs] = useState(() => new Set<string>([initialTab]));
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
@@ -96,7 +134,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const tab = ROUTE_TABS[location.pathname] || 'assets';
+    const tab = ROUTE_TABS[location.pathname] || 'products';
     setActiveTab(tab);
     setMountedTabs((prev) => {
       if (prev.has(tab)) return prev;
@@ -116,7 +154,6 @@ function AppContent() {
     });
     const route = TAB_ROUTES[tab];
     if (route) {
-      // 清空查询串，避免内容预览页保活时把 ?product_id=&platform= 写到其他页
       navigate({ pathname: route, search: '' });
     }
     setSidebarOpen(false);
@@ -125,6 +162,9 @@ function AppContent() {
   if (loading) {
     return <AppShellFallback />;
   }
+
+  const hasBrand = brands.some((b) => !b.is_generic);
+  const hasProduct = brands.some((b) => b.product_count > 0);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -135,7 +175,7 @@ function AppContent() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto flex flex-col">
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 lg:hidden">
           <button
             type="button"
@@ -150,19 +190,43 @@ function AppContent() {
             {t('brand.name')}
           </span>
         </div>
-        {lazyPanel('assets', activeTab, mountedTabs, AssetManagement)}
-        {lazyPanel('dimensions', activeTab, mountedTabs, DimensionManagement)}
-        {lazyPanel('tasks', activeTab, mountedTabs, TaskConfiguration)}
-        {lazyPanel('pending', activeTab, mountedTabs, PendingRelease)}
-        {lazyPanel('preview', activeTab, mountedTabs, ContentPreview)}
-        {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
-        {currentUser?.is_admin
-          ? lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)
-          : null}
-        {currentUser?.is_admin
-          ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
-          : null}
+        <BrandSelectorBar />
+        <div className="flex-1">
+          {lazyPanel('brand', activeTab, mountedTabs, BrandManagement)}
+          {lazyPanel('products', activeTab, mountedTabs, AssetManagement)}
+          {lazyPanel('visual-styles', activeTab, mountedTabs, DimensionManagement, {
+            isAdmin: currentUser?.is_admin || false,
+          })}
+          {lazyPanel('automations', activeTab, mountedTabs, TaskConfiguration)}
+          {lazyPanel('review', activeTab, mountedTabs, PendingRelease)}
+          {lazyPanel('studio', activeTab, mountedTabs, Studio)}
+          {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
+          {currentUser?.is_admin
+            ? lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)
+            : null}
+          {currentUser?.is_admin
+            ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
+            : null}
+        </div>
       </main>
+
+      {shouldShowOnboarding && (
+        <OnboardingWizard
+          onSkip={skipOnboarding}
+          onComplete={markComplete}
+          onGoStudio={() => {
+            void markComplete();
+            handleTabChange('studio');
+          }}
+        />
+      )}
+
+      <OnboardingChecklist
+        hasBrand={hasBrand}
+        hasProduct={hasProduct}
+        hasGenerated={Boolean(currentUser?.onboarding_completed_at)}
+        onNavigate={handleTabChange}
+      />
     </div>
   );
 }
@@ -187,7 +251,10 @@ function App() {
             </Suspense>
           }
         />
-        <Route path="/" element={<Navigate to="/assets" />} />
+        <Route path="/" element={<Navigate to="/products" replace />} />
+        {Object.entries(LEGACY_REDIRECTS).map(([from]) => (
+          <Route key={from} path={from} element={<LegacyRedirect />} />
+        ))}
         <Route
           path="/*"
           element={

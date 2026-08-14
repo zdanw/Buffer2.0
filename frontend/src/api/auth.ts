@@ -32,6 +32,7 @@ export interface UserResponse {
   is_active: boolean;
   is_admin: boolean;
   created_at: string;
+  onboarding_completed_at?: string | null;
 }
 
 export const login = async (data: LoginData): Promise<TokenResponse> => {
@@ -48,10 +49,12 @@ export const login = async (data: LoginData): Promise<TokenResponse> => {
 };
 
 export const getCurrentUser = async (): Promise<UserResponse> => {
-  console.log('getCurrentUser called');
   const response = await axiosInstance.get('/auth/me');
-  console.log('getCurrentUser response:', response.status, response.data);
   return response.data;
+};
+
+export const completeOnboarding = async (): Promise<void> => {
+  await axiosInstance.post('/auth/me/onboarding-complete');
 };
 
 export const listUsers = async (): Promise<UserResponse[]> => {

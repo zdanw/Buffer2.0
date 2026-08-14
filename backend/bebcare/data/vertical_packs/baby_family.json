@@ -1,0 +1,7 @@
+{
+  "id": "baby_family",
+  "name": "Baby & family",
+  "description": "Legacy Bebcare baby vertical visual presets",
+  "snapshot_file": "exports/buffrer2-0.vercel.app/dimensions-baby-pack-snapshot.json",
+  "product_types": ["Night Lights", "Audio Monitor", "Air Purifiers", "Video Monitor"]
+}

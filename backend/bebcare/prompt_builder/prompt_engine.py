@@ -67,20 +67,22 @@ WRITING_STYLES = [
 
 
 class PromptEngine:
-    def __init__(self):
-        self.system_prompt = """
-你是Bebcare高端婴儿品牌的专业营销专家。
-你擅长创建高质量的英文社交媒体文案和图像提示词。
+    DEFAULT_SYSTEM_PROMPT = """
+You are a professional social media marketing expert.
+You create high-quality English social posts and image prompts.
 
-遵循以下原则：
-1. 保持专业而温暖的语调，适合婴儿产品
-2. 突出产品核心卖点
-3. 使用适当的表情符号增强情感表达
-4. 确保内容符合目标平台特点
-5. 图像提示词必须包含详细的场景、光线和构图描述
-6. 社交媒体帖子输出仅限英文
-7. 帖子长度必须为120-200字（包含所有文本和话题标签）
+Follow these principles:
+1. Match the brand voice when provided; otherwise stay neutral and factual
+2. Highlight core product benefits
+3. Use emojis appropriately for the platform
+4. Match the target platform tone and length
+5. Image prompts must describe scene, lighting, and composition clearly
+6. Social posts must be in English
+7. Post length 120-200 characters including hashtags when applicable
 """
+
+    def __init__(self):
+        self.system_prompt = self.DEFAULT_SYSTEM_PROMPT.strip()
 
     _EMPTY_DIMENSIONS = {
         "scenes": [],

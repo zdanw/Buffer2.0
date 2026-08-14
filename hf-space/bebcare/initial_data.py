@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from bebcare.database import SessionLocal
 from bebcare.models.user import User
 from bebcare.services.auth_service import get_password_hash
+from bebcare.services.brand_seed_service import initialize_brands
+from bebcare.services.visual_style_seed_service import seed_visual_styles_if_needed
 from bebcare.config.settings import settings
 import logging
 
@@ -45,6 +47,8 @@ def initialize_data() -> None:
     db: Session = SessionLocal()
     try:
         init_admin_user(db)
+        initialize_brands(db)
+        seed_visual_styles_if_needed(db)
         logger.info("数据初始化完成")
     except Exception as e:
         logger.error(f"数据初始化失败: {str(e)}", exc_info=True)

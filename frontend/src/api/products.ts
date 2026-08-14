@@ -1,6 +1,12 @@
 import axiosInstance from './axiosInstance';
 import type { ProductDimension } from './dimensions';
 
+export interface BrandNested {
+  brand_id: string;
+  name: string;
+  slug: string;
+}
+
 export interface Product {
   product_id: string;
   product_name: string;
@@ -8,6 +14,9 @@ export interface Product {
   description: string;
   selling_points: string[];
   brand_voice: string;
+  brand_id?: string;
+  use_brand_voice?: boolean;
+  brand?: BrandNested | null;
   created_at: string;
   updated_at: string;
   product_images: ProductImage[];
@@ -31,6 +40,8 @@ export interface ProductCreate {
   description?: string;
   selling_points?: string[];
   brand_voice?: string;
+  brand_id?: string;
+  use_brand_voice?: boolean;
 }
 
 export interface Pagination {
@@ -45,9 +56,17 @@ export interface PaginatedResponse<T> {
   pagination: Pagination;
 }
 
-export const getProducts = async (page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Product>> => {
+export const getProducts = async (
+  page: number = 1,
+  pageSize: number = 10,
+  brandId?: string
+): Promise<PaginatedResponse<Product>> => {
   const response = await axiosInstance.get('/products/', { 
-    params: { page, page_size: pageSize },
+    params: {
+      page,
+      page_size: pageSize,
+      ...(brandId ? { brand_id: brandId } : {}),
+    },
     responseType: 'json' 
   });
   
