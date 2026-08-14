@@ -5,13 +5,15 @@ import type { LoginData } from '../api/auth';
 import {
   LIMITS,
   alertValidationErrors,
-  maxLen,
-  minLen,
-  required,
 } from '@/lib/formValidation';
+import { useI18n } from '@/i18n/useI18n';
+import { useValidators } from '@/i18n/helpers';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 function Login() {
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const v = useValidators();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,11 +24,11 @@ function Login() {
     setError('');
     if (
       alertValidationErrors([
-        required('用户名', username),
-        maxLen('用户名', username, LIMITS.username.max),
-        required('密码', password),
-        minLen('密码', password, LIMITS.password.min),
-        maxLen('密码', password, LIMITS.password.max),
+        v.required(t('login.username'), username),
+        v.maxLen(t('login.username'), username, LIMITS.username.max),
+        v.required(t('login.password'), password),
+        v.minLen(t('login.password'), password, LIMITS.password.min),
+        v.maxLen(t('login.password'), password, LIMITS.password.max),
       ])
     ) {
       return;
@@ -44,14 +46,14 @@ function Login() {
         }
         navigate('/assets', { replace: true });
       } else {
-        setError('登录失败：响应数据格式错误');
+        setError(t('login.responseError'));
       }
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail;
       if (errorDetail && Array.isArray(errorDetail)) {
-        setError(errorDetail.map((e: any) => e.msg).join(', ') || '登录失败');
+        setError(errorDetail.map((e: any) => e.msg).join(', ') || t('login.failed'));
       } else {
-        setError(errorDetail || '用户名或密码错误');
+        setError(errorDetail || t('login.failed'));
       }
     } finally {
       setLoading(false);
@@ -59,14 +61,14 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Bebcare AI Studio
+            {t('login.title')}
           </h1>
           <p className="text-gray-500">
-            全自动社媒内容生成系统
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -79,7 +81,7 @@ function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              用户名
+              {t('login.username')}
             </label>
             <input
               type="text"
@@ -88,13 +90,13 @@ function Login() {
               required
               maxLength={LIMITS.username.max}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="请输入用户名"
+              placeholder={t('login.usernamePlaceholder')}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              密码
+              {t('login.password')}
             </label>
             <input
               type="password"
@@ -104,7 +106,7 @@ function Login() {
               minLength={LIMITS.password.min}
               maxLength={LIMITS.password.max}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="请输入密码"
+              placeholder={t('login.passwordPlaceholder')}
             />
           </div>
 
@@ -119,13 +121,17 @@ function Login() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                登录中...
+                {t('login.submitting')}
               </span>
             ) : (
-              '登 录'
+              t('login.submit')
             )}
           </button>
         </form>
+
+        <div className="mt-6">
+          <LanguageSwitcher compact variant="light" />
+        </div>
       </div>
     </div>
   );

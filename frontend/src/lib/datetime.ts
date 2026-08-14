@@ -1,4 +1,7 @@
-/** 后端 DateTime 多为 UTC 无时区；按 UTC 解析后再转本地显示 */
+/** Backend DateTime is usually UTC without timezone; parse as UTC then display locally */
+
+import type { Locale } from '@/i18n/types';
+import { localeToIntl } from '@/i18n/localeUtils';
 
 export function parseServerDate(value: string | Date | null | undefined): Date | null {
   if (value == null) return null;
@@ -8,13 +11,11 @@ export function parseServerDate(value: string | Date | null | undefined): Date |
   const raw = String(value).trim();
   if (!raw) return null;
 
-  // 已带时区（Z 或 ±HH:MM）
   if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw)) {
     const d = new Date(raw);
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  // 无时区：按 UTC 处理（与 datetime.utcnow 一致）
   const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
   const d = new Date(`${normalized}Z`);
   return Number.isNaN(d.getTime()) ? null : d;
@@ -22,24 +23,30 @@ export function parseServerDate(value: string | Date | null | undefined): Date |
 
 export function formatServerDateTime(
   value: string | Date | null | undefined,
-  options?: Intl.DateTimeFormatOptions
+  locale: Locale,
+  unknownLabel: string,
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   const d = parseServerDate(value);
-  if (!d) return '未知时间';
+  if (!d) return unknownLabel;
   return d.toLocaleString(
-    'zh-CN',
+    localeToIntl(locale),
     options ?? {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    }
+    },
   );
 }
 
-export function formatServerDate(value: string | Date | null | undefined): string {
+export function formatServerDate(
+  value: string | Date | null | undefined,
+  locale: Locale,
+  unknownLabel: string,
+): string {
   const d = parseServerDate(value);
-  if (!d) return '未知时间';
-  return d.toLocaleDateString('zh-CN');
+  if (!d) return unknownLabel;
+  return d.toLocaleDateString(localeToIntl(locale));
 }

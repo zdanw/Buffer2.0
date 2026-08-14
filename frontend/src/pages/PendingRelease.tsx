@@ -8,8 +8,19 @@ import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
+import { useI18n } from '@/i18n/useI18n';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+const DIMENSION_FIELD_KEYS: Record<string, string> = {
+  scene: 'scenes',
+  lighting: 'lighting',
+  style: 'styles',
+  composition: 'compositions',
+  details: 'details',
+  quality: 'quality',
+  viewpoint: 'viewpoints',
+};
+const DIMENSION_FIELDS = ['scene', 'lighting', 'style', 'composition', 'details', 'quality', 'viewpoint'] as const;
 const CDN_MARKER = 'cdn.jsdelivr.net';
 
 function isCdnUrl(url: string) {
@@ -17,6 +28,7 @@ function isCdnUrl(url: string) {
 }
 
 export default function PendingRelease() {
+  const { t, locale } = useI18n();
   const [drafts, setDrafts] = useState<ManualTaskDraft[]>([]);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
@@ -93,9 +105,9 @@ export default function PendingRelease() {
   };
 
   const getTaskName = (taskId?: string | null) => {
-    if (!taskId) return '内容预览';
-    const task = tasks.find(t => t.task_id === taskId);
-    return task?.name || '未知任务';
+    if (!taskId) return t('pending.contentPreview');
+    const task = tasks.find(tk => tk.task_id === taskId);
+    return task?.name || t('pending.unknownTask');
   };
 
   const removeDraftLocally = (draftId: string) => {
@@ -124,12 +136,12 @@ export default function PendingRelease() {
 
   const handlePublish = async () => {
     if (!selectedDraftId) {
-      alert('请先选择一个草稿');
+      alert(t('pending.selectDraftFirst'));
       return;
     }
 
     if (selectedPlatforms.length === 0) {
-      alert('请至少选择一个发布平台');
+      alert(t('pending.selectPlatform'));
       return;
     }
 
@@ -141,7 +153,7 @@ export default function PendingRelease() {
         selected_copy_index: selectedCopyIndex,
         platforms: selectedPlatforms
       });
-      alert('发布成功！');
+      alert(t('pending.publishSuccess'));
       const remaining = drafts.length - 1;
       removeDraftLocally(draftId);
       if (remaining <= 0 && currentPage > 1) {
@@ -149,14 +161,14 @@ export default function PendingRelease() {
       }
     } catch (error) {
       console.error('Failed to publish:', error);
-      alert('发布失败，请重试');
+      alert(t('pending.publishFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDiscard = async (draftId: string) => {
-    if (confirm('确定要丢弃这个草稿吗？此操作不可撤销。')) {
+    if (confirm(t('pending.confirmDiscard'))) {
       setDiscardingId(draftId);
       try {
         await discardDraft(draftId);
@@ -167,7 +179,7 @@ export default function PendingRelease() {
         }
       } catch (error) {
         console.error('Failed to discard:', error);
-        alert('操作失败，请重试');
+        alert(t('pending.actionFailed'));
       } finally {
         setDiscardingId(null);
       }
@@ -191,19 +203,19 @@ export default function PendingRelease() {
         )
       );
       if (result.success) {
-        alert('重新上传成功');
+        alert(t('pending.reuploadSuccess'));
       } else {
-        alert('部分图片重新上传失败，请稍后重试');
+        alert(t('pending.reuploadPartialFail'));
       }
     } catch (error) {
       console.error('Failed to reupload CDN:', error);
-      alert('重新上传失败，请重试');
+      alert(t('pending.reuploadFailed'));
     } finally {
       setReuploading(false);
     }
   };
 
-  const formatDate = (dateStr: string) => formatServerDateTime(dateStr);
+  const formatDate = (dateStr: string) => formatServerDateTime(dateStr, locale, t('datetime.unknown'));
 
   const selectedDraft = drafts.find(d => d.draft_id === selectedDraftId);
 
@@ -211,13 +223,13 @@ export default function PendingRelease() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">待发布</h2>
-          <p className="text-gray-500 mt-1">审核并发布手动任务生成的内容</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('pending.title')}</h2>
+          <p className="text-gray-500 mt-1">{t('pending.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Calendar className="w-4 h-4" />
-            <span>共 {total} 个待审核草稿</span>
+            <span>{t('pending.totalDrafts', { total })}</span>
           </div>
           <button
             type="button"
@@ -226,25 +238,25 @@ export default function PendingRelease() {
             className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">草稿列表</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('pending.draftList')}</h3>
           
           {initialLoading && drafts.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">加载中...</p>
+              <p className="text-gray-500 text-sm">{t('common.loading')}</p>
             </div>
           ) : drafts.length === 0 ? (
             <div className="text-center py-12">
               <Eye className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">暂无待发布草稿</p>
-              <p className="text-gray-400 text-sm mt-2">手动任务或内容预览保存的草稿会出现在这里</p>
+              <p className="text-gray-500">{t('pending.noDrafts')}</p>
+              <p className="text-gray-400 text-sm mt-2">{t('pending.draftHint')}</p>
             </div>
           ) : (
             <>
@@ -285,10 +297,10 @@ export default function PendingRelease() {
                     </div>
                     
                     <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{draft.images.length} 张图片</span>
-                      <span>{draft.copywritings.length} 条文案</span>
+                      <span>{t('pending.imagesCount', { count: draft.images.length })}</span>
+                      <span>{t('pending.copiesCount', { count: draft.copywritings.length })}</span>
                       {(draft.cdn_upload_failed ?? draft.images.some((img) => !isCdnUrl(img))) && (
-                        <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">CDN 上传失败</span>
+                        <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{t('pending.cdnFailed')}</span>
                       )}
                     </div>
 
@@ -297,7 +309,7 @@ export default function PendingRelease() {
                         <img
                           key={idx}
                           src={img}
-                          alt={`预览图 ${idx + 1}`}
+                          alt={t('pending.previewAlt', { n: idx + 1 })}
                           className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -307,7 +319,7 @@ export default function PendingRelease() {
                       ))}
                       {draft.images.length > 3 && (
                         <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center text-gray-500 text-xs">
-                          +{draft.images.length - 3}
+                          +{t('pending.moreImages', { count: draft.images.length - 3 })}
                         </div>
                       )}
                     </div>
@@ -331,12 +343,12 @@ export default function PendingRelease() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">内容审核</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('pending.contentReview')}</h3>
           
           {!selectedDraft ? (
             <div className="text-center py-12">
               <Eye className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">请从左侧选择一个草稿进行审核</p>
+              <p className="text-gray-500">{t('pending.selectDraftHint')}</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -345,9 +357,9 @@ export default function PendingRelease() {
                 <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <p className="font-medium text-amber-800">CDN 上传失败</p>
+                      <p className="font-medium text-amber-800">{t('pending.cdnFailed')}</p>
                       <p className="text-sm text-amber-700 mt-1">
-                        部分图片仍使用临时链接，可能过期。请重新上传到 GitHub CDN 后再发布。
+                        {t('pending.cdnBanner')}
                       </p>
                     </div>
                     <button
@@ -357,14 +369,14 @@ export default function PendingRelease() {
                       className="shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <RefreshCw className={`w-4 h-4 ${reuploading ? 'animate-spin' : ''}`} />
-                      {reuploading ? '上传中...' : '重新上传'}
+                      {reuploading ? t('pending.uploadingCdn') : t('pending.uploadToCdn')}
                     </button>
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">选择图片</label>
+                <label className="block text-sm font-medium text-gray-700 mb-3">{t('pending.selectImage')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   {selectedDraft.images.map((img, idx) => (
                     <div
@@ -377,7 +389,7 @@ export default function PendingRelease() {
                     >
                       <img
                         src={img}
-                        alt={`图片 ${idx + 1}`}
+                        alt={t('pending.imageN', { n: idx + 1 })}
                         className="w-full h-32 object-cover"
                         onClick={() => setSelectedImageIndex(idx)}
                       />
@@ -388,11 +400,11 @@ export default function PendingRelease() {
                       )}
                       {!isCdnUrl(img) && (
                         <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded">
-                          未上传 CDN
+                          {t('pending.notOnCdn')}
                         </div>
                       )}
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 flex justify-between items-center">
-                        <span>图片 {idx + 1}</span>
+                        <span>{t('pending.imageN', { n: idx + 1 })}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -422,56 +434,26 @@ export default function PendingRelease() {
                   <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
                     {dims && (
                       <>
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3">维度信息</h4>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('fields.dimensionInfo')}</h4>
                         <div className="grid grid-cols-2 gap-2">
-                          {dims.scene && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">场景</span>
-                              <span className="text-xs text-gray-800">{dims.scene}</span>
-                            </div>
-                          )}
-                          {dims.lighting && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">光线</span>
-                              <span className="text-xs text-gray-800">{dims.lighting}</span>
-                            </div>
-                          )}
-                          {dims.style && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">风格</span>
-                              <span className="text-xs text-gray-800">{dims.style}</span>
-                            </div>
-                          )}
-                          {dims.composition && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">构图</span>
-                              <span className="text-xs text-gray-800">{dims.composition}</span>
-                            </div>
-                          )}
-                          {dims.details && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">细节</span>
-                              <span className="text-xs text-gray-800">{dims.details}</span>
-                            </div>
-                          )}
-                          {dims.quality && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">画质</span>
-                              <span className="text-xs text-gray-800">{dims.quality}</span>
-                            </div>
-                          )}
-                          {dims.viewpoint && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs text-gray-500 w-12 shrink-0">视角</span>
-                              <span className="text-xs text-gray-800">{dims.viewpoint}</span>
-                            </div>
-                          )}
+                          {DIMENSION_FIELDS.map((field) => {
+                            const value = dims[field];
+                            if (!value) return null;
+                            return (
+                              <div key={field} className="flex items-start gap-2">
+                                <span className="text-xs text-gray-500 w-12 shrink-0">
+                                  {t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}
+                                </span>
+                                <span className="text-xs text-gray-800">{value}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </>
                     )}
                     {prompt && (
                       <div className={dims ? 'mt-3' : ''}>
-                        <h4 className="text-xs font-medium text-gray-600 mb-2">图像提示词</h4>
+                        <h4 className="text-xs font-medium text-gray-600 mb-2">{t('fields.imagePrompt')}</h4>
                         <div className="text-xs text-gray-700 bg-white p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap border border-gray-100">
                           {prompt}
                         </div>
@@ -482,7 +464,7 @@ export default function PendingRelease() {
               })()}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">选择文案</label>
+                <label className="block text-sm font-medium text-gray-700 mb-3">{t('pending.selectCopy')}</label>
                 <div className="space-y-2">
                   {selectedDraft.copywritings.map((copy, idx) => (
                     <div
@@ -514,7 +496,7 @@ export default function PendingRelease() {
                               className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                             >
                               <Eye className="w-3 h-3" />
-                              查看完整文案
+                              {t('pending.viewFullCopy')}
                             </button>
                           )}
                         </div>
@@ -525,7 +507,7 @@ export default function PendingRelease() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">发布平台</label>
+                <label className="block text-sm font-medium text-gray-700 mb-3">{t('fields.publishPlatformsLabel')}</label>
                 <div className="flex flex-wrap gap-2">
                   {PLATFORMS.map((platform) => (
                     <label
@@ -557,7 +539,7 @@ export default function PendingRelease() {
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
                 >
                   <X className="w-4 h-4" />
-                  取消选择
+                  {t('pending.deselect')}
                 </button>
                 <button
                   onClick={handlePublish}
@@ -571,12 +553,14 @@ export default function PendingRelease() {
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      发布中...
+                      {t('pending.publishing')}
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      发布到 {selectedPlatforms.length > 0 ? selectedPlatforms.join(', ') : '平台'}
+                      {selectedPlatforms.length > 0
+                        ? t('pending.publishTo', { platforms: selectedPlatforms.join(', ') })
+                        : t('pending.publishToPlatform')}
                     </>
                   )}
                 </button>
@@ -597,7 +581,7 @@ export default function PendingRelease() {
             </button>
             <img
               src={previewImage}
-              alt="预览"
+              alt={t('common.preview')}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
@@ -614,7 +598,7 @@ export default function PendingRelease() {
             >
               <X className="w-6 h-6" />
             </button>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">文案预览</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('fields.copyContent')}</h3>
             <div className="prose prose-sm max-w-none">
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{previewCopy}</p>
             </div>

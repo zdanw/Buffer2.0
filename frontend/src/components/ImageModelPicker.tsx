@@ -5,6 +5,7 @@ import {
   type ImageProvider,
   type ImageModelInfo,
 } from '@/api/imageProviders';
+import { useI18n } from '@/i18n/useI18n';
 
 export interface ImageModelSelection {
   image_provider_id?: string | null;
@@ -24,6 +25,7 @@ export default function ImageModelPicker({
   disabled = false,
   compact = false,
 }: ImageModelPickerProps) {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
   const [models, setModels] = useState<ImageModelInfo[]>([]);
   const [hint, setHint] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function ImageModelPicker({
       } catch (e) {
         if (!cancelled) {
           setModels([]);
-          setHint('拉取模型失败，可手动填写 Model ID');
+          setHint(t('imageModelPicker.fetchFailed'));
         }
       } finally {
         if (!cancelled) setLoadingModels(false);
@@ -88,14 +90,15 @@ export default function ImageModelPicker({
     <div className={wrapClass}>
       {!compact && (
         <div>
-          <div className="text-sm font-medium text-gray-700">图像模型</div>
-          <p className="text-xs text-gray-500 mt-1">留空则使用系统默认（环境变量豆包或已设默认 Provider）</p>
+          <div className="text-sm font-medium text-gray-700">{t('imageModelPicker.title')}</div>
+          <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
         </div>
       )}
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">
-          Provider {loadingProviders ? '（加载中…）' : ''}
+          {t('imageModelPicker.provider')}
+          {loadingProviders ? t('imageModelPicker.loading') : ''}
         </label>
         <select
           value={value.image_provider_id || ''}
@@ -110,11 +113,11 @@ export default function ImageModelPicker({
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
         >
-          <option value="">系统默认</option>
+          <option value="">{t('imageModelPicker.systemDefault')}</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
-              {p.is_default ? '（默认）' : ''}
+              {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
             </option>
           ))}
         </select>
@@ -122,7 +125,8 @@ export default function ImageModelPicker({
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">
-          Model ID {loadingModels ? '（加载中…）' : ''}
+          {t('imageModelPicker.modelId')}
+          {loadingModels ? t('imageModelPicker.loading') : ''}
         </label>
         {models.length > 0 ? (
           <select
@@ -133,7 +137,7 @@ export default function ImageModelPicker({
             }
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
           >
-            <option value="">请选择或下方手填</option>
+            <option value="">{t('imageModelPicker.selectOrManual')}</option>
             {models.map((m) => (
               <option key={m.id} value={m.id} title={m.description || undefined}>
                 {m.id}
@@ -148,7 +152,11 @@ export default function ImageModelPicker({
           onChange={(e) =>
             onChange({ ...value, image_model: e.target.value || null })
           }
-          placeholder={value.image_provider_id ? '手动填写 Model / Endpoint ID' : '先选择 Provider'}
+          placeholder={
+            value.image_provider_id
+              ? t('imageModelPicker.manualPlaceholder')
+              : t('imageModelPicker.selectProviderFirst')
+          }
           className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
         />
         {selected?.description && (

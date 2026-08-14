@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter } from 'lucide-react';
 import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
 import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, initializeDimensions, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
@@ -6,11 +6,12 @@ import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import {
   LIMITS,
   alertValidationErrors,
-  itemIdFormat,
-  maxLen,
-  required,
+  createValidators,
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
+import { useI18n } from '@/i18n/useI18n';
+import { useDimensionTypeLabel } from '@/i18n/useDimensionTypeLabel';
+import type { TranslateFn } from '@/lib/formValidation';
 
 type CompatOptions = Record<string, { id: string; name: string }[]>;
 
@@ -151,20 +152,23 @@ function selectedIdsForUi(entry: DimensionCompatEntry, allItemIds: string[]): st
   return entry.items || [];
 }
 
-function compatLabel(entry: DimensionCompatEntry): string {
-  if (entry.mode === 'unrestricted') return '全部兼容';
-  if (entry.mode === 'allowlist' && (!entry.items || entry.items.length === 0)) return '都不兼容';
-  if (entry.mode === 'blocklist') return `排除${entry.items?.length || 0}项`;
-  return `${entry.items?.length || 0}项`;
+function compatLabel(entry: DimensionCompatEntry, t: TranslateFn): string {
+  if (entry.mode === 'unrestricted') return t('compat.unrestricted');
+  if (entry.mode === 'allowlist' && (!entry.items || entry.items.length === 0)) return t('compat.none');
+  if (entry.mode === 'blocklist') return t('compat.blocklist', { count: entry.items?.length || 0 });
+  return t('compat.count', { count: entry.items?.length || 0 });
 }
 
 /** 列表单元格：全部兼容用 ✔ 节省列宽 */
-function compatTableLabel(entry: DimensionCompatEntry): string {
-  if (entry.mode === 'unrestricted') return '✔';
-  return compatLabel(entry);
+function compatTableLabel(entry: DimensionCompatEntry, t: TranslateFn): string {
+  if (entry.mode === 'unrestricted') return t('compat.checkmark');
+  return compatLabel(entry, t);
 }
 
 export default function DimensionManagement() {
+  const { t } = useI18n();
+  const dimensionTypeLabel = useDimensionTypeLabel();
+  const v = useMemo(() => createValidators(t), [t]);
   const [dimensions, setDimensions] = useState<PromptDimension[]>([]);
   const [dimensionTypes, setDimensionTypes] = useState<DimensionType[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
@@ -385,12 +389,12 @@ export default function DimensionManagement() {
     e.preventDefault();
     if (
       alertValidationErrors([
-        required('产品类型', formData.product_type),
-        maxLen('产品类型', formData.product_type, LIMITS.productType),
-        required('维度类型', formData.dimension_type),
-        isEdit ? null : itemIdFormat(formData.item_id),
-        required('名称', formData.name),
-        maxLen('名称', formData.name, LIMITS.dimensionName),
+        v.required(t('dimensionsPage.productType'), formData.product_type),
+        v.maxLen(t('dimensionsPage.productType'), formData.product_type, LIMITS.productType),
+        v.required(t('dimensionsPage.dimensionType'), formData.dimension_type),
+        isEdit ? null : v.itemIdFormat(formData.item_id),
+        v.required(t('dimensionsPage.name'), formData.name),
+        v.maxLen(t('dimensionsPage.name'), formData.name, LIMITS.dimensionName),
       ])
     ) {
       return;
@@ -421,14 +425,14 @@ export default function DimensionManagement() {
       resetForm();
     } catch (error) {
       console.error('Failed to save dimension:', error);
-      alert('保存失败，请检查输入');
+      alert(t('dimensionsPage.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (dimensionId: string) => {
-    if (confirm('确定删除该维度吗？')) {
+    if (confirm(t('dimensionsPage.confirmDelete'))) {
       setDeletingId(dimensionId);
       try {
         const removed = dimensions.find((d) => d.dimension_id === dimensionId);
@@ -462,14 +466,14 @@ export default function DimensionManagement() {
       );
     } catch (error) {
       console.error('Failed to toggle dimension enabled:', error);
-      alert(nextEnabled ? '启用失败，请重试' : '禁用失败，请重试');
+      alert(nextEnabled ? t('dimensionsPage.toggleEnableFailed') : t('dimensionsPage.toggleDisableFailed'));
     } finally {
       setTogglingId(null);
     }
   };
 
   const handleInitialize = async () => {
-    if (confirm('确定初始化默认维度数据吗？这将覆盖现有数据。')) {
+    if (confirm(t('dimensionsPage.confirmInit'))) {
       setInitializing(true);
       try {
         await initializeDimensions();
@@ -477,7 +481,7 @@ export default function DimensionManagement() {
         invalidateCache('productTypes');
         invalidateCache('dimensionTypes');
         await Promise.all([loadProductTypes(), loadDimensions(1)]);
-        alert('初始化成功');
+        alert(t('dimensionsPage.initSuccess'));
       } catch (error) {
         console.error('Failed to initialize dimensions:', error);
       } finally {
@@ -527,8 +531,9 @@ export default function DimensionManagement() {
   };
 
   const getDimensionTypeDisplayName = (typeName: string) => {
-    const found = dimensionTypes.find(t => t.name === typeName);
-    return found?.display_name || typeName;
+    const found = dimensionTypes.find(dt => dt.name === typeName);
+    if (found?.display_name) return found.display_name;
+    return dimensionTypeLabel(typeName);
   };
 
   const getProductTypeLabel = (value: string) => {
@@ -537,69 +542,72 @@ export default function DimensionManagement() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="min-w-0 p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">提示词维度管理</h2>
-          <p className="text-gray-500 mt-1">管理AI图像生成的提示词维度配置</p>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('dimensionsPage.title')}</h2>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">{t('dimensionsPage.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => void handleRefresh()}
             disabled={refreshing || loading || filtering || listBusy}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 sm:px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing || listBusy ? 'animate-spin' : ''}`} />
-            刷新
+            {t('common.refresh')}
           </button>
           <button
             onClick={handleInitialize}
             disabled={initializing}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             {initializing ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
               <Database className="w-4 h-4" />
             )}
-            {initializing ? '初始化中…' : '初始化数据'}
+            {initializing ? t('dimensionsPage.initializing') : t('dimensionsPage.initData')}
           </button>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
           >
             <Plus className="w-5 h-5" />
-            添加维度
+            {t('dimensionsPage.addDimension')}
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex items-center gap-4">
-          <Filter className="w-5 h-5 text-gray-400" />
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">产品类型</label>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="flex items-center gap-2 text-gray-400 sm:mb-1">
+            <Filter className="w-5 h-5 shrink-0" />
+            <span className="text-sm font-medium text-gray-700 sm:hidden">{t('fields.filter')}</span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.productType')}</label>
               <select
                 value={selectedProductType}
                 onChange={(e) => setSelectedProductType(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                <option value="">全部</option>
+                <option value="">{t('fields.all')}</option>
                 {productTypes.map((type) => (
                   <option key={type.value} value={type.value}>{type.label}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">维度类型</label>
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.dimensionType')}</label>
               <select
                 value={selectedDimensionType}
                 onChange={(e) => setSelectedDimensionType(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                <option value="">全部</option>
+                <option value="">{t('fields.all')}</option>
                 {dimensionTypes.map((type) => (
                   <option key={type.name} value={type.name}>{type.display_name}</option>
                 ))}
@@ -608,31 +616,31 @@ export default function DimensionManagement() {
             <button
               onClick={handleFilter}
               disabled={filtering || loading}
-              className="mt-6 flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 ${filtering ? 'animate-spin' : ''}`} />
-              {filtering ? '筛选中…' : '筛选'}
+              {filtering ? t('fields.filtering') : t('fields.filter')}
             </button>
           </div>
         </div>
       </div>
 
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${filtering || listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
+      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-w-0 ${filtering || listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-max min-w-full text-left">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">产品类型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">维度类型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.productType')}</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.dimensionType')}</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('dimensionsPage.itemId')}</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[10rem]">{t('dimensionsPage.name')}</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('fields.status')}</th>
                 {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => (
-                  <th key={dimType.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    兼容{dimType.label}
+                  <th key={dimType.key} className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {t('compat.compatibleWith', { label: t(`dimensionTypes.${dimType.key}`) })}
                   </th>
                 ))}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('fields.actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -640,13 +648,13 @@ export default function DimensionManagement() {
                 <tr>
                   <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <span className="text-gray-500 text-sm">加载中...</span>
+                    <span className="text-gray-500 text-sm">{t('common.loading')}</span>
                   </td>
                 </tr>
               ) : dimensions.length === 0 ? (
                 <tr>
                   <td colSpan={appliedDimensionType ? 12 : 13} className="px-6 py-12 text-center text-gray-400 text-sm">
-                    暂无数据
+                    {t('fields.noData')}
                   </td>
                 </tr>
               ) : (
@@ -654,23 +662,23 @@ export default function DimensionManagement() {
                   <tr
                     key={dimension.dimension_id}
                     className={`hover:bg-gray-50 ${dimension.enabled === false ? 'bg-gray-50 opacity-60' : ''}`}
-                  >                    <td className="px-6 py-4 whitespace-nowrap">
+                  >                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                         {getProductTypeLabel(dimension.product_type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {getDimensionTypeDisplayName(dimension.dimension_type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
                       {dimension.item_id}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{dimension.name}</div>
+                    <td className="px-3 sm:px-6 py-4 min-w-[10rem] max-w-xs">
+                      <div className="text-sm text-gray-900 break-words">{dimension.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => void handleToggleEnabled(dimension)}
@@ -678,7 +686,7 @@ export default function DimensionManagement() {
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                           dimension.enabled === false ? 'bg-gray-300' : 'bg-indigo-600'
                         }`}
-                        title={dimension.enabled === false ? '已禁用（点击启用）' : '已启用（点击禁用）'}
+                        title={dimension.enabled === false ? t('dimensionsPage.disabledTitle') : t('dimensionsPage.enabledTitle')}
                       >
                         {togglingId === dimension.dimension_id ? (
                           <span className="absolute inset-0 flex items-center justify-center">
@@ -693,17 +701,17 @@ export default function DimensionManagement() {
                         )}
                       </button>
                       <span className={`ml-2 text-xs ${dimension.enabled === false ? 'text-red-500' : 'text-gray-500'}`}>
-                        {dimension.enabled === false ? '已禁用' : '启用中'}
+                        {dimension.enabled === false ? t('dimensionsPage.disabled') : t('dimensionsPage.enabled')}
                       </span>
                     </td>
                     {ALL_DIMENSION_TYPES.filter(dimType => dimType.key !== appliedDimensionType).map((dimType) => {
                       const entry = getCompatEntry(dimension.compatibilities, dimType.key);
                       const isSelf = dimension.dimension_type === dimType.key;
-                      const label = compatTableLabel(entry);
+                      const label = compatTableLabel(entry, t);
                       return (
-                        <td key={dimType.key} className="px-6 py-4 text-sm">
+                        <td key={dimType.key} className="px-3 sm:px-6 py-4 text-sm whitespace-nowrap">
                           {isSelf ? (
-                            <span className="text-gray-300 text-xs">-</span>
+                            <span className="text-gray-300 text-xs">{t('compat.self')}</span>
                           ) : (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               entry.mode === 'unrestricted'
@@ -718,7 +726,7 @@ export default function DimensionManagement() {
                         </td>
                       );
                     })}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openModal(dimension)}
@@ -758,11 +766,11 @@ export default function DimensionManagement() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
-                {isEdit ? '编辑维度' : '添加维度'}
+                {isEdit ? t('dimensionsPage.editDimension') : t('dimensionsPage.addDimension')}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
@@ -772,7 +780,7 @@ export default function DimensionManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">产品类型</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.productType')}</label>
                   <select
                     value={formData.product_type}
                     onChange={(e) => {
@@ -794,7 +802,7 @@ export default function DimensionManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">维度类型</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.dimensionType')}</label>
                   <select
                     value={formData.dimension_type}
                     onChange={(e) => setFormData({ ...formData, dimension_type: e.target.value })}
@@ -808,7 +816,7 @@ export default function DimensionManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">维度项ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.itemIdField')}</label>
                   <input
                     type="text"
                     value={formData.item_id}
@@ -817,11 +825,11 @@ export default function DimensionManagement() {
                     required
                     disabled={isEdit}
                     maxLength={LIMITS.dimensionItemId}
-                    placeholder="如 nursery"
+                    placeholder={t('dimensionsPage.itemIdPlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">名称</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dimensionsPage.name')}</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -829,10 +837,10 @@ export default function DimensionManagement() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
                     maxLength={LIMITS.dimensionName}
-                    placeholder="如 温馨婴儿房角落配有木质婴儿床"
+                    placeholder={t('dimensionsPage.namePlaceholder')}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
-                    {(formData.name || '').length}/{LIMITS.dimensionName}
+                    {t('common.charCount', { current: (formData.name || '').length, max: LIMITS.dimensionName })}
                   </p>
                 </div>
                 {isEdit && (
@@ -840,7 +848,7 @@ export default function DimensionManagement() {
                     {modalOptionsLoading && (
                       <div className="text-sm text-gray-500 flex items-center gap-2">
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        加载兼容选项…
+                        {t('dimensionsPage.loadCompat')}
                       </div>
                     )}
                     {getCompatibleDimensionTypes(formData.dimension_type).map((dimType) => {
@@ -851,7 +859,7 @@ export default function DimensionManagement() {
                     entry.mode === 'unrestricted' ||
                     (allItems.length > 0 && allItems.every(id => current.includes(id)));
                   const isExpanded = expandedDimensions[dimType.key] || false;
-                  const statusText = compatLabel(entry);
+                  const statusText = compatLabel(entry, t);
                   
                   return (
                     <div key={dimType.key} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -861,7 +869,7 @@ export default function DimensionManagement() {
                         className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
                       >
                         <span className="font-medium text-gray-700">
-                          兼容{dimType.label}
+                          {t('compat.compatibleWith', { label: t(`dimensionTypes.${dimType.key}`) })}
                           <span className="ml-2 text-xs font-normal text-indigo-600">{statusText}</span>
                         </span>
                         <span className="flex items-center gap-2">
@@ -872,7 +880,7 @@ export default function DimensionManagement() {
                             onClick={(e) => e.stopPropagation()}
                             className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                           />
-                          <span className="text-xs text-gray-500">全选</span>
+                          <span className="text-xs text-gray-500">{t('dimensionsPage.selectAll')}</span>
                           <svg
                             className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                             fill="none"
@@ -928,10 +936,10 @@ export default function DimensionManagement() {
                               );
                             })}
                             {modalOptionsLoading && (!allDimensions[dimType.key] || allDimensions[dimType.key].length === 0) && (
-                              <span className="text-sm text-gray-400">加载中…</span>
+                              <span className="text-sm text-gray-400">{t('dimensionsPage.loadingCompat')}</span>
                             )}
                             {!modalOptionsLoading && (!allDimensions[dimType.key] || allDimensions[dimType.key].length === 0) && (
-                              <span className="text-sm text-gray-400">暂无数据</span>
+                              <span className="text-sm text-gray-400">{t('fields.noData')}</span>
                             )}
                           </div>
                         </div>
@@ -950,14 +958,14 @@ export default function DimensionManagement() {
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {saving ? '保存中…' : isEdit ? '保存修改' : '添加维度'}
+                  {saving ? t('common.saving') : isEdit ? t('common.save') : t('dimensionsPage.addDimension')}
                 </button>
               </div>
             </form>

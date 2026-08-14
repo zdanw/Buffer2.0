@@ -1,4 +1,5 @@
 import { ZoomIn } from 'lucide-react';
+import { useI18n } from '@/i18n/useI18n';
 
 interface ReferenceImagesDisplayProps {
   productImages?: string[] | null;
@@ -13,6 +14,7 @@ export default function ReferenceImagesDisplay({
   onPreview,
   className = '',
 }: ReferenceImagesDisplayProps) {
+  const { t } = useI18n();
   const products = (productImages || []).filter(Boolean);
   const scenes = (sceneImages || []).filter(Boolean);
 
@@ -26,7 +28,9 @@ export default function ReferenceImagesDisplay({
       <div>
         <div className="text-xs font-medium text-gray-600 mb-2">
           {label}
-          <span className="text-gray-400 font-normal ml-1">({urls.length})</span>
+          <span className="text-gray-400 font-normal ml-1">
+            {t('referenceImages.count', { count: urls.length })}
+          </span>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {urls.map((url, idx) => {
@@ -35,7 +39,7 @@ export default function ReferenceImagesDisplay({
                 <div key={`${label}-${idx}`}>
                   <img
                     src={url}
-                    alt={`${label} ${idx + 1}`}
+                    alt={t('referenceImages.alt', { label, n: idx + 1 })}
                     className="w-full h-20 object-cover rounded-lg border border-gray-200"
                   />
                 </div>
@@ -50,7 +54,7 @@ export default function ReferenceImagesDisplay({
               >
                 <img
                   src={url}
-                  alt={`${label} ${idx + 1}`}
+                  alt={t('referenceImages.alt', { label, n: idx + 1 })}
                   className="w-full h-20 object-cover"
                 />
                 <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
@@ -66,9 +70,9 @@ export default function ReferenceImagesDisplay({
 
   return (
     <div className={`border border-gray-200 rounded-lg p-4 bg-gray-50/50 space-y-3 ${className}`}>
-      <h4 className="text-sm font-semibold text-gray-700">参考图</h4>
-      {renderGroup('产品图', products)}
-      {renderGroup('场景图', scenes)}
+      <h4 className="text-sm font-semibold text-gray-700">{t('referenceImages.title')}</h4>
+      {renderGroup(t('referenceImages.product'), products)}
+      {renderGroup(t('referenceImages.scene'), scenes)}
     </div>
   );
 }
