@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter, ChevronDown } from 'lucide-react';
-import type { PromptDimension, PromptDimensionCreate, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
+import type { PromptDimension, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
 import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, importVisualStylePack, resetVisualStyles, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import {

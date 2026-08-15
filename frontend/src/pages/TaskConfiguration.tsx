@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, Clock, Zap, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Clock, Zap, RefreshCw } from 'lucide-react';
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
-import { getCategories, getProducts, type Product } from '@/api/products';
+import { getProducts, type Product } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { LIMITS, alertValidationErrors } from '@/lib/formValidation';
@@ -10,20 +10,22 @@ import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
 import ImageModelPicker from '@/components/ImageModelPicker';
+import LabelWithTooltip from '@/components/LabelWithTooltip';
+import HelpTooltip from '@/components/HelpTooltip';
+import TaskProductPicker, { TaskProductPickerLabel } from '@/components/TaskProductPicker';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
 export default function TaskConfiguration() {
   const { t } = useI18n();
-  const { activeBrandId } = useBrandContext();
+  const { activeBrandId, brands } = useBrandContext();
   const { required, maxLen, cronFormat, intInRange } = useValidators();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [pickerProducts, setPickerProducts] = useState<Product[]>([]);
+  const [loadingPickerProducts, setLoadingPickerProducts] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedTask, setSelectedTask] = useState<ScheduledTask | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -51,8 +53,23 @@ export default function TaskConfiguration() {
   });
 
   useEffect(() => {
-    void Promise.all([loadTasks(1), loadCategories(), loadProducts()]);
+    void loadTasks(1);
   }, [activeBrandId]);
+
+  const loadPickerProducts = async () => {
+    setLoadingPickerProducts(true);
+    try {
+      const data = await cachedFetch('products:list:500:all', async () => {
+        const response = await getProducts(1, 500);
+        return response.data;
+      });
+      setPickerProducts(data);
+    } catch (error) {
+      console.error('Failed to load products for picker:', error);
+    } finally {
+      setLoadingPickerProducts(false);
+    }
+  };
 
   const loadTasks = async (
     page: number = currentPage,
@@ -86,49 +103,11 @@ export default function TaskConfiguration() {
     setRefreshing(true);
     try {
       invalidateCache('tasks');
-      invalidateCache('categories');
       invalidateCache('products');
-      await Promise.all([loadTasks(currentPage, undefined, { keepRows: true }), loadCategories(), loadProducts()]);
+      await Promise.all([loadTasks(currentPage, undefined, { keepRows: true }), loadPickerProducts()]);
     } finally {
       setRefreshing(false);
     }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const data = await cachedFetch('categories', async () => {
-        const cats = await getCategories();
-        return cats;
-      });
-      setCategories(data);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
-  };
-
-  const loadProducts = async () => {
-    const cacheKey = `products:list:100:${activeBrandId || 'all'}`;
-    try {
-      const data = await cachedFetch(cacheKey, async () => {
-        const response = await getProducts(1, 100, activeBrandId || undefined);
-        return response.data;
-      });
-      setProducts(data);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-    }
-  };
-
-  const toggleCategory = (category: string) => {
-    setExpandedCategories(prev =>
-      prev.includes(category)
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
-    );
-  };
-
-  const getProductsByCategory = (category: string) => {
-    return products.filter(p => p.category === category);
   };
 
   const resetForm = () => {
@@ -243,6 +222,7 @@ export default function TaskConfiguration() {
   };
 
   const openModal = (task?: ScheduledTask) => {
+    void loadPickerProducts();
     if (task) {
       setIsEdit(true);
       setSelectedTask(task);
@@ -440,7 +420,7 @@ export default function TaskConfiguration() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
                 {isEdit ? t('tasks.editTask') : t('tasks.addTask')}
@@ -452,7 +432,10 @@ export default function TaskConfiguration() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.taskName')}</label>
+                <LabelWithTooltip
+                  label={t('tasks.taskName')}
+                  tooltip={t('tasks.tooltips.taskName')}
+                />
                 <input
                   type="text"
                   value={formData.name}
@@ -464,7 +447,10 @@ export default function TaskConfiguration() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('tasks.taskMode')}</label>
+                <LabelWithTooltip
+                  label={t('tasks.taskMode')}
+                  tooltip={t('tasks.tooltips.taskMode')}
+                />
                 <div className="flex gap-4">
                   <label
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
@@ -509,10 +495,11 @@ export default function TaskConfiguration() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('tasks.cronExpression')}
-                  <span className="text-gray-400 font-normal ml-2">{t('tasks.cronHint')}</span>
-                </label>
+                <LabelWithTooltip
+                  label={t('tasks.cronExpression')}
+                  tooltip={t('tasks.tooltips.cronExpression')}
+                />
+                <p className="mb-1 text-xs text-gray-400">{t('tasks.cronHint')}</p>
                 <input
                   type="text"
                   value={formData.cron}
@@ -530,77 +517,33 @@ export default function TaskConfiguration() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('tasks.selectProducts')}</label>
-                <p className="text-xs text-gray-500 mb-2">{t('tasks.multiProductHint')}</p>
-                {products.length > 0 ? (
-                  <div className="space-y-2">
-                    {categories.map((category) => {
-                      const categoryProducts = getProductsByCategory(category);
-                      const isExpanded = expandedCategories.includes(category);
-                      
-                      return (
-                        <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => toggleCategory(category)}
-                            className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-gray-500" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4 text-gray-500" />
-                              )}
-                              <span className="font-medium text-gray-700">{category}</span>
-                              <span className="text-sm text-gray-500">{t('tasks.productsInCategory', { count: categoryProducts.length })}</span>
-                            </div>
-                          </button>
-                          {isExpanded && (
-                            <div className="p-2 bg-white">
-                              <div className="flex flex-wrap gap-2">
-                                {categoryProducts.map((product) => (
-                                  <label
-                                    key={product.product_id}
-                                    className={`px-3 py-1 rounded-full text-sm cursor-pointer transition-all ${
-                                      formData.target_products.includes(product.product_id)
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={formData.target_products.includes(product.product_id)}
-                                      onChange={() => {
-                                        const newProducts = formData.target_products.includes(product.product_id)
-                                          ? formData.target_products.filter(id => id !== product.product_id)
-                                          : [...formData.target_products, product.product_id];
-                                        setFormData({ ...formData, target_products: newProducts });
-                                      }}
-                                      className="sr-only"
-                                    />
-                                    {product.product_name}
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                <TaskProductPickerLabel />
+                <p className="mb-2 text-xs text-gray-500">{t('tasks.multiProductHint')}</p>
+                {loadingPickerProducts ? (
+                  <div className="flex items-center justify-center rounded-lg border border-gray-200 py-10">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
                   </div>
                 ) : (
-                  <div className="text-gray-400 text-sm py-2">
-                    {t('tasks.noProducts')}
-                  </div>
-                )}
-                {(formData.target_products.length === 0) && products.length > 0 && (
-                  <p className="text-red-500 text-xs mt-1">{t('tasks.selectProductRequired')}</p>
+                  <TaskProductPicker
+                    products={pickerProducts}
+                    brands={brands}
+                    selectedIds={formData.target_products}
+                    onChange={(target_products) => setFormData({ ...formData, target_products })}
+                    error={
+                      formData.target_products.length === 0 && pickerProducts.length > 0
+                        ? t('tasks.selectProductRequired')
+                        : undefined
+                    }
+                  />
                 )}
               </div>
 
               {formData.mode === 'auto' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.publishPlatformsLabel')}</label>
+                  <LabelWithTooltip
+                    label={t('fields.publishPlatformsLabel')}
+                    tooltip={t('tasks.tooltips.publishPlatforms')}
+                  />
                   <div className="flex flex-wrap gap-2">
                     {PLATFORMS.map((platform) => (
                       <label
@@ -630,7 +573,10 @@ export default function TaskConfiguration() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.referenceImageCount')}</label>
+                  <LabelWithTooltip
+                    label={t('tasks.referenceImageCount')}
+                    tooltip={t('tasks.tooltips.referenceImageCount')}
+                  />
                   <input
                     type="number"
                     value={formData.reference_image_count}
@@ -642,7 +588,10 @@ export default function TaskConfiguration() {
                 </div>
                 {formData.mode === 'auto' ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.runCount')}</label>
+                    <LabelWithTooltip
+                      label={t('tasks.runCount')}
+                      tooltip={t('tasks.tooltips.runCount')}
+                    />
                     <input
                       type="number"
                       value={formData.run_count_per_execution}
@@ -655,7 +604,10 @@ export default function TaskConfiguration() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.generateImageCount')}</label>
+                    <LabelWithTooltip
+                      label={t('tasks.generateImageCount')}
+                      tooltip={t('tasks.tooltips.generateImageCount')}
+                    />
                     <input
                       type="number"
                       value={formData.generate_image_count}
@@ -670,7 +622,10 @@ export default function TaskConfiguration() {
 
               {formData.mode === 'manual' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('tasks.generateCopyCount')}</label>
+                  <LabelWithTooltip
+                    label={t('tasks.generateCopyCount')}
+                    tooltip={t('tasks.tooltips.generateCopyCount')}
+                  />
                   <input
                     type="number"
                     value={formData.generate_copy_count}
@@ -688,8 +643,12 @@ export default function TaskConfiguration() {
                   checked={formData.enabled}
                   onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
                   className="w-4 h-4 text-indigo-600 rounded"
+                  id="task-enabled"
                 />
-                <label className="text-sm font-medium text-gray-700">{t('tasks.enableTask')}</label>
+                <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  {t('tasks.enableTask')}
+                  <HelpTooltip content={t('tasks.tooltips.enableTask')} />
+                </label>
               </div>
 
               <div className="flex items-center gap-2">
@@ -698,8 +657,12 @@ export default function TaskConfiguration() {
                   checked={formData.use_scene_reference || false}
                   onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
                   className="w-4 h-4 text-indigo-600 rounded"
+                  id="task-scene-ref"
                 />
-                <label className="text-sm font-medium text-gray-700">{t('tasks.enableSceneReference')}</label>
+                <label htmlFor="task-scene-ref" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  {t('tasks.enableSceneReference')}
+                  <HelpTooltip content={t('tasks.tooltips.enableSceneReference')} />
+                </label>
               </div>
 
               <div className="flex items-center gap-2">
@@ -710,14 +673,19 @@ export default function TaskConfiguration() {
                     setFormData({ ...formData, use_vision_image_prompt: e.target.checked })
                   }
                   className="w-4 h-4 text-indigo-600 rounded"
+                  id="task-vision-prompt"
                 />
-                <label className="text-sm font-medium text-gray-700">
+                <label htmlFor="task-vision-prompt" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                   {t('tasks.visionImagePrompt')}
+                  <HelpTooltip content={t('tasks.tooltips.visionImagePrompt')} />
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('fields.imageModel')}</label>
+                <LabelWithTooltip
+                  label={t('fields.imageModel')}
+                  tooltip={t('tasks.tooltips.imageModel')}
+                />
                 <ImageModelPicker
                   compact
                   value={{
