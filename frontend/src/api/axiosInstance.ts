@@ -77,7 +77,9 @@ axiosInstance.interceptors.response.use(
         
         console.log('Token expired or refresh failed, redirecting to login');
         clearAuth();
-        window.location.href = '/login';
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     

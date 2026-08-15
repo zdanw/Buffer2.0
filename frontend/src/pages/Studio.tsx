@@ -18,6 +18,7 @@ import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import ImageModelPicker from '@/components/ImageModelPicker';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
+import SocialFeedPreview from '@/components/SocialFeedPreview';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -710,33 +711,16 @@ export default function Studio() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[500px]">
             {generatedContent ? (
               <div className="flex flex-col items-center">
-                {generatedContent.image && (
+                {(generatedContent.image || generatedContent.text) && (
                   <div className="w-full max-w-sm mb-6">
-                    <p className="text-xs text-center text-gray-500 mb-2">{t('studio.phonePreview')}</p>
-                    <div className="mx-auto w-[280px] rounded-[2rem] border-[10px] border-gray-900 bg-gray-900 shadow-xl overflow-hidden">
-                      <div className="h-6 bg-gray-900 flex items-center justify-center">
-                        <div className="w-16 h-1 rounded-full bg-gray-700" />
-                      </div>
-                      <div className="bg-white">
-                        <img
-                          src={generatedContent.image}
-                          alt={t('preview.generatedAlt')}
-                          className="w-full aspect-square object-cover"
-                        />
-                        {generatedContent.text && (
-                          <p className="p-3 text-xs text-gray-800 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                            {generatedContent.text}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {generatedContent.text && !generatedContent.image && (
-                  <div className="w-full max-w-sm">
-                    <p className="text-gray-800 text-center leading-relaxed whitespace-pre-wrap">
-                      {generatedContent.text}
-                    </p>
+                    <SocialFeedPreview
+                      platforms={selectedPlatforms}
+                      image={generatedContent.image || undefined}
+                      caption={generatedContent.text || undefined}
+                      brandName={activeBrand?.name}
+                      brandLogo={activeBrand?.logo_url}
+                      imageAlt={t('preview.generatedAlt')}
+                    />
                   </div>
                 )}
                 {!generatedContent.image && !generatedContent.text && (

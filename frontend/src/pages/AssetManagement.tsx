@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
-import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import { GENERIC_BRAND_ID, getBrand } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -16,6 +16,7 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 import BrandPicker from '@/components/BrandPicker';
 import BrandBadge from '@/components/BrandBadge';
 import BrandInheritanceHint from '@/components/BrandInheritanceHint';
+import CategoryCombobox, { findCanonicalCategory } from '@/components/CategoryCombobox';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -120,14 +121,19 @@ export default function AssetManagement() {
     }
     setSaving(true);
     try {
+      const categories = await cachedFetch('categories', () => getCategories());
+      const resolvedCategory =
+        findCanonicalCategory(formData.category, categories) ?? formData.category.trim();
+      const payload = { ...formData, category: resolvedCategory };
+
       if (isEdit && selectedProduct) {
-        const updated = await updateProduct(selectedProduct.product_id, formData);
+        const updated = await updateProduct(selectedProduct.product_id, payload);
         setSelectedProduct(updated);
         setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
         invalidateCache('products');
         invalidateCache('categories');
       } else {
-        const created = await createProduct(formData);
+        const created = await createProduct(payload);
         invalidateCache('products');
         invalidateCache('categories');
         if (currentPage === 1) {
@@ -603,13 +609,11 @@ export default function AssetManagement() {
                     label={t('assets.category')}
                     tooltip={t('assets.tooltips.category')}
                   />
-                  <input
-                    type="text"
+                  <CategoryCombobox
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    onChange={(category) => setFormData({ ...formData, category })}
                     maxLength={LIMITS.category}
+                    required
                   />
                 </div>
                 <div>

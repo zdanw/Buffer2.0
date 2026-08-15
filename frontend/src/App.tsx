@@ -8,7 +8,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
 import { useOnboarding } from './hooks/useOnboarding';
-import { useBrandContext } from './context/BrandContext';
+import { BrandProvider, useBrandContext } from './context/BrandContext';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
 
@@ -259,7 +259,9 @@ function App() {
           path="/*"
           element={
             <ProtectedRoute>
-              <AppContent />
+              <BrandProvider>
+                <AppContent />
+              </BrandProvider>
             </ProtectedRoute>
           }
         />
