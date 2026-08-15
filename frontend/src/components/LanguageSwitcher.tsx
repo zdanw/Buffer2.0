@@ -1,5 +1,6 @@
 import { useI18n } from '@/i18n/useI18n';
 import type { Locale } from '@/i18n/types';
+import VersionLabel from './VersionLabel';
 
 const OPTIONS: { value: Locale; labelKey: string }[] = [
   { value: 'en', labelKey: 'common.english' },
@@ -45,6 +46,7 @@ export default function LanguageSwitcher({ compact = false, variant = 'sidebar' 
           );
         })}
       </div>
+      <VersionLabel variant={variant} />
     </div>
   );
 }

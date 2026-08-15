@@ -137,7 +137,6 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
           {isAdmin && (
             <p className="text-purple-400 text-xs text-center mt-2">{t('nav.adminAccount')}</p>
           )}
-          <p className="text-indigo-400 text-xs text-center mt-4">Version 2.0</p>
         </div>
       </aside>
     </>
