@@ -17,6 +17,8 @@ function getAppVersion(): string {
   }
 }
 
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080'
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -32,7 +34,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/v1': {
-        target: 'http://localhost:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },
