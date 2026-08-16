@@ -67,7 +67,7 @@ cors_origins = settings.cors_origins
 if not cors_origins:
     raise RuntimeError(
         "ALLOWED_ORIGINS 为空或仅包含 *。请配置显式前端域名白名单，例如 "
-        "http://localhost:5173,https://your-app.vercel.app"
+        "http://localhost:5174,https://your-app.vercel.app"
     )
 
 app.add_middleware(

@@ -1,4 +1,4 @@
-# Control local frontend (Vite on :5173)
+# Control local frontend (Vite on :5174)
 #
 # Usage:
 #   .\scripts\frontend.ps1 start|stop|status|restart
@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\dev-common.ps1"
 
-$Port = 5173
+$Port = 5174
 $LogFile = Join-Path $DevStateDir "frontend.log"
 
 function Get-StatusMessage {
