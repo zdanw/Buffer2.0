@@ -13,6 +13,8 @@ import ImageModelPicker from '@/components/ImageModelPicker';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import TaskProductPicker, { TaskProductPickerLabel } from '@/components/TaskProductPicker';
+import PlatformIcon from '@/components/icons/PlatformIcon';
+import type { PlatformId } from '@/components/icons/PlatformIcon';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
@@ -301,7 +303,7 @@ export default function TaskConfiguration() {
           </button>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 bg-forge-600 text-white px-4 py-2 rounded-lg hover:bg-forge-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             {t('tasks.addTask')}
@@ -372,7 +374,7 @@ export default function TaskConfiguration() {
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => openModal(task)}
-                  className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                  className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
                 >
                   <Edit2 className="w-5 h-5" />
                 </button>
@@ -394,7 +396,7 @@ export default function TaskConfiguration() {
 
         {initialLoading && tasks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
             <p className="text-gray-500 text-sm">{t('common.loading')}</p>
           </div>
         ) : tasks.length === 0 ? (
@@ -440,9 +442,10 @@ export default function TaskConfiguration() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                   required
                   maxLength={LIMITS.taskName}
+                  placeholder={t('placeholders.tasks.name')}
                 />
               </div>
 
@@ -455,7 +458,7 @@ export default function TaskConfiguration() {
                   <label
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border cursor-pointer transition-all ${
                       formData.mode === 'auto'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                        ? 'border-forge-600 bg-forge-50 text-forge-700'
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
                   >
@@ -504,10 +507,10 @@ export default function TaskConfiguration() {
                   type="text"
                   value={formData.cron}
                   onChange={(e) => setFormData({ ...formData, cron: e.target.value })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent ${
                     formData.cron.split(' ').filter(Boolean).length !== 5 ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder={t('tasks.cronPlaceholder')}
+                  placeholder={t('placeholders.tasks.cron')}
                   required
                   maxLength={LIMITS.cron}
                 />
@@ -521,7 +524,7 @@ export default function TaskConfiguration() {
                 <p className="mb-2 text-xs text-gray-500">{t('tasks.multiProductHint')}</p>
                 {loadingPickerProducts ? (
                   <div className="flex items-center justify-center rounded-lg border border-gray-200 py-10">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-forge-600 border-t-transparent" />
                   </div>
                 ) : (
                   <TaskProductPicker
@@ -545,18 +548,20 @@ export default function TaskConfiguration() {
                     tooltip={t('tasks.tooltips.publishPlatforms')}
                   />
                   <div className="flex flex-wrap gap-2">
-                    {PLATFORMS.map((platform) => (
+                    {PLATFORMS.map((platform) => {
+                      const selected = formData.platforms.includes(platform);
+                      return (
                       <label
                         key={platform}
-                        className={`px-3 py-1 rounded-full text-sm cursor-pointer transition-all ${
-                          formData.platforms.includes(platform)
-                            ? 'bg-indigo-600 text-white'
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm cursor-pointer transition-all ${
+                          selected
+                            ? 'bg-forge-600 text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                       >
                         <input
                           type="checkbox"
-                          checked={formData.platforms.includes(platform)}
+                          checked={selected}
                           onChange={(e) => {
                             const platforms = formData.platforms.filter(p => p !== platform);
                             if (e.target.checked) platforms.push(platform);
@@ -564,9 +569,16 @@ export default function TaskConfiguration() {
                           }}
                           className="sr-only"
                         />
+                        <PlatformIcon
+                          platform={platform as PlatformId}
+                          size={14}
+                          variant={selected ? 'mono' : 'brand'}
+                          className={selected ? 'text-white' : ''}
+                        />
                         {t(`platforms.${platform}`)}
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -583,7 +595,8 @@ export default function TaskConfiguration() {
                     onChange={(e) => setFormData({ ...formData, reference_image_count: parseInt(e.target.value) || 1 })}
                     min="1"
                     max="10"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder={t('placeholders.tasks.referenceImageCount')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                   />
                 </div>
                 {formData.mode === 'auto' ? (
@@ -598,7 +611,8 @@ export default function TaskConfiguration() {
                       onChange={(e) => setFormData({ ...formData, run_count_per_execution: parseInt(e.target.value) || 1 })}
                       min="1"
                       max="5"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder={t('placeholders.tasks.runCount')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('tasks.runCoversAll')}</p>
                   </div>
@@ -614,6 +628,7 @@ export default function TaskConfiguration() {
                       onChange={(e) => setFormData({ ...formData, generate_image_count: parseInt(e.target.value) || 1 })}
                       min="1"
                       max="10"
+                      placeholder={t('placeholders.tasks.generateImageCount')}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     />
                   </div>
@@ -632,6 +647,7 @@ export default function TaskConfiguration() {
                     onChange={(e) => setFormData({ ...formData, generate_copy_count: parseInt(e.target.value) || 1 })}
                     min="1"
                     max="10"
+                    placeholder={t('placeholders.tasks.generateCopyCount')}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   />
                 </div>
@@ -642,7 +658,7 @@ export default function TaskConfiguration() {
                   type="checkbox"
                   checked={formData.enabled}
                   onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  className="w-4 h-4 text-forge-600 rounded"
                   id="task-enabled"
                 />
                 <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
@@ -656,7 +672,7 @@ export default function TaskConfiguration() {
                   type="checkbox"
                   checked={formData.use_scene_reference || false}
                   onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  className="w-4 h-4 text-forge-600 rounded"
                   id="task-scene-ref"
                 />
                 <label htmlFor="task-scene-ref" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
@@ -672,7 +688,7 @@ export default function TaskConfiguration() {
                   onChange={(e) =>
                     setFormData({ ...formData, use_vision_image_prompt: e.target.checked })
                   }
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  className="w-4 h-4 text-forge-600 rounded"
                   id="task-vision-prompt"
                 />
                 <label htmlFor="task-vision-prompt" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
@@ -714,7 +730,7 @@ export default function TaskConfiguration() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('common.saving') : isEdit ? t('common.save') : t('tasks.createTask')}
                 </button>

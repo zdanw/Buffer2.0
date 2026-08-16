@@ -277,7 +277,7 @@ export default function PendingRelease() {
           
           {initialLoading && drafts.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">{t('common.loading')}</p>
             </div>
           ) : visibleDrafts.length === 0 ? (
@@ -294,7 +294,7 @@ export default function PendingRelease() {
                     key={draft.draft_id}
                     className={`border rounded-lg p-4 cursor-pointer transition-all ${
                       selectedDraftId === draft.draft_id
-                        ? 'border-indigo-600 bg-indigo-50'
+                        ? 'border-forge-600 bg-forge-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => handleSelectDraft(draft)}
@@ -411,7 +411,7 @@ export default function PendingRelease() {
                       key={idx}
                       className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all group ${
                         selectedImageIndex === idx
-                          ? 'border-indigo-600 ring-2 ring-indigo-200'
+                          ? 'border-forge-600 ring-2 ring-forge-200'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -422,7 +422,7 @@ export default function PendingRelease() {
                         onClick={() => setSelectedImageIndex(idx)}
                       />
                       {selectedImageIndex === idx && (
-                        <div className="absolute top-2 right-2 bg-indigo-600 text-white p-1 rounded-full">
+                        <div className="absolute top-2 right-2 bg-forge-600 text-white p-1 rounded-full">
                           <Check className="w-4 h-4" />
                         </div>
                       )}
@@ -499,7 +499,7 @@ export default function PendingRelease() {
                       key={idx}
                       className={`p-3 rounded-lg border-2 cursor-pointer transition-all group ${
                         selectedCopyIndex === idx
-                          ? 'border-indigo-600 bg-indigo-50'
+                          ? 'border-forge-600 bg-forge-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -509,7 +509,7 @@ export default function PendingRelease() {
                           className="cursor-pointer"
                         >
                           {selectedCopyIndex === idx ? (
-                            <Check className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                            <Check className="w-4 h-4 text-forge-600 flex-shrink-0 mt-0.5" />
                           ) : (
                             <div className="w-4 h-4 border border-gray-300 rounded flex-shrink-0 mt-0.5" />
                           )}
@@ -521,7 +521,7 @@ export default function PendingRelease() {
                           {copy.length > 150 && (
                             <button
                               onClick={() => setPreviewCopy(copy)}
-                              className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                              className="mt-2 text-xs text-forge-600 hover:text-forge-700 flex items-center gap-1"
                             >
                               <Eye className="w-3 h-3" />
                               {t('pending.viewFullCopy')}
@@ -542,7 +542,7 @@ export default function PendingRelease() {
                       key={platform}
                       className={`px-4 py-2 rounded-lg border-2 cursor-pointer transition-all ${
                         selectedPlatforms.includes(platform)
-                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                          ? 'border-forge-600 bg-forge-50 text-forge-700'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -575,7 +575,7 @@ export default function PendingRelease() {
                   className={`flex-1 px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
                     loading || selectedPlatforms.length === 0
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      : 'bg-forge-600 text-white hover:bg-forge-700'
                   }`}
                 >
                   {loading ? (

@@ -178,7 +178,7 @@ export default function CategoryCombobox({
           required={required}
           maxLength={maxLength}
           placeholder={t('assets.categoryCombobox.placeholder')}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-forge-500 disabled:opacity-50"
         />
         <ChevronDown
           className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -210,7 +210,7 @@ export default function CategoryCombobox({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectOption(index)}
                   className={`flex w-full items-center px-3 py-2 text-left text-sm ${
-                    highlightIndex === index ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'
+                    highlightIndex === index ? 'bg-forge-50 text-forge-700' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {category}
@@ -228,8 +228,8 @@ export default function CategoryCombobox({
                 onClick={() => selectOption(filteredCategories.length)}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
                   highlightIndex === filteredCategories.length
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-indigo-600 hover:bg-indigo-50'
+                    ? 'bg-forge-50 text-forge-700'
+                    : 'text-forge-600 hover:bg-forge-50'
                 }`}
               >
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />

@@ -9,6 +9,8 @@ import {
   ThumbsUp,
 } from 'lucide-react';
 import BrandAvatar from '@/components/BrandAvatar';
+import PlatformIcon, { InstagramAppIcon } from '@/components/icons/PlatformIcon';
+import StatusBarIcons from '@/components/icons/StatusBarIcons';
 import { useI18n } from '@/i18n/useI18n';
 
 type Platform = 'instagram' | 'tiktok' | 'facebook';
@@ -34,43 +36,15 @@ function formatCount(n: number): string {
 }
 
 function StatusBar({ light }: { light?: boolean }) {
-  const color = light ? 'text-white' : 'text-black';
+  const tone = light ? 'light' : 'dark';
   return (
     <div
-      className={`absolute top-0 inset-x-0 z-20 flex items-center justify-between px-7 pt-[14px] pb-1 text-[10px] font-semibold ${color}`}
+      className={`absolute top-0 inset-x-0 z-20 flex items-center justify-between px-7 pt-[14px] pb-1 text-[10px] font-semibold ${
+        light ? 'text-white' : 'text-black'
+      }`}
     >
       <span>9:41</span>
-      <div className="flex items-center gap-[3px]">
-        <svg viewBox="0 0 17 11" className="w-[15px] h-[10px]" fill="currentColor" aria-hidden>
-          <rect x="0" y="7" width="3" height="4" rx="0.5" />
-          <rect x="4.5" y="5" width="3" height="6" rx="0.5" />
-          <rect x="9" y="2.5" width="3" height="8.5" rx="0.5" />
-          <rect x="13.5" y="0" width="3" height="11" rx="0.5" />
-        </svg>
-        <svg viewBox="0 0 16 11" className="w-[14px] h-[10px]" fill="currentColor" aria-hidden>
-          <path d="M8 2.2c1.8 0 3.4.7 4.6 1.9l1.3-1.3C12.2.8 10.2 0 8 0 4.9 0 2.2 1.6.7 4l1.5 1.1C2.6 3.3 5.1 2.2 8 2.2z" />
-          <path d="M8 5.5c1.1 0 2.1.4 2.9 1.1l1.3-1.3C10.6 4 9.4 3.5 8 3.5c-1.4 0-2.6.5-3.6 1.4l1.3 1.3c.8-.7 1.8-1.1 2.9-1.1z" />
-          <circle cx="8" cy="9.5" r="1.5" />
-        </svg>
-        <svg viewBox="0 0 25 12" className="w-[22px] h-[10px]" aria-hidden>
-          <rect
-            x="0.5"
-            y="0.5"
-            width="21"
-            height="11"
-            rx="2.5"
-            fill="none"
-            stroke="currentColor"
-            className={light ? 'text-white' : 'text-black'}
-          />
-          <rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor" className={light ? 'text-white' : 'text-black'} />
-          <path
-            d="M23 4.5v3c.8-.3 1.3-1 1.3-1.8S23.8 4.8 23 4.5z"
-            fill="currentColor"
-            className={light ? 'text-white' : 'text-black'}
-          />
-        </svg>
-      </div>
+      <StatusBarIcons tone={tone} />
     </div>
   );
 }
@@ -118,32 +92,16 @@ function IPhoneFrame({
   );
 }
 
-function InstagramLogo({ className = 'h-[22px]' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 448 512" className={className} aria-hidden>
-      <defs>
-        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#feda75" />
-          <stop offset="25%" stopColor="#fa7e1e" />
-          <stop offset="50%" stopColor="#d62976" />
-          <stop offset="75%" stopColor="#962fbf" />
-          <stop offset="100%" stopColor="#4f5bd5" />
-        </linearGradient>
-      </defs>
-      <path
-        fill="url(#ig-grad)"
-        d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9 114.9-51.3 114.9-114.9S287.7 141 224.1 141zm0 189.6c-41.2 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.5 74.7-74.7 74.7zm146.4-194.3c0 14.9-12.1 27-27 27-14.9 0-27-12.1-27-27s12.1-27 27-27 27 12.1 27 27zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-94C384.3 64.1 352.5 55.9 316.6 54.2 280.3 52.3 167.7 52.3 131.4 54.2c-35.9 1.7-67.7 9.9-94 36.2-26.3 26.3-34.5 58.1-36.2 94-1.8 36.3-1.8 148.8 0 185.1 1.7 35.9 9.9 67.7 36.2 94 26.3 26.3 58.1 34.5 94 36.2 36.3 1.8 148.8 1.8 185.1 0 35.9-1.7 67.7-9.9 94-36.2 26.3-26.3 34.5-58.1 36.2-94 1.8-36.3 1.8-148.8 0-185.1zM398.8 388c-7.8 19.5-22.9 34.6-42.4 42.4-29.4 11.7-99.2 9-132.3 9s-102.9 2.6-132.3-9c-19.5-7.8-34.6-22.9-42.4-42.4-11.7-29.4-9-99.2-9-132.3s-2.6-102.9 9-132.3c7.8-19.5 22.9-34.6 42.4-42.4 29.4-11.7 99.2-9 132.3-9s102.9-2.6 132.3 9c19.5 7.8 34.6 22.9 42.4 42.4 11.7 29.4 9 99.2 9 132.3s2.7 102.9-9 132.3z"
-      />
-    </svg>
-  );
+function InstagramLogo({ className = '' }: { className?: string }) {
+  return <InstagramAppIcon size={22} className={className} />;
 }
 
-function FacebookLogo({ className = 'h-[18px]' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 320 512" className={className} fill="#1877F2" aria-hidden>
-      <path d="M279.14 288H238.6V512h-82.2V288h-41.6V192h41.6V149.4c0-41 12.3-71.5 36.8-91.5 24.5-20 57.5-30 99.1-30 8 0 16 .5 24 1.5v70.5h-16.5c-18.5 0-31.5 3.5-39 10.5-7.5 7-11.2 17.5-11.2 31.5V192h68.8l-9 96h-59.8v192z" />
-    </svg>
-  );
+function FacebookLogo({ className = '' }: { className?: string }) {
+  return <PlatformIcon platform="facebook" size={28} className={className} />;
+}
+
+function MessengerLogo({ className = '' }: { className?: string }) {
+  return <PlatformIcon platform="messenger" size={28} className={className} />;
 }
 
 function InstagramFeed({
@@ -247,7 +205,7 @@ function TikTokFeed({
       <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/75" />
 
       <div className="absolute inset-x-0 top-0 pt-[44px] px-3 flex items-center justify-between z-10">
-        <span className="text-[12px] font-semibold opacity-90">Following</span>
+        <PlatformIcon platform="tiktok" size={18} variant="mono" className="text-white" />
         <div className="flex items-center gap-5 text-[12px]">
           <span className="opacity-60">For You</span>
           <span className="font-bold border-b-2 border-white pb-0.5">Following</span>
@@ -349,13 +307,11 @@ function FacebookFeed({
   return (
     <div className="absolute inset-0 pt-[44px] flex flex-col bg-[#f0f2f5] text-[#050505] overflow-hidden">
       <div className="bg-white px-3 py-2 flex items-center gap-2 border-b border-gray-200 shrink-0 shadow-sm">
-        <FacebookLogo className="h-7 w-7 shrink-0" />
+        <FacebookLogo />
         <div className="flex-1 bg-[#f0f2f5] rounded-full px-3 py-1.5 text-[11px] text-gray-500">
           Search Facebook
         </div>
-        <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#1877F2]" fill="currentColor" aria-hidden>
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm-1-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm5 7h-2v-2.5c0-1.1-.9-2-2-2s-2 .9-2 2V17h-2v-6h2v1.07c.58-.68 1.44-1.07 2.33-1.07 1.74 0 3.16 1.42 3.16 3.16V17z" />
-        </svg>
+        <MessengerLogo />
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
@@ -533,12 +489,18 @@ export default function SocialFeedPreview({
               key={platform}
               type="button"
               onClick={() => setActivePlatform(platform)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
                 activePlatform === platform
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
+              <PlatformIcon
+                platform={platform}
+                size={12}
+                variant={activePlatform === platform ? 'mono' : 'brand'}
+                className={activePlatform === platform ? 'text-white' : ''}
+              />
               {PLATFORM_LABELS[platform]}
             </button>
           ))}

@@ -124,15 +124,15 @@ export default function TaskProductPicker({
   return (
     <div className="space-y-3">
       {selectedProducts.length > 0 && (
-        <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
+        <div className="rounded-lg border border-forge-100 bg-forge-50/60 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-indigo-900">
+            <span className="text-sm font-medium text-ink-900">
               {t('tasks.selectedProducts', { count: selectedProducts.length })}
             </span>
             <button
               type="button"
               onClick={() => onChange([])}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              className="text-xs font-medium text-forge-600 hover:text-forge-800"
             >
               {t('tasks.clearSelection')}
             </button>
@@ -143,7 +143,7 @@ export default function TaskProductPicker({
               return (
                 <span
                   key={product.product_id}
-                  className="inline-flex max-w-full items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm ring-1 ring-indigo-100"
+                  className="inline-flex max-w-full items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm ring-1 ring-forge-100"
                 >
                   <span className="truncate">{product.product_name}</span>
                   {!brandFilterId && (
@@ -173,8 +173,8 @@ export default function TaskProductPicker({
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t('tasks.searchProducts')}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+            placeholder={t('placeholders.tasks.searchProducts')}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:ring-2 focus:ring-forge-500"
           />
         </div>
         <div className="sm:col-span-2">
@@ -182,7 +182,7 @@ export default function TaskProductPicker({
           <select
             value={brandFilterId}
             onChange={(event) => setBrandFilterId(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-forge-500 focus:ring-2 focus:ring-forge-200"
           >
             <option value="">{t('brands.allBrands')}</option>
             {brands.map((brand) => (
@@ -224,7 +224,7 @@ export default function TaskProductPicker({
                       {t('tasks.categoryProductCount', { count: categoryProducts.length })}
                     </span>
                     {selectedInCategory > 0 && (
-                      <span className="shrink-0 rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      <span className="shrink-0 rounded-full bg-forge-600 px-2 py-0.5 text-[10px] font-semibold text-white">
                         {t('tasks.selectedInCategory', {
                           selected: selectedInCategory,
                           total: categoryProducts.length,
@@ -235,7 +235,7 @@ export default function TaskProductPicker({
                   <button
                     type="button"
                     onClick={() => setCategorySelection(category, !allSelected)}
-                    className="shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                    className="shrink-0 text-xs font-medium text-forge-600 hover:text-forge-800"
                   >
                     {allSelected ? t('tasks.deselectCategory') : t('tasks.selectCategory')}
                   </button>
@@ -250,7 +250,7 @@ export default function TaskProductPicker({
                           key={product.product_id}
                           className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
                             isSelected
-                              ? 'border-indigo-200 bg-indigo-50'
+                              ? 'border-forge-200 bg-forge-50'
                               : 'border-transparent hover:bg-gray-50'
                           }`}
                         >
@@ -258,7 +258,7 @@ export default function TaskProductPicker({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleProduct(product.product_id)}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="h-4 w-4 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-gray-800">

@@ -12,7 +12,7 @@ export default function BrandBadge({ brand, variant = 'default', className = '' 
 
   if (variant === 'system') {
     return (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 ${className}`}>
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-ink-100 text-ink-600 ${className}`}>
         {t('brands.system')}
       </span>
     );
@@ -28,7 +28,7 @@ export default function BrandBadge({ brand, variant = 'default', className = '' 
 
   if (!brand) return null;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 ${className}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-forge-50 text-forge-700 ${className}`}>
       {brand.name}
     </span>
   );

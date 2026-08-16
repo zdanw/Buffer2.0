@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { execSync } from 'node:child_process'
@@ -17,26 +17,29 @@ function getAppVersion(): string {
   }
 }
 
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080'
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, '')
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
 
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __APP_VERSION__: JSON.stringify(getAppVersion()),
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+  return {
+    plugins: [react()],
+    define: {
+      __APP_VERSION__: JSON.stringify(getAppVersion()),
     },
-  },
-  server: {
-    port: 5174,
-    strictPort: true,
-    proxy: {
-      '/v1': {
-        target: apiProxyTarget,
-        changeOrigin: true,
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
       },
     },
-  },
+    server: {
+      port: 5174,
+      strictPort: true,
+      proxy: {
+        '/v1': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+  }
 })

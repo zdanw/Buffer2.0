@@ -10,7 +10,7 @@ export default function VersionLabel({ variant = 'sidebar' }: VersionLabelProps)
   return (
     <p
       className={`mt-2 text-center text-[10px] tracking-wide ${
-        isLight ? 'text-gray-400' : 'text-indigo-400/70'
+        isLight ? 'text-ink-400' : 'text-white/30'
       }`}
     >
       v{APP_VERSION}

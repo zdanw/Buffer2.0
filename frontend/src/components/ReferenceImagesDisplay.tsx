@@ -50,7 +50,7 @@ export default function ReferenceImagesDisplay({
                 key={`${label}-${idx}`}
                 type="button"
                 onClick={() => onPreview(url)}
-                className="relative group w-full rounded-lg overflow-hidden border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="relative group w-full rounded-lg overflow-hidden border border-gray-200 focus:outline-none focus:ring-2 focus:ring-forge-400"
               >
                 <img
                   src={url}

@@ -615,7 +615,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                   value={importAction}
                   onChange={(e) => setImportAction(e.target.value)}
                   disabled={initializing}
-                  className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-forge-500 disabled:opacity-50"
                 >
                   <option value="">{t('dimensionsPage.importPresets')}</option>
                   <option value="general">{t('dimensionsPage.importGeneral')}</option>
@@ -641,7 +641,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
           )}
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+            className="flex items-center gap-2 bg-forge-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-forge-700 transition-colors text-sm"
           >
             <Plus className="w-5 h-5" />
             {t('dimensionsPage.addDimension')}
@@ -664,7 +664,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
               <select
                 value={selectedProductType}
                 onChange={(e) => setSelectedProductType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
               >
                 <option value="">{t('fields.all')}</option>
                 {productTypes.map((type) => (
@@ -680,7 +680,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
               <select
                 value={selectedDimensionType}
                 onChange={(e) => setSelectedDimensionType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
               >
                 <option value="">{t('fields.all')}</option>
                 {dimensionTypes.map((type) => (
@@ -721,7 +721,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
               {loading && dimensions.length === 0 ? (
                 <tr>
                   <td colSpan={tableColSpan} className="px-6 py-12 text-center">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                     <span className="text-gray-500 text-sm">{t('common.loading')}</span>
                   </td>
                 </tr>
@@ -738,7 +738,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     key={dimension.dimension_id}
                     className={`hover:bg-gray-50 ${dimension.enabled === false ? 'bg-gray-50 opacity-60' : ''}`}
                   >                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-forge-100 text-forge-800">
                         {getProductTypeLabel(dimension.product_type)}
                       </span>
                     </td>
@@ -761,7 +761,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                         onClick={() => void handleToggleEnabled(dimension)}
                         disabled={togglingId === dimension.dimension_id}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
-                          dimension.enabled === false ? 'bg-gray-300' : 'bg-indigo-600'
+                          dimension.enabled === false ? 'bg-gray-300' : 'bg-forge-600'
                         }`}
                         aria-label={dimension.enabled === false ? t('dimensionsPage.disabledTitle') : t('dimensionsPage.enabledTitle')}
                         title={dimension.enabled === false ? t('dimensionsPage.disabledTitle') : t('dimensionsPage.enabledTitle')}
@@ -805,7 +805,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openModal(dimension)}
-                          className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                          className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -877,7 +877,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                         void ensureCompatOptions(pt);
                       }
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     required
                     disabled={isEdit}
                   >
@@ -896,7 +896,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     id="dimension-type"
                     value={formData.dimension_type}
                     onChange={(e) => setFormData({ ...formData, dimension_type: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     required
                     disabled={isEdit}
                   >
@@ -921,10 +921,10 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     required
                     maxLength={LIMITS.dimensionName}
-                    placeholder={t('dimensionsPage.namePlaceholder')}
+                    placeholder={t('placeholders.dimensions.name')}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
                     {t('common.charCount', { current: (formData.name || '').length, max: LIMITS.dimensionName })}
@@ -957,7 +957,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                       >
                         <span className="font-medium text-gray-700">
                           {t('compat.compatibleWith', { label: t(`dimensionTypes.${dimType.key}`) })}
-                          <span className="ml-2 text-xs font-normal text-indigo-600">{statusText}</span>
+                          <span className="ml-2 text-xs font-normal text-forge-600">{statusText}</span>
                         </span>
                         <span className="flex items-center gap-2">
                           <input
@@ -965,7 +965,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                             checked={isAllSelected}
                             onChange={() => void toggleSelectAll(dimType.key)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            className="w-4 h-4 text-forge-600 rounded border-gray-300 focus:ring-forge-500"
                           />
                           <span className="text-xs text-gray-500">{t('dimensionsPage.selectAll')}</span>
                           <svg
@@ -989,7 +989,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                                   key={item.id}
                                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all duration-200 ${
                                     isChecked
-                                      ? 'bg-indigo-600 text-white shadow-md border-2 border-indigo-800'
+                                      ? 'bg-forge-600 text-white shadow-md border-2 border-forge-800'
                                       : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 hover:border-gray-300'
                                   }`}
                                 >
@@ -1016,7 +1016,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                                         },
                                       });
                                     }}
-                                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                    className="w-4 h-4 text-forge-600 rounded border-gray-300 focus:ring-forge-500"
                                   />
                                   <span className="text-xs">{item.name}</span>
                                 </label>
@@ -1050,7 +1050,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50"
                 >
                   {saving ? t('common.saving') : isEdit ? t('common.save') : t('dimensionsPage.addDimension')}
                 </button>

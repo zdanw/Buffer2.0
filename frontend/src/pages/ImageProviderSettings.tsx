@@ -264,7 +264,7 @@ export default function ImageProviderSettings() {
   if (loading) {
     return (
       <div className="p-6 flex justify-center">
-        <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
+        <RefreshCw className="w-8 h-8 animate-spin text-forge-600" />
       </div>
     );
   }
@@ -289,7 +289,7 @@ export default function ImageProviderSettings() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-indigo-700 text-sm"
+            className="flex items-center gap-2 bg-forge-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-forge-700 text-sm"
           >
             <Plus className="w-5 h-5" />
             {t('imageProviders.addProvider')}
@@ -317,7 +317,7 @@ export default function ImageProviderSettings() {
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900">{p.name}</h3>
                 {p.is_default && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-700">{t('common.default')}</span>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-forge-100 text-forge-700">{t('common.default')}</span>
                 )}
                 {!p.is_active && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">{t('common.disabled')}</span>
@@ -352,7 +352,7 @@ export default function ImageProviderSettings() {
               <button
                 type="button"
                 onClick={() => openEdit(p)}
-                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
               >
                 <Edit2 className="w-5 h-5" />
               </button>
@@ -409,6 +409,7 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   required
+                  placeholder={t('placeholders.imageProviders.name')}
                 />
               </div>
 
@@ -453,6 +454,7 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, base_url: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   required
+                  placeholder={t('placeholders.imageProviders.baseUrl')}
                 />
               </div>
 
@@ -470,6 +472,7 @@ export default function ImageProviderSettings() {
                     onChange={(e) => setForm({ ...form, api_key: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg pr-10"
                     autoComplete="off"
+                    placeholder={t('placeholders.imageProviders.apiKey')}
                   />
                   <button
                     type="button"
@@ -492,7 +495,7 @@ export default function ImageProviderSettings() {
                   value={form.default_model || ''}
                   onChange={(e) => setForm({ ...form, default_model: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder={t('imageProviders.fields.defaultModel.placeholder')}
+                  placeholder={t('placeholders.imageProviders.defaultModel')}
                 />
               </div>
 
@@ -515,14 +518,14 @@ export default function ImageProviderSettings() {
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder={t('imageProviders.fields.manualModels.modelIdPlaceholder')}
+                    placeholder={t('placeholders.imageProviders.modelId')}
                   />
                   <textarea
                     value={newModelDesc}
                     onChange={(e) => setNewModelDesc(e.target.value)}
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder={t('imageProviders.fields.manualModels.descriptionPlaceholder')}
+                    placeholder={t('placeholders.imageProviders.modelNotes')}
                   />
                   <button
                     type="button"
@@ -542,7 +545,7 @@ export default function ImageProviderSettings() {
                         <button
                           type="button"
                           onClick={() => openModelDoc(m)}
-                          className="text-left flex-1 font-mono text-sm text-indigo-700 hover:text-indigo-900 hover:underline break-all"
+                          className="text-left flex-1 font-mono text-sm text-forge-700 hover:text-ink-900 hover:underline break-all"
                           title={t('imageProviders.fields.manualModels.viewDoc')}
                         >
                           {m.id}
@@ -619,7 +622,7 @@ export default function ImageProviderSettings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('common.saving') : t('common.save')}
                 </button>
@@ -635,7 +638,7 @@ export default function ImageProviderSettings() {
             <div className="flex justify-between items-start gap-3 mb-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900">{t('imageProviders.modelDoc.title')}</h4>
-                <p className="font-mono text-sm text-indigo-700 break-all mt-1">{docModelId}</p>
+                <p className="font-mono text-sm text-forge-700 break-all mt-1">{docModelId}</p>
               </div>
               <button
                 type="button"
@@ -651,7 +654,7 @@ export default function ImageProviderSettings() {
               rows={8}
               autoFocus
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              placeholder={t('imageProviders.modelDoc.placeholder')}
+              placeholder={t('placeholders.imageProviders.modelDoc')}
             />
             <div className="flex justify-end gap-2 mt-4">
               <button
@@ -664,7 +667,7 @@ export default function ImageProviderSettings() {
               <button
                 type="button"
                 onClick={saveModelDoc}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                className="px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700"
               >
                 {t('common.confirm')}
               </button>

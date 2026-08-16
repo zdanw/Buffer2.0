@@ -80,6 +80,11 @@ app.add_middleware(
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(auth_router)
+
+@api_router.get("/health")
+async def api_health():
+    return {"status": "ok"}
+
 api_router.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(product_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(task_router, dependencies=[Depends(get_current_active_user)])

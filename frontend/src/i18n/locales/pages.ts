@@ -37,7 +37,7 @@ export const pagesEn: TranslationTree = {
     sellingPointsPlaceholder: 'Separate with commas',
     previewAlt: 'Preview',
     categoryCombobox: {
-      placeholder: 'Select or type a category',
+      placeholder: 'e.g. Video monitor',
       createNew: 'Create "{{name}}"',
       empty: 'No categories yet — type to create one',
       noMatches: 'No matching categories',
@@ -116,6 +116,7 @@ export const pagesEn: TranslationTree = {
       products: '{{count}} products',
       kitComplete: 'Kit complete',
       kitIncomplete: 'Complete your brand kit',
+      viewingAll: 'Viewing all brands',
     },
   },
   onboarding: {
@@ -167,7 +168,7 @@ export const pagesEn: TranslationTree = {
     editDimension: 'Edit dimension',
     importPresets: 'Import presets…',
     importGeneral: 'General (neutral)',
-    importBaby: 'Bebcare baby presets',
+    importBaby: 'Baby & lifestyle presets',
     resetFactory: 'Reset to factory defaults',
     applyPreset: 'Apply',
     applying: 'Applying…',
@@ -488,7 +489,7 @@ export const pagesZh: TranslationTree = {
     sellingPointsPlaceholder: '用逗号分隔',
     previewAlt: '预览',
     categoryCombobox: {
-      placeholder: '选择或输入分类',
+      placeholder: '例如：视频监控',
       createNew: '创建「{{name}}」',
       empty: '暂无分类 — 输入以创建',
       noMatches: '没有匹配的分类',
@@ -567,6 +568,7 @@ export const pagesZh: TranslationTree = {
       products: '{{count}} 个产品',
       kitComplete: '套件完整',
       kitIncomplete: '完善品牌套件',
+      viewingAll: '查看全部品牌',
     },
   },
   onboarding: {
@@ -618,7 +620,7 @@ export const pagesZh: TranslationTree = {
     editDimension: '编辑维度',
     importPresets: '导入预设…',
     importGeneral: '通用（中性）',
-    importBaby: 'Bebcare 母婴预设',
+    importBaby: '母婴与生活方式预设',
     resetFactory: '重置为出厂默认',
     applyPreset: '应用',
     applying: '应用中…',

@@ -93,7 +93,7 @@ export default function Pagination({
                 value={pageSize}
                 disabled={disabled}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-forge-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pageSizeOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
@@ -118,7 +118,7 @@ export default function Pagination({
                   disabled={disabled}
                   className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium disabled:cursor-not-allowed ${
                     page === currentPage
-                      ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
+                      ? 'z-10 bg-forge-600 border-forge-600 text-white'
                       : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                   }`}
                 >

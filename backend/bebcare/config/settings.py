@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     admin_email: str = "admin@bebcare.com"
     admin_password: str | None = None
 
+    # 是否允许公开注册（自托管可关闭）
+    allow_public_signup: bool = True
+
     # 应用配置
     app_host: str = "0.0.0.0"
     app_port: int = 8080
