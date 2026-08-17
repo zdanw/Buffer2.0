@@ -311,5 +311,9 @@ export const zh: TranslationTree = {
     test: {
       failed: '测试失败',
     },
+    errorDialog: {
+      title: '操作失败',
+      ok: '知道了',
+    },
   },
 };

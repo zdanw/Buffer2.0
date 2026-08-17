@@ -14,6 +14,7 @@ from .prompt_dimension import (
 )
 from .image_provider import ImageProviderConfig
 from .generate_task import GenerateTask
+from .buffer_account import BufferAccount
 
 __all__ = [
     "Brand",
@@ -35,4 +36,5 @@ __all__ = [
     "CompatMode",
     "ImageProviderConfig",
     "GenerateTask",
+    "BufferAccount",
 ]

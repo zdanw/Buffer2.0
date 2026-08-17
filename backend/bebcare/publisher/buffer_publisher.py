@@ -54,8 +54,10 @@ class BufferGraphQLClient:
     
     def __init__(self, api_token=None):
         self._api_token = api_token or settings.buffer_api_token
+        self.last_error: Optional[str] = None
     
     def request(self, query, max_retries=3, initial_delay=1.0):
+        self.last_error = None
         headers = {
             "Authorization": f"Bearer {self._api_token}",
             "Content-Type": "application/json",
@@ -72,7 +74,8 @@ class BufferGraphQLClient:
                 
                 if "errors" in result:
                     error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
-                    logger.error('GraphQL Error: %s', ', '.join(error_messages))
+                    self.last_error = ', '.join(error_messages)
+                    logger.error('GraphQL Error: %s', self.last_error)
                     return None
                     
                 return result.get("data")
@@ -82,6 +85,7 @@ class BufferGraphQLClient:
                     time.sleep(delay)
                     delay *= 2
                 else:
+                    self.last_error = "Buffer API request timeout"
                     logger.error('GraphQL request timeout, max retries %s reached', max_retries)
             except requests.exceptions.ConnectionError:
                 logger.warning('GraphQL connection failed, attempt %s/%s', attempt + 1, max_retries)
@@ -89,8 +93,10 @@ class BufferGraphQLClient:
                     time.sleep(delay)
                     delay *= 2
                 else:
+                    self.last_error = "Buffer API connection failed"
                     logger.error('GraphQL connection failed, max retries %s reached', max_retries)
             except Exception as e:
+                self.last_error = str(e)
                 logger.exception('GraphQL Request Error: %s', e)
                 return None
         

@@ -9,6 +9,7 @@ import {
   Zap,
   Eye,
   EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 import {
   listBufferAccounts,
@@ -31,6 +32,18 @@ const EMPTY_FORM: BufferAccountCreate = {
   is_default: false,
 };
 
+function formatApiDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg: unknown }).msg);
+    }
+  }
+  return fallback;
+}
+
 export default function BufferAccountSettings() {
   const { t } = useI18n();
   const { brands } = useBrandContext();
@@ -40,12 +53,17 @@ export default function BufferAccountSettings() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BufferAccountCreate>({ ...EMPTY_FORM });
   const [showToken, setShowToken] = useState(false);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [alertError, setAlertError] = useState('');
   const [success, setSuccess] = useState('');
   const [testingId, setTestingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const showAlert = (message: string) => {
+    setAlertError(message);
+  };
 
   const load = async (opts?: { silent?: boolean }) => {
     try {
@@ -54,7 +72,7 @@ export default function BufferAccountSettings() {
       const data = await listBufferAccounts();
       setAccounts(data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('common.loadFailed'));
+      showAlert(formatApiDetail(err.response?.data?.detail, t('common.loadFailed')));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -69,6 +87,7 @@ export default function BufferAccountSettings() {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, brand_ids: [] });
     setShowToken(false);
+    setFormError('');
     setShowModal(true);
   };
 
@@ -82,6 +101,7 @@ export default function BufferAccountSettings() {
       is_default: account.is_default,
     });
     setShowToken(false);
+    setFormError('');
     setShowModal(true);
   };
 
@@ -96,13 +116,13 @@ export default function BufferAccountSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setFormError('');
     if (!form.name.trim()) {
-      setError(t('bufferAccounts.validation.nameRequired'));
+      setFormError(t('bufferAccounts.validation.nameRequired'));
       return;
     }
     if (!editingId && !form.api_token.trim()) {
-      setError(t('bufferAccounts.validation.tokenRequired'));
+      setFormError(t('bufferAccounts.validation.tokenRequired'));
       return;
     }
 
@@ -134,8 +154,9 @@ export default function BufferAccountSettings() {
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0]?.msg : detail || t('common.saveFailed'));
+      const message = formatApiDetail(err.response?.data?.detail, t('common.saveFailed'));
+      setFormError(message);
+      showAlert(message);
     } finally {
       setSaving(false);
     }
@@ -148,7 +169,7 @@ export default function BufferAccountSettings() {
       await deleteBufferAccount(id);
       setAccounts((prev) => prev.filter((a) => a.id !== id));
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('common.deleteFailed'));
+      showAlert(formatApiDetail(err.response?.data?.detail, t('common.deleteFailed')));
     } finally {
       setDeletingId(null);
     }
@@ -158,15 +179,15 @@ export default function BufferAccountSettings() {
     setTestingId(id);
     try {
       const res = await testBufferAccount(id);
-      if (res.ok) setSuccess(res.message);
-      else setError(res.message);
-      setTimeout(() => {
-        setSuccess('');
-        setError('');
-      }, 4000);
+      if (res.ok) {
+        setSuccess(res.message);
+        setTimeout(() => setSuccess(''), 4000);
+      } else {
+        showAlert(res.message || t('bufferAccounts.test.failed'));
+      }
       void load({ silent: true });
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('bufferAccounts.test.failed'));
+      showAlert(formatApiDetail(err.response?.data?.detail, t('bufferAccounts.test.failed')));
     } finally {
       setTestingId(null);
     }
@@ -212,9 +233,6 @@ export default function BufferAccountSettings() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
-      )}
       {success && (
         <div className="mb-4 px-4 py-3 bg-green-50 text-green-700 rounded-lg text-sm flex items-center gap-2">
           <Check className="w-4 h-4" />
@@ -329,6 +347,13 @@ export default function BufferAccountSettings() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="px-4 py-3 bg-red-50 text-red-700 rounded-lg text-sm flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div>
                 <LabelWithTooltip
                   htmlFor="buffer-name"
@@ -462,6 +487,48 @@ export default function BufferAccountSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {alertError && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="buffer-error-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-lg sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full bg-red-50 p-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 id="buffer-error-title" className="text-lg font-semibold text-gray-900">
+                  {t('bufferAccounts.errorDialog.title')}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 break-words whitespace-pre-wrap">
+                  {alertError}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAlertError('')}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label={t('common.close')}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAlertError('')}
+                className="rounded-lg bg-forge-600 px-4 py-2 text-sm text-white hover:bg-forge-700"
+              >
+                {t('bufferAccounts.errorDialog.ok')}
+              </button>
+            </div>
           </div>
         </div>
       )}

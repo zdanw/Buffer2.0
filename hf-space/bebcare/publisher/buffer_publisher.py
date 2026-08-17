@@ -54,8 +54,10 @@ class BufferGraphQLClient:
     
     def __init__(self, api_token=None):
         self._api_token = api_token or settings.buffer_api_token
+        self.last_error: Optional[str] = None
     
     def request(self, query, max_retries=3, initial_delay=1.0):
+        self.last_error = None
         headers = {
             "Authorization": f"Bearer {self._api_token}",
             "Content-Type": "application/json",
@@ -72,7 +74,8 @@ class BufferGraphQLClient:
                 
                 if "errors" in result:
                     error_messages = [error.get("message", "Unknown error") for error in result["errors"]]
-                    logger.error('GraphQL Error: %s', ', '.join(error_messages))
+                    self.last_error = ', '.join(error_messages)
+                    logger.error('GraphQL Error: %s', self.last_error)
                     return None
                     
                 return result.get("data")
@@ -82,6 +85,7 @@ class BufferGraphQLClient:
                     time.sleep(delay)
                     delay *= 2
                 else:
+                    self.last_error = "Buffer API request timeout"
                     logger.error('GraphQL request timeout, max retries %s reached', max_retries)
             except requests.exceptions.ConnectionError:
                 logger.warning('GraphQL connection failed, attempt %s/%s', attempt + 1, max_retries)
@@ -89,8 +93,10 @@ class BufferGraphQLClient:
                     time.sleep(delay)
                     delay *= 2
                 else:
+                    self.last_error = "Buffer API connection failed"
                     logger.error('GraphQL connection failed, max retries %s reached', max_retries)
             except Exception as e:
+                self.last_error = str(e)
                 logger.exception('GraphQL Request Error: %s', e)
                 return None
         
@@ -194,8 +200,8 @@ class BufferCache:
 class BufferPublishService:
     """Buffer发布服务"""
     
-    def __init__(self):
-        self._client = BufferGraphQLClient()
+    def __init__(self, api_token=None):
+        self._client = BufferGraphQLClient(api_token=api_token)
         self._cache = BufferCache()
     
     @property
@@ -385,20 +391,28 @@ class BufferPublisher:
         logger.error('All %s attempts failed. Last error: %s', max_retries, str(last_exception)[:200])
         raise last_exception
     
-    def publish(self, text: str, image_url: Optional[str] = None, 
-                platforms: Optional[list] = None) -> Dict:
-        results = self._service.publish_to_platforms(text, image_url, platforms)
-        
+    def publish(
+        self,
+        text: str,
+        image_url: Optional[str] = None,
+        platforms: Optional[list] = None,
+        api_token: Optional[str] = None,
+    ) -> Dict:
+        service = BufferPublishService(api_token=api_token) if api_token else self._service
+        results = service.publish_to_platforms(text, image_url, platforms)
+
         formatted_results = {}
         for result in results:
             platform = result.get("platform")
+            if not platform:
+                continue
             formatted_results[platform] = {
                 "success": result.get("status") == "success",
                 "channel": result.get("channel"),
                 "post_id": result.get("post_id"),
-                "error": result.get("error")
+                "error": result.get("error"),
             }
-        
+
         return formatted_results
 
 buffer_publisher = BufferPublisher()

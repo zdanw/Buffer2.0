@@ -315,5 +315,9 @@ export const en: TranslationTree = {
     test: {
       failed: 'Test failed',
     },
+    errorDialog: {
+      title: 'Something went wrong',
+      ok: 'OK',
+    },
   },
 };
