@@ -11,6 +11,7 @@ import {
 import BrandAvatar from '@/components/BrandAvatar';
 import PlatformIcon, { InstagramAppIcon } from '@/components/icons/PlatformIcon';
 import StatusBarIcons from '@/components/icons/StatusBarIcons';
+import PreviewGeneratingAnimation from '@/components/PreviewGeneratingAnimation';
 import { useI18n } from '@/i18n/useI18n';
 
 type Platform = 'instagram' | 'tiktok' | 'facebook';
@@ -23,6 +24,8 @@ interface SocialFeedPreviewProps {
   brandLogo?: string | null;
   imageAlt?: string;
   onImageClick?: (url: string) => void;
+  isGenerating?: boolean;
+  generatingType?: string | null;
 }
 
 function toUsername(name: string): string {
@@ -499,6 +502,8 @@ export default function SocialFeedPreview({
   brandLogo,
   imageAlt = 'Generated content',
   onImageClick,
+  isGenerating = false,
+  generatingType = null,
 }: SocialFeedPreviewProps) {
   const { t } = useI18n();
 
@@ -576,7 +581,10 @@ export default function SocialFeedPreview({
         </div>
       )}
 
-      <IPhoneFrame {...frameProps}>{renderFeed()}</IPhoneFrame>
+      <IPhoneFrame {...frameProps}>
+        {renderFeed()}
+        {isGenerating && <PreviewGeneratingAnimation generatingType={generatingType} />}
+      </IPhoneFrame>
 
       {!showTabs && availablePlatforms.length === 1 && (
         <p className="text-[10px] text-center text-gray-400 mt-2">

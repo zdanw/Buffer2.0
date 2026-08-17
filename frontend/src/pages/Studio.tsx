@@ -788,6 +788,8 @@ export default function Studio() {
                     brandLogo={previewBrandLogo}
                     imageAlt={t('preview.generatedAlt')}
                     onImageClick={setPreviewImage}
+                    isGenerating={isGenerating}
+                    generatingType={generatingType}
                   />
                 </div>
                 {generatedContent.image && (
@@ -820,11 +822,15 @@ export default function Studio() {
                     brandName={previewBrandName}
                     brandLogo={previewBrandLogo}
                     imageAlt={t('preview.generatedAlt')}
+                    isGenerating={isGenerating}
+                    generatingType={generatingType}
                   />
                 </div>
-                <p className="mt-6 text-sm text-ink-500 text-center max-w-md">
-                  {t('preview.previewArea')}. {t('preview.selectAndGenerate')}
-                </p>
+                {!isGenerating && (
+                  <p className="mt-6 text-sm text-ink-500 text-center max-w-md">
+                    {t('preview.previewArea')}. {t('preview.selectAndGenerate')}
+                  </p>
+                )}
               </div>
             )}
           </div>
