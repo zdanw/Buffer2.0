@@ -9,6 +9,11 @@ import {
 } from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/AspectRatioSelect';
+import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
+
+const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
+const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
 
 export interface ImageModelSelection {
   image_provider_id?: string | null;
@@ -22,9 +27,6 @@ interface ImageModelPickerProps {
   disabled?: boolean;
   compact?: boolean;
 }
-
-const CUSTOM_VALUE = '__custom__';
-const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
 
 function normalizeSizeInput(raw: string): string | null {
   const m = raw.trim().match(SIZE_INPUT_RE);
@@ -232,11 +234,14 @@ export default function ImageModelPicker({
           label={`${t('imageModelPicker.aspectRatio')}${loadingSizes ? ` ${t('imageModelPicker.loading')}` : ''}`}
           tooltip={t('imageModelPicker.tooltips.aspectRatio')}
         />
-        <select
+        <AspectRatioSelect
+          sizes={sizes}
           value={selectValue}
+          currentSize={currentSize}
+          isCustom={isCustom}
+          allowCustom={allowCustom}
           disabled={disabled || loadingSizes || (sizes.length === 0 && !allowCustom)}
-          onChange={(e) => {
-            const next = e.target.value;
+          onChange={(next) => {
             if (next === CUSTOM_VALUE) {
               setForceCustom(true);
               setCustomDraft(value.image_size || customDraft || '');
@@ -245,35 +250,35 @@ export default function ImageModelPicker({
             setForceCustom(false);
             onChange({ ...value, image_size: next || defaultSize });
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-        >
-          {sizes.map((s) => (
-            <option key={s.size} value={s.size}>
-              {s.label} ({s.width}×{s.height})
-            </option>
-          ))}
-          {allowCustom && (
-            <option value={CUSTOM_VALUE}>{t('imageModelPicker.customSize')}</option>
-          )}
-        </select>
+        />
         {isCustom && (
           <>
-            <input
-              type="text"
-              value={customDraft}
-              disabled={disabled}
-              onChange={(e) => {
-                const raw = e.target.value;
-                setCustomDraft(raw);
-                setForceCustom(true);
-                const normalized = normalizeSizeInput(raw);
-                if (normalized) {
-                  onChange({ ...value, image_size: normalized });
-                }
-              }}
-              placeholder={t('placeholders.imageModelPicker.customSize')}
-              className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-            />
+            <div className="mt-2 flex items-center gap-2">
+              {customNormalized ? (
+                <AspectRatioGlyph
+                  width={parseSizeString(customNormalized)?.width}
+                  height={parseSizeString(customNormalized)?.height}
+                />
+              ) : (
+                <AspectRatioGlyph variant="custom" />
+              )}
+              <input
+                type="text"
+                value={customDraft}
+                disabled={disabled}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCustomDraft(raw);
+                  setForceCustom(true);
+                  const normalized = normalizeSizeInput(raw);
+                  if (normalized) {
+                    onChange({ ...value, image_size: normalized });
+                  }
+                }}
+                placeholder={t('placeholders.imageModelPicker.customSize')}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
+              />
+            </div>
             {customInvalid ? (
               <p className="text-xs text-amber-600 mt-1">{t('imageModelPicker.customSizeHint')}</p>
             ) : (
