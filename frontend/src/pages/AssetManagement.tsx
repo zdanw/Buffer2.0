@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import { GENERIC_BRAND_ID, getBrand } from '@/api/brands';
@@ -11,6 +12,13 @@ import {
   alertValidationErrors,
   createValidators,
 } from '@/lib/formValidation';
+import {
+  validateImageFiles,
+  getUploadErrorMessage,
+  formatFileSize,
+  MAX_IMAGE_FILE_LABEL,
+} from '@/lib/imageUpload';
+import { isProductIncomplete } from '@/lib/productCompleteness';
 import Pagination from '@/components/Pagination';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import BrandPicker from '@/components/BrandPicker';
@@ -49,6 +57,7 @@ export default function AssetManagement() {
     use_brand_voice: false,
   });
   const [inheritedVoice, setInheritedVoice] = useState<string>('');
+  const [detailInheritedVoice, setDetailInheritedVoice] = useState<string>('');
 
   useEffect(() => {
     void Promise.all([loadProducts(1), loadDimensionTypes()]);
@@ -62,6 +71,21 @@ export default function AssetManagement() {
         .catch(() => setInheritedVoice(''));
     }
   }, [formData.brand_id, formData.use_brand_voice]);
+
+  useEffect(() => {
+    if (!selectedProduct) {
+      setDetailInheritedVoice('');
+      return;
+    }
+    if (selectedProduct.use_brand_voice) {
+      setDetailInheritedVoice('');
+      return;
+    }
+    const brandId = selectedProduct.brand_id || GENERIC_BRAND_ID;
+    void getBrand(brandId)
+      .then((kit) => setDetailInheritedVoice(kit.voice || ''))
+      .catch(() => setDetailInheritedVoice(''));
+  }, [selectedProduct?.product_id, selectedProduct?.use_brand_voice, selectedProduct?.brand_id]);
 
   const loadDimensionTypes = async () => {
     try {
@@ -185,9 +209,32 @@ export default function AssetManagement() {
     if (!e.target.files || !selectedProduct || uploadingType) return;
     const files = Array.from(e.target.files);
     e.target.value = '';
+
+    const validation = validateImageFiles(files);
+    if (!validation.ok) {
+      if (validation.error === 'fileTooLarge' && validation.oversized) {
+        alert(
+          t('assets.uploadFileTooLarge', {
+            max: MAX_IMAGE_FILE_LABEL,
+            names: validation.oversized.map((f) => `${f.name} (${formatFileSize(f.size)})`).join(', '),
+          })
+        );
+      } else if (validation.error === 'batchTooLarge' && validation.totalBytes) {
+        alert(
+          t('assets.uploadBatchTooLarge', {
+            max: MAX_IMAGE_FILE_LABEL,
+            total: formatFileSize(validation.totalBytes),
+          })
+        );
+      } else {
+        alert(t('assets.uploadFailed'));
+      }
+      return;
+    }
+
     setUploadingType(imageType);
     try {
-      const response = await uploadProductImages(selectedProduct.product_id, files, imageType);
+      const response = await uploadProductImages(selectedProduct.product_id, validation.files, imageType);
       if (response.failed && response.failed.length > 0) {
         alert(t('assets.uploadPartialFail', {
           uploaded: response.uploaded.length,
@@ -197,7 +244,12 @@ export default function AssetManagement() {
       }
     } catch (error) {
       console.error('Failed to upload images:', error);
-      alert(t('assets.uploadFailed'));
+      const message = getUploadErrorMessage(error, t('assets.uploadFailed'));
+      if ((error as { response?: { status?: number } })?.response?.status === 413) {
+        alert(t('assets.uploadTooLarge', { max: MAX_IMAGE_FILE_LABEL }));
+      } else {
+        alert(message);
+      }
     } finally {
       try {
         const updated = await getProduct(selectedProduct.product_id);
@@ -318,7 +370,15 @@ export default function AssetManagement() {
                         : 'bg-gray-50 hover:bg-gray-100'
                     }`}
                   >
-                    <h4 className="font-medium text-gray-800">{product.product_name}</h4>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-gray-800 leading-snug">{product.product_name}</h4>
+                      {isProductIncomplete(product) && (
+                        <span className="inline-flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-200">
+                          <AlertCircle className="w-3 h-3" />
+                          {t('assets.incomplete')}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">{product.category}</p>
                     {product.brand && (
                       <div className="mt-1">
@@ -355,7 +415,15 @@ export default function AssetManagement() {
             <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 h-full">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{selectedProduct.product_name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-semibold text-gray-900">{selectedProduct.product_name}</h3>
+                    {isProductIncomplete(selectedProduct) && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {t('assets.incomplete')}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-gray-500 mt-1">{selectedProduct.category}</p>
                   {selectedProduct.brand && (
                     <div className="mt-2">
@@ -384,6 +452,16 @@ export default function AssetManagement() {
                 </div>
               </div>
 
+              {isProductIncomplete(selectedProduct) && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">{t('assets.incompleteBannerTitle')}</p>
+                    <p className="text-sm text-amber-800 mt-1">{t('assets.incompleteBannerBody')}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="mb-6 space-y-4">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-2">
@@ -400,12 +478,36 @@ export default function AssetManagement() {
                       <Megaphone className="w-3.5 h-3.5" />
                       {t('assets.brandVoice')}
                     </div>
-                    {selectedProduct.brand_voice ? (
-                      <span className="inline-block px-3 py-1 bg-forge-50 text-forge-700 border border-forge-100 rounded-full text-sm">
-                        {selectedProduct.brand_voice}
-                      </span>
+                    {selectedProduct.use_brand_voice && selectedProduct.brand_voice ? (
+                      <div>
+                        <span className="inline-block px-3 py-1 bg-forge-50 text-forge-700 border border-forge-100 rounded-full text-sm">
+                          {selectedProduct.brand_voice}
+                        </span>
+                        <p className="text-[10px] text-gray-400 mt-1.5">{t('assets.productVoiceOverride')}</p>
+                      </div>
                     ) : (
-                      <p className="text-sm text-gray-400">{t('assets.noBrandVoice')}</p>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-gray-500">
+                          {t('assets.inheritedBrandVoice', {
+                            brand: selectedProduct.brand?.name || t('brands.generic'),
+                          })}
+                        </p>
+                        {detailInheritedVoice ? (
+                          <p className="text-sm text-gray-700 leading-relaxed line-clamp-4">
+                            {detailInheritedVoice}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-400">{t('brands.noVoiceInherited')}</p>
+                        )}
+                        {selectedProduct.brand_id && selectedProduct.brand?.slug !== 'generic' && (
+                          <Link
+                            to="/brand"
+                            className="text-xs font-medium text-forge-600 hover:text-forge-700 hover:underline"
+                          >
+                            {t('assets.viewBrandVoice')} →
+                          </Link>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div>
@@ -433,7 +535,7 @@ export default function AssetManagement() {
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-1">
                     <h4 className="font-semibold text-gray-800">{t('assets.productImages')}</h4>
                     <label className={`flex items-center gap-1.5 text-sm font-medium text-forge-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-forge-700'}`}>
                       {uploadingType === 'product' ? (
@@ -452,8 +554,18 @@ export default function AssetManagement() {
                       />
                     </label>
                   </div>
+                  <p className="text-[10px] text-gray-400 mb-2">
+                    {t('assets.uploadSizeHint', { max: MAX_IMAGE_FILE_LABEL })}
+                  </p>
                   <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'product' ? 'opacity-70' : ''}`}>
-                    {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
+                    {(Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).length === 0 ? (
+                      <div className="col-span-3 rounded-lg border-2 border-dashed border-amber-200 bg-amber-50/40 p-5 text-center">
+                        <Upload className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-amber-900">{t('assets.uploadProductImagesHint')}</p>
+                        <p className="text-xs text-amber-700/80 mt-1">{t('assets.incompleteBannerBody')}</p>
+                      </div>
+                    ) : (
+                      (Array.isArray(selectedProduct.product_images) ? selectedProduct.product_images : []).map((image) => (
                       <div key={image.image_id} className="relative group">
                         <img
                           src={image.cdn_url}
@@ -477,12 +589,13 @@ export default function AssetManagement() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-1">
                     <h4 className="font-semibold text-gray-800">{t('assets.sceneImages')}</h4>
                     <label className={`flex items-center gap-1.5 text-sm font-medium text-forge-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-forge-700'}`}>
                       {uploadingType === 'scene' ? (
@@ -501,8 +614,17 @@ export default function AssetManagement() {
                       />
                     </label>
                   </div>
+                  <p className="text-[10px] text-gray-400 mb-2">
+                    {t('assets.uploadSizeHint', { max: MAX_IMAGE_FILE_LABEL })}
+                  </p>
                   <div className={`grid grid-cols-3 gap-3 ${uploadingType === 'scene' ? 'opacity-70' : ''}`}>
-                    {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
+                    {(Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).length === 0 ? (
+                      <div className="col-span-3 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-5 text-center">
+                        <Upload className="w-7 h-7 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">{t('assets.uploadSceneImagesHint')}</p>
+                      </div>
+                    ) : (
+                      (Array.isArray(selectedProduct.scene_images) ? selectedProduct.scene_images : []).map((image) => (
                       <div key={image.image_id} className="relative group">
                         <img
                           src={image.cdn_url}
@@ -526,7 +648,8 @@ export default function AssetManagement() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
                 </div>
               </div>
