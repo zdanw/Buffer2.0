@@ -41,6 +41,7 @@ interface PreviewState {
   useVisionImagePrompt: boolean;
   imageProviderId?: string | null;
   imageModel?: string | null;
+  imageSize?: string | null;
   generatedContent: {
     text: string;
     image: string;
@@ -76,6 +77,7 @@ const loadStateFromStorage = (): PreviewState => {
     useVisionImagePrompt: false,
     imageProviderId: null,
     imageModel: null,
+    imageSize: '2048x2048',
     generatedContent: null,
     taskId: null,
     isGenerating: false,
@@ -105,6 +107,7 @@ export default function Studio() {
   );
   const [imageProviderId, setImageProviderId] = useState<string | null>(savedState.imageProviderId ?? null);
   const [imageModel, setImageModel] = useState<string | null>(savedState.imageModel ?? null);
+  const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
   const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
@@ -204,12 +207,13 @@ export default function Studio() {
       useVisionImagePrompt,
       imageProviderId,
       imageModel,
+      imageSize,
       generatedContent,
       taskId,
       isGenerating,
       generatingType,
     });
-  }, [selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, generatedContent, taskId, isGenerating, generatingType]);
+  }, [selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -331,6 +335,7 @@ export default function Studio() {
         use_vision_image_prompt: useVisionImagePrompt,
         image_provider_id: imageProviderId || undefined,
         image_model: imageModel || undefined,
+        image_size: imageSize || undefined,
       };
 
       let response;
@@ -543,10 +548,15 @@ export default function Studio() {
           </div>
 
           <ImageModelPicker
-            value={{ image_provider_id: imageProviderId, image_model: imageModel }}
+            value={{
+              image_provider_id: imageProviderId,
+              image_model: imageModel,
+              image_size: imageSize,
+            }}
             onChange={(next) => {
               setImageProviderId(next.image_provider_id ?? null);
               setImageModel(next.image_model ?? null);
+              setImageSize(next.image_size ?? '2048x2048');
             }}
             disabled={isGenerating}
           />

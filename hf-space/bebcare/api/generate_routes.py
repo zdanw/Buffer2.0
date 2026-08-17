@@ -61,6 +61,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "use_vision_image_prompt": bool(request.use_vision_image_prompt),
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
+        "image_size": request.image_size,
     }
     return enrich_product_info(db, product, base)
 
@@ -103,6 +104,7 @@ def generate_content(
                 1,
                 image_provider_id=product_info.get("image_provider_id"),
                 image_model=product_info.get("image_model"),
+                image_size=product_info.get("image_size"),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:
@@ -249,6 +251,7 @@ def generate_image_only(
                 1,
                 image_provider_id=product_info.get("image_provider_id"),
                 image_model=product_info.get("image_model"),
+                image_size=product_info.get("image_size"),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:

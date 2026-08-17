@@ -19,6 +19,7 @@ class TaskBase(BaseModel):
     use_vision_image_prompt: bool = False
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
+    image_size: Optional[str] = None
 
 class TaskCreate(TaskBase):
     pass
@@ -39,6 +40,7 @@ class TaskUpdate(BaseModel):
     use_vision_image_prompt: Optional[bool] = None
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
+    image_size: Optional[str] = None
 
 class TaskResponse(TaskBase):
     task_id: UUID

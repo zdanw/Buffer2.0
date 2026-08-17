@@ -109,3 +109,18 @@ class ImageModelsResponse(BaseModel):
 class ImageProviderTestResponse(BaseModel):
     ok: bool
     message: str
+
+
+class ImageSizeOption(BaseModel):
+    aspect: str
+    size: str
+    width: int
+    height: int
+    label: str
+
+
+class ImageSizeCapabilitiesResponse(BaseModel):
+    supported_sizes: List[ImageSizeOption] = []
+    default_size: str = "2048x2048"
+    provider_type: Optional[str] = None
+    allow_custom: bool = True

@@ -52,6 +52,7 @@ export default function TaskConfiguration() {
     use_vision_image_prompt: false,
     image_provider_id: null,
     image_model: null,
+    image_size: '2048x2048',
   });
 
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function TaskConfiguration() {
       use_vision_image_prompt: false,
       image_provider_id: null,
       image_model: null,
+      image_size: '2048x2048',
     });
     setSelectedTask(null);
     setIsEdit(false);
@@ -244,6 +246,7 @@ export default function TaskConfiguration() {
         use_vision_image_prompt: task.use_vision_image_prompt || false,
         image_provider_id: task.image_provider_id || null,
         image_model: task.image_model || null,
+        image_size: task.image_size || '2048x2048',
       });
     } else {
       setIsEdit(false);
@@ -264,6 +267,7 @@ export default function TaskConfiguration() {
         use_vision_image_prompt: false,
         image_provider_id: null,
         image_model: null,
+        image_size: '2048x2048',
       });
     }
     setShowModal(true);
@@ -707,12 +711,14 @@ export default function TaskConfiguration() {
                   value={{
                     image_provider_id: formData.image_provider_id,
                     image_model: formData.image_model,
+                    image_size: formData.image_size,
                   }}
                   onChange={(next) =>
                     setFormData({
                       ...formData,
                       image_provider_id: next.image_provider_id ?? null,
                       image_model: next.image_model ?? null,
+                      image_size: next.image_size ?? '2048x2048',
                     })
                   }
                 />

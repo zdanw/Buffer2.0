@@ -66,6 +66,21 @@ export interface ImageProviderTestResponse {
   message: string;
 }
 
+export interface ImageSizeOption {
+  aspect: string;
+  size: string;
+  width: number;
+  height: number;
+  label: string;
+}
+
+export interface ImageSizeCapabilitiesResponse {
+  supported_sizes: ImageSizeOption[];
+  default_size: string;
+  provider_type?: string | null;
+  allow_custom?: boolean;
+}
+
 export const listImageProviders = async (): Promise<ImageProvider[]> => {
   const response = await axiosInstance.get('/image-providers/');
   return response.data;
@@ -90,6 +105,19 @@ export const deleteImageProvider = async (id: string): Promise<void> => {
 
 export const listProviderModels = async (id: string): Promise<ImageModelsResponse> => {
   const response = await axiosInstance.get(`/image-providers/${id}/models`);
+  return response.data;
+};
+
+export const getImageSizeCapabilities = async (params?: {
+  provider_id?: string | null;
+  model?: string | null;
+}): Promise<ImageSizeCapabilitiesResponse> => {
+  const response = await axiosInstance.get('/image-providers/capabilities', {
+    params: {
+      provider_id: params?.provider_id || undefined,
+      model: params?.model || undefined,
+    },
+  });
   return response.data;
 };
 

@@ -10,6 +10,7 @@ class GenerateRequest(BaseModel):
     use_vision_image_prompt: bool = False
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
+    image_size: Optional[str] = None
 
 class GenerateResponse(BaseModel):
     task_id: str

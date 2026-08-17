@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     deepseek_api_url: str = (
         "https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
     )
-    deepseek_model: str = "deepseek-v4-pro"
+    deepseek_model: str = "deepseek-v4-pro-0813"
 
     # 图像 Prompt 多模态（可选；开关在任务/预览侧，默认走纯文本 DeepSeek）
     # 未单独配置时复用 DEEPSEEK_* 的 key/url；模型须为支持视觉的百炼兼容模型（如 qwen-vl-max）

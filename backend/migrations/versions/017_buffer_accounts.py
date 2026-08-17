@@ -30,23 +30,24 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
     )
-    op.add_column(
-        "brands",
-        sa.Column("buffer_account_id", sa.String(length=36), nullable=True),
-    )
-    op.create_index("ix_brands_buffer_account_id", "brands", ["buffer_account_id"])
-    op.create_foreign_key(
-        "fk_brands_buffer_account_id",
-        "brands",
-        "buffer_accounts",
-        ["buffer_account_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    # SQLite cannot ALTER TABLE to add FKs; use batch copy-and-move.
+    with op.batch_alter_table("brands", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("buffer_account_id", sa.String(length=36), nullable=True)
+        )
+        batch_op.create_index("ix_brands_buffer_account_id", ["buffer_account_id"])
+        batch_op.create_foreign_key(
+            "fk_brands_buffer_account_id",
+            "buffer_accounts",
+            ["buffer_account_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_brands_buffer_account_id", "brands", type_="foreignkey")
-    op.drop_index("ix_brands_buffer_account_id", table_name="brands")
-    op.drop_column("brands", "buffer_account_id")
+    with op.batch_alter_table("brands", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_brands_buffer_account_id", type_="foreignkey")
+        batch_op.drop_index("ix_brands_buffer_account_id")
+        batch_op.drop_column("buffer_account_id")
     op.drop_table("buffer_accounts")

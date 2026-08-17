@@ -463,8 +463,10 @@ class ContentGenerator:
         db=None,
         image_provider_id: Optional[str] = None,
         image_model: Optional[str] = None,
+        image_size: Optional[str] = None,
     ) -> Dict:
         from bebcare.providers.registry import resolve_image_provider
+        from bebcare.providers.size_catalog import resolve_size
 
         use_scene_reference = product_info.get("use_scene_reference", False)
         use_vision = bool(product_info.get("use_vision_image_prompt", False))
@@ -559,6 +561,7 @@ class ContentGenerator:
 
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
+        size = resolve_size(image_size or product_info.get("image_size"))
         session, own = self._db_session(db)
         try:
             provider, resolved_model = resolve_image_provider(session, provider_id, model_id)
@@ -572,7 +575,7 @@ class ContentGenerator:
                     prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     reference_images=reference_images if reference_images else None,
-                    size="2048x2048",
+                    size=size,
                     model=resolved_model,
                 )
             )
@@ -647,6 +650,7 @@ class ContentGenerator:
         db=None,
         image_provider_id: Optional[str] = None,
         image_model: Optional[str] = None,
+        image_size: Optional[str] = None,
     ) -> Dict:
         return _run_sync(
             self.generate_image_async(
@@ -658,6 +662,7 @@ class ContentGenerator:
                 db,
                 image_provider_id,
                 image_model,
+                image_size,
             )
         )
 

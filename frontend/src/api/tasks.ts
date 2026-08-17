@@ -17,6 +17,7 @@ export interface ScheduledTask {
   use_vision_image_prompt?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
+  image_size?: string | null;
   created_at: string;
   updated_at: string;
   last_run_at?: string;
@@ -95,6 +96,7 @@ export interface TaskCreate {
   use_vision_image_prompt?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
+  image_size?: string | null;
 }
 
 export interface DraftPublishRequest {

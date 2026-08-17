@@ -49,6 +49,7 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         use_vision_image_prompt=task.use_vision_image_prompt,
         image_provider_id=task.image_provider_id,
         image_model=task.image_model,
+        image_size=task.image_size,
     )
     db.add(new_task)
     db.commit()
@@ -376,6 +377,7 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         "use_vision_image_prompt": bool(task.use_vision_image_prompt),
         "image_provider_id": task.image_provider_id,
         "image_model": task.image_model,
+        "image_size": task.image_size,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
         "last_run_at": task.last_run_at,
@@ -421,6 +423,8 @@ def update_task(task_id: str, task_update: TaskUpdate, db: Session = Depends(get
         task.image_provider_id = task_update.image_provider_id
     if "image_model" in task_update.model_fields_set:
         task.image_model = task_update.image_model
+    if "image_size" in task_update.model_fields_set:
+        task.image_size = task_update.image_size
     
     if task.enabled:
         scheduler_service.update_task(

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from bebcare.database import get_db
 from bebcare.models.image_provider import ImageProviderConfig
 from bebcare.schemas.image_provider import (
@@ -10,10 +10,12 @@ from bebcare.schemas.image_provider import (
     ImageModelsResponse,
     ImageModelInfo,
     ImageProviderTestResponse,
+    ImageSizeCapabilitiesResponse,
     _normalize_manual_models,
 )
 from bebcare.utils.crypto import encrypt_secret, decrypt_secret, mask_secret
 from bebcare.providers.registry import list_models_for_config, build_provider_from_config
+from bebcare.providers.size_catalog import get_size_capabilities
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.models.user import User
 import uuid
@@ -63,6 +65,37 @@ def list_providers(
 ):
     rows = db.query(ImageProviderConfig).order_by(ImageProviderConfig.created_at.desc()).all()
     return [_to_response(r) for r in rows]
+
+
+@router.get("/capabilities", response_model=ImageSizeCapabilitiesResponse)
+def get_provider_capabilities(
+    provider_id: Optional[str] = None,
+    model: Optional[str] = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_active_user),
+):
+    provider_type = None
+    if provider_id:
+        row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        provider_type = row.provider_type
+    else:
+        default = (
+            db.query(ImageProviderConfig)
+            .filter(ImageProviderConfig.is_default == True)  # noqa: E712
+            .filter(ImageProviderConfig.is_active == True)  # noqa: E712
+            .first()
+        )
+        provider_type = default.provider_type if default else "doubao_ark"
+
+    caps = get_size_capabilities(provider_type, model)
+    return ImageSizeCapabilitiesResponse(
+        supported_sizes=caps["supported_sizes"],
+        default_size=caps["default_size"],
+        provider_type=provider_type,
+        allow_custom=bool(caps.get("allow_custom", True)),
+    )
 
 
 @router.post("/", response_model=ImageProviderResponse, status_code=201)

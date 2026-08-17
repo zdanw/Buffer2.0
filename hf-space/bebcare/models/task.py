@@ -22,6 +22,7 @@ class ScheduledTask(Base):
     use_vision_image_prompt = Column(Boolean, default=False)
     image_provider_id = Column(String(36), nullable=True)
     image_model = Column(String(255), nullable=True)
+    image_size = Column(String(32), nullable=True)
     last_run_at = Column(DateTime)
     next_run_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)

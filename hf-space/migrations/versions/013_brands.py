@@ -52,19 +52,21 @@ def upgrade() -> None:
     )
     op.create_index("ix_brands_slug", "brands", ["slug"], unique=True)
 
-    op.add_column("products", sa.Column("brand_id", sa.String(length=36), nullable=True))
-    op.create_foreign_key(
-        "fk_products_brand_id",
-        "products",
-        "brands",
-        ["brand_id"],
-        ["brand_id"],
-        ondelete="SET NULL",
-    )
+    # SQLite cannot ALTER TABLE to add FKs; use batch copy-and-move.
+    with op.batch_alter_table("products", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("brand_id", sa.String(length=36), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_products_brand_id",
+            "brands",
+            ["brand_id"],
+            ["brand_id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_products_brand_id", "products", type_="foreignkey")
-    op.drop_column("products", "brand_id")
+    with op.batch_alter_table("products", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_products_brand_id", type_="foreignkey")
+        batch_op.drop_column("brand_id")
     op.drop_index("ix_brands_slug", table_name="brands")
     op.drop_table("brands")

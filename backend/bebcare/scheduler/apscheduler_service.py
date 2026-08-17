@@ -256,6 +256,7 @@ class APSchedulerService:
             "reference_scene_images": selected["reference_scene_images"],
             "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
             "image_model": task_cfg.image_model if task_cfg else None,
+            "image_size": getattr(task_cfg, "image_size", None) if task_cfg else None,
         }
 
     def execute_auto_task(self, task_id, target_categories, target_products, platforms,
@@ -404,6 +405,7 @@ class APSchedulerService:
                         ctx["reference_image_urls"],
                         image_provider_id=ctx["image_provider_id"],
                         image_model=ctx["image_model"],
+                        image_size=ctx.get("image_size"),
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -516,6 +518,7 @@ class APSchedulerService:
             reference_image_urls,
             image_provider_id=ctx["image_provider_id"],
             image_model=ctx["image_model"],
+            image_size=ctx.get("image_size"),
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None

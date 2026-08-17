@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import {
   listImageProviders,
   listProviderModels,
+  getImageSizeCapabilities,
   type ImageProvider,
   type ImageModelInfo,
+  type ImageSizeOption,
 } from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
@@ -11,6 +13,7 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 export interface ImageModelSelection {
   image_provider_id?: string | null;
   image_model?: string | null;
+  image_size?: string | null;
 }
 
 interface ImageModelPickerProps {
@@ -18,6 +21,15 @@ interface ImageModelPickerProps {
   onChange: (next: ImageModelSelection) => void;
   disabled?: boolean;
   compact?: boolean;
+}
+
+const CUSTOM_VALUE = '__custom__';
+const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
+
+function normalizeSizeInput(raw: string): string | null {
+  const m = raw.trim().match(SIZE_INPUT_RE);
+  if (!m) return null;
+  return `${Number(m[1])}x${Number(m[2])}`;
 }
 
 export default function ImageModelPicker({
@@ -29,9 +41,15 @@ export default function ImageModelPicker({
   const { t } = useI18n();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
   const [models, setModels] = useState<ImageModelInfo[]>([]);
+  const [sizes, setSizes] = useState<ImageSizeOption[]>([]);
+  const [defaultSize, setDefaultSize] = useState('2048x2048');
+  const [allowCustom, setAllowCustom] = useState(true);
+  const [customDraft, setCustomDraft] = useState('');
+  const [forceCustom, setForceCustom] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
+  const [loadingSizes, setLoadingSizes] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -81,7 +99,49 @@ export default function ImageModelPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only refetch when provider changes
   }, [value.image_provider_id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoadingSizes(true);
+      try {
+        const res = await getImageSizeCapabilities({
+          provider_id: value.image_provider_id,
+          model: value.image_model,
+        });
+        if (cancelled) return;
+        setSizes(res.supported_sizes);
+        setDefaultSize(res.default_size);
+        setAllowCustom(res.allow_custom !== false);
+        const presets = new Set(res.supported_sizes.map((s) => s.size));
+        if (!value.image_size) {
+          onChange({ ...value, image_size: res.default_size });
+        } else if (!presets.has(value.image_size)) {
+          setForceCustom(true);
+          setCustomDraft(value.image_size);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error('Failed to load image size capabilities:', e);
+          setSizes([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingSizes(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on provider/model
+  }, [value.image_provider_id, value.image_model]);
+
   const selected = models.find((m) => m.id === value.image_model);
+  const currentSize = value.image_size || defaultSize;
+  const presetSet = new Set(sizes.map((s) => s.size));
+  const isCustom =
+    allowCustom && (forceCustom || (!!value.image_size && !presetSet.has(value.image_size)));
+  const selectValue = isCustom ? CUSTOM_VALUE : currentSize;
+  const customNormalized = normalizeSizeInput(customDraft);
+  const customInvalid = isCustom && customDraft.trim().length > 0 && !customNormalized;
 
   const wrapClass = compact
     ? 'space-y-2'
@@ -110,6 +170,7 @@ export default function ImageModelPicker({
             onChange({
               image_provider_id: id,
               image_model: provider?.default_model || null,
+              image_size: value.image_size || defaultSize,
             });
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
@@ -164,6 +225,62 @@ export default function ImageModelPicker({
           <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{selected.description}</p>
         )}
         {hint && <p className="text-xs text-amber-600 mt-1">{hint}</p>}
+      </div>
+
+      <div>
+        <LabelWithTooltip
+          label={`${t('imageModelPicker.aspectRatio')}${loadingSizes ? ` ${t('imageModelPicker.loading')}` : ''}`}
+          tooltip={t('imageModelPicker.tooltips.aspectRatio')}
+        />
+        <select
+          value={selectValue}
+          disabled={disabled || loadingSizes || (sizes.length === 0 && !allowCustom)}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next === CUSTOM_VALUE) {
+              setForceCustom(true);
+              setCustomDraft(value.image_size || customDraft || '');
+              return;
+            }
+            setForceCustom(false);
+            onChange({ ...value, image_size: next || defaultSize });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
+        >
+          {sizes.map((s) => (
+            <option key={s.size} value={s.size}>
+              {s.label} ({s.width}×{s.height})
+            </option>
+          ))}
+          {allowCustom && (
+            <option value={CUSTOM_VALUE}>{t('imageModelPicker.customSize')}</option>
+          )}
+        </select>
+        {isCustom && (
+          <>
+            <input
+              type="text"
+              value={customDraft}
+              disabled={disabled}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setCustomDraft(raw);
+                setForceCustom(true);
+                const normalized = normalizeSizeInput(raw);
+                if (normalized) {
+                  onChange({ ...value, image_size: normalized });
+                }
+              }}
+              placeholder={t('placeholders.imageModelPicker.customSize')}
+              className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
+            />
+            {customInvalid ? (
+              <p className="text-xs text-amber-600 mt-1">{t('imageModelPicker.customSizeHint')}</p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.customSizeHint')}</p>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

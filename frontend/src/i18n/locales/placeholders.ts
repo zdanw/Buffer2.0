@@ -39,6 +39,7 @@ export const placeholdersEn: TranslationTree = {
     imageModelPicker: {
       manualModel: 'e.g. qwen-image-2.0 or flux-1.1-pro',
       selectProviderFirst: 'Pick a provider above first',
+      customSize: 'e.g. 1920x1080',
     },
     users: {
       username: 'e.g. content.ops',
@@ -116,6 +117,7 @@ export const placeholdersZh: TranslationTree = {
     imageModelPicker: {
       manualModel: '例如：qwen-image-2.0 或 flux-1.1-pro',
       selectProviderFirst: '请先选择上方的服务商',
+      customSize: '例如：1920x1080',
     },
     users: {
       username: '例如：content.ops',

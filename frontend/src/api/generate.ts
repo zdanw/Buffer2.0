@@ -9,6 +9,7 @@ export interface GenerateRequest {
   use_vision_image_prompt?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
+  image_size?: string | null;
 }
 
 export interface GenerateResponse {

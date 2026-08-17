@@ -13,8 +13,10 @@ export interface CreatePanelProps {
   onUseVisionImagePromptChange: (value: boolean) => void;
   imageProviderId: string | null;
   imageModel: string | null;
+  imageSize: string | null;
   onImageProviderChange: (id: string | null) => void;
   onImageModelChange: (model: string | null) => void;
+  onImageSizeChange: (size: string | null) => void;
   compact?: boolean;
 }
 
@@ -27,8 +29,10 @@ export default function CreatePanel({
   onUseVisionImagePromptChange,
   imageProviderId,
   imageModel,
+  imageSize,
   onImageProviderChange,
   onImageModelChange,
+  onImageSizeChange,
   compact = false,
 }: CreatePanelProps) {
   const { t } = useI18n();
@@ -99,10 +103,15 @@ export default function CreatePanel({
       </label>
 
       <ImageModelPicker
-        value={{ image_provider_id: imageProviderId, image_model: imageModel }}
+        value={{
+          image_provider_id: imageProviderId,
+          image_model: imageModel,
+          image_size: imageSize,
+        }}
         onChange={(next) => {
           onImageProviderChange(next.image_provider_id ?? null);
           onImageModelChange(next.image_model ?? null);
+          onImageSizeChange(next.image_size ?? null);
         }}
       />
     </div>
