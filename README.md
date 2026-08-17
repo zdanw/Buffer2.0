@@ -87,7 +87,7 @@ pip install -r requirements-clip.txt
 ```bash
 cd frontend
 npm ci
-npm run dev                   # http://localhost:5173，/v1 代理到 :8080
+npm run dev                   # http://localhost:5174，/v1 代理到 :8080
 ```
 
 本地一般**无需**配置 `VITE_`*。生产（Vercel）配置 `HF_SPACE_HOST`，**不要**把 `http://*.hf.space` 打进前端包（会 Mixed Content）。
@@ -145,7 +145,7 @@ ADMIN_PASSWORD=change-me-on-first-boot
 APP_HOST=0.0.0.0
 APP_PORT=8080
 LOG_LEVEL=INFO
-ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ALLOWED_ORIGINS=http://localhost:5174,http://127.0.0.1:5174
 ```
 
 生产务必设置：`APP_ENV=production`、`DATABASE_URL`（Supabase）、`ALLOWED_ORIGINS`（前端域名白名单，禁止 `*`）、以及全部密钥类变量。
@@ -202,7 +202,7 @@ python ../scripts/sync_deploy_copies.py
 
 ### 1. 本地联调
 
-1. 启动后端（`:8080`）与前端（`:5173`）
+1. 启动后端（`:8080`）与前端（`:5174`）
 2. 使用 `ADMIN_*` 账号登录管理台
 3. 在 **资产** 录入产品与参考图
 4. 在 **维度** 配置提示词维度并绑定产品类型
@@ -373,7 +373,7 @@ Bebcare_Buffer2.0/
 | `GITHUB_*`                | 图床仓库凭证                        | （必填）              |
 | `SECRET_KEY`              | JWT + Provider Key 加密（≥32 字符） | （必填）              |
 | `ADMIN_PASSWORD`          | 首次初始化管理员密码                    | （必填）              |
-| `ALLOWED_ORIGINS`         | CORS 白名单（逗号分隔，禁止 `*`）         | 本地含 `:5173`       |
+| `ALLOWED_ORIGINS`         | CORS 白名单（逗号分隔，禁止 `*`）         | 本地含 `:5174`       |
 | `LOG_LEVEL`               | 日志级别                          | `INFO`            |
 | `APP_PORT`                | 本地监听端口（HF 镜像内为 7860）          | `8080`            |
 

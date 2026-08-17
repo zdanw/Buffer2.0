@@ -187,7 +187,7 @@ export default function BrandManagement() {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 text-sm"
           >
             <Plus className="w-4 h-4" />
             {t('brands.addBrand')}
@@ -197,14 +197,27 @@ export default function BrandManagement() {
 
       {loading && brands.length === 0 ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-forge-600" />
+        </div>
+      ) : brands.length === 0 ? (
+        <div className="rounded-xl border border-canvas-border bg-white p-8 text-center max-w-lg mx-auto">
+          <p className="font-semibold text-ink-900">{t('api.emptyBrandsTitle')}</p>
+          <p className="text-sm text-ink-500 mt-2 leading-relaxed">{t('api.emptyBrandsBody')}</p>
+          <button
+            type="button"
+            onClick={() => void loadBrands()}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-forge-600 text-white rounded-lg text-sm hover:bg-forge-700"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {brands.map((brand) => (
             <div
               key={brand.brand_id}
-              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl border border-canvas-border p-5 shadow-card hover:shadow-card-hover transition-shadow duration-200"
             >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-3 min-w-0">
@@ -228,7 +241,7 @@ export default function BrandManagement() {
                   <button
                     type="button"
                     onClick={() => void openEdit(brand)}
-                    className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
+                    className="p-2 text-gray-500 hover:text-forge-600 rounded-lg hover:bg-forge-50"
                     aria-label={t('common.edit')}
                   >
                     <Edit2 className="w-4 h-4" />
@@ -276,7 +289,7 @@ export default function BrandManagement() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     activeTab === tab.id
-                      ? 'border-indigo-600 text-indigo-600'
+                      ? 'border-forge-600 text-forge-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -314,9 +327,10 @@ export default function BrandManagement() {
                       type="text"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
                       required
                       disabled={isEdit && brands.find((b) => b.brand_id === editingId)?.is_generic}
+                      placeholder={t('placeholders.brands.name')}
                     />
                   </div>
                   <div>
@@ -325,8 +339,9 @@ export default function BrandManagement() {
                       value={form.voice || ''}
                       onChange={(e) => setForm({ ...form, voice: e.target.value })}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
                       maxLength={LIMITS.brandVoice}
+                      placeholder={t('placeholders.brands.voice')}
                     />
                   </div>
                   <div>
@@ -335,7 +350,8 @@ export default function BrandManagement() {
                       type="text"
                       value={form.audience || ''}
                       onChange={(e) => setForm({ ...form, audience: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.audience')}
                     />
                   </div>
                   <div>
@@ -344,7 +360,8 @@ export default function BrandManagement() {
                       type="text"
                       value={form.tone_keywords || ''}
                       onChange={(e) => setForm({ ...form, tone_keywords: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.toneKeywords')}
                     />
                   </div>
                 </>
@@ -363,8 +380,8 @@ export default function BrandManagement() {
                           default_hashtags: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="#brand, #product"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.hashtags')}
                     />
                   </div>
                   <div>
@@ -372,7 +389,7 @@ export default function BrandManagement() {
                     <select
                       value={form.emoji_style || 'moderate'}
                       onChange={(e) => setForm({ ...form, emoji_style: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
                     >
                       <option value="none">{t('brands.emojiNone')}</option>
                       <option value="minimal">{t('brands.emojiMinimal')}</option>
@@ -386,7 +403,8 @@ export default function BrandManagement() {
                       type="text"
                       value={form.words_to_avoid || ''}
                       onChange={(e) => setForm({ ...form, words_to_avoid: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.wordsToAvoid')}
                     />
                   </div>
                   <div>
@@ -395,7 +413,8 @@ export default function BrandManagement() {
                       type="text"
                       value={form.logo_font_rule || ''}
                       onChange={(e) => setForm({ ...form, logo_font_rule: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.logoFontRule')}
                     />
                   </div>
                 </>
@@ -410,7 +429,8 @@ export default function BrandManagement() {
                       value={form.copy_system_prompt || ''}
                       onChange={(e) => setForm({ ...form, copy_system_prompt: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.copySystemPrompt')}
                     />
                   </div>
                   <div>
@@ -419,7 +439,8 @@ export default function BrandManagement() {
                       value={form.image_system_prompt || ''}
                       onChange={(e) => setForm({ ...form, image_system_prompt: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-forge-500"
+                      placeholder={t('placeholders.brands.imageSystemPrompt')}
                     />
                   </div>
                 </>
@@ -437,7 +458,7 @@ export default function BrandManagement() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50"
                 >
                   {saving ? t('common.saving') : t('common.save')}
                 </button>

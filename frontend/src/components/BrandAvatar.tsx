@@ -33,7 +33,7 @@ export default function BrandAvatar({ name, logoUrl, size = 'md', className = ''
 
   return (
     <span
-      className={`${sizeClass} inline-flex items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 font-semibold shrink-0 ${className}`}
+      className={`${sizeClass} inline-flex items-center justify-center rounded-lg bg-forge-100 text-forge-700 font-semibold shrink-0 ${className}`}
       aria-hidden
     >
       {initials(name)}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
-import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import { GENERIC_BRAND_ID, getBrand } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -16,13 +16,14 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 import BrandPicker from '@/components/BrandPicker';
 import BrandBadge from '@/components/BrandBadge';
 import BrandInheritanceHint from '@/components/BrandInheritanceHint';
+import CategoryCombobox, { findCanonicalCategory } from '@/components/CategoryCombobox';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
 export default function AssetManagement() {
   const { t } = useI18n();
   const v = createValidators(t);
-  const { activeBrandId } = useBrandContext();
+  const { activeBrandId, brands, loading: brandsLoading } = useBrandContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -120,14 +121,19 @@ export default function AssetManagement() {
     }
     setSaving(true);
     try {
+      const categories = await cachedFetch('categories', () => getCategories());
+      const resolvedCategory =
+        findCanonicalCategory(formData.category, categories) ?? formData.category.trim();
+      const payload = { ...formData, category: resolvedCategory };
+
       if (isEdit && selectedProduct) {
-        const updated = await updateProduct(selectedProduct.product_id, formData);
+        const updated = await updateProduct(selectedProduct.product_id, payload);
         setSelectedProduct(updated);
         setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
         invalidateCache('products');
         invalidateCache('categories');
       } else {
-        const created = await createProduct(formData);
+        const created = await createProduct(payload);
         invalidateCache('products');
         invalidateCache('categories');
         if (currentPage === 1) {
@@ -256,47 +262,47 @@ export default function AssetManagement() {
 
   return (
     <>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">{t('assets.title')}</h2>
-          <p className="text-gray-500 mt-1">{t('assets.subtitle')}</p>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-ink-900">{t('assets.title')}</h2>
+            <p className="text-ink-500 mt-1 text-sm">{t('assets.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                invalidateCache('products');
+                invalidateCache('dimensionTypes');
+                void Promise.all([
+                  loadProducts(currentPage, undefined, { keepRows: true }),
+                  loadDimensionTypes(),
+                ]);
+              }}
+              disabled={loading || listBusy}
+              className="flex items-center gap-2 bg-white border border-canvas-border text-ink-700 px-4 py-2 rounded-lg hover:shadow-card transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading || listBusy ? 'animate-spin' : ''}`} />
+              {t('common.refresh')}
+            </button>
+            <button
+              onClick={() => openModal()}
+              className="flex items-center gap-2 bg-forge-600 text-white px-4 py-2 rounded-lg hover:bg-forge-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              {t('assets.addProduct')}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              invalidateCache('products');
-              invalidateCache('dimensionTypes');
-              void Promise.all([
-                loadProducts(currentPage, undefined, { keepRows: true }),
-                loadDimensionTypes(),
-              ]);
-            }}
-            disabled={loading || listBusy}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading || listBusy ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
-          <button
-            onClick={() => openModal()}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            {t('assets.addProduct')}
-          </button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-xl shadow-card border border-canvas-border p-4 min-h-[320px] lg:min-h-[480px]">
             <h3 className="font-semibold text-gray-800 mb-4">{t('assets.productList')}</h3>
             <div className={`space-y-2 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
               {loading && products.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mb-3"></div>
                   <span className="text-gray-500 text-sm">{t('assets.startingUp')}</span>
                 </div>
               ) : products.length === 0 ? (
@@ -308,7 +314,7 @@ export default function AssetManagement() {
                     onClick={() => setSelectedProduct(product)}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${
                       selectedProduct?.product_id === product.product_id
-                        ? 'bg-indigo-50 border border-indigo-200'
+                        ? 'bg-forge-50 border border-forge-200'
                         : 'bg-gray-50 hover:bg-gray-100'
                     }`}
                   >
@@ -344,9 +350,9 @@ export default function AssetManagement() {
           </div>
         </div>
 
-        <div className="col-span-2">
+        <div className="lg:col-span-2 min-h-[320px] lg:min-h-[480px]">
           {selectedProduct ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 h-full">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">{selectedProduct.product_name}</h3>
@@ -360,7 +366,7 @@ export default function AssetManagement() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => openModal(selectedProduct)}
-                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                    className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
@@ -395,7 +401,7 @@ export default function AssetManagement() {
                       {t('assets.brandVoice')}
                     </div>
                     {selectedProduct.brand_voice ? (
-                      <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-sm">
+                      <span className="inline-block px-3 py-1 bg-forge-50 text-forge-700 border border-forge-100 rounded-full text-sm">
                         {selectedProduct.brand_voice}
                       </span>
                     ) : (
@@ -429,7 +435,7 @@ export default function AssetManagement() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-gray-800">{t('assets.productImages')}</h4>
-                    <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
+                    <label className={`flex items-center gap-1.5 text-sm font-medium text-forge-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-forge-700'}`}>
                       {uploadingType === 'product' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
@@ -478,7 +484,7 @@ export default function AssetManagement() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-gray-800">{t('assets.sceneImages')}</h4>
-                    <label className={`flex items-center gap-1.5 text-sm font-medium text-indigo-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-indigo-700'}`}>
+                    <label className={`flex items-center gap-1.5 text-sm font-medium text-forge-600 ${uploadingType ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:text-forge-700'}`}>
                       {uploadingType === 'scene' ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
@@ -554,7 +560,7 @@ export default function AssetManagement() {
               )}
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <div className="bg-white rounded-xl shadow-card border border-canvas-border p-12 text-center h-full flex flex-col items-center justify-center min-h-[320px]">
               <Image className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500">{t('assets.selectProductHint')}</p>
             </div>
@@ -581,6 +587,8 @@ export default function AssetManagement() {
                   <BrandPicker
                     value={formData.brand_id || GENERIC_BRAND_ID}
                     onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
+                    brands={brands}
+                    loading={brandsLoading}
                   />
                   {!formData.use_brand_voice && <BrandInheritanceHint voice={inheritedVoice} className="mt-1" />}
                 </div>
@@ -593,9 +601,10 @@ export default function AssetManagement() {
                     type="text"
                     value={formData.product_name}
                     onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     required
                     maxLength={LIMITS.productName}
+                    placeholder={t('placeholders.assets.productName')}
                   />
                 </div>
                 <div>
@@ -603,13 +612,11 @@ export default function AssetManagement() {
                     label={t('assets.category')}
                     tooltip={t('assets.tooltips.category')}
                   />
-                  <input
-                    type="text"
+                  <CategoryCombobox
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    onChange={(category) => setFormData({ ...formData, category })}
                     maxLength={LIMITS.category}
+                    required
                   />
                 </div>
                 <div>
@@ -620,9 +627,10 @@ export default function AssetManagement() {
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     rows={3}
                     maxLength={LIMITS.description}
+                    placeholder={t('placeholders.assets.description')}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
                     {t('common.charCount', { current: (formData.description || '').length, max: LIMITS.description })}
@@ -637,8 +645,8 @@ export default function AssetManagement() {
                     type="text"
                     value={(formData.selling_points || []).join(',')}
                     onChange={(e) => setFormData({ ...formData, selling_points: e.target.value.split(',').map(s => s.trim()) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder={t('assets.sellingPointsPlaceholder')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
+                    placeholder={t('placeholders.assets.sellingPoints')}
                     maxLength={LIMITS.sellingPointsJoined}
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
@@ -651,7 +659,7 @@ export default function AssetManagement() {
                       type="checkbox"
                       checked={formData.use_brand_voice ?? false}
                       onChange={(e) => setFormData({ ...formData, use_brand_voice: e.target.checked })}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
                     />
                     {t('assets.overrideBrandVoice')}
                   </label>
@@ -666,8 +674,9 @@ export default function AssetManagement() {
                     type="text"
                     value={formData.brand_voice}
                     onChange={(e) => setFormData({ ...formData, brand_voice: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     maxLength={LIMITS.brandVoice}
+                    placeholder={t('placeholders.assets.brandVoice')}
                   />
                   <p className={`mt-1 text-xs text-right ${(formData.brand_voice || '').length >= LIMITS.brandVoice ? 'text-red-500' : 'text-gray-400'}`}>
                     {t('common.charCount', { current: (formData.brand_voice || '').length, max: LIMITS.brandVoice })}
@@ -688,7 +697,7 @@ export default function AssetManagement() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('common.saving') : isEdit ? t('assets.saveChanges') : t('assets.addProduct')}
                 </button>

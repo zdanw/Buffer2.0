@@ -1,7 +1,8 @@
 import ImageModelPicker from '@/components/ImageModelPicker';
+import PlatformIcon from '@/components/icons/PlatformIcon';
+import type { PlatformId } from '@/components/icons/PlatformIcon';
 import { useI18n } from '@/i18n/useI18n';
-
-const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
 
 export interface CreatePanelProps {
   selectedPlatforms: string[];
@@ -45,20 +46,29 @@ export default function CreatePanel({
       <div>
         <div className="text-sm font-medium text-gray-700 mb-2">{t('preview.platform')}</div>
         <div className="flex flex-wrap gap-2">
-          {PLATFORMS.map((platform) => (
-            <button
-              key={platform}
-              type="button"
-              onClick={() => togglePlatform(platform)}
-              className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors cursor-pointer ${
-                selectedPlatforms.includes(platform)
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {platform}
-            </button>
-          ))}
+          {PLATFORMS.map((platform) => {
+            const selected = selectedPlatforms.includes(platform);
+            return (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => togglePlatform(platform)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm capitalize transition-colors cursor-pointer ${
+                  selected
+                    ? 'bg-forge-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <PlatformIcon
+                  platform={platform as PlatformId}
+                  size={14}
+                  variant={selected ? 'mono' : 'brand'}
+                  className={selected ? 'text-white' : ''}
+                />
+                {platformLabel(platform)}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -67,7 +77,7 @@ export default function CreatePanel({
           type="checkbox"
           checked={useSceneReference}
           onChange={(e) => onUseSceneReferenceChange(e.target.checked)}
-          className="mt-1 rounded border-gray-300 text-indigo-600"
+          className="mt-1 rounded border-gray-300 text-forge-600"
         />
         <div>
           <div className="text-sm font-medium text-gray-700">{t('preview.enableSceneReference')}</div>
@@ -80,7 +90,7 @@ export default function CreatePanel({
           type="checkbox"
           checked={useVisionImagePrompt}
           onChange={(e) => onUseVisionImagePromptChange(e.target.checked)}
-          className="mt-1 rounded border-gray-300 text-indigo-600"
+          className="mt-1 rounded border-gray-300 text-forge-600"
         />
         <div>
           <div className="text-sm font-medium text-gray-700">{t('preview.visionImagePrompt')}</div>

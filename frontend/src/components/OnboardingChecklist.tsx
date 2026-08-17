@@ -57,7 +57,7 @@ export default function OnboardingChecklist({
               key={step.tab}
               type="button"
               onClick={() => onNavigate(step.tab)}
-              className="w-full flex items-center gap-2 text-left text-sm text-gray-700 hover:text-indigo-600"
+              className="w-full flex items-center gap-2 text-left text-sm text-gray-700 hover:text-forge-600"
             >
               {step.done ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -68,7 +68,7 @@ export default function OnboardingChecklist({
             </button>
           ))}
           <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{t('onboarding.optionalSetup')}</p>
-          <button type="button" onClick={() => onNavigate('automations')} className="text-xs text-indigo-600 hover:underline block">
+          <button type="button" onClick={() => onNavigate('automations')} className="text-xs text-forge-600 hover:underline block">
             {t('onboarding.linkAutomations')}
           </button>
         </div>

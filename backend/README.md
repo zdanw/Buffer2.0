@@ -32,7 +32,7 @@ uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
 | `SCHEDULER_MAX_WORKERS` | `2` | 线程池大小 |
 | `DB_POOL_SIZE` | 按需 | 免费连接有限，建议 `3` 左右 |
 | `ENABLE_CLIP` | `false` | 开启需 `requirements-clip.txt` + Long-CLIP |
-| `ALLOWED_ORIGINS` | `http://localhost:5173,...` | 前端域名白名单（禁止 `*`） |
+| `ALLOWED_ORIGINS` | `http://localhost:5174,...` | 前端域名白名单（禁止 `*`） |
 
 必填密钥类：`DEEPSEEK_*`、`DOUBAO_*`、`BUFFER_*`、`GITHUB_*`、`SECRET_KEY`、`ADMIN_PASSWORD`。
 

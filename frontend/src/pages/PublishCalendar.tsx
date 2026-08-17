@@ -375,7 +375,7 @@ export default function PublishCalendar() {
       case 'failed':
         return <span className="w-2 h-2 bg-red-500 rounded-full" />;
       case 'running':
-        return <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />;
+        return <span className="w-2 h-2 bg-forge-500 rounded-full animate-pulse" />;
       default:
         return <span className="w-2 h-2 bg-gray-400 rounded-full" />;
     }
@@ -405,7 +405,7 @@ export default function PublishCalendar() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
             {(loading || refreshing) && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10 rounded-xl">
-                <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                <RefreshCw className="w-6 h-6 animate-spin text-forge-600" />
               </div>
             )}
             <div className="flex items-center justify-between mb-6">
@@ -447,7 +447,7 @@ export default function PublishCalendar() {
                   <div
                     key={day}
                     onClick={() => handleDayClick(day)}
-                    className={`aspect-square bg-gray-50 rounded-lg p-2 hover:bg-gray-100 transition-colors cursor-pointer ${hasExecutions ? 'ring-2 ring-indigo-400' : ''}`}
+                    className={`aspect-square bg-gray-50 rounded-lg p-2 hover:bg-gray-100 transition-colors cursor-pointer ${hasExecutions ? 'ring-2 ring-forge-400' : ''}`}
                   >
                     <span className="text-sm font-medium text-gray-800">{day}</span>
                     <div className="mt-1 space-y-1">
@@ -487,13 +487,13 @@ export default function PublishCalendar() {
               <div className="space-y-4 max-h-[600px] overflow-y-auto">
                 {groupedEvents.map((group) => (
                   <div key={group.dateLabel} className="border border-gray-100 rounded-lg overflow-hidden">
-                    <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-3 py-2">
+                    <div className="bg-gradient-to-r from-forge-50 to-blue-50 px-3 py-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-medium text-indigo-800 text-sm">{group.dateLabel}</span>
-                          <span className="text-xs text-indigo-600 ml-2">{group.weekday}</span>
+                          <span className="font-medium text-forge-800 text-sm">{group.dateLabel}</span>
+                          <span className="text-xs text-forge-600 ml-2">{group.weekday}</span>
                         </div>
-                        <span className="text-xs text-indigo-500 bg-white px-2 py-0.5 rounded-full">
+                        <span className="text-xs text-forge-500 bg-white px-2 py-0.5 rounded-full">
                           {t('calendar.tasksCount', { count: group.events.length })}
                         </span>
                       </div>
@@ -614,7 +614,7 @@ export default function PublishCalendar() {
                                 key={index}
                                 type="button"
                                 onClick={() => setPreviewImage(img)}
-                                className="relative group w-full rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                className="relative group w-full rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-forge-400"
                               >
                                 <img
                                   src={img}

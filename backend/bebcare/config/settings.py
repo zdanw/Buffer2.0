@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     admin_email: str = "admin@bebcare.com"
     admin_password: str | None = None
 
+    # 是否允许公开注册（自托管可关闭）
+    allow_public_signup: bool = True
+
     # 应用配置
     app_host: str = "0.0.0.0"
     app_port: int = 8080
@@ -78,7 +81,7 @@ class Settings(BaseSettings):
     seed_baby_dimensions: bool = False
 
     # CORS：白名单来自 ALLOWED_ORIGINS；禁止 * + credentials
-    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = "http://localhost:5174,http://127.0.0.1:5174"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
@@ -106,7 +109,7 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_allowed_origins(cls, value) -> str:
         if value is None:
-            return "http://localhost:5173,http://127.0.0.1:5173"
+            return "http://localhost:5174,http://127.0.0.1:5174"
         if isinstance(value, list):
             return ",".join(str(v).strip() for v in value if str(v).strip())
         return str(value)

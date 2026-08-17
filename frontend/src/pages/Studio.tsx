@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, RefreshCw, Image as ImageIcon, FileText, Image, Send, CheckCircle, X, BookmarkPlus } from 'lucide-react';
+import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus } from 'lucide-react';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -18,10 +18,13 @@ import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import ImageModelPicker from '@/components/ImageModelPicker';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
+import SocialFeedPreview from '@/components/SocialFeedPreview';
+import PlatformIcon from '@/components/icons/PlatformIcon';
+import type { PlatformId } from '@/components/icons/PlatformIcon';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
-const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
+import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
 const DIMENSION_FIELD_KEYS: Record<string, string> = {
   scene: 'scenes',
   lighting: 'lighting',
@@ -372,7 +375,7 @@ export default function Studio() {
           <h2 className="text-2xl font-bold text-gray-900">{t('studio.title')}</h2>
           <p className="text-gray-500 mt-1">{t('studio.subtitle')}</p>
           {activeBrand && (
-            <p className="text-xs text-indigo-600 mt-1">
+            <p className="text-xs text-forge-600 mt-1">
               {t('studio.inheritedFrom', { brand: activeBrand.is_generic ? t('brands.generic') : activeBrand.name })}
             </p>
           )}
@@ -407,9 +410,9 @@ export default function Studio() {
                 value={selectedProduct}
                 onChange={(e) => setSelectedProduct(e.target.value)}
                 disabled={refreshing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:opacity-50"
               >
-                <option value="">{t('fields.selectProductPlaceholder')}</option>
+                <option value="">{t('placeholders.studio.selectProduct')}</option>
                 {products.map((product) => (
                   <option key={product.product_id} value={product.product_id}>
                     {product.product_name}
@@ -425,19 +428,28 @@ export default function Studio() {
               tooltip={t('studio.tooltips.platforms')}
             />
             <div className="flex flex-wrap gap-2 mt-1">
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => togglePlatform(p)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    selectedPlatforms.includes(p)
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              {PLATFORMS.map((p) => {
+                const selected = selectedPlatforms.includes(p);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => togglePlatform(p)}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      selected
+                        ? 'bg-forge-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <PlatformIcon
+                      platform={p as PlatformId}
+                      size={16}
+                      variant={selected ? 'mono' : 'brand'}
+                      className={selected ? 'text-white' : ''}
+                    />
+                    {platformLabel(p)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -454,7 +466,7 @@ export default function Studio() {
                   onChange={() => setUseSceneReference(!useSceneReference)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
               </label>
             </div>
           </div>
@@ -472,7 +484,7 @@ export default function Studio() {
                   onChange={() => setUseVisionImagePrompt(!useVisionImagePrompt)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
               </label>
             </div>
           </div>
@@ -494,7 +506,7 @@ export default function Studio() {
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                 isGenerating || !selectedProduct || selectedPlatforms.length === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-forge-600 text-white hover:bg-forge-700'
               }`}
             >
               {isGenerating && generatingType === 'all' ? (
@@ -588,7 +600,7 @@ export default function Studio() {
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                   isPublishing || selectedPlatforms.length === 0
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-forge-600 text-white hover:bg-forge-700'
                 }`}
               >
                 {isPublishing ? (
@@ -707,51 +719,34 @@ export default function Studio() {
         </div>
 
         <div className="col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[500px]">
-            {generatedContent ? (
+          <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 min-h-[500px]">
+            {generatedContent && (generatedContent.image || generatedContent.text) ? (
               <div className="flex flex-col items-center">
-                {generatedContent.image && (
-                  <div className="w-full max-w-sm mb-6">
-                    <p className="text-xs text-center text-gray-500 mb-2">{t('studio.phonePreview')}</p>
-                    <div className="mx-auto w-[280px] rounded-[2rem] border-[10px] border-gray-900 bg-gray-900 shadow-xl overflow-hidden">
-                      <div className="h-6 bg-gray-900 flex items-center justify-center">
-                        <div className="w-16 h-1 rounded-full bg-gray-700" />
-                      </div>
-                      <div className="bg-white">
-                        <img
-                          src={generatedContent.image}
-                          alt={t('preview.generatedAlt')}
-                          className="w-full aspect-square object-cover"
-                        />
-                        {generatedContent.text && (
-                          <p className="p-3 text-xs text-gray-800 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                            {generatedContent.text}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {generatedContent.text && !generatedContent.image && (
-                  <div className="w-full max-w-sm">
-                    <p className="text-gray-800 text-center leading-relaxed whitespace-pre-wrap">
-                      {generatedContent.text}
-                    </p>
-                  </div>
-                )}
-                {!generatedContent.image && !generatedContent.text && (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                    <ImageIcon className="w-20 h-20 mb-4" />
-                    <p className="text-lg">{t('preview.previewArea')}</p>
-                    <p className="text-sm mt-1">{t('preview.selectAndGenerate')}</p>
-                  </div>
-                )}
+                <div className="w-full max-w-sm mb-6">
+                  <SocialFeedPreview
+                    platforms={selectedPlatforms}
+                    image={generatedContent.image || undefined}
+                    caption={generatedContent.text || undefined}
+                    brandName={activeBrand?.name}
+                    brandLogo={activeBrand?.logo_url}
+                    imageAlt={t('preview.generatedAlt')}
+                  />
+                </div>
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                <ImageIcon className="w-20 h-20 mb-4" />
-                <p className="text-lg">{t('preview.previewArea')}</p>
-                <p className="text-sm mt-1">{t('preview.selectAndGenerate')}</p>
+              <div className="flex flex-col items-center py-4">
+                <div className="w-full max-w-sm">
+                  <SocialFeedPreview
+                    platforms={selectedPlatforms.length > 0 ? selectedPlatforms : ['instagram']}
+                    caption={t('preview.selectAndGenerate')}
+                    brandName={activeBrand?.name || t('brand.name')}
+                    brandLogo={activeBrand?.logo_url}
+                    imageAlt={t('preview.generatedAlt')}
+                  />
+                </div>
+                <p className="mt-6 text-sm text-ink-500 text-center max-w-md">
+                  {t('preview.previewArea')}. {t('preview.selectAndGenerate')}
+                </p>
               </div>
             )}
           </div>

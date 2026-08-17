@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Control local frontend (Vite on :5173)
+# Control local frontend (Vite on :5174)
 #
 # Usage:
 #   ./scripts/frontend.sh start|stop|status|restart
@@ -20,7 +20,7 @@ esac
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/dev-common.sh"
 
-PORT=5173
+PORT=5174
 LOG_FILE="$DEV_STATE_DIR/frontend.log"
 PID_FILE="$DEV_STATE_DIR/frontend.pid"
 

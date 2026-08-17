@@ -27,7 +27,7 @@ os.environ.update(
         "ADMIN_USERNAME": "admin",
         "ADMIN_EMAIL": "admin@test.local",
         "ADMIN_PASSWORD": "AdminTestPass123!",
-        "ALLOWED_ORIGINS": "http://localhost:5173",
+        "ALLOWED_ORIGINS": "http://localhost:5174",
         "ENABLE_CLIP": "false",
         "LOG_LEVEL": "WARNING",
     }

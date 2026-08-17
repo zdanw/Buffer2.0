@@ -1,5 +1,6 @@
 import { useI18n } from '@/i18n/useI18n';
 import type { Locale } from '@/i18n/types';
+import VersionLabel from './VersionLabel';
 
 const OPTIONS: { value: Locale; labelKey: string }[] = [
   { value: 'en', labelKey: 'common.english' },
@@ -18,7 +19,7 @@ export default function LanguageSwitcher({ compact = false, variant = 'sidebar' 
   return (
     <div className={compact ? '' : isLight ? 'mt-4 border-t border-gray-200 pt-4' : 'mt-4 border-t border-white/10 pt-4'}>
       {!compact && (
-        <p className={`mb-2 text-center text-xs ${isLight ? 'text-gray-500' : 'text-indigo-400'}`}>
+        <p className={`mb-2 text-center text-xs ${isLight ? 'text-ink-500' : 'text-white/40'}`}>
           {t('common.language')}
         </p>
       )}
@@ -37,7 +38,7 @@ export default function LanguageSwitcher({ compact = false, variant = 'sidebar' 
                     : 'bg-white/15 text-white shadow-sm'
                   : isLight
                     ? 'text-gray-600 hover:bg-white/60'
-                    : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white'
               }`}
             >
               {t(opt.labelKey)}
@@ -45,6 +46,7 @@ export default function LanguageSwitcher({ compact = false, variant = 'sidebar' 
           );
         })}
       </div>
+      <VersionLabel variant={variant} />
     </div>
   );
 }

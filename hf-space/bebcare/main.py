@@ -67,7 +67,7 @@ cors_origins = settings.cors_origins
 if not cors_origins:
     raise RuntimeError(
         "ALLOWED_ORIGINS 为空或仅包含 *。请配置显式前端域名白名单，例如 "
-        "http://localhost:5173,https://your-app.vercel.app"
+        "http://localhost:5174,https://your-app.vercel.app"
     )
 
 app.add_middleware(
@@ -80,6 +80,11 @@ app.add_middleware(
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(auth_router)
+
+@api_router.get("/health")
+async def api_health():
+    return {"status": "ok"}
+
 api_router.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(product_router, dependencies=[Depends(get_current_active_user)])
 api_router.include_router(task_router, dependencies=[Depends(get_current_active_user)])

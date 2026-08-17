@@ -5,6 +5,12 @@ export interface LoginData {
   password: string;
 }
 
+export interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+}
+
 export interface CreateUserData {
   username: string;
   email?: string;
@@ -44,6 +50,15 @@ export const login = async (data: LoginData): Promise<TokenResponse> => {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
+  });
+  return response.data;
+};
+
+export const register = async (data: RegisterData): Promise<TokenResponse> => {
+  const response = await axiosInstance.post('/auth/register/', {
+    username: data.username,
+    email: data.email,
+    password: data.password,
   });
   return response.data;
 };

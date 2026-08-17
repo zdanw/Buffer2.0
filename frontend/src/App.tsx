@@ -3,12 +3,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import BrandLogo from './components/BrandLogo';
+import ApiConnectionBanner from './components/ApiConnectionBanner';
 import BrandSelectorBar from './components/BrandSelectorBar';
 import OnboardingWizard from './components/OnboardingWizard';
 import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
 import { useOnboarding } from './hooks/useOnboarding';
-import { useBrandContext } from './context/BrandContext';
+import { BrandProvider, useBrandContext } from './context/BrandContext';
 import { getCurrentUser, getToken } from './api/auth';
 import type { UserResponse } from './api/auth';
 
@@ -22,6 +23,8 @@ const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
 const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Landing = lazy(() => import('./pages/Landing'));
 
 const TAB_ROUTES: Record<string, string> = {
   brand: '/brand',
@@ -63,7 +66,7 @@ const LEGACY_REDIRECTS: Record<string, string> = {
 function PageFallback() {
   return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-forge-600" />
     </div>
   );
 }
@@ -71,7 +74,7 @@ function PageFallback() {
 function AppShellFallback() {
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forge-600" />
     </div>
   );
 }
@@ -110,7 +113,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { brands } = useBrandContext();
+  const { brands, loadError, refreshBrands, loading: brandsLoading } = useBrandContext();
   const { shouldShowOnboarding, skipOnboarding, markComplete } = useOnboarding();
   const initialTab = ROUTE_TABS[location.pathname] || 'products';
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -167,7 +170,7 @@ function AppContent() {
   const hasProduct = brands.some((b) => b.product_count > 0);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-canvas">
       <Sidebar
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -175,8 +178,8 @@ function AppContent() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <main className="flex-1 min-w-0 overflow-auto flex flex-col">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 lg:hidden">
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen">
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-canvas-border bg-canvas px-4 py-3 lg:hidden">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -190,8 +193,11 @@ function AppContent() {
             {t('brand.name')}
           </span>
         </div>
+        {loadError === 'connection' && (
+          <ApiConnectionBanner onRetry={() => void refreshBrands()} loading={brandsLoading} />
+        )}
         <BrandSelectorBar />
-        <div className="flex-1">
+        <div className="flex-1 overflow-auto">
           {lazyPanel('brand', activeTab, mountedTabs, BrandManagement)}
           {lazyPanel('products', activeTab, mountedTabs, AssetManagement)}
           {lazyPanel('visual-styles', activeTab, mountedTabs, DimensionManagement, {
@@ -239,19 +245,46 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function PublicOnlyRoute({ children }: { children: ReactNode }) {
+  const token = getToken();
+  if (token) {
+    return <Navigate to="/products" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <Router>
       <Routes>
         <Route
-          path="/login"
+          path="/"
           element={
             <Suspense fallback={<AppShellFallback />}>
-              <Login />
+              <Landing />
             </Suspense>
           }
         />
-        <Route path="/" element={<Navigate to="/products" replace />} />
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Suspense fallback={<AppShellFallback />}>
+                <Login />
+              </Suspense>
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicOnlyRoute>
+              <Suspense fallback={<AppShellFallback />}>
+                <Signup />
+              </Suspense>
+            </PublicOnlyRoute>
+          }
+        />
         {Object.entries(LEGACY_REDIRECTS).map(([from]) => (
           <Route key={from} path={from} element={<LegacyRedirect />} />
         ))}
@@ -259,7 +292,9 @@ function App() {
           path="/*"
           element={
             <ProtectedRoute>
-              <AppContent />
+              <BrandProvider>
+                <AppContent />
+              </BrandProvider>
             </ProtectedRoute>
           }
         />

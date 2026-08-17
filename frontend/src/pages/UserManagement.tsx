@@ -174,7 +174,7 @@ function UserManagement() {
   if (loading && users.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forge-600"></div>
       </div>
     );
   }
@@ -198,7 +198,7 @@ function UserManagement() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             {t('users.addUser')}
@@ -260,7 +260,7 @@ function UserManagement() {
                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                         maxLength={LIMITS.email}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
-                        placeholder={t('users.emailPlaceholder')}
+                        placeholder={t('placeholders.users.email')}
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -271,7 +271,7 @@ function UserManagement() {
                         minLength={LIMITS.password.min}
                         maxLength={LIMITS.password.max}
                         className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm"
-                        placeholder={t('users.passwordKeepBlank')}
+                        placeholder={t('placeholders.users.passwordKeep')}
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -325,7 +325,7 @@ function UserManagement() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <UserCog className="w-4 h-4 text-blue-600" />
+                          <UserCog className="w-4 h-4 text-forge-600" />
                         </div>
                         <span className="font-medium text-gray-900">{user.username}</span>
                       </div>
@@ -361,7 +361,7 @@ function UserManagement() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleEditUser(user)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          className="p-1 text-forge-600 hover:bg-forge-50 rounded"
                         >
                           <Edit2 className="w-5 h-5" />
                         </button>
@@ -411,8 +411,8 @@ function UserManagement() {
                   required
                   minLength={LIMITS.username.min}
                   maxLength={LIMITS.username.max}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t('users.usernamePlaceholder')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
+                  placeholder={t('placeholders.users.username')}
                 />
               </div>
 
@@ -425,8 +425,8 @@ function UserManagement() {
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   maxLength={LIMITS.email}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t('users.emailPlaceholderFull')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
+                  placeholder={t('placeholders.users.emailFull')}
                 />
               </div>
 
@@ -442,8 +442,8 @@ function UserManagement() {
                     required
                     minLength={LIMITS.password.min}
                     maxLength={LIMITS.password.max}
-                    className="w-full px-4 py-2 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder={t('users.autoPasswordHint')}
+                    className="w-full px-4 py-2 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
+                    placeholder={t('placeholders.users.autoPassword')}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <button
@@ -471,7 +471,7 @@ function UserManagement() {
                   id="is_admin"
                   checked={newUser.is_admin}
                   onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-forge-600 border-gray-300 rounded focus:ring-forge-500"
                 />
                 <label htmlFor="is_admin" className="text-sm text-gray-700">
                   {t('users.setAdmin')}
@@ -490,7 +490,7 @@ function UserManagement() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('users.creating') : t('users.create')}
                 </button>

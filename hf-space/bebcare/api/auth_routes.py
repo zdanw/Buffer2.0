@@ -44,6 +44,47 @@ def login_for_access_token(
     )
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
+@router.post("/register/", status_code=status.HTTP_201_CREATED)
+def register_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+):
+    if not settings.allow_public_signup:
+        raise HTTPException(status_code=403, detail="Public signup is disabled")
+
+    if not user.email or not user.email.strip():
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    db_user = get_user(db, user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    db_email = db.query(User).filter(User.email == user.email.strip()).first()
+    if db_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed_password = get_password_hash(user.password)
+    new_user = User(
+        username=user.username.strip(),
+        email=user.email.strip(),
+        hashed_password=hashed_password,
+        is_admin=False,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token = create_access_token(
+        data={"sub": new_user.username, "user_id": new_user.user_id, "is_admin": new_user.is_admin},
+        expires_delta=access_token_expires,
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": new_user.username, "user_id": new_user.user_id}
+    )
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
 @router.post("/refresh/")
 def refresh_access_token(
     request: RefreshTokenRequest,

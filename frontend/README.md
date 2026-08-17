@@ -9,7 +9,7 @@
 ```bash
 cd frontend
 npm ci
-npm run dev    # http://localhost:5173
+npm run dev    # http://localhost:5174
 ```
 
 开发时浏览器请求同源相对路径 `/v1`，由 Vite 代理到 `http://localhost:8080`（`vite.config.ts`），**无需**配置 `VITE_*` 后端地址。

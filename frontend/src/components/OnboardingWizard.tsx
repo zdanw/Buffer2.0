@@ -70,7 +70,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
 
         {step === 'welcome' && (
           <div className="px-8 pb-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-forge-100 text-forge-600 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-7 h-7" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">{t('onboarding.welcomeTitle')}</h2>
@@ -78,7 +78,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
             <button
               type="button"
               onClick={() => setStep('brand')}
-              className="mt-8 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700"
+              className="mt-8 w-full py-3 bg-forge-600 text-white rounded-xl font-medium hover:bg-forge-700"
             >
               {t('onboarding.getStarted')}
             </button>
@@ -94,7 +94,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
                 type="checkbox"
                 checked={useGeneric}
                 onChange={(e) => setUseGeneric(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600"
+                className="rounded border-gray-300 text-forge-600"
               />
               {t('onboarding.noSpecificBrand')}
             </label>
@@ -104,13 +104,13 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
                   type="text"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder={t('onboarding.brandName')}
+                  placeholder={t('placeholders.onboarding.brandName')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
                 <textarea
                   value={brandVoice}
                   onChange={(e) => setBrandVoice(e.target.value)}
-                  placeholder={t('brands.voice')}
+                  placeholder={t('placeholders.onboarding.brandVoice')}
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
@@ -119,7 +119,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
             <button
               type="button"
               onClick={() => setStep('product')}
-              className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center justify-center gap-2"
+              className="mt-6 w-full py-3 bg-forge-600 text-white rounded-xl font-medium hover:bg-forge-700 flex items-center justify-center gap-2"
             >
               {t('common.confirm')} <ArrowRight className="w-4 h-4" />
             </button>
@@ -135,7 +135,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
                 type="text"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder={t('assets.productName')}
+                placeholder={t('placeholders.onboarding.productName')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
               <input
@@ -149,7 +149,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
               type="button"
               disabled={busy || !productName.trim()}
               onClick={() => void finish()}
-              className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="mt-6 w-full py-3 bg-forge-600 text-white rounded-xl font-medium hover:bg-forge-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Package className="w-4 h-4" />
               {busy ? t('common.saving') : t('onboarding.goToStudio')}
@@ -164,7 +164,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
             <button
               type="button"
               onClick={onGoStudio}
-              className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700"
+              className="mt-6 w-full py-3 bg-forge-600 text-white rounded-xl font-medium hover:bg-forge-700"
             >
               {t('onboarding.goToStudio')}
             </button>
