@@ -247,10 +247,9 @@ body {
   }
 }
 
-/* App shell: sidebar always visible on large screens */
+/* App shell: keep sidebar visible on large screens (mobile off-canvas toggle) */
 @media (min-width: 1024px) {
   .app-sidebar {
-    position: relative !important;
     transform: translateX(0) !important;
   }
 }

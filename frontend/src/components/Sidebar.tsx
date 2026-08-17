@@ -93,7 +93,7 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
         />
       )}
       <aside
-        className={`app-sidebar z-50 flex w-60 shrink-0 flex-col bg-ink-900 p-5 transition-transform duration-200 ease-out fixed inset-y-0 left-0 lg:relative lg:min-h-screen lg:translate-x-0 ${
+        className={`app-sidebar z-50 flex w-60 shrink-0 flex-col bg-ink-900 p-5 h-screen max-h-screen transition-transform duration-200 ease-out fixed inset-y-0 left-0 lg:sticky lg:top-0 lg:self-start lg:inset-auto ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
