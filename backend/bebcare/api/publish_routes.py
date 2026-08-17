@@ -6,6 +6,10 @@ from typing import List, Optional
 from bebcare.database import get_db
 from bebcare.models import PublishRecord
 from bebcare.publisher.buffer_publisher import buffer_publisher
+from bebcare.services.buffer_account_service import (
+    resolve_buffer_api_token,
+    BufferAccountUnavailable,
+)
 import uuid
 from datetime import datetime
 import logging
@@ -19,6 +23,8 @@ class PublishRequest(BaseModel):
     text: str = Field(..., min_length=1)
     image_url: Optional[str] = None
     platforms: Optional[List[str]] = None
+    product_id: Optional[str] = None
+    brand_id: Optional[str] = None
 
 
 @router.post("/")
@@ -44,7 +50,19 @@ def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(publish_record)
 
-    results = buffer_publisher.publish(text, image_url, platforms)
+    try:
+        api_token = resolve_buffer_api_token(
+            db, product_id=request.product_id, brand_id=request.brand_id
+        )
+    except BufferAccountUnavailable as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+    if not api_token:
+        raise HTTPException(
+            status_code=400,
+            detail="未配置 Buffer 账户。请在 Settings → Buffer 账户中添加 token，或设置环境变量 BUFFER_API_TOKEN。",
+        )
+
+    results = buffer_publisher.publish(text, image_url, platforms, api_token=api_token)
     success_platforms: List[str] = []
     failed: dict = {}
 

@@ -8,6 +8,10 @@ from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
 from bebcare.utils.reference_selector import select_reference_images
 from bebcare.services.brand_context import enrich_product_info
+from bebcare.services.buffer_account_service import (
+    resolve_buffer_api_token,
+    BufferAccountUnavailable,
+)
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
 from bebcare.database import engine
@@ -484,8 +488,18 @@ class APSchedulerService:
             ctx = self._prepare_product_context(
                 session, product, task_id, reference_image_count, use_scene_reference, platforms
             )
+            try:
+                api_token = resolve_buffer_api_token(session, product_id=product_id)
+            except BufferAccountUnavailable as exc:
+                raise Exception(exc.message) from exc
         finally:
             session.close()
+
+        if not api_token:
+            raise Exception(
+                "No Buffer account configured. Bind the product brand in Settings → Buffer accounts, "
+                "or set a default account / BUFFER_API_TOKEN."
+            )
 
         product_info = ctx["product_info"]
         reference_image_urls = ctx["reference_image_urls"]
@@ -538,7 +552,9 @@ class APSchedulerService:
         cdn_url = image_urls[0]
         generated_images.append(cdn_url)
 
-        publish_result = buffer_publisher.publish(copywriting, cdn_url, platforms)
+        publish_result = buffer_publisher.publish(
+            copywriting, cdn_url, platforms, api_token=api_token
+        )
         logger.info(f"Publish result: {publish_result}")
 
         success_platforms = []

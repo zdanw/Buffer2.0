@@ -25,6 +25,7 @@ export const zh: TranslationTree = {
     preview: 'Studio',
     calendar: '发布日历',
     imageModels: '图像模型',
+    bufferAccounts: 'Buffer 账户',
     users: '用户管理',
     logout: '退出登录',
     adminAccount: '管理员账户',
@@ -262,6 +263,50 @@ export const zh: TranslationTree = {
     modelDoc: {
       title: '模型说明',
       placeholder: '在此填写模型说明文档：用途、分辨率、图生图能力、注意事项等',
+    },
+    test: {
+      failed: '测试失败',
+    },
+  },
+  bufferAccounts: {
+    title: 'Buffer 账户',
+    subtitle: '手动输入 Buffer token 添加账户，并绑定品牌。绑定后该品牌下的产品只能通过对应账户发布。',
+    addAccount: '添加 Buffer 账户',
+    editAccount: '编辑 Buffer 账户',
+    testConnection: '测试连接',
+    emptyState:
+      '尚未配置 Buffer 账户。添加 token 后绑定一个或多个品牌。未绑定品牌仍可回退到默认账户或环境变量 BUFFER_API_TOKEN。',
+    confirmDelete: '确定删除该 Buffer 账户？已绑定的品牌将解除绑定。',
+    tokenLabel: 'Token',
+    noEmail: '尚未验证邮箱',
+    noBrandsBound: '未绑定品牌',
+    fields: {
+      name: {
+        label: '名称',
+        tooltip: '管理界面中显示的友好名称，例如「代理商 Buffer」或「品牌 A 组织」。',
+      },
+      token: {
+        label: 'Buffer API Token',
+        labelOptional: 'Buffer API Token（留空则保留原 Token）',
+        tooltip: '粘贴 Buffer 访问令牌，服务端加密存储。创建时必填；编辑时留空表示不修改。',
+        keepPlaceholder: '留空表示不修改当前 Token',
+      },
+      brands: {
+        label: '绑定品牌',
+        tooltip: '可多选。一个品牌只能绑定一个 Buffer 账户；在此勾选会从原账户移过来。',
+        hint: '绑定完成后，这些品牌下的产品发布将只走本账户。',
+        empty: '暂无品牌。请先创建品牌套件。',
+      },
+      isDefault: {
+        label: '设为全局默认（用于未绑定品牌）',
+      },
+      isActive: {
+        label: '启用',
+      },
+    },
+    validation: {
+      nameRequired: '名称必填',
+      tokenRequired: '创建时必须填写 Token',
     },
     test: {
       failed: '测试失败',

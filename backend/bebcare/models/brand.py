@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON
+from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
 import uuid
@@ -46,7 +46,15 @@ class Brand(Base):
 
     extra = Column(JSON)  # product types, notes, export metadata
 
+    buffer_account_id = Column(
+        String(36),
+        ForeignKey("buffer_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     products = relationship("Product", back_populates="brand")
+    buffer_account = relationship("BufferAccount", back_populates="brands")

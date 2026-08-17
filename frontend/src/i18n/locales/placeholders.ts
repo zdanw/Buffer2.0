@@ -70,6 +70,10 @@ export const placeholdersEn: TranslationTree = {
       modelNotes: 'Image-to-image variant; best for product scene compositing.',
       modelDoc: 'Resolution: 1024×1024. Supports reference images. Rate limit: 10 RPM.',
     },
+    bufferAccounts: {
+      name: 'e.g. Agency Buffer',
+      token: 'Paste Buffer API token…',
+    },
   },
 };
 
@@ -142,6 +146,10 @@ export const placeholdersZh: TranslationTree = {
       modelId: '例如：qwen-image-edit-plus',
       modelNotes: '图生图模型；适合产品场景合成。',
       modelDoc: '分辨率 1024×1024，支持参考图，限速 10 RPM。',
+    },
+    bufferAccounts: {
+      name: '例如：代理商 Buffer',
+      token: '粘贴 Buffer API Token…',
     },
   },
 };

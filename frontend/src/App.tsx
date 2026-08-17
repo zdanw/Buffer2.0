@@ -22,6 +22,7 @@ const Studio = lazy(() => import('./pages/Studio'));
 const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
+const BufferAccountSettings = lazy(() => import('./pages/BufferAccountSettings'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const Landing = lazy(() => import('./pages/Landing'));
@@ -35,6 +36,7 @@ const TAB_ROUTES: Record<string, string> = {
   review: '/review',
   calendar: '/calendar',
   'image-models': '/image-models',
+  'buffer-accounts': '/buffer-accounts',
   users: '/users',
 };
 
@@ -52,6 +54,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/pending': 'review',
   '/calendar': 'calendar',
   '/image-models': 'image-models',
+  '/buffer-accounts': 'buffer-accounts',
   '/users': 'users',
 };
 
@@ -209,6 +212,9 @@ function AppContent() {
           {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
           {currentUser?.is_admin
             ? lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)
+            : null}
+          {currentUser?.is_admin
+            ? lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)
             : null}
           {currentUser?.is_admin
             ? lazyPanel('users', activeTab, mountedTabs, UserManagement)

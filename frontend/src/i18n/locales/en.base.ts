@@ -26,6 +26,7 @@ export const en: TranslationTree = {
     preview: 'Studio',
     calendar: 'Calendar',
     imageModels: 'Image Models',
+    bufferAccounts: 'Buffer accounts',
     users: 'Users',
     logout: 'Log out',
     adminAccount: 'Admin account',
@@ -263,6 +264,53 @@ export const en: TranslationTree = {
     modelDoc: {
       title: 'Model documentation',
       placeholder: 'Describe use case, resolution, image-to-image support, caveats, etc.',
+    },
+    test: {
+      failed: 'Test failed',
+    },
+  },
+  bufferAccounts: {
+    title: 'Buffer accounts',
+    subtitle:
+      'Add Buffer API tokens and bind brands. Products under a brand publish only through that brand’s Buffer account.',
+    addAccount: 'Add Buffer account',
+    editAccount: 'Edit Buffer account',
+    testConnection: 'Test connection',
+    emptyState:
+      'No Buffer accounts yet. Add a token, then bind one or more brands. Env BUFFER_API_TOKEN remains a fallback.',
+    confirmDelete: 'Delete this Buffer account? Bound brands will be unbound.',
+    tokenLabel: 'Token',
+    noEmail: 'Email not verified yet',
+    noBrandsBound: 'No brands bound',
+    fields: {
+      name: {
+        label: 'Name',
+        tooltip: 'Friendly label shown in Settings, e.g. "Agency Buffer" or "Brand A org".',
+      },
+      token: {
+        label: 'Buffer API token',
+        labelOptional: 'Buffer API token (leave blank to keep current)',
+        tooltip:
+          'Paste the Buffer access token. Stored encrypted on the server. Required when creating; leave empty when editing to keep the existing token.',
+        keepPlaceholder: 'Leave blank to keep current token',
+      },
+      brands: {
+        label: 'Bound brands',
+        tooltip:
+          'Select one or more brands. A brand can only belong to one Buffer account; selecting it here moves it from any previous account.',
+        hint: 'After binding, products under these brands publish only via this Buffer account.',
+        empty: 'No brands available. Create a brand kit first.',
+      },
+      isDefault: {
+        label: 'Set as global default (for unbound brands)',
+      },
+      isActive: {
+        label: 'Enabled',
+      },
+    },
+    validation: {
+      nameRequired: 'Name is required',
+      tokenRequired: 'Token is required when creating an account',
     },
     test: {
       failed: 'Test failed',

@@ -7,6 +7,10 @@ from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft
 from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest, DraftCreateRequest
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.publisher.buffer_publisher import buffer_publisher
+from bebcare.services.buffer_account_service import (
+    resolve_buffer_api_token,
+    BufferAccountUnavailable,
+)
 from bebcare.utils.image_utils import (
     any_non_cdn_image,
     is_github_cdn_url,
@@ -297,7 +301,18 @@ def publish_draft(draft_id: str, request: DraftPublishRequest, db: Session = Dep
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         cdn_url = persist_image_url_to_cdn(selected_image, f"draft_{draft_id}_{timestamp}.jpg")
 
-        publish_result = buffer_publisher.publish(selected_copy, cdn_url, request.platforms)
+        try:
+            api_token = resolve_buffer_api_token(db, product_id=draft.product_id)
+        except BufferAccountUnavailable as exc:
+            raise HTTPException(status_code=400, detail=exc.message) from exc
+        if not api_token:
+            raise HTTPException(
+                status_code=400,
+                detail="未配置 Buffer 账户。请在 Settings → Buffer 账户中绑定该产品所属品牌，或设置默认账户 / BUFFER_API_TOKEN。",
+            )
+        publish_result = buffer_publisher.publish(
+            selected_copy, cdn_url, request.platforms, api_token=api_token
+        )
 
         success_platforms = []
         for platform, result in publish_result.items():
