@@ -4,6 +4,7 @@ import { createBrand, GENERIC_BRAND_ID } from '@/api/brands';
 import { createProduct, uploadProductImages } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
+import { LIMITS } from '@/lib/formValidation';
 
 type Step = 'welcome' | 'brand' | 'product' | 'done';
 
@@ -112,6 +113,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
                   onChange={(e) => setBrandVoice(e.target.value)}
                   placeholder={t('placeholders.onboarding.brandVoice')}
                   rows={2}
+                  maxLength={LIMITS.brandVoice}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>

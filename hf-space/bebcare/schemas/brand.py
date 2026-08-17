@@ -19,7 +19,7 @@ class BrandSummary(BaseModel):
 
 class BrandBase(BaseModel):
     name: str = Field(..., max_length=255)
-    voice: Optional[str] = Field(None, max_length=200)
+    voice: Optional[str] = None
     audience: Optional[str] = None
     tone_keywords: Optional[str] = Field(None, max_length=500)
     default_selling_points: Optional[List[str]] = None
@@ -38,7 +38,7 @@ class BrandCreate(BrandBase):
 
 class BrandUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
-    voice: Optional[str] = Field(None, max_length=200)
+    voice: Optional[str] = None
     audience: Optional[str] = None
     tone_keywords: Optional[str] = Field(None, max_length=500)
     default_selling_points: Optional[List[str]] = None

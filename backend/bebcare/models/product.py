@@ -19,7 +19,7 @@ class Product(Base):
     category = Column(String(100), nullable=False)
     description = Column(Text)
     selling_points = Column(String(500))
-    brand_voice = Column(String(100))  # legacy; prefer brand.voice + optional override
+    brand_voice = Column(Text)  # legacy; prefer brand.voice + optional override
     use_brand_voice = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

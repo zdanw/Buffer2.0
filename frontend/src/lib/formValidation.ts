@@ -3,7 +3,7 @@
 export const LIMITS = {
   productName: 255,
   category: 100,
-  brandVoice: 100,
+  brandVoice: 5000,
   sellingPointsJoined: 500,
   description: 5000,
   taskName: 255,

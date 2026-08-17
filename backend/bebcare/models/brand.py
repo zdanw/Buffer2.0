@@ -20,7 +20,7 @@ class Brand(Base):
     is_generic = Column(Boolean, default=False, nullable=False)
     is_system = Column(Boolean, default=False, nullable=False)
 
-    voice = Column(String(200))
+    voice = Column(Text)
     audience = Column(Text)
     tone_keywords = Column(String(500))
     default_selling_points = Column(JSON)  # list[str]

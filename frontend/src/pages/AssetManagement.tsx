@@ -670,10 +670,10 @@ export default function AssetManagement() {
                     label={t('assets.brandVoice')}
                     tooltip={t('assets.tooltips.brandVoice', { max: LIMITS.brandVoice })}
                   />
-                  <input
-                    type="text"
+                  <textarea
                     value={formData.brand_voice}
                     onChange={(e) => setFormData({ ...formData, brand_voice: e.target.value })}
+                    rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
                     maxLength={LIMITS.brandVoice}
                     placeholder={t('placeholders.assets.brandVoice')}
