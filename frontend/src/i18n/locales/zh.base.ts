@@ -57,6 +57,8 @@ export const zh: TranslationTree = {
     preview: '预览',
     close: '关闭',
     remove: '移除',
+    copy: '复制',
+    copyAll: '复制全部',
     hasNotes: '有说明',
     noNotes: '暂无说明',
     charCount: '{{current}}/{{max}}',

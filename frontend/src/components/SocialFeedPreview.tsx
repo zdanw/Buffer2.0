@@ -22,6 +22,7 @@ interface SocialFeedPreviewProps {
   brandName?: string;
   brandLogo?: string | null;
   imageAlt?: string;
+  onImageClick?: (url: string) => void;
 }
 
 function toUsername(name: string): string {
@@ -94,15 +95,54 @@ function IPhoneFrame({
 
 function InstagramWordmark({ className = '' }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-1.5 ${className}`}>
-      <InstagramAppIcon size={18} />
+    <div className={`flex items-center gap-2 ${className}`}>
+      <InstagramAppIcon size={26} />
       <img
         src="/icons/instagram-wordmark.png"
         alt="Instagram"
-        className="h-[15px] w-auto object-contain"
+        className="h-[22px] w-auto object-contain"
         draggable={false}
       />
     </div>
+  );
+}
+
+function FeedImage({
+  image,
+  imageAlt,
+  onImageClick,
+  className = 'w-full aspect-square object-cover bg-gray-100',
+  placeholderClassName = 'w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200',
+}: {
+  image?: string;
+  imageAlt: string;
+  onImageClick?: (url: string) => void;
+  className?: string;
+  placeholderClassName?: string;
+}) {
+  if (!image) {
+    return <div className={placeholderClassName} />;
+  }
+
+  if (!onImageClick) {
+    return <img src={image} alt={imageAlt} className={className} />;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onImageClick(image)}
+      className="relative block w-full group focus:outline-none focus-visible:ring-2 focus-visible:ring-forge-400"
+    >
+      <img src={image} alt={imageAlt} className={className} />
+      <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/55 p-2">
+          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+          </svg>
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -121,6 +161,7 @@ function InstagramFeed({
   brandName,
   brandLogo,
   imageAlt,
+  onImageClick,
 }: {
   image?: string;
   caption?: string;
@@ -128,6 +169,7 @@ function InstagramFeed({
   brandName: string;
   brandLogo?: string | null;
   imageAlt: string;
+  onImageClick?: (url: string) => void;
 }) {
   return (
     <div className="absolute inset-0 pt-[44px] flex flex-col bg-white text-black overflow-hidden">
@@ -156,11 +198,7 @@ function InstagramFeed({
           <MoreHorizontal className="w-4 h-4 text-gray-700 shrink-0" />
         </div>
 
-        {image ? (
-          <img src={image} alt={imageAlt} className="w-full aspect-square object-cover bg-gray-100" />
-        ) : (
-          <div className="w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200" />
-        )}
+        <FeedImage image={image} imageAlt={imageAlt} onImageClick={onImageClick} />
 
         <div className="px-3 pt-2.5 pb-1">
           <div className="flex items-center justify-between mb-2">
@@ -198,6 +236,7 @@ function TikTokFeed({
   brandName,
   brandLogo,
   imageAlt,
+  onImageClick,
 }: {
   image?: string;
   caption?: string;
@@ -205,11 +244,23 @@ function TikTokFeed({
   brandName: string;
   brandLogo?: string | null;
   imageAlt: string;
+  onImageClick?: (url: string) => void;
 }) {
   return (
     <div className="absolute inset-0 bg-black text-white overflow-hidden">
       {image ? (
-        <img src={image} alt={imageAlt} className="absolute inset-0 w-full h-full object-cover" />
+        onImageClick ? (
+          <button
+            type="button"
+            onClick={() => onImageClick(image)}
+            className="absolute inset-0 w-full h-full group focus:outline-none"
+          >
+            <img src={image} alt={imageAlt} className="absolute inset-0 w-full h-full object-cover" />
+            <span className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
+          </button>
+        ) : (
+          <img src={image} alt={imageAlt} className="absolute inset-0 w-full h-full object-cover" />
+        )
       ) : (
         <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-black" />
       )}
@@ -308,6 +359,7 @@ function FacebookFeed({
   brandName,
   brandLogo,
   imageAlt,
+  onImageClick,
 }: {
   image?: string;
   caption?: string;
@@ -315,6 +367,7 @@ function FacebookFeed({
   brandName: string;
   brandLogo?: string | null;
   imageAlt: string;
+  onImageClick?: (url: string) => void;
 }) {
   return (
     <div className="absolute inset-0 pt-[44px] flex flex-col bg-[#f0f2f5] text-[#050505] overflow-hidden">
@@ -347,11 +400,13 @@ function FacebookFeed({
             <p className="px-3 pb-2.5 text-[11px] leading-[1.45] whitespace-pre-wrap">{caption}</p>
           )}
 
-          {image ? (
-            <img src={image} alt={imageAlt} className="w-full aspect-[4/3] object-cover bg-gray-100" />
-          ) : (
-            <div className="w-full aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-200" />
-          )}
+          <FeedImage
+            image={image}
+            imageAlt={imageAlt}
+            onImageClick={onImageClick}
+            className="w-full aspect-[4/3] object-cover bg-gray-100"
+            placeholderClassName="w-full aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-200"
+          />
 
           <div className="px-3 py-2 flex items-center justify-between border-b border-gray-100">
             <div className="flex items-center gap-1">
@@ -443,6 +498,7 @@ export default function SocialFeedPreview({
   brandName = 'Your Brand',
   brandLogo,
   imageAlt = 'Generated content',
+  onImageClick,
 }: SocialFeedPreviewProps) {
   const { t } = useI18n();
 
@@ -471,6 +527,7 @@ export default function SocialFeedPreview({
     brandName,
     brandLogo,
     imageAlt,
+    onImageClick,
   };
 
   const renderFeed = () => {

@@ -22,11 +22,12 @@ export default function BrandAvatar({ name, logoUrl, size = 'md', className = ''
   const sizeClass = sizeClasses[size];
 
   if (logoUrl) {
+    const isRound = className.includes('rounded-full');
     return (
       <img
         src={logoUrl}
         alt=""
-        className={`${sizeClass} rounded-lg object-cover border border-gray-200 bg-white shrink-0 ${className}`}
+        className={`${sizeClass} ${isRound ? 'rounded-full object-contain' : 'rounded-lg object-cover'} border border-gray-200 bg-white shrink-0 p-0.5 ${className}`}
       />
     );
   }

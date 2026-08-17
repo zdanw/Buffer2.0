@@ -58,6 +58,8 @@ export const en: TranslationTree = {
     preview: 'Preview',
     close: 'Close',
     remove: 'Remove',
+    copy: 'Copy',
+    copyAll: 'Copy all',
     hasNotes: 'Has notes',
     noNotes: 'No notes yet',
     charCount: '{{current}}/{{max}}',

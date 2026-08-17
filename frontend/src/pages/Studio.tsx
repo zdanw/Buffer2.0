@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus } from 'lucide-react';
+import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus, Download } from 'lucide-react';
 import type { BrandSummary } from '@/api/brands';
+import { getBrand } from '@/api/brands';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -16,26 +17,20 @@ import { publishContent } from '@/api/publish';
 import { createDraft } from '@/api/tasks';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
+import DimensionInfoDisplay, { CopyablePromptBlock } from '@/components/DimensionInfoDisplay';
 import ImageModelPicker from '@/components/ImageModelPicker';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import SocialFeedPreview from '@/components/SocialFeedPreview';
+import GeneratedImagePanel from '@/components/GeneratedImagePanel';
+import BrandAvatar from '@/components/BrandAvatar';
 import PlatformIcon from '@/components/icons/PlatformIcon';
 import type { PlatformId } from '@/components/icons/PlatformIcon';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
+import { downloadImage } from '@/lib/download';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
-const DIMENSION_FIELD_KEYS: Record<string, string> = {
-  scene: 'scenes',
-  lighting: 'lighting',
-  style: 'styles',
-  composition: 'compositions',
-  details: 'details',
-  quality: 'quality',
-  viewpoint: 'viewpoints',
-};
-const DIMENSION_FIELDS = ['scene', 'lighting', 'style', 'composition', 'details', 'quality', 'viewpoint'] as const;
 const LEGACY_STORAGE_KEY = 'bebcare_content_preview_state';
 const STORAGE_KEY = 'pulseforge_studio_state';
 
@@ -130,6 +125,7 @@ export default function Studio() {
   const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewBrandLogo, setPreviewBrandLogo] = useState<string | null>(null);
 
   const previewBrand = useMemo((): BrandSummary | null => {
     const product = products.find((p) => p.product_id === selectedProduct);
@@ -158,7 +154,31 @@ export default function Studio() {
       ? t('brands.generic')
       : previewBrand.name
     : t('brand.name');
-  const previewBrandLogo = previewBrand?.logo_url ?? null;
+
+  useEffect(() => {
+    const brandId = previewBrand?.brand_id;
+    if (!brandId) {
+      setPreviewBrandLogo(null);
+      return;
+    }
+    if (previewBrand?.logo_url) {
+      setPreviewBrandLogo(previewBrand.logo_url);
+      return;
+    }
+
+    let cancelled = false;
+    void getBrand(brandId)
+      .then((kit) => {
+        if (!cancelled) setPreviewBrandLogo(kit.logo_url ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewBrandLogo(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewBrand?.brand_id, previewBrand?.logo_url]);
 
   const generateActionsDisabled =
     isGenerating || !selectedProduct || selectedPlatforms.length === 0;
@@ -719,33 +739,15 @@ export default function Studio() {
           {generatedContent && (generatedContent.dimensions || generatedContent.image_prompt) && (
             <div className="border-2 border-red-400 rounded-xl p-4 bg-white">
               {generatedContent.dimensions && (
-                <>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    {t('fields.dimensionInfo')}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DIMENSION_FIELDS.map((field) => (
-                      <div key={field} className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 w-12">
-                          {t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}
-                        </span>
-                        <span className="text-xs text-gray-800 truncate">
-                          {generatedContent.dimensions![field]}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                <DimensionInfoDisplay dimensions={generatedContent.dimensions} />
               )}
-              
+
               {generatedContent.image_prompt && (
-                <div className="mt-3">
-                  <h4 className="text-xs font-medium text-gray-600 mb-2">{t('fields.imagePrompt')}</h4>
-                  <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto whitespace-pre-wrap">
-                    {generatedContent.image_prompt}
-                  </div>
-                </div>
+                <CopyablePromptBlock
+                  label={t('fields.imagePrompt')}
+                  text={generatedContent.image_prompt}
+                  className={generatedContent.dimensions ? 'mt-3' : ''}
+                />
               )}
             </div>
           )}
@@ -755,6 +757,18 @@ export default function Studio() {
           <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 min-h-[500px]">
             {generatedContent && (generatedContent.image || generatedContent.text) ? (
               <div className="flex flex-col items-center">
+                <div className="w-full max-w-sm mb-2 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <BrandAvatar
+                    name={previewBrandName}
+                    logoUrl={previewBrandLogo}
+                    size="sm"
+                    className="!rounded-full"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">{t('studio.previewingAs')}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{previewBrandName}</p>
+                  </div>
+                </div>
                 <div className="w-full max-w-sm mb-6">
                   <SocialFeedPreview
                     platforms={selectedPlatforms}
@@ -763,11 +777,32 @@ export default function Studio() {
                     brandName={previewBrandName}
                     brandLogo={previewBrandLogo}
                     imageAlt={t('preview.generatedAlt')}
+                    onImageClick={setPreviewImage}
                   />
                 </div>
+                {generatedContent.image && (
+                  <GeneratedImagePanel
+                    imageUrl={generatedContent.image}
+                    imageAlt={t('preview.generatedAlt')}
+                    onViewFullSize={setPreviewImage}
+                    filename={`${previewBrandName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'brand'}-generated.jpg`}
+                  />
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center py-4">
+                <div className="w-full max-w-sm mb-2 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <BrandAvatar
+                    name={previewBrandName}
+                    logoUrl={previewBrandLogo}
+                    size="sm"
+                    className="!rounded-full"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">{t('studio.previewingAs')}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{previewBrandName}</p>
+                  </div>
+                </div>
                 <div className="w-full max-w-sm">
                   <SocialFeedPreview
                     platforms={selectedPlatforms.length > 0 ? selectedPlatforms : ['instagram']}
@@ -791,7 +826,7 @@ export default function Studio() {
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
           onClick={() => setPreviewImage(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] p-4">
+          <div className="relative max-w-4xl max-h-[90vh] p-4 flex flex-col items-center">
             <button
               type="button"
               onClick={() => setPreviewImage(null)}
@@ -802,9 +837,23 @@ export default function Studio() {
             <img
               src={previewImage}
               alt={t('preview.referencePreviewAlt')}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void downloadImage(
+                  previewImage,
+                  `${previewBrandName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'image'}.jpg`
+                );
+              }}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/95 text-gray-900 text-sm font-medium hover:bg-white"
+            >
+              <Download className="w-4 h-4" />
+              {t('preview.downloadImage')}
+            </button>
           </div>
         </div>
       )}
