@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus } from 'lucide-react';
+import type { BrandSummary } from '@/api/brands';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -97,7 +98,7 @@ const saveStateToStorage = (state: PreviewState) => {
 
 export default function Studio() {
   const { t } = useI18n();
-  const { activeBrandId, activeBrand } = useBrandContext();
+  const { activeBrandId, activeBrand, brands } = useBrandContext();
   const savedState = loadStateFromStorage();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -129,6 +130,38 @@ export default function Studio() {
   const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const previewBrand = useMemo((): BrandSummary | null => {
+    const product = products.find((p) => p.product_id === selectedProduct);
+    if (!product) return activeBrand;
+
+    const brandId = product.brand_id ?? product.brand?.brand_id;
+    if (brandId) {
+      const brand = brands.find((b) => b.brand_id === brandId);
+      if (brand) return brand;
+      if (product.brand) {
+        return {
+          brand_id: product.brand.brand_id,
+          slug: product.brand.slug,
+          name: product.brand.name,
+          is_generic: false,
+          is_system: false,
+          product_count: 0,
+        };
+      }
+    }
+    return activeBrand;
+  }, [selectedProduct, products, brands, activeBrand]);
+
+  const previewBrandName = previewBrand
+    ? previewBrand.is_generic
+      ? t('brands.generic')
+      : previewBrand.name
+    : t('brand.name');
+  const previewBrandLogo = previewBrand?.logo_url ?? null;
+
+  const generateActionsDisabled =
+    isGenerating || !selectedProduct || selectedPlatforms.length === 0;
 
   useEffect(() => {
     void loadProducts();
@@ -501,12 +534,12 @@ export default function Studio() {
           <div className="space-y-3">
             <button
               onClick={() => handleGenerate('all')}
-              disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
+              disabled={generateActionsDisabled}
               title={t('studio.tooltips.generateAll')}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                isGenerating || !selectedProduct || selectedPlatforms.length === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-forge-600 text-white hover:bg-forge-700'
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
+                generateActionsDisabled
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-forge-600 text-white hover:bg-forge-700 shadow-sm'
               }`}
             >
               {isGenerating && generatingType === 'all' ? (
@@ -525,12 +558,12 @@ export default function Studio() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleGenerate('copywriting')}
-                disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
+                disabled={generateActionsDisabled}
                 title={t('studio.tooltips.generateCopy')}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                  isGenerating || !selectedProduct || selectedPlatforms.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  generateActionsDisabled
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                 }`}
               >
                 {isGenerating && generatingType === 'copywriting' ? (
@@ -547,12 +580,12 @@ export default function Studio() {
 
               <button
                 onClick={() => handleGenerate('image')}
-                disabled={isGenerating || !selectedProduct || selectedPlatforms.length === 0}
+                disabled={generateActionsDisabled}
                 title={t('studio.tooltips.generateImage')}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                  isGenerating || !selectedProduct || selectedPlatforms.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-orange-600 text-white hover:bg-orange-700'
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  generateActionsDisabled
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                 }`}
               >
                 {isGenerating && generatingType === 'image' ? (
@@ -573,10 +606,10 @@ export default function Studio() {
                 type="button"
                 onClick={() => void handleSaveDraft()}
                 disabled={isSavingDraft}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isSavingDraft
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                 }`}
               >
                 {isSavingDraft ? (
@@ -597,10 +630,10 @@ export default function Studio() {
               <button
                 onClick={handlePublish}
                 disabled={isPublishing || selectedPlatforms.length === 0}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isPublishing || selectedPlatforms.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-forge-600 text-white hover:bg-forge-700'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm'
                 }`}
               >
                 {isPublishing ? (
@@ -727,8 +760,8 @@ export default function Studio() {
                     platforms={selectedPlatforms}
                     image={generatedContent.image || undefined}
                     caption={generatedContent.text || undefined}
-                    brandName={activeBrand?.name}
-                    brandLogo={activeBrand?.logo_url}
+                    brandName={previewBrandName}
+                    brandLogo={previewBrandLogo}
                     imageAlt={t('preview.generatedAlt')}
                   />
                 </div>
@@ -739,8 +772,8 @@ export default function Studio() {
                   <SocialFeedPreview
                     platforms={selectedPlatforms.length > 0 ? selectedPlatforms : ['instagram']}
                     caption={t('preview.selectAndGenerate')}
-                    brandName={activeBrand?.name || t('brand.name')}
-                    brandLogo={activeBrand?.logo_url}
+                    brandName={previewBrandName}
+                    brandLogo={previewBrandLogo}
                     imageAlt={t('preview.generatedAlt')}
                   />
                 </div>

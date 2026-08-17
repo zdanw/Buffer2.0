@@ -39,12 +39,12 @@ function StatusBar({ light }: { light?: boolean }) {
   const tone = light ? 'light' : 'dark';
   return (
     <div
-      className={`absolute top-0 inset-x-0 z-20 flex items-center justify-between px-7 pt-[14px] pb-1 text-[10px] font-semibold ${
+      className={`absolute top-0 inset-x-0 z-20 flex items-center justify-between px-5 pt-2 pb-1 text-[8px] font-semibold ${
         light ? 'text-white' : 'text-black'
       }`}
     >
       <span>9:41</span>
-      <StatusBarIcons tone={tone} />
+      <StatusBarIcons tone={tone} size="sm" />
     </div>
   );
 }
@@ -92,8 +92,18 @@ function IPhoneFrame({
   );
 }
 
-function InstagramLogo({ className = '' }: { className?: string }) {
-  return <InstagramAppIcon size={22} className={className} />;
+function InstagramWordmark({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-1.5 ${className}`}>
+      <InstagramAppIcon size={18} />
+      <img
+        src="/icons/instagram-wordmark.png"
+        alt="Instagram"
+        className="h-[15px] w-auto object-contain"
+        draggable={false}
+      />
+    </div>
+  );
 }
 
 function FacebookLogo({ className = '' }: { className?: string }) {
@@ -121,12 +131,14 @@ function InstagramFeed({
 }) {
   return (
     <div className="absolute inset-0 pt-[44px] flex flex-col bg-white text-black overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 shrink-0">
+      <div className="relative flex items-center justify-between px-3 py-2 border-b border-gray-100 shrink-0">
         <svg viewBox="0 0 24 24" className="w-[22px] h-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
           <circle cx="12" cy="13" r="4" />
         </svg>
-        <InstagramLogo />
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <InstagramWordmark />
+        </div>
         <div className="flex items-center gap-3">
           <Heart className="w-[22px] h-[22px]" strokeWidth={1.8} />
           <Send className="w-[22px] h-[22px]" strokeWidth={1.8} />
