@@ -50,7 +50,7 @@ class Brand(Base):
         String(36),
         ForeignKey("buffer_accounts.id", ondelete="SET NULL"),
         nullable=True,
-        index=True,
+        unique=True,
     )
 
     created_at = Column(DateTime, default=datetime.utcnow)

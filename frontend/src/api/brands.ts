@@ -10,6 +10,7 @@ export interface BrandSummary {
   logo_url?: string | null;
   vertical_pack?: string | null;
   product_count: number;
+  buffer_account_id?: string | null;
 }
 
 export interface BrandKit {
@@ -39,6 +40,8 @@ export interface BrandKit {
   copy_example?: string | null;
   image_fallback_selling_points?: string | null;
   copy_fallback_selling_points?: string[];
+  extra?: Record<string, unknown> | null;
+  buffer_account_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -57,6 +60,7 @@ export interface BrandCreate {
   logo_font_rule?: string;
   vertical_pack?: string;
   default_product_type?: string;
+  buffer_account_id?: string | null;
 }
 
 export type BrandUpdate = Partial<BrandCreate> & {
@@ -64,6 +68,7 @@ export type BrandUpdate = Partial<BrandCreate> & {
   image_system_prompt?: string;
   vision_image_system_prompt?: string;
   vision_scene_system_prompt?: string;
+  buffer_account_id?: string | null;
 };
 
 export const getBrands = async (): Promise<BrandSummary[]> => {

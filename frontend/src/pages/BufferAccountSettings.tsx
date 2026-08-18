@@ -20,14 +20,12 @@ import {
   type BufferAccount,
   type BufferAccountCreate,
 } from '@/api/bufferAccounts';
-import { useBrandContext } from '@/context/BrandContext';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import { useI18n } from '@/i18n/useI18n';
 
 const EMPTY_FORM: BufferAccountCreate = {
   name: '',
   api_token: '',
-  brand_ids: [],
   is_active: true,
   is_default: false,
 };
@@ -46,7 +44,6 @@ function formatApiDetail(detail: unknown, fallback: string): string {
 
 export default function BufferAccountSettings() {
   const { t } = useI18n();
-  const { brands } = useBrandContext();
   const [accounts, setAccounts] = useState<BufferAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -85,7 +82,7 @@ export default function BufferAccountSettings() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, brand_ids: [] });
+    setForm({ ...EMPTY_FORM });
     setShowToken(false);
     setFormError('');
     setShowModal(true);
@@ -96,22 +93,12 @@ export default function BufferAccountSettings() {
     setForm({
       name: account.name,
       api_token: '',
-      brand_ids: [...(account.brand_ids || [])],
       is_active: account.is_active,
       is_default: account.is_default,
     });
     setShowToken(false);
     setFormError('');
     setShowModal(true);
-  };
-
-  const toggleBrand = (brandId: string) => {
-    const current = form.brand_ids || [];
-    if (current.includes(brandId)) {
-      setForm({ ...form, brand_ids: current.filter((id) => id !== brandId) });
-    } else {
-      setForm({ ...form, brand_ids: [...current, brandId] });
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,7 +118,6 @@ export default function BufferAccountSettings() {
       if (editingId) {
         const payload: Record<string, unknown> = {
           name: form.name.trim(),
-          brand_ids: form.brand_ids || [],
           is_active: form.is_active,
           is_default: form.is_default,
         };
@@ -144,7 +130,6 @@ export default function BufferAccountSettings() {
         await createBufferAccount({
           name: form.name.trim(),
           api_token: form.api_token.trim(),
-          brand_ids: form.brand_ids || [],
           is_active: form.is_active ?? true,
           is_default: form.is_default ?? false,
         });
@@ -404,46 +389,6 @@ export default function BufferAccountSettings() {
                     {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <LabelWithTooltip
-                  label={t('bufferAccounts.fields.brands.label')}
-                  tooltip={t('bufferAccounts.fields.brands.tooltip')}
-                />
-                <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                  {brands.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-gray-400">
-                      {t('bufferAccounts.fields.brands.empty')}
-                    </p>
-                  ) : (
-                    brands.map((brand) => {
-                      const checked = (form.brand_ids || []).includes(brand.brand_id);
-                      return (
-                        <label
-                          key={brand.brand_id}
-                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleBrand(brand.brand_id)}
-                            className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
-                          />
-                          <span className="text-sm text-gray-800">{brand.name}</span>
-                          {brand.is_generic && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                              Generic
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-                <p className="mt-1.5 text-xs text-gray-400">
-                  {t('bufferAccounts.fields.brands.hint')}
-                </p>
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer">

@@ -316,7 +316,12 @@ export default function ImageProviderSettings() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900">{p.name}</h3>
-                {p.is_default && (
+                {p.is_system && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-forge-100 text-forge-700">
+                    {t('imageProviders.systemDefault')}
+                  </span>
+                )}
+                {!p.is_system && p.is_default && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-forge-100 text-forge-700">{t('common.default')}</span>
                 )}
                 {!p.is_active && (
@@ -349,25 +354,29 @@ export default function ImageProviderSettings() {
                   <Zap className="w-5 h-5" />
                 )}
               </button>
-              <button
-                type="button"
-                onClick={() => openEdit(p)}
-                className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
-              >
-                <Edit2 className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleDelete(p.id)}
-                disabled={deletingId === p.id}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-              >
-                {deletingId === p.id ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Trash2 className="w-5 h-5" />
-                )}
-              </button>
+              {!p.is_system && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(p)}
+                    className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(p.id)}
+                    disabled={deletingId === p.id}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                  >
+                    {deletingId === p.id ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}

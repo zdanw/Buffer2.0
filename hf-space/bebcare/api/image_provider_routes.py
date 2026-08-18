@@ -11,16 +11,53 @@ from bebcare.schemas.image_provider import (
     ImageModelInfo,
     ImageProviderTestResponse,
     ImageSizeCapabilitiesResponse,
+    ManualModelEntry,
     _normalize_manual_models,
 )
 from bebcare.utils.crypto import encrypt_secret, decrypt_secret, mask_secret
-from bebcare.providers.registry import list_models_for_config, build_provider_from_config
+from bebcare.providers.registry import (
+    list_models_for_config,
+    build_provider_from_config,
+    SYSTEM_IMAGE_PROVIDER_ID,
+    _env_fallback_provider,
+)
 from bebcare.providers.size_catalog import get_size_capabilities
+from bebcare.config.settings import settings
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.models.user import User
 import uuid
 
 router = APIRouter(prefix="/image-providers", tags=["image-providers"])
+
+
+def _system_provider_response() -> ImageProviderResponse:
+    """Env Doubao / Seedream fallback, shown as a read-only system default."""
+    model_id = (settings.doubao_model_id or "").strip() or None
+    manual: list[ManualModelEntry] = []
+    if model_id:
+        manual.append(
+            ManualModelEntry(
+                id=model_id,
+                description="System default (env DOUBAO_*)",
+            )
+        )
+    try:
+        masked = mask_secret(settings.doubao_api_key or "")
+    except Exception:
+        masked = "****"
+    return ImageProviderResponse(
+        id=SYSTEM_IMAGE_PROVIDER_ID,
+        name="Seedream",
+        provider_type="doubao_ark",
+        base_url=(settings.doubao_api_url or "").rstrip("/"),
+        api_key_masked=masked,
+        supports_list_models=False,
+        default_model=model_id,
+        manual_models=manual,
+        is_active=True,
+        is_default=False,
+        is_system=True,
+    )
 
 
 def _to_response(config: ImageProviderConfig) -> ImageProviderResponse:
@@ -45,6 +82,7 @@ def _to_response(config: ImageProviderConfig) -> ImageProviderResponse:
         extra_params=config.extra_params,
         is_active=bool(config.is_active),
         is_default=bool(config.is_default),
+        is_system=False,
         created_at=config.created_at,
         updated_at=config.updated_at,
     )
@@ -64,7 +102,7 @@ def list_providers(
     _: User = Depends(get_current_active_user),
 ):
     rows = db.query(ImageProviderConfig).order_by(ImageProviderConfig.created_at.desc()).all()
-    return [_to_response(r) for r in rows]
+    return [_system_provider_response()] + [_to_response(r) for r in rows]
 
 
 @router.get("/capabilities", response_model=ImageSizeCapabilitiesResponse)
@@ -75,7 +113,9 @@ def get_provider_capabilities(
     _: User = Depends(get_current_active_user),
 ):
     provider_type = None
-    if provider_id:
+    if provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        provider_type = "doubao_ark"
+    elif provider_id:
         row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
         if not row:
             raise HTTPException(status_code=404, detail="Provider not found")
@@ -133,6 +173,8 @@ def update_provider(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
+    if provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        raise HTTPException(status_code=400, detail="System default provider is read-only")
     row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -166,6 +208,8 @@ def delete_provider(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
+    if provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        raise HTTPException(status_code=400, detail="System default provider cannot be deleted")
     row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -180,6 +224,21 @@ def get_provider_models(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_active_user),
 ):
+    if provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        model_id = (settings.doubao_model_id or "").strip()
+        models = (
+            [
+                ImageModelInfo(
+                    id=model_id,
+                    description="System default (env DOUBAO_*)",
+                    source="manual",
+                )
+            ]
+            if model_id
+            else []
+        )
+        return ImageModelsResponse(models=models, message=None, allow_manual_input=True)
+
     row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -230,6 +289,19 @@ def test_provider(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
+    if provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        try:
+            _env_fallback_provider()
+            model = (settings.doubao_model_id or "").strip()
+            msg = (
+                f"系统默认 Seedream 配置有效（模型: {model}）"
+                if model
+                else "系统默认 Seedream 配置有效（未设置 DOUBAO_MODEL_ID）"
+            )
+            return ImageProviderTestResponse(ok=True, message=msg)
+        except Exception as e:
+            return ImageProviderTestResponse(ok=False, message=str(e))
+
     row = db.query(ImageProviderConfig).filter(ImageProviderConfig.id == provider_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Provider not found")

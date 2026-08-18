@@ -127,3 +127,5 @@ node_modules/
 # Local dev control (logs, pid files)
 .dev/
 *.err.log
+.vercel
+.env*

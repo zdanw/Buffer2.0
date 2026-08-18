@@ -201,7 +201,8 @@ export const en: TranslationTree = {
     addProvider: 'Add Provider',
     editProvider: 'Edit Provider',
     testConnection: 'Test connection',
-    emptyState: 'No image providers configured. Doubao from environment variables is used as fallback.',
+    emptyState: 'No custom image providers yet. System default Seedream (env Doubao) remains available.',
+    systemDefault: 'System default',
     confirmDelete: 'Delete this provider?',
     keyLabel: 'Key',
     defaultModel: 'Default',
@@ -274,16 +275,16 @@ export const en: TranslationTree = {
   bufferAccounts: {
     title: 'Buffer accounts',
     subtitle:
-      'Add Buffer API tokens and bind brands. Products under a brand publish only through that brand’s Buffer account.',
+      'Add Buffer API tokens. Bind a token to a brand from the Brand kits editor — each brand and each token is exclusive.',
     addAccount: 'Add Buffer account',
     editAccount: 'Edit Buffer account',
     testConnection: 'Test connection',
     emptyState:
-      'No Buffer accounts yet. Add a token, then bind one or more brands. Env BUFFER_API_TOKEN remains a fallback.',
-    confirmDelete: 'Delete this Buffer account? Bound brands will be unbound.',
+      'No Buffer accounts yet. Add a token here, then bind it on a brand’s edit form. Env BUFFER_API_TOKEN remains a fallback.',
+    confirmDelete: 'Delete this Buffer account? The bound brand will be unbound.',
     tokenLabel: 'Token',
     noEmail: 'Email not verified yet',
-    noBrandsBound: 'No brands bound',
+    noBrandsBound: 'Not bound to a brand',
     fields: {
       name: {
         label: 'Name',
@@ -295,13 +296,6 @@ export const en: TranslationTree = {
         tooltip:
           'Paste the Buffer access token. Stored encrypted on the server. Required when creating; leave empty when editing to keep the existing token.',
         keepPlaceholder: 'Leave blank to keep current token',
-      },
-      brands: {
-        label: 'Bound brands',
-        tooltip:
-          'Select one or more brands. A brand can only belong to one Buffer account; selecting it here moves it from any previous account.',
-        hint: 'After binding, products under these brands publish only via this Buffer account.',
-        empty: 'No brands available. Create a brand kit first.',
       },
       isDefault: {
         label: 'Set as global default (for unbound brands)',

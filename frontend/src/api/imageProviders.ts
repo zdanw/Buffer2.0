@@ -20,6 +20,8 @@ export interface ImageProvider {
   extra_params?: Record<string, unknown> | null;
   is_active: boolean;
   is_default: boolean;
+  /** Env Doubao / Seedream fallback; read-only in UI */
+  is_system?: boolean;
   created_at?: string;
   updated_at?: string;
 }

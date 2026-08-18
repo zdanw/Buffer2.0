@@ -25,7 +25,6 @@ export interface BufferAccount {
 export interface BufferAccountCreate {
   name: string;
   api_token: string;
-  brand_ids?: string[];
   is_active?: boolean;
   is_default?: boolean;
 }
@@ -33,7 +32,6 @@ export interface BufferAccountCreate {
 export interface BufferAccountUpdate {
   name?: string;
   api_token?: string;
-  brand_ids?: string[];
   is_active?: boolean;
   is_default?: boolean;
 }

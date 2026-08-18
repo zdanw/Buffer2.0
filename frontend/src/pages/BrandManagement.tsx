@@ -11,6 +11,7 @@ import {
   type BrandSummary,
   type BrandCreate,
 } from '@/api/brands';
+import { listBufferAccounts, type BufferAccount } from '@/api/bufferAccounts';
 import BrandBadge from '@/components/BrandBadge';
 import BrandAvatar from '@/components/BrandAvatar';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
@@ -27,6 +28,7 @@ const EMPTY_FORM: BrandCreate = {
   tone_keywords: '',
   emoji_style: 'moderate',
   words_to_avoid: '',
+  buffer_account_id: '',
 };
 
 export default function BrandManagement() {
@@ -44,6 +46,7 @@ export default function BrandManagement() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [bufferAccounts, setBufferAccounts] = useState<BufferAccount[]>([]);
 
   const isProtectedBrand = (brand: BrandSummary) =>
     brand.is_generic || brand.brand_id === BEBCARE_BRAND_ID;
@@ -59,6 +62,9 @@ export default function BrandManagement() {
 
   useEffect(() => {
     void loadBrands();
+    void listBufferAccounts()
+      .then(setBufferAccounts)
+      .catch(() => setBufferAccounts([]));
   }, [loadBrands]);
 
   const openCreate = () => {
@@ -91,6 +97,7 @@ export default function BrandManagement() {
       logo_font_rule: kit.logo_font_rule || '',
       copy_system_prompt: kit.copy_system_prompt || '',
       image_system_prompt: kit.image_system_prompt || '',
+      buffer_account_id: kit.buffer_account_id || '',
     });
   };
 
@@ -107,21 +114,37 @@ export default function BrandManagement() {
     }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        buffer_account_id: form.buffer_account_id || null,
+      };
       if (isEdit && editingId) {
         const { updateBrand } = await import('@/api/brands');
-        await updateBrand(editingId, form);
+        await updateBrand(editingId, payload);
       } else {
-        const created = await createBrand(form);
+        const created = await createBrand(payload);
         if (logoFile) {
           await uploadBrandLogo(created.brand_id, logoFile);
         }
       }
       await loadBrands();
       await refreshBrands();
+      try {
+        setBufferAccounts(await listBufferAccounts());
+      } catch {
+        /* keep current list */
+      }
       setShowModal(false);
     } catch (err) {
       console.error(err);
-      alert(t('common.saveFailed'));
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      const message =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail) && detail[0]?.msg
+            ? String(detail[0].msg)
+            : t('common.saveFailed');
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -363,6 +386,34 @@ export default function BrandManagement() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
                       placeholder={t('placeholders.brands.toneKeywords')}
                     />
+                  </div>
+                  <div>
+                    <LabelWithTooltip
+                      label={t('brands.bufferAccount')}
+                      tooltip={t('brands.tooltips.bufferAccount')}
+                    />
+                    <select
+                      value={form.buffer_account_id || ''}
+                      onChange={(e) => setForm({ ...form, buffer_account_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                    >
+                      <option value="">{t('brands.bufferAccountNone')}</option>
+                      {bufferAccounts
+                        .filter((account) => {
+                          if (!account.is_active && account.id !== form.buffer_account_id) return false;
+                          const boundElsewhere = (account.brand_ids || []).some(
+                            (id) => id !== editingId
+                          );
+                          return !boundElsewhere || account.id === form.buffer_account_id;
+                        })
+                        .map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name}
+                            {account.buffer_email ? ` (${account.buffer_email})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-400">{t('brands.bufferAccountHint')}</p>
                   </div>
                 </>
               )}

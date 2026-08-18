@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 from bebcare.database import get_db
 from bebcare.models.buffer_account import BufferAccount
-from bebcare.models.brand import Brand
 from bebcare.schemas.buffer_account import (
     BufferAccountCreate,
     BufferAccountUpdate,
@@ -60,34 +59,6 @@ def _clear_other_defaults(db: Session, keep_id: str | None = None):
         row.is_default = False
 
 
-def _sync_brand_bindings(db: Session, account_id: str, brand_ids: List[str]):
-    desired = {str(bid) for bid in brand_ids if bid}
-    if desired:
-        found = db.query(Brand).filter(Brand.brand_id.in_(desired)).all()
-        found_ids = {b.brand_id for b in found}
-        missing = desired - found_ids
-        if missing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Brand not found: {', '.join(sorted(missing))}",
-            )
-
-    # Unbind brands previously attached to this account but not in the new set
-    previously = (
-        db.query(Brand)
-        .filter(Brand.buffer_account_id == account_id)
-        .all()
-    )
-    for brand in previously:
-        if brand.brand_id not in desired:
-            brand.buffer_account_id = None
-
-    # Bind desired brands (moves away from any other Buffer account)
-    if desired:
-        for brand in db.query(Brand).filter(Brand.brand_id.in_(desired)).all():
-            brand.buffer_account_id = account_id
-
-
 def _probe_token(api_token: str) -> dict:
     client = BufferGraphQLClient(api_token=api_token)
     account = client.fetch_account_info()
@@ -131,8 +102,6 @@ def create_account(
         is_default=body.is_default,
     )
     db.add(row)
-    db.flush()
-    _sync_brand_bindings(db, row.id, body.brand_ids or [])
     db.commit()
     row = (
         db.query(BufferAccount)
@@ -156,7 +125,6 @@ def update_account(
 
     data = body.model_dump(exclude_unset=True)
     api_token = data.pop("api_token", None)
-    brand_ids = data.pop("brand_ids", None)
 
     if api_token and str(api_token).strip():
         remote = _probe_token(str(api_token).strip())
@@ -171,9 +139,6 @@ def update_account(
         if key == "name" and isinstance(value, str):
             value = value.strip()
         setattr(row, key, value)
-
-    if brand_ids is not None:
-        _sync_brand_bindings(db, account_id, brand_ids)
 
     db.commit()
     row = (

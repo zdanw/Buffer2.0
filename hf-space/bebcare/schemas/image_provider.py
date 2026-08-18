@@ -86,6 +86,7 @@ class ImageProviderResponse(BaseModel):
     extra_params: Optional[Dict[str, Any]] = None
     is_active: bool
     is_default: bool
+    is_system: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

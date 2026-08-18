@@ -200,7 +200,8 @@ export const zh: TranslationTree = {
     addProvider: '添加 Provider',
     editProvider: '编辑 Provider',
     testConnection: '测试连接',
-    emptyState: '尚未配置图像 Provider。未配置时仍使用环境变量中的豆包。',
+    emptyState: '尚未添加自定义图像 Provider。系统默认 Seedream（环境变量豆包）仍可用。',
+    systemDefault: '系统默认',
     confirmDelete: '确定删除该 Provider？',
     keyLabel: 'Key',
     defaultModel: '默认',
@@ -272,12 +273,12 @@ export const zh: TranslationTree = {
   },
   bufferAccounts: {
     title: 'Buffer 账户',
-    subtitle: '手动输入 Buffer token 添加账户，并绑定品牌。绑定后该品牌下的产品只能通过对应账户发布。',
+    subtitle: '手动输入 Buffer token 添加账户。请在品牌套件编辑中绑定账户：每个品牌、每个账户均为一对一独占。',
     addAccount: '添加 Buffer 账户',
     editAccount: '编辑 Buffer 账户',
     testConnection: '测试连接',
     emptyState:
-      '尚未配置 Buffer 账户。添加 token 后绑定一个或多个品牌。未绑定品牌仍可回退到默认账户或环境变量 BUFFER_API_TOKEN。',
+      '尚未配置 Buffer 账户。先在此添加 token，再到品牌编辑页绑定。未绑定品牌仍可回退到默认账户或环境变量 BUFFER_API_TOKEN。',
     confirmDelete: '确定删除该 Buffer 账户？已绑定的品牌将解除绑定。',
     tokenLabel: 'Token',
     noEmail: '尚未验证邮箱',
@@ -292,12 +293,6 @@ export const zh: TranslationTree = {
         labelOptional: 'Buffer API Token（留空则保留原 Token）',
         tooltip: '粘贴 Buffer 访问令牌，服务端加密存储。创建时必填；编辑时留空表示不修改。',
         keepPlaceholder: '留空表示不修改当前 Token',
-      },
-      brands: {
-        label: '绑定品牌',
-        tooltip: '可多选。一个品牌只能绑定一个 Buffer 账户；在此勾选会从原账户移过来。',
-        hint: '绑定完成后，这些品牌下的产品发布将只走本账户。',
-        empty: '暂无品牌。请先创建品牌套件。',
       },
       isDefault: {
         label: '设为全局默认（用于未绑定品牌）',

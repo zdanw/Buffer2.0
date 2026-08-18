@@ -13,6 +13,7 @@ class BrandSummary(BaseModel):
     logo_url: Optional[str] = None
     vertical_pack: Optional[str] = None
     product_count: int = 0
+    buffer_account_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -34,6 +35,7 @@ class BrandBase(BaseModel):
 
 class BrandCreate(BrandBase):
     slug: Optional[str] = Field(None, max_length=64)
+    buffer_account_id: Optional[str] = Field(None, max_length=36)
 
 
 class BrandUpdate(BaseModel):
@@ -59,6 +61,7 @@ class BrandUpdate(BaseModel):
     copy_example: Optional[str] = None
     image_fallback_selling_points: Optional[str] = Field(None, max_length=500)
     copy_fallback_selling_points: Optional[List[str]] = None
+    buffer_account_id: Optional[str] = Field(None, max_length=36)
 
 
 class BrandResponse(BrandBase):
@@ -77,6 +80,7 @@ class BrandResponse(BrandBase):
     image_fallback_selling_points: Optional[str] = None
     copy_fallback_selling_points: Optional[List[str]] = None
     extra: Optional[Dict[str, Any]] = None
+    buffer_account_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

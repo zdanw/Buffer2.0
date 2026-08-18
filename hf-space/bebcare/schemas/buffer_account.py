@@ -14,7 +14,6 @@ class BufferBrandSummary(BaseModel):
 class BufferAccountCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     api_token: str = Field(min_length=1)
-    brand_ids: List[str] = []
     is_active: bool = True
     is_default: bool = False
 
@@ -22,7 +21,6 @@ class BufferAccountCreate(BaseModel):
 class BufferAccountUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     api_token: Optional[str] = None  # omit or empty = keep existing
-    brand_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
     is_default: Optional[bool] = None
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from bebcare.database import get_db
 from bebcare.models import Brand, Product, GENERIC_BRAND_ID, BEBCARE_BRAND_ID
+from bebcare.models.buffer_account import BufferAccount
 from bebcare.schemas.brand import BrandCreate, BrandResponse, BrandSummary, BrandUpdate
 from bebcare.services.auth_dependency import get_current_admin_user
 
@@ -44,12 +45,45 @@ def _brand_summary(brand: Brand, product_count: int = 0) -> dict:
         "logo_url": brand.logo_url,
         "vertical_pack": brand.vertical_pack,
         "product_count": product_count,
+        "buffer_account_id": brand.buffer_account_id,
     }
 
 
 def _brand_response(brand: Brand) -> dict:
     data = BrandResponse.model_validate(brand).model_dump()
     return data
+
+
+def _assign_buffer_account(db: Session, brand: Brand, account_id: str | None):
+    """Exclusive 1:1 — a Buffer account may belong to at most one brand."""
+    normalized = (account_id or "").strip() or None
+    if not normalized:
+        brand.buffer_account_id = None
+        return
+
+    account = db.query(BufferAccount).filter(BufferAccount.id == normalized).first()
+    if not account:
+        raise HTTPException(status_code=400, detail="Buffer account not found")
+    if not account.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Buffer account '{account.name}' is disabled",
+        )
+
+    taken = (
+        db.query(Brand)
+        .filter(
+            Brand.buffer_account_id == normalized,
+            Brand.brand_id != brand.brand_id,
+        )
+        .first()
+    )
+    if taken:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Buffer account '{account.name}' is already bound to brand '{taken.name}'",
+        )
+    brand.buffer_account_id = normalized
 
 
 @router.get("/")
@@ -93,6 +127,9 @@ def create_brand(payload: BrandCreate, db: Session = Depends(get_db)):
         default_product_type=payload.default_product_type or "General",
     )
     db.add(brand)
+    db.flush()
+    if payload.buffer_account_id:
+        _assign_buffer_account(db, brand, payload.buffer_account_id)
     db.commit()
     db.refresh(brand)
     return _brand_response(brand)
@@ -121,8 +158,13 @@ def update_brand(brand_id: str, payload: BrandUpdate, db: Session = Depends(get_
                 detail=f"Cannot modify locked fields on Generic brand: {', '.join(blocked)}",
             )
 
+    assign_buffer = "buffer_account_id" in updates
+    buffer_account_id = updates.pop("buffer_account_id", None)
     for key, value in updates.items():
         setattr(brand, key, value)
+
+    if assign_buffer:
+        _assign_buffer_account(db, brand, buffer_account_id)
 
     db.commit()
     db.refresh(brand)

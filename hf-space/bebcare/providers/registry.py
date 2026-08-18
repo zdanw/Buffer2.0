@@ -7,6 +7,9 @@ from bebcare.providers.openai_compatible import OpenAICompatibleImageProvider
 from bebcare.providers.doubao_ark import DoubaoArkImageProvider
 from bebcare.providers.aliyun_maas import AliyunMaasMultimodalProvider
 
+# Virtual provider id for env Doubao / Seedream (not stored in DB)
+SYSTEM_IMAGE_PROVIDER_ID = "system"
+
 
 def _build_provider(config: ImageProviderConfig, api_key: str):
     kwargs = dict(
@@ -42,9 +45,13 @@ def resolve_image_provider(
 ) -> Tuple[object, Optional[str]]:
     """
     Resolve provider + model id.
-    Order: explicit provider id → DB default → .env Doubao.
+    Order: explicit provider id → DB default → .env Doubao (Seedream).
     Returns (provider_instance, resolved_model_or_None).
     """
+    if image_provider_id == SYSTEM_IMAGE_PROVIDER_ID:
+        provider = _env_fallback_provider()
+        return provider, image_model or settings.doubao_model_id
+
     config: Optional[ImageProviderConfig] = None
 
     if db is not None and image_provider_id:
