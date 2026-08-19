@@ -69,8 +69,8 @@ export const en: TranslationTree = {
     bannerBody: 'Your brands and products are stored on the server — they are not deleted. The app cannot load them because the backend is not running or the dev proxy points at the wrong port. Start the API, then refresh.',
     bannerCommand: '.\\scripts\\backend.ps1 start   # if 8080 is busy: set VITE_API_PROXY_TARGET in frontend/.env.local',
     retry: 'Retry connection',
-    emptyBrandsTitle: 'No brand kits loaded',
-    emptyBrandsBody: 'If you expected saved brand kits, the API may not be connected. Start the backend and click Refresh, or sign in with your account.',
+    emptyBrandsTitle: 'No brand kits yet',
+    emptyBrandsBody: 'New accounts start empty — you will not see admin seed brands. Create your own brand kit to define voice, audience, and content rules.',
   },
   login: {
     title: 'Welcome back',
@@ -201,7 +201,7 @@ export const en: TranslationTree = {
     addProvider: 'Add Provider',
     editProvider: 'Edit Provider',
     testConnection: 'Test connection',
-    emptyState: 'No custom image providers yet. System default Seedream (env Doubao) remains available.',
+    emptyState: 'No image providers yet. Add your own API key to generate images.',
     systemDefault: 'System default',
     confirmDelete: 'Delete this provider?',
     keyLabel: 'Key',
@@ -210,7 +210,7 @@ export const en: TranslationTree = {
     fields: {
       name: {
         label: 'Name',
-        tooltip: 'A friendly label shown in the admin UI and model picker, e.g. "Qwen Image" or "Production Doubao".',
+        tooltip: 'A friendly label shown in Settings and the model picker, e.g. "Qwen Image" or "Production Doubao".',
       },
       type: {
         label: 'Type',
@@ -280,7 +280,7 @@ export const en: TranslationTree = {
     editAccount: 'Edit Buffer account',
     testConnection: 'Test connection',
     emptyState:
-      'No Buffer accounts yet. Add a token here, then bind it on a brand’s edit form. Env BUFFER_API_TOKEN remains a fallback.',
+      'No Buffer accounts yet. Add a token here, then bind it on a brand’s edit form.',
     confirmDelete: 'Delete this Buffer account? The bound brand will be unbound.',
     tokenLabel: 'Token',
     noEmail: 'Email not verified yet',

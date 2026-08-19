@@ -58,7 +58,7 @@ export default function ImageModelPicker({
       setLoadingProviders(true);
       try {
         const list = await listImageProviders();
-        // System Seedream is the empty "系统默认" option; hide the virtual card here.
+        // Empty option uses the user's default provider; hide inactive/system virtual cards.
         setProviders(list.filter((p) => p.is_active && !p.is_system));
       } catch (e) {
         console.error('Failed to load image providers:', e);
@@ -186,6 +186,9 @@ export default function ImageModelPicker({
             </option>
           ))}
         </select>
+        {!value.image_provider_id && (
+          <p className="text-xs text-gray-400 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
+        )}
       </div>
 
       <div>

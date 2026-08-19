@@ -210,12 +210,8 @@ function AppContent() {
           {lazyPanel('review', activeTab, mountedTabs, PendingRelease)}
           {lazyPanel('studio', activeTab, mountedTabs, Studio)}
           {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
-          {currentUser?.is_admin
-            ? lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)
-            : null}
-          {currentUser?.is_admin
-            ? lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)
-            : null}
+          {lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)}
+          {lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)}
           {currentUser?.is_admin
             ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
             : null}

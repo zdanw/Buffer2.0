@@ -68,8 +68,8 @@ export const zh: TranslationTree = {
     bannerBody: '品牌与产品数据仍在服务端，并未删除。当前无法加载是因为后端未启动，或开发代理指向了错误端口。请启动 API 后刷新。',
     bannerCommand: '.\\scripts\\backend.ps1 start   # 若 8080 被占用：在 frontend/.env.local 设置 VITE_API_PROXY_TARGET',
     retry: '重试连接',
-    emptyBrandsTitle: '未加载到品牌套件',
-    emptyBrandsBody: '若你应有已保存的品牌套件，可能是 API 未连接。请启动后端并点击刷新，或使用你的账户登录。',
+    emptyBrandsTitle: '还没有品牌套件',
+    emptyBrandsBody: '新账户从空开始，不会看到管理员的种子品牌。请创建自己的品牌套件，定义语气、受众与内容规则。',
   },
   login: {
     title: '欢迎回来',
@@ -200,7 +200,7 @@ export const zh: TranslationTree = {
     addProvider: '添加 Provider',
     editProvider: '编辑 Provider',
     testConnection: '测试连接',
-    emptyState: '尚未添加自定义图像 Provider。系统默认 Seedream（环境变量豆包）仍可用。',
+    emptyState: '尚未添加图像 Provider。请添加你自己的 API Key 以生成图像。',
     systemDefault: '系统默认',
     confirmDelete: '确定删除该 Provider？',
     keyLabel: 'Key',
@@ -209,7 +209,7 @@ export const zh: TranslationTree = {
     fields: {
       name: {
         label: '名称',
-        tooltip: '在管理界面和模型选择器中显示的名称，例如「通义万相」或「生产环境豆包」。',
+        tooltip: '在设置和模型选择器中显示的名称，例如「通义万相」或「生产环境豆包」。',
       },
       type: {
         label: '类型',
@@ -278,7 +278,7 @@ export const zh: TranslationTree = {
     editAccount: '编辑 Buffer 账户',
     testConnection: '测试连接',
     emptyState:
-      '尚未配置 Buffer 账户。先在此添加 token，再到品牌编辑页绑定。未绑定品牌仍可回退到默认账户或环境变量 BUFFER_API_TOKEN。',
+      '尚未配置 Buffer 账户。先在此添加 token，再到品牌编辑页绑定。',
     confirmDelete: '确定删除该 Buffer 账户？已绑定的品牌将解除绑定。',
     tokenLabel: 'Token',
     noEmail: '尚未验证邮箱',

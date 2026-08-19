@@ -39,9 +39,12 @@ const insightsItems: NavItem[] = [
   { id: 'calendar', labelKey: 'nav.calendar', icon: Calendar },
 ];
 
-const adminItems: NavItem[] = [
+const settingsItems: NavItem[] = [
   { id: 'image-models', labelKey: 'nav.imageModels', icon: Cpu },
   { id: 'buffer-accounts', labelKey: 'nav.bufferAccounts', icon: Share2 },
+];
+
+const adminItems: NavItem[] = [
   { id: 'users', labelKey: 'nav.users', icon: Users },
 ];
 
@@ -57,11 +60,11 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
     { labelKey: 'nav.groups.content', items: contentItems },
     { labelKey: 'nav.groups.create', items: createItems },
     { labelKey: 'nav.groups.insights', items: insightsItems },
+    {
+      labelKey: 'nav.groups.settings',
+      items: isAdmin ? [...settingsItems, ...adminItems] : settingsItems,
+    },
   ];
-
-  if (isAdmin) {
-    groups.push({ labelKey: 'nav.groups.settings', items: adminItems });
-  }
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;

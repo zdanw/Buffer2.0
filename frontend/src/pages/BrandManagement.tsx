@@ -228,11 +228,11 @@ export default function BrandManagement() {
           <p className="text-sm text-ink-500 mt-2 leading-relaxed">{t('api.emptyBrandsBody')}</p>
           <button
             type="button"
-            onClick={() => void loadBrands()}
+            onClick={openCreate}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-forge-600 text-white rounded-lg text-sm hover:bg-forge-700"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
+            <Plus className="w-4 h-4" />
+            {t('brands.addBrand')}
           </button>
         </div>
       ) : (
