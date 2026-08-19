@@ -19,7 +19,7 @@ function getAppVersion(): string {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '')
-  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8888'
 
   return {
     plugins: [react()],

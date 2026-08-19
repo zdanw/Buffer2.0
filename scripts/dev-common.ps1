@@ -28,6 +28,49 @@ function Get-DevHttpCode([string]$Url) {
     }
 }
 
+function Get-DevPortOwnerSummary([int]$Port) {
+    $pids = @(Get-DevPortPids $Port)
+    if ($pids.Count -eq 0) { return $null }
+
+    $details = foreach ($processId in $pids) {
+        $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if (-not $proc) {
+            "pid $processId"
+            continue
+        }
+
+        $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue).CommandLine
+        if ($commandLine) {
+            "pid $processId ($($proc.ProcessName)): $commandLine"
+        } else {
+            "pid $processId ($($proc.ProcessName))"
+        }
+    }
+
+    return ($details -join "; ")
+}
+
+function Get-DevEnvFileValue {
+    param(
+        [Parameter(Mandatory)]
+        [string]$EnvFile,
+        [Parameter(Mandatory)]
+        [string]$Key
+    )
+
+    if (-not (Test-Path $EnvFile)) { return $null }
+
+    foreach ($line in Get-Content $EnvFile) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith("#")) { continue }
+        if ($trimmed -match "^\s*$([regex]::Escape($Key))\s*=\s*(.+?)\s*$") {
+            return $Matches[1].Trim().Trim('"').Trim("'")
+        }
+    }
+
+    return $null
+}
+
 function Start-DevDetachedProcess {
     param(
         [Parameter(Mandatory)]

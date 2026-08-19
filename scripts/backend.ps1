@@ -1,4 +1,4 @@
-# Control local backend (uvicorn on :8080)
+# Control local backend (uvicorn; port from backend/.env APP_PORT, default 8888)
 #
 # Usage:
 #   .\scripts\backend.ps1 start|stop|status|restart
@@ -12,10 +12,32 @@ param(
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\dev-common.ps1"
 
-$Port = 8080
+$DefaultPort = 8888
 $LogFile = Join-Path $DevStateDir "backend.log"
+$ErrLogFile = [System.IO.Path]::ChangeExtension($LogFile, ".err.log")
+
+function Get-BackendPort {
+    $envFile = Join-Path $DevBackendDir ".env"
+    $configured = Get-DevEnvFileValue -EnvFile $envFile -Key "APP_PORT"
+    if ($configured -and $configured -match '^\d+$') {
+        return [int]$configured
+    }
+    return $DefaultPort
+}
+
+function Get-BackendLogTail {
+    param([string[]]$Paths)
+    $chunks = foreach ($path in $Paths) {
+        if (-not (Test-Path $path)) { continue }
+        $lines = @(Get-Content $path -Tail 20 -ErrorAction SilentlyContinue)
+        if ($lines.Count -eq 0) { continue }
+        "--- $path ---`n$($lines -join "`n")"
+    }
+    return ($chunks -join "`n`n")
+}
 
 function Get-StatusMessage {
+    $Port = Get-BackendPort
     $pids = @(Get-DevPortPids $Port)
     $code = Get-DevHttpCode "http://localhost:$Port/health"
     if ($code -eq "200") {
@@ -29,10 +51,13 @@ function Get-StatusMessage {
 }
 
 function Test-IsRunning {
+    $Port = Get-BackendPort
     return (Get-DevHttpCode "http://localhost:$Port/health") -eq "200"
 }
 
 function Start-Backend {
+    $Port = Get-BackendPort
+
     if (Test-IsRunning) {
         Write-Host "Already running. Use: .\scripts\backend.ps1 restart"
         return
@@ -54,6 +79,19 @@ function Start-Backend {
         throw "Backend venv not found. Run: cd backend; python -m venv .venv; .\.venv\Scripts\pip install -r requirements.txt"
     }
 
+    $portOwner = Get-DevPortOwnerSummary $Port
+    if ($portOwner) {
+        $healthCode = Get-DevHttpCode "http://localhost:$Port/health"
+        if ($healthCode -ne "200") {
+            throw @"
+Port $Port is already in use by another process:
+$portOwner
+
+Stop that process, set APP_PORT in backend/.env to a free port, or run: .\scripts\backend.ps1 stop
+"@
+        }
+    }
+
     Write-Host "backend: starting..."
     Start-DevDetachedProcess `
         -WorkingDirectory $DevBackendDir `
@@ -69,10 +107,16 @@ function Start-Backend {
         Start-Sleep -Seconds 1
     }
 
-    throw "Backend launched but health check failed. See .dev/backend.log"
+    $logTail = Get-BackendLogTail @($LogFile, $ErrLogFile)
+    $message = "Backend launched but health check failed on port $Port."
+    if ($logTail) {
+        throw "$message`n`n$logTail"
+    }
+    throw "$message See .dev/backend.log and .dev/backend.err.log"
 }
 
 function Stop-Backend {
+    $Port = Get-BackendPort
     if (Stop-DevPort $Port) {
         Write-Host "backend: stopped"
     } else {
