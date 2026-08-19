@@ -3,6 +3,8 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
+from typing import Optional
+
 from sqlalchemy.orm import Session
 from bebcare.models.prompt_dimension import (
     PromptDimension,
@@ -11,8 +13,10 @@ from bebcare.models.prompt_dimension import (
     DimensionType,
     CompatMode,
 )
+from bebcare.models.user import User
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 from bebcare.schemas.prompt_dimension import COMPAT_TARGET_TYPES
+from bebcare.services.ownership import stamp_owner
 
 
 def generate_random_item_id() -> str:
@@ -24,13 +28,15 @@ def allocate_item_id_for_create(
     db: Session,
     product_type: str,
     dimension_type: str,
+    owner_user_id: Optional[str] = None,
 ) -> str:
-    """Return a random item_id unique within (product_type, dimension_type)."""
+    """Return a random item_id unique within (owner, product_type, dimension_type)."""
     return resolve_unique_item_id(
         db,
         product_type,
         dimension_type,
         generate_random_item_id(),
+        owner_user_id=owner_user_id,
     )
 
 
@@ -40,24 +46,24 @@ def resolve_unique_item_id(
     dimension_type: str,
     base_id: str,
     *,
+    owner_user_id: Optional[str] = None,
     max_attempts: int = 100,
 ) -> str:
-    """Ensure item_id is unique within (product_type, dimension_type). Appends _2, _3, … on clash."""
+    """Ensure item_id is unique within (owner, product_type, dimension_type). Appends _2, _3, … on clash."""
     base = (base_id or "").strip()[:100]
     if not base:
         base = "style"
 
     candidate = base
     for n in range(2, max_attempts + 2):
-        exists = (
-            db.query(PromptDimension)
-            .filter(
-                PromptDimension.product_type == product_type,
-                PromptDimension.dimension_type == dimension_type,
-                PromptDimension.item_id == candidate,
-            )
-            .first()
+        q = db.query(PromptDimension).filter(
+            PromptDimension.product_type == product_type,
+            PromptDimension.dimension_type == dimension_type,
+            PromptDimension.item_id == candidate,
         )
+        if owner_user_id is not None:
+            q = q.filter(PromptDimension.owner_user_id == owner_user_id)
+        exists = q.first()
         if not exists:
             return candidate
         suffix = f"_{n}"
@@ -113,12 +119,17 @@ class DimensionService:
     def clear_cache(self):
         pass
 
-    def get_dimensions_by_product_type(self, product_type: str, db: Session) -> dict:
+    def get_dimensions_by_product_type(
+        self, product_type: str, db: Session, *, owner_user_id: Optional[str] = None
+    ) -> dict:
         try:
-            dimensions = db.query(PromptDimension).filter(
+            q = db.query(PromptDimension).filter(
                 PromptDimension.product_type.ilike(product_type),
                 PromptDimension.enabled.is_(True),
-            ).all()
+            )
+            if owner_user_id is not None:
+                q = q.filter(PromptDimension.owner_user_id == owner_user_id)
+            dimensions = q.all()
 
             result = {dim_type.value: [] for dim_type in DimensionType}
 
@@ -147,21 +158,26 @@ class DimensionService:
         product_type: str,
         source_dim_type: str,
         source_item_id: str,
-        target_dim_type: str
+        target_dim_type: str,
+        owner_user_id: Optional[str] = None,
     ) -> list:
         try:
-            all_target_dims = db.query(PromptDimension).filter(
+            target_q = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == target_dim_type,
                 PromptDimension.enabled.is_(True),
-            ).all()
-
-            source_dim = db.query(PromptDimension).filter(
+            )
+            source_q = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == source_dim_type,
                 PromptDimension.item_id == source_item_id,
                 PromptDimension.enabled.is_(True),
-            ).first()
+            )
+            if owner_user_id is not None:
+                target_q = target_q.filter(PromptDimension.owner_user_id == owner_user_id)
+                source_q = source_q.filter(PromptDimension.owner_user_id == owner_user_id)
+            all_target_dims = target_q.all()
+            source_dim = source_q.first()
 
             if not source_dim:
                 return [{"id": dim.item_id, "name": dim.name} for dim in all_target_dims]
@@ -188,14 +204,18 @@ class DimensionService:
         self,
         db: Session,
         product_type: str,
-        dimension_type: str
+        dimension_type: str,
+        owner_user_id: Optional[str] = None,
     ) -> list:
         try:
-            dimensions = db.query(PromptDimension).filter(
+            q = db.query(PromptDimension).filter(
                 PromptDimension.product_type == product_type,
                 PromptDimension.dimension_type == dimension_type,
                 PromptDimension.enabled.is_(True),
-            ).order_by(PromptDimension.item_id).all()
+            )
+            if owner_user_id is not None:
+                q = q.filter(PromptDimension.owner_user_id == owner_user_id)
+            dimensions = q.order_by(PromptDimension.item_id).all()
 
             result = []
             for dim in dimensions:
@@ -218,40 +238,52 @@ class DimensionService:
             logger.exception('DimensionService.get_dimensions_by_type failed: %s', e)
             return []
 
-    def initialize_default_dimensions(self, db: Session):
-        db.query(PromptDimensionCompatibility).delete()
-        db.query(PromptDimensionCompatPolicy).delete()
-        db.query(PromptDimension).delete()
+    def initialize_default_dimensions(self, db: Session, owner: User):
+        db.query(PromptDimensionCompatibility).filter(
+            PromptDimensionCompatibility.owner_user_id == owner.user_id
+        ).delete()
+        db.query(PromptDimensionCompatPolicy).filter(
+            PromptDimensionCompatPolicy.owner_user_id == owner.user_id
+        ).delete()
+        db.query(PromptDimension).filter(
+            PromptDimension.owner_user_id == owner.user_id
+        ).delete()
         db.commit()
 
         # 初始七大维度一律全部兼容（无策略行 = unrestricted）
         for product_type, product_dimensions in DIMENSIONS.items():
             for dim_type, items in product_dimensions.items():
                 for item in items:
-                    db.add(
-                        PromptDimension(
-                            product_type=product_type,
-                            dimension_type=dim_type,
-                            item_id=item["id"],
-                            name=item["name"],
-                        )
+                    row = PromptDimension(
+                        product_type=product_type,
+                        dimension_type=dim_type,
+                        item_id=item["id"],
+                        name=item["name"],
                     )
+                    stamp_owner(row, owner)
+                    db.add(row)
 
         db.commit()
         self.clear_cache()
 
         return {"status": "success", "message": "默认维度数据已初始化"}
 
-    def reset_visual_styles(self, db: Session, pack_id: str = "general") -> dict:
-        """Wipe all prompt dimensions and import a single pack."""
+    def reset_visual_styles(self, db: Session, pack_id: str = "general", *, owner: User) -> dict:
+        """Wipe this owner's prompt dimensions and import a single pack."""
         from bebcare.services.vertical_pack_service import initialize_pack
 
-        db.query(PromptDimensionCompatibility).delete()
-        db.query(PromptDimensionCompatPolicy).delete()
-        db.query(PromptDimension).delete()
+        db.query(PromptDimensionCompatibility).filter(
+            PromptDimensionCompatibility.owner_user_id == owner.user_id
+        ).delete()
+        db.query(PromptDimensionCompatPolicy).filter(
+            PromptDimensionCompatPolicy.owner_user_id == owner.user_id
+        ).delete()
+        db.query(PromptDimension).filter(
+            PromptDimension.owner_user_id == owner.user_id
+        ).delete()
         db.commit()
         self.clear_cache()
-        result = initialize_pack(pack_id, db)
+        result = initialize_pack(pack_id, db, owner=owner)
         return {
             "status": "success",
             "pack_id": pack_id,

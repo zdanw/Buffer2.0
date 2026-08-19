@@ -390,30 +390,53 @@ def test_admin_post_auth_users_returns_201(full_client, auth_headers):
     assert resp.json()["username"] == "iso_t10_user"
 
 
-def test_non_admin_can_list_global_prompt_dimensions(full_client, auth_headers):
-    headers = register_or_create_user(
-        full_client, auth_headers, "iso_pd_list", "iso_pd_list@test.local", "PassPdList123!"
-    )
-    listed = full_client.get("/v1/prompt-dimensions/", headers=headers)
+def test_admin_still_has_seeded_prompt_catalog(full_client, auth_headers):
+    listed = full_client.get("/v1/prompt-dimensions/", headers=auth_headers)
     assert listed.status_code == 200
     body = listed.json()
-    assert "data" in body
+    assert body["pagination"]["total"] > 0
+    assert _list_rows(listed)
 
 
-def test_non_admin_cannot_create_system_prompt_dimension(full_client, auth_headers):
-    headers = register_or_create_user(
+def test_user_b_does_not_list_admin_prompt_dimensions(full_client, auth_headers):
+    listed_admin = full_client.get("/v1/prompt-dimensions/", headers=auth_headers)
+    assert listed_admin.status_code == 200
+    admin_ids = {x["dimension_id"] for x in _list_rows(listed_admin)}
+    assert admin_ids
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_pd_list", "iso_pd_list@test.local", "PassPdList123!"
+    )
+    listed_b = full_client.get("/v1/prompt-dimensions/", headers=headers_b)
+    assert listed_b.status_code == 200
+    b_ids = {x["dimension_id"] for x in _list_rows(listed_b)}
+    assert admin_ids.isdisjoint(b_ids)
+    assert listed_b.json()["pagination"]["total"] == 0
+
+
+def test_user_can_create_own_prompt_dimension_hidden_from_others(full_client, auth_headers):
+    headers_a = register_or_create_user(
         full_client, auth_headers, "iso_pd_na", "iso_pd_na@test.local", "PassPdNA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_pd_nb", "iso_pd_nb@test.local", "PassPdNB123!"
     )
     created = full_client.post(
         "/v1/prompt-dimensions/",
-        headers=headers,
+        headers=headers_a,
         json={
             "product_type": "test",
             "dimension_type": "scenes",
-            "name": "Non-admin scene",
+            "name": "User A scene",
         },
     )
-    assert created.status_code == 403
+    assert created.status_code == 201, created.text
+    dim_id = created.json()["dimension_id"]
+    listed_b = full_client.get("/v1/prompt-dimensions/", headers=headers_b)
+    assert listed_b.status_code == 200
+    b_ids = {x["dimension_id"] for x in _list_rows(listed_b)}
+    assert dim_id not in b_ids
+    got_b = full_client.get(f"/v1/prompt-dimensions/{dim_id}", headers=headers_b)
+    assert got_b.status_code == 404
 
 
 def test_cannot_bind_product_dimension_on_other_users_product(full_client, auth_headers):
@@ -446,6 +469,16 @@ def test_brand_owner_can_initialize_pack_other_user_gets_404(full_client, auth_h
         f"/v1/brands/{brand_id}/initialize-pack", headers=headers_a
     )
     assert owner_resp.status_code == 200, owner_resp.text
+    assert owner_resp.json().get("created", 0) > 0
+    listed_a = full_client.get("/v1/prompt-dimensions/", headers=headers_a)
+    listed_b = full_client.get("/v1/prompt-dimensions/", headers=headers_b)
+    assert listed_a.status_code == 200
+    assert listed_b.status_code == 200
+    a_ids = {x["dimension_id"] for x in _list_rows(listed_a)}
+    b_ids = {x["dimension_id"] for x in _list_rows(listed_b)}
+    assert a_ids
+    assert a_ids.isdisjoint(b_ids)
+    assert listed_b.json()["pagination"]["total"] == 0
     other_resp = full_client.post(
         f"/v1/brands/{brand_id}/initialize-pack", headers=headers_b
     )

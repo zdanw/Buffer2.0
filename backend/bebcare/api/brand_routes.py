@@ -223,7 +223,7 @@ def initialize_brand_pack(
     brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
     pack_id = brand.vertical_pack or "general"
     try:
-        return initialize_pack(pack_id, db)
+        return initialize_pack(pack_id, db, owner=current_user)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

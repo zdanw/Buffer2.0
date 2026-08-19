@@ -3,7 +3,7 @@ from bebcare.prompt_builder.prompt_engine import PromptEngine
 
 
 class _EmptyDimService:
-    def get_dimensions_by_product_type(self, product_type, db):
+    def get_dimensions_by_product_type(self, product_type, db, **kwargs):
         return {
             "scenes": [],
             "lighting": [],
@@ -18,7 +18,7 @@ class _EmptyDimService:
 class _PartialDimService:
     """DB has styles but no scenes — must still use DB, not Night Lights."""
 
-    def get_dimensions_by_product_type(self, product_type, db):
+    def get_dimensions_by_product_type(self, product_type, db, **kwargs):
         return {
             "scenes": [],
             "lighting": [],

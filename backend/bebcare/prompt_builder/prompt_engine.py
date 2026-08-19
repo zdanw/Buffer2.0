@@ -102,7 +102,11 @@ Follow these principles:
         """
         if db is not None and dimension_service is not None:
             try:
-                result = dimension_service.get_dimensions_by_product_type(product_type, db)
+                result = dimension_service.get_dimensions_by_product_type(
+                    product_type,
+                    db,
+                    owner_user_id=getattr(self, "_dim_owner_user_id", None),
+                )
                 if any(result.get(key) for key in self._EMPTY_DIMENSIONS):
                     return result
                 logger.info(
@@ -396,7 +400,11 @@ Follow these principles:
         else:
             selling_points_str = "high-quality product"
         
-        selected_dimensions = self._select_dimensions(product_type, db)
+        self._dim_owner_user_id = product_info.get("owner_user_id")
+        try:
+            selected_dimensions = self._select_dimensions(product_type, db)
+        finally:
+            self._dim_owner_user_id = None
         
         nunito_constraint = ""
         logo_rule = (product_info.get("logo_font_rule") or "").strip()
@@ -465,7 +473,11 @@ Follow these principles:
             or 'General'
         ).strip()
 
-        selected_dimensions = self._select_dimensions(product_type, db)
+        self._dim_owner_user_id = product_info.get("owner_user_id")
+        try:
+            selected_dimensions = self._select_dimensions(product_type, db)
+        finally:
+            self._dim_owner_user_id = None
         dimensions_info = {
             "scene": "参考场景图",
             "viewpoint": "沿用参考图",
