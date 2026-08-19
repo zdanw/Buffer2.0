@@ -8,7 +8,7 @@
 cd backend
 cp .env.example .env    # 按需填写密钥；本地可省略 DATABASE_URL（默认 SQLite）
 pip install -r requirements.txt
-uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8888 --reload
 ```
 
 | 入口 | 地址 |
@@ -17,7 +17,7 @@ uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
 | OpenAPI | `/docs`、`/redoc` |
 | 业务 API | `/v1/*` |
 
-生产 / HF Space 默认端口为 **7860**；本地与前端 Vite 代理约定为 **8080**。
+生产 / HF Space 默认端口为 **7860**；本地与前端 Vite 代理约定为 **8888**。
 
 ## 环境变量
 
@@ -59,7 +59,7 @@ uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
 
 ```bash
 cd backend
-uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8888 --reload
 ```
 
 **方式 B — 先手动迁移再启动**（适合排查迁移错误）：
@@ -67,7 +67,7 @@ uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
 ```bash
 cd backend
 python -m alembic upgrade head
-uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8888 --reload
 ```
 
 4. **验证是否已到 head**：

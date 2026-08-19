@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Control local backend (uvicorn on :8080)
+# Control local backend (uvicorn on :8888)
 #
 # Usage:
 #   ./scripts/backend.sh start|stop|status|restart
@@ -20,7 +20,7 @@ esac
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/dev-common.sh"
 
-PORT=8080
+PORT=8888
 LOG_FILE="$DEV_STATE_DIR/backend.log"
 PID_FILE="$DEV_STATE_DIR/backend.pid"
 

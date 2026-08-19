@@ -67,11 +67,11 @@
 cd backend
 cp .env.example .env          # 填写密钥；本地可省略 DATABASE_URL（默认 SQLite）
 pip install -r requirements.txt
-uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8888 --reload
 ```
 
-- 探活：`GET http://localhost:8080/health`
-- OpenAPI：`http://localhost:8080/docs`
+- 探活：`GET http://localhost:8888/health`
+- OpenAPI：`http://localhost:8888/docs`
 
 可选 CLIP（图文向量去重）：
 
@@ -87,7 +87,7 @@ pip install -r requirements-clip.txt
 ```bash
 cd frontend
 npm ci
-npm run dev                   # http://localhost:5174，/v1 代理到 :8080
+npm run dev                   # http://localhost:5174，/v1 代理到 :8888
 ```
 
 本地一般**无需**配置 `VITE_`*。生产（Vercel）配置 `HF_SPACE_HOST`，**不要**把 `http://*.hf.space` 打进前端包（会 Mixed Content）。
@@ -143,7 +143,7 @@ ADMIN_PASSWORD=change-me-on-first-boot
 
 # 应用
 APP_HOST=0.0.0.0
-APP_PORT=8080
+APP_PORT=8888
 LOG_LEVEL=INFO
 ALLOWED_ORIGINS=http://localhost:5174,http://127.0.0.1:5174
 ```
@@ -161,7 +161,7 @@ cd backend
 pip install -r requirements.txt
 
 # 默认 AUTO_MIGRATE=true：重启 uvicorn 即自动升级
-uvicorn bebcare.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn bebcare.main:app --host 0.0.0.0 --port 8888 --reload
 
 # 或先手动升级再启动
 python -m alembic upgrade head
@@ -202,7 +202,7 @@ python ../scripts/sync_deploy_copies.py
 
 ### 1. 本地联调
 
-1. 启动后端（`:8080`）与前端（`:5174`）
+1. 启动后端（`:8888`）与前端（`:5174`）
 2. 使用 `ADMIN_*` 账号登录管理台
 3. 在 **资产** 录入产品与参考图
 4. 在 **维度** 配置提示词维度并绑定产品类型
@@ -375,7 +375,7 @@ Bebcare_Buffer2.0/
 | `ADMIN_PASSWORD`          | 首次初始化管理员密码                    | （必填）              |
 | `ALLOWED_ORIGINS`         | CORS 白名单（逗号分隔，禁止 `*`）         | 本地含 `:5174`       |
 | `LOG_LEVEL`               | 日志级别                          | `INFO`            |
-| `APP_PORT`                | 本地监听端口（HF 镜像内为 7860）          | `8080`            |
+| `APP_PORT`                | 本地监听端口（HF 镜像内为 7860）          | `8888`            |
 
 
 
