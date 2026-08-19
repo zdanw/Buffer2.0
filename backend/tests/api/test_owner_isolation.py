@@ -360,3 +360,93 @@ def test_publish_without_buffer_account_returns_400(full_client, auth_headers):
     )
     assert resp.status_code == 400
     assert "BUFFER_API_TOKEN" not in (resp.json().get("detail") or "")
+
+
+def test_admin_list_brands_excludes_user_b_brand(full_client, auth_headers):
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_adm_b", "iso_adm_b@test.local", "PassAdmB123!"
+    )
+    created = full_client.post("/v1/brands/", headers=headers_b, json={"name": "User B Brand"})
+    assert created.status_code in (200, 201)
+    brand_id_b = created.json()["brand_id"]
+    listed_admin = full_client.get("/v1/brands/", headers=auth_headers)
+    assert listed_admin.status_code == 200
+    ids = [x["brand_id"] for x in _list_rows(listed_admin)]
+    assert brand_id_b not in ids
+
+
+def test_admin_post_auth_users_returns_201(full_client, auth_headers):
+    resp = full_client.post(
+        "/v1/auth/users",
+        headers=auth_headers,
+        json={
+            "username": "iso_t10_user",
+            "email": "iso_t10_user@test.local",
+            "password": "PassT10User123!",
+            "is_admin": False,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["username"] == "iso_t10_user"
+
+
+def test_non_admin_can_list_global_prompt_dimensions(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_pd_list", "iso_pd_list@test.local", "PassPdList123!"
+    )
+    listed = full_client.get("/v1/prompt-dimensions/", headers=headers)
+    assert listed.status_code == 200
+    body = listed.json()
+    assert "data" in body
+
+
+def test_non_admin_cannot_create_system_prompt_dimension(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_pd_na", "iso_pd_na@test.local", "PassPdNA123!"
+    )
+    created = full_client.post(
+        "/v1/prompt-dimensions/",
+        headers=headers,
+        json={
+            "product_type": "test",
+            "dimension_type": "scenes",
+            "name": "Non-admin scene",
+        },
+    )
+    assert created.status_code == 403
+
+
+def test_cannot_bind_product_dimension_on_other_users_product(full_client, auth_headers):
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "iso_pdb_a", "iso_pdb_a@test.local", "PassPdBA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_pdb_b", "iso_pdb_b@test.local", "PassPdBB123!"
+    )
+    product_id_a = _create_product(full_client, headers_a, "A Dim Product")
+    bound = full_client.post(
+        f"/v1/prompt-dimensions/products/{product_id_a}/dimensions/",
+        headers=headers_b,
+        json={"dimension_type": "scenes", "item_id": "custom-scene", "name": "Stolen scene"},
+    )
+    assert bound.status_code == 404
+
+
+def test_brand_owner_can_initialize_pack_other_user_gets_404(full_client, auth_headers):
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "iso_pack_a", "iso_pack_a@test.local", "PassPackA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_pack_b", "iso_pack_b@test.local", "PassPackB123!"
+    )
+    created = full_client.post("/v1/brands/", headers=headers_a, json={"name": "Pack Brand"})
+    assert created.status_code in (200, 201)
+    brand_id = created.json()["brand_id"]
+    owner_resp = full_client.post(
+        f"/v1/brands/{brand_id}/initialize-pack", headers=headers_a
+    )
+    assert owner_resp.status_code == 200, owner_resp.text
+    other_resp = full_client.post(
+        f"/v1/brands/{brand_id}/initialize-pack", headers=headers_b
+    )
+    assert other_resp.status_code == 404

@@ -11,7 +11,7 @@ from bebcare.models import Brand, Product, GENERIC_BRAND_ID, BEBCARE_BRAND_ID
 from bebcare.models.buffer_account import BufferAccount
 from bebcare.models.user import User
 from bebcare.schemas.brand import BrandCreate, BrandResponse, BrandSummary, BrandUpdate
-from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
+from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.ownership import (
     assert_owned_ref,
     get_owned_or_404,
@@ -217,7 +217,6 @@ def initialize_brand_pack(
     brand_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-    _admin=Depends(get_current_admin_user),
 ):
     from bebcare.services.vertical_pack_service import initialize_pack
 
