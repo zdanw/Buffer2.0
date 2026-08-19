@@ -66,9 +66,7 @@ def test_generic_product_has_no_baby_fallbacks():
             return self
 
         def first(self):
-            if model is Brand:
-                return generic
-            return None
+            return generic
 
     ctx = resolve_product_brand_context(Session(), product)
     assert ctx["is_generic_brand"] is True

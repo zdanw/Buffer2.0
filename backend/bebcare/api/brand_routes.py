@@ -9,8 +9,15 @@ from sqlalchemy.orm import Session
 from bebcare.database import get_db
 from bebcare.models import Brand, Product, GENERIC_BRAND_ID, BEBCARE_BRAND_ID
 from bebcare.models.buffer_account import BufferAccount
+from bebcare.models.user import User
 from bebcare.schemas.brand import BrandCreate, BrandResponse, BrandSummary, BrandUpdate
-from bebcare.services.auth_dependency import get_current_admin_user
+from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
+from bebcare.services.ownership import (
+    assert_owned_ref,
+    get_owned_or_404,
+    owned_query,
+    stamp_owner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,16 +61,19 @@ def _brand_response(brand: Brand) -> dict:
     return data
 
 
-def _assign_buffer_account(db: Session, brand: Brand, account_id: str | None):
+def _assign_buffer_account(
+    db: Session, brand: Brand, account_id: str | None, current_user: User
+):
     """Exclusive 1:1 — a Buffer account may belong to at most one brand."""
     normalized = (account_id or "").strip() or None
     if not normalized:
         brand.buffer_account_id = None
         return
 
+    assert_owned_ref(db, BufferAccount, normalized, current_user, id_attr="id")
     account = db.query(BufferAccount).filter(BufferAccount.id == normalized).first()
     if not account:
-        raise HTTPException(status_code=400, detail="Buffer account not found")
+        raise HTTPException(status_code=404, detail="Not found")
     if not account.is_active:
         raise HTTPException(
             status_code=400,
@@ -87,12 +97,16 @@ def _assign_buffer_account(db: Session, brand: Brand, account_id: str | None):
 
 
 @router.get("/")
-def list_brands(db: Session = Depends(get_db)) -> dict:
+def list_brands(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> dict:
     from sqlalchemy import func
 
-    brands = db.query(Brand).order_by(Brand.is_generic.desc(), Brand.name).all()
+    brands = owned_query(db, Brand, current_user).order_by(Brand.created_at.desc()).all()
     count_rows = (
-        db.query(Product.brand_id, func.count(Product.product_id))
+        owned_query(db, Product, current_user)
+        .with_entities(Product.brand_id, func.count(Product.product_id))
         .group_by(Product.brand_id)
         .all()
     )
@@ -103,9 +117,13 @@ def list_brands(db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/", status_code=201, response_model=BrandResponse)
-def create_brand(payload: BrandCreate, db: Session = Depends(get_db)):
+def create_brand(
+    payload: BrandCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     slug = (payload.slug or _slugify(payload.name)).strip().lower()
-    if db.query(Brand).filter(Brand.slug == slug).first():
+    if owned_query(db, Brand, current_user).filter(Brand.slug == slug).first():
         raise HTTPException(status_code=400, detail=f"Brand slug '{slug}' already exists")
 
     brand = Brand(
@@ -126,28 +144,34 @@ def create_brand(payload: BrandCreate, db: Session = Depends(get_db)):
         vertical_pack=payload.vertical_pack or "general",
         default_product_type=payload.default_product_type or "General",
     )
+    stamp_owner(brand, current_user)
     db.add(brand)
     db.flush()
     if payload.buffer_account_id:
-        _assign_buffer_account(db, brand, payload.buffer_account_id)
+        _assign_buffer_account(db, brand, payload.buffer_account_id, current_user)
     db.commit()
     db.refresh(brand)
     return _brand_response(brand)
 
 
 @router.get("/{brand_id}", response_model=BrandResponse)
-def get_brand(brand_id: str, db: Session = Depends(get_db)):
-    brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+def get_brand(
+    brand_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
     return _brand_response(brand)
 
 
 @router.put("/{brand_id}", response_model=BrandResponse)
-def update_brand(brand_id: str, payload: BrandUpdate, db: Session = Depends(get_db)):
-    brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+def update_brand(
+    brand_id: str,
+    payload: BrandUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
 
     updates = payload.model_dump(exclude_unset=True)
     if brand.is_generic:
@@ -164,7 +188,7 @@ def update_brand(brand_id: str, payload: BrandUpdate, db: Session = Depends(get_
         setattr(brand, key, value)
 
     if assign_buffer:
-        _assign_buffer_account(db, brand, buffer_account_id)
+        _assign_buffer_account(db, brand, buffer_account_id, current_user)
 
     db.commit()
     db.refresh(brand)
@@ -172,15 +196,17 @@ def update_brand(brand_id: str, payload: BrandUpdate, db: Session = Depends(get_
 
 
 @router.delete("/{brand_id}", status_code=204)
-def delete_brand(brand_id: str, db: Session = Depends(get_db)):
-    brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+def delete_brand(
+    brand_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
     if brand.is_generic or brand.brand_id in (GENERIC_BRAND_ID, BEBCARE_BRAND_ID):
         raise HTTPException(status_code=400, detail="Built-in brands cannot be deleted")
 
-    db.query(Product).filter(Product.brand_id == brand_id).update(
-        {Product.brand_id: GENERIC_BRAND_ID}
+    owned_query(db, Product, current_user).filter(Product.brand_id == brand_id).update(
+        {Product.brand_id: None}
     )
     db.delete(brand)
     db.commit()
@@ -190,13 +216,12 @@ def delete_brand(brand_id: str, db: Session = Depends(get_db)):
 def initialize_brand_pack(
     brand_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
     _admin=Depends(get_current_admin_user),
 ):
     from bebcare.services.vertical_pack_service import initialize_pack
 
-    brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+    brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
     pack_id = brand.vertical_pack or "general"
     try:
         return initialize_pack(pack_id, db)
@@ -205,12 +230,15 @@ def initialize_brand_pack(
 
 
 @router.post("/{brand_id}/logo")
-async def upload_brand_logo(brand_id: str, request: Request, db: Session = Depends(get_db)):
+async def upload_brand_logo(
+    brand_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     from bebcare.utils.github_uploader import github_uploader
 
-    brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+    brand = get_owned_or_404(db, Brand, brand_id, current_user, id_attr="brand_id")
 
     form_data = await request.form()
     file = form_data.get("file")
