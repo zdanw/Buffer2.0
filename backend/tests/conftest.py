@@ -53,6 +53,8 @@ if "chromadb" not in sys.modules:
             create_collection=MagicMock(return_value=MagicMock()),
         )
     )
+if "datasketch" not in sys.modules:
+    _stub_module("datasketch", MinHash=MagicMock(), MinHashLSH=MagicMock())
 
 import pytest
 from fastapi import Depends, FastAPI, APIRouter
@@ -61,7 +63,14 @@ from fastapi.testclient import TestClient
 from bebcare.database import Base, engine, init_db
 from bebcare.initial_data import initialize_data
 from bebcare.api.auth_routes import router as auth_router
+from bebcare.api.brand_routes import router as brand_router
+from bebcare.api.product_routes import router as product_router
+from bebcare.api.task_routes import router as task_router
 from bebcare.api.generate_routes import router as generate_router
+from bebcare.api.publish_routes import router as publish_router
+from bebcare.api.prompt_dimension_routes import router as prompt_dimension_router
+from bebcare.api.image_provider_routes import router as image_provider_router
+from bebcare.api.buffer_account_routes import router as buffer_account_router
 from bebcare.services.auth_dependency import get_current_active_user
 import bebcare.models  # noqa: F401 — register metadata
 
@@ -87,11 +96,63 @@ def _build_test_app() -> FastAPI:
     return app
 
 
+def _build_full_test_app() -> FastAPI:
+    init_db()
+    initialize_data()
+
+    app = FastAPI(title="Bebcare Full Test API")
+    api = APIRouter(prefix="/v1")
+    api.include_router(auth_router)
+    api.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(product_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(task_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(generate_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(publish_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(prompt_dimension_router, dependencies=[Depends(get_current_active_user)])
+    api.include_router(image_provider_router)
+    api.include_router(buffer_account_router)
+    app.include_router(api)
+
+    @app.get("/")
+    def root():
+        return {"message": "ok"}
+
+    @app.get("/health")
+    def health():
+        return {"status": "healthy"}
+
+    return app
+
+
 @pytest.fixture(scope="session")
 def client():
     app = _build_test_app()
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def full_client():
+    app = _build_full_test_app()
+    with TestClient(app) as c:
+        yield c
+
+
+def register_or_create_user(client, auth_headers, username, email, password):
+    resp = client.post(
+        "/v1/auth/users",
+        headers=auth_headers,
+        json={
+            "username": username,
+            "email": email,
+            "password": password,
+            "is_admin": False,
+        },
+    )
+    assert resp.status_code == 201
+    login = client.post("/v1/auth/login/", data={"username": username, "password": password})
+    assert login.status_code == 200
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
 @pytest.fixture
