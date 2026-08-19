@@ -1,11 +1,12 @@
 from sqlalchemy import Column, String, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
 
-class BufferAccount(Base):
+class BufferAccount(OwnedMixin, Base):
     """Buffer API account: encrypted token + brand bindings."""
 
     __tablename__ = "buffer_accounts"

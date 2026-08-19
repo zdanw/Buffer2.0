@@ -1,10 +1,11 @@
 from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
 
-class ImageProviderConfig(Base):
+class ImageProviderConfig(OwnedMixin, Base):
     __tablename__ = "image_provider_configs"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

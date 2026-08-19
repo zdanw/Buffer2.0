@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, Integer, ForeignKey
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
-class ScheduledTask(Base):
+class ScheduledTask(OwnedMixin, Base):
     __tablename__ = "scheduled_tasks"
     
     task_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -29,7 +30,7 @@ class ScheduledTask(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class TaskExecution(Base):
+class TaskExecution(OwnedMixin, Base):
     __tablename__ = "task_executions"
     
     execution_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -47,7 +48,7 @@ class TaskExecution(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class ManualTaskDraft(Base):
+class ManualTaskDraft(OwnedMixin, Base):
     __tablename__ = "manual_task_drafts"
     
     draft_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Boolean, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
@@ -9,13 +10,14 @@ GENERIC_BRAND_ID = "00000000-0000-0000-0000-000000000001"
 BEBCARE_BRAND_ID = "00000000-0000-0000-0000-000000000002"
 
 
-class Brand(Base):
+class Brand(OwnedMixin, Base):
     """Reusable brand kit: voice, prompt skills, and vertical defaults."""
 
     __tablename__ = "brands"
+    __table_args__ = (UniqueConstraint("owner_user_id", "slug", name="uq_brands_owner_slug"),)
 
     brand_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    slug = Column(String(64), nullable=False, unique=True, index=True)
+    slug = Column(String(64), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     is_generic = Column(Boolean, default=False, nullable=False)
     is_system = Column(Boolean, default=False, nullable=False)
