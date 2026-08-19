@@ -46,16 +46,71 @@ dev_kill_pid() {
   fi
 }
 
+# Expand listen PIDs to children / multiprocessing orphans (uvicorn --reload).
+dev_process_tree_pids() {
+  local roots=("$@")
+  local all=()
+  local root pid ppid cmd
+  [ "${#roots[@]}" -eq 0 ] && return 0
+
+  for root in "${roots[@]}"; do
+    [ -n "$root" ] && all+=("$root")
+  done
+
+  if command -v pgrep >/dev/null 2>&1; then
+    local frontier=("${all[@]}") next
+    while [ "${#frontier[@]}" -gt 0 ]; do
+      next=()
+      for root in "${frontier[@]}"; do
+        while IFS= read -r pid; do
+          [ -z "$pid" ] && continue
+          case " ${all[*]} " in
+            *" $pid "*) continue ;;
+          esac
+          all+=("$pid")
+          next+=("$pid")
+        done < <(pgrep -P "$root" 2>/dev/null || true)
+      done
+      frontier=("${next[@]}")
+    done
+  fi
+
+  # Orphans whose cmdline still references a dead listen parent.
+  if command -v ps >/dev/null 2>&1; then
+    local pattern
+    pattern="$(IFS='|'; echo "${roots[*]}")"
+    while IFS= read -r line; do
+      pid="${line%% *}"
+      cmd="${line#* }"
+      [ -z "$pid" ] && continue
+      if printf '%s' "$cmd" | grep -Eq "parent_pid=(${pattern})([[:space:]]|$)"; then
+        case " ${all[*]} " in
+          *" $pid "*) ;;
+          *) all+=("$pid") ;;
+        esac
+      fi
+    done < <(ps -eo pid=,command= 2>/dev/null || true)
+  fi
+
+  printf '%s\n' "${all[@]}" | sort -u
+}
+
 dev_stop_port() {
   local port=$1
-  local pids
-  pids="$(dev_port_pids "$port")"
+  local pids listen_pids
+  listen_pids="$(dev_port_pids "$port")"
+  if [ -z "$listen_pids" ]; then
+    return 1
+  fi
+  # shellcheck disable=SC2086
+  pids="$(dev_process_tree_pids $listen_pids)"
   if [ -z "$pids" ]; then
     return 1
   fi
   while IFS= read -r pid; do
     [ -n "$pid" ] && dev_kill_pid "$pid"
   done <<<"$pids"
+  sleep 0.4
   return 0
 }
 

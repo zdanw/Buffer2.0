@@ -59,7 +59,7 @@ function Start-Backend {
     $Port = Get-BackendPort
 
     if (Test-IsRunning) {
-        Write-Host "Already running. Use: .\scripts\backend.ps1 restart"
+        Write-Host "Already running. Use: .\scripts\backend.ps1 restart  (or ./scripts/backend.sh restart)"
         return
     }
 
@@ -117,7 +117,24 @@ Stop that process, set APP_PORT in backend/.env to a free port, or run: .\script
 
 function Stop-Backend {
     $Port = Get-BackendPort
-    if (Stop-DevPort $Port) {
+    $stopped = Stop-DevPort $Port
+
+    # If a ghost listen PID left an orphan worker serving /health, kill matching uvicorn trees.
+    if ((Get-DevHttpCode "http://localhost:$Port/health") -eq "200") {
+        $uvicornPids = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+            $_.CommandLine -and $_.CommandLine -match 'uvicorn(\.exe)?["\s]+bebcare\.main:app'
+        } | ForEach-Object { [int]$_.ProcessId })
+        if ($uvicornPids.Count -gt 0) {
+            foreach ($processId in (Get-DevProcessTreePids $uvicornPids)) {
+                cmd.exe /c "taskkill /PID $processId /T /F >nul 2>&1" | Out-Null
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
+            $stopped = $true
+            Start-Sleep -Milliseconds 400
+        }
+    }
+
+    if ($stopped) {
         Write-Host "backend: stopped"
     } else {
         Write-Host "backend: not running"

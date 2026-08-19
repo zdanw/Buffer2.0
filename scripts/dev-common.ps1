@@ -10,12 +10,52 @@ function Get-DevPortPids([int]$Port) {
         Select-Object -ExpandProperty OwningProcess -Unique
 }
 
+function Get-DevProcessTreePids([int[]]$RootPids) {
+    $roots = @($RootPids | Where-Object { $_ -and $_ -gt 0 } | Select-Object -Unique)
+    if ($roots.Count -eq 0) { return @() }
+
+    $all = [System.Collections.Generic.HashSet[int]]::new()
+    foreach ($root in $roots) { [void]$all.Add([int]$root) }
+
+    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($proc in $procs) {
+            $processId = [int]$proc.ProcessId
+            $parentId = [int]$proc.ParentProcessId
+            if ($all.Contains($parentId) -and -not $all.Contains($processId)) {
+                [void]$all.Add($processId)
+                $changed = $true
+            }
+        }
+    }
+
+    # uvicorn --reload orphans can keep serving after the listen PID is dead;
+    # their cmdline still references parent_pid=<listenPid>.
+    $parentPattern = ($roots | ForEach-Object { [regex]::Escape([string]$_) }) -join "|"
+    foreach ($proc in $procs) {
+        if ($proc.CommandLine -and $proc.CommandLine -match "parent_pid=($parentPattern)\b") {
+            [void]$all.Add([int]$proc.ProcessId)
+        }
+    }
+
+    return @($all)
+}
+
 function Stop-DevPort([int]$Port) {
-    $pids = @(Get-DevPortPids $Port)
+    $listenPids = @(Get-DevPortPids $Port)
+    $pids = @(Get-DevProcessTreePids $listenPids)
     if ($pids.Count -eq 0) { return $false }
+
     foreach ($processId in $pids) {
+        # /T kills children even when the listen PID is already a Windows ghost entry.
+        # Use cmd redirection so a missing PID does not throw under ErrorActionPreference=Stop.
+        cmd.exe /c "taskkill /PID $processId /T /F >nul 2>&1" | Out-Null
         Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     }
+
+    Start-Sleep -Milliseconds 400
     return $true
 }
 
