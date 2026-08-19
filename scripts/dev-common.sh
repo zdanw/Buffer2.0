@@ -76,3 +76,15 @@ dev_http_code() {
 dev_port_listening() {
   [ -n "$(dev_port_pids "$1" | head -1)" ]
 }
+
+# Read KEY=value from an env file (first match; ignores comments/blank lines).
+dev_env_file_value() {
+  local env_file=$1
+  local key=$2
+  [ -f "$env_file" ] || return 0
+  grep -E "^[[:space:]]*${key}=" "$env_file" 2>/dev/null \
+    | head -1 \
+    | sed -E "s/^[[:space:]]*${key}=//" \
+    | sed -E 's/^["'\'']//; s/["'\'']$//' \
+    | tr -d '\r' || true
+}
