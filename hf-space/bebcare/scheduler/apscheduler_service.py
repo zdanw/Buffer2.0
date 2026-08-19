@@ -2,6 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 from datetime import datetime
+from types import SimpleNamespace
 from bebcare.generator.content_generator import content_generator
 from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
@@ -12,6 +13,7 @@ from bebcare.services.buffer_account_service import (
     resolve_buffer_api_token,
     BufferAccountUnavailable,
 )
+from bebcare.services.ownership import stamp_owner
 from bebcare.config.settings import settings
 from sqlalchemy.orm import Session
 from bebcare.database import engine
@@ -20,6 +22,41 @@ import threading
 import uuid
 
 logger = logging.getLogger(__name__)
+
+
+def products_for_task(session, task) -> list:
+    """Products targeted by this scheduled task, limited to the task owner."""
+    target_products = task.target_products or []
+    target_categories = task.target_categories or []
+    owner_id = task.owner_user_id
+
+    if target_products:
+        found = (
+            session.query(Product)
+            .filter(
+                Product.product_id.in_(target_products),
+                Product.owner_user_id == owner_id,
+            )
+            .all()
+        )
+        by_id = {str(p.product_id): p for p in found}
+        return [by_id[str(pid)] for pid in target_products if str(pid) in by_id]
+    if target_categories:
+        return (
+            session.query(Product)
+            .filter(
+                Product.category.in_(target_categories),
+                Product.owner_user_id == owner_id,
+            )
+            .order_by(Product.product_name)
+            .all()
+        )
+    return []
+
+
+def _task_owner(task):
+    return SimpleNamespace(user_id=task.owner_user_id)
+
 
 class APSchedulerService:
     def __init__(self):
@@ -178,12 +215,17 @@ class APSchedulerService:
     def _record_skipped_execution(self, task_id, message: str):
         session = Session(bind=engine)
         try:
+            task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            if not task:
+                logger.error("Cannot record skipped execution; task %s not found", task_id)
+                return
             execution = TaskExecution(
                 execution_id=str(uuid.uuid4()),
                 task_id=task_id,
                 status="FAILED",
                 error_message=message,
             )
+            stamp_owner(execution, _task_owner(task))
             session.add(execution)
             session.commit()
         except Exception as e:
@@ -191,25 +233,6 @@ class APSchedulerService:
             session.rollback()
         finally:
             session.close()
-    
-    def _list_target_products(self, session, target_products, target_categories):
-        """按勾选顺序返回产品列表；未勾选产品时按分类列出。"""
-        if target_products and len(target_products) > 0:
-            found = (
-                session.query(Product)
-                .filter(Product.product_id.in_(target_products))
-                .all()
-            )
-            by_id = {str(p.product_id): p for p in found}
-            return [by_id[str(pid)] for pid in target_products if str(pid) in by_id]
-        if target_categories:
-            return (
-                session.query(Product)
-                .filter(Product.category.in_(target_categories))
-                .order_by(Product.product_name)
-                .all()
-            )
-        return []
 
     def _prepare_product_context(
         self, session, product, task_id, reference_image_count, use_scene_reference, platforms
@@ -248,6 +271,10 @@ class APSchedulerService:
             else False,
         }
         product_info = enrich_product_info(session, product, base_info)
+        owner_user_id = (
+            task_cfg.owner_user_id if task_cfg else product.owner_user_id
+        )
+        product_info["owner_user_id"] = owner_user_id
         return {
             "product_id_str": product_id_str,
             "product_info": product_info,
@@ -257,6 +284,7 @@ class APSchedulerService:
             "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
             "image_model": task_cfg.image_model if task_cfg else None,
             "image_size": getattr(task_cfg, "image_size", None) if task_cfg else None,
+            "owner_user_id": owner_user_id,
         }
 
     def execute_auto_task(self, task_id, target_categories, target_products, platforms,
@@ -265,8 +293,13 @@ class APSchedulerService:
 
         session = Session(bind=engine)
         try:
-            products = self._list_target_products(session, target_products, target_categories)
+            task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            if not task:
+                logger.error("Scheduled task not found: %s", task_id)
+                return
+            products = products_for_task(session, task)
             product_ids = [str(p.product_id) for p in products]
+            task_owner = _task_owner(task)
         finally:
             session.close()
 
@@ -286,6 +319,7 @@ class APSchedulerService:
                         product_id=str(product_id),
                         status="RUNNING"
                     )
+                    stamp_owner(execution, task_owner)
                     session.add(execution)
                     session.commit()
                 finally:
@@ -351,7 +385,11 @@ class APSchedulerService:
         contexts = []
         session = Session(bind=engine)
         try:
-            products = self._list_target_products(session, target_products, target_categories)
+            task = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+            if not task:
+                logger.error("Scheduled task not found: %s", task_id)
+                return
+            products = products_for_task(session, task)
             if not products:
                 logger.error("No product found in target categories or products")
                 return
@@ -442,6 +480,7 @@ class APSchedulerService:
                         reference_scene_images=ctx["reference_scene_images"],
                         status="pending"
                     )
+                    stamp_owner(draft, SimpleNamespace(user_id=ctx["owner_user_id"]))
                     session.add(draft)
                     session.commit()
                     saved_any = True
@@ -491,7 +530,11 @@ class APSchedulerService:
                 session, product, task_id, reference_image_count, use_scene_reference, platforms
             )
             try:
-                api_token = resolve_buffer_api_token(session, product_id=product_id)
+                api_token = resolve_buffer_api_token(
+                    session,
+                    product_id=product_id,
+                    owner_user_id=ctx["owner_user_id"],
+                )
             except BufferAccountUnavailable as exc:
                 raise Exception(exc.message) from exc
         finally:
@@ -499,8 +542,7 @@ class APSchedulerService:
 
         if not api_token:
             raise Exception(
-                "No Buffer account configured. Bind the product brand in Settings → Buffer accounts, "
-                "or set a default account / BUFFER_API_TOKEN."
+                "No Buffer account configured. Add a Buffer account on the settings page."
             )
 
         product_info = ctx["product_info"]

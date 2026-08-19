@@ -564,7 +564,19 @@ class ContentGenerator:
         size = resolve_size(image_size or product_info.get("image_size"))
         session, own = self._db_session(db)
         try:
-            provider, resolved_model = resolve_image_provider(session, provider_id, model_id)
+            owner_user_id = product_info.get("owner_user_id")
+            if not owner_user_id:
+                from bebcare.models import Product
+
+                product_row = (
+                    session.query(Product)
+                    .filter(Product.product_id == str(product_info.get("product_id") or ""))
+                    .first()
+                )
+                owner_user_id = product_row.owner_user_id if product_row else None
+            provider, resolved_model = resolve_image_provider(
+                session, provider_id, model_id, owner_user_id=owner_user_id
+            )
         finally:
             if own:
                 session.close()

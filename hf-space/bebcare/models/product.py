@@ -1,11 +1,11 @@
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Boolean
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
-from bebcare.models.brand import GENERIC_BRAND_ID
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
-class Product(Base):
+class Product(OwnedMixin, Base):
     __tablename__ = "products"
     
     product_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -14,7 +14,6 @@ class Product(Base):
         String(36),
         ForeignKey("brands.brand_id", ondelete="SET NULL"),
         nullable=True,
-        default=GENERIC_BRAND_ID,
     )
     category = Column(String(100), nullable=False)
     description = Column(Text)

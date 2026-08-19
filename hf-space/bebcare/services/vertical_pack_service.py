@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from bebcare.models.prompt_dimension import PromptDimension
+from bebcare.models.user import User
+from bebcare.services.ownership import stamp_owner
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +79,14 @@ def get_dimensions_for_pack(pack_id: str, product_type: str) -> Optional[Dict[st
     return block.get(product_type)
 
 
-def initialize_pack(pack_id: str, db: Session, *, replace_existing: bool = False) -> Dict[str, Any]:
-    """Seed prompt_dimensions from a vertical pack."""
+def initialize_pack(
+    pack_id: str,
+    db: Session,
+    owner: User,
+    *,
+    replace_existing: bool = False,
+) -> Dict[str, Any]:
+    """Seed prompt_dimensions from a vertical pack for one owner."""
     dimensions_by_type = _load_dimensions_block(pack_id)
     if not dimensions_by_type:
         return {"status": "error", "message": f"No dimensions found for pack '{pack_id}'"}
@@ -89,7 +97,8 @@ def initialize_pack(pack_id: str, db: Session, *, replace_existing: bool = False
 
     if replace_existing:
         db.query(PromptDimension).filter(
-            PromptDimension.product_type.in_(product_types)
+            PromptDimension.owner_user_id == owner.user_id,
+            PromptDimension.product_type.in_(product_types),
         ).delete(synchronize_session=False)
         db.commit()
 
@@ -99,6 +108,7 @@ def initialize_pack(pack_id: str, db: Session, *, replace_existing: bool = False
                 exists = (
                     db.query(PromptDimension)
                     .filter(
+                        PromptDimension.owner_user_id == owner.user_id,
                         PromptDimension.product_type == product_type,
                         PromptDimension.dimension_type == dim_type,
                         PromptDimension.item_id == item["id"],
@@ -108,16 +118,16 @@ def initialize_pack(pack_id: str, db: Session, *, replace_existing: bool = False
                 if exists:
                     skipped += 1
                     continue
-                db.add(
-                    PromptDimension(
-                        product_type=product_type,
-                        dimension_type=dim_type,
-                        item_id=item["id"],
-                        name=item["name"],
-                        time=item.get("time"),
-                        lighting=item.get("lighting"),
-                    )
+                row = PromptDimension(
+                    product_type=product_type,
+                    dimension_type=dim_type,
+                    item_id=item["id"],
+                    name=item["name"],
+                    time=item.get("time"),
+                    lighting=item.get("lighting"),
                 )
+                stamp_owner(row, owner)
+                db.add(row)
                 created += 1
 
     db.commit()

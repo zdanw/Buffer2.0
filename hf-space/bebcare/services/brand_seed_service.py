@@ -10,6 +10,8 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from bebcare.models import Brand, Product, GENERIC_BRAND_ID, BEBCARE_BRAND_ID
+from bebcare.models.user import User
+from bebcare.services.ownership import stamp_owner
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,20 @@ def _kit_to_brand_fields(kit: Dict[str, Any]) -> Dict[str, Any]:
     return fields
 
 
+def _earliest_admin(db: Session) -> User:
+    admin = (
+        db.query(User)
+        .filter(User.is_admin.is_(True))
+        .order_by(User.created_at.asc())
+        .first()
+    )
+    if not admin:
+        raise RuntimeError("Cannot seed brands without an admin user")
+    return admin
+
+
 def upsert_brand_from_kit(db: Session, kit: Dict[str, Any]) -> Brand:
+    admin = _earliest_admin(db)
     brand_id = kit["brand_id"]
     existing = db.query(Brand).filter(Brand.brand_id == brand_id).first()
     fields = _kit_to_brand_fields(kit)
@@ -74,9 +89,12 @@ def upsert_brand_from_kit(db: Session, kit: Dict[str, Any]) -> Brand:
         for key, value in fields.items():
             setattr(existing, key, value)
         brand = existing
+        if not getattr(brand, "owner_user_id", None):
+            stamp_owner(brand, admin)
         action = "updated"
     else:
         brand = Brand(**fields)
+        stamp_owner(brand, admin)
         db.add(brand)
         action = "created"
     db.flush()

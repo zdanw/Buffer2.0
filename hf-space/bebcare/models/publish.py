@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Text, DateTime, JSON
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
-class PublishRecord(Base):
+class PublishRecord(OwnedMixin, Base):
     __tablename__ = "publish_records"
     
     publish_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

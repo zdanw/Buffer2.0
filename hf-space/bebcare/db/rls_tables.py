@@ -1,0 +1,18 @@
+APP_RLS_TABLES: tuple[str, ...] = (
+    "users",
+    "products",
+    "product_images",
+    "scheduled_tasks",
+    "task_executions",
+    "manual_task_drafts",
+    "publish_records",
+    "operation_logs",
+    "brands",
+    "prompt_dimensions",
+    "prompt_dimension_compatibilities",
+    "prompt_dimension_compat_policies",
+    "product_dimensions",
+    "image_provider_configs",
+    "generate_tasks",
+    "buffer_accounts",
+)

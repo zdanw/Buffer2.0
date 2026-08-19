@@ -9,12 +9,20 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from uuid import UUID
 from bebcare.database import get_db
-from bebcare.models import Product, ProductImage, Brand, GENERIC_BRAND_ID
+from bebcare.models import Product, ProductImage, Brand
 from bebcare.models.prompt_dimension import ProductDimension
+from bebcare.models.user import User
 from bebcare.schemas.product import ProductCreate, ProductUpdate, ProductResponse, ImageUploadResponse
 from bebcare.knowledge_base.chroma_client import chroma_client
 from bebcare.utils.image_utils import calculate_phash, get_image_dimensions
 from bebcare.utils.github_uploader import github_uploader
+from bebcare.services.auth_dependency import get_current_active_user
+from bebcare.services.ownership import (
+    assert_owned_ref,
+    get_owned_or_404,
+    owned_query,
+    stamp_owner,
+)
 from PIL import Image
 import uuid
 import io
@@ -71,18 +79,24 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
     return result
 
 
-def _resolve_brand_id(db: Session, brand_id: str | None) -> str:
-    if brand_id:
-        exists = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-        if not exists:
-            raise HTTPException(status_code=400, detail="Brand not found")
-        return brand_id
-    return GENERIC_BRAND_ID
+def _resolve_brand_id(db: Session, brand_id: str | None, current_user: User) -> str | None:
+    if not brand_id:
+        return None
+    assert_owned_ref(db, Brand, brand_id, current_user, id_attr="brand_id")
+    return brand_id
 
 @router.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
+def get_categories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     """获取所有产品分类列表"""
-    categories = db.query(Product.category).distinct().all()
+    categories = (
+        owned_query(db, Product, current_user)
+        .with_entities(Product.category)
+        .distinct()
+        .all()
+    )
     category_list = [cat[0] for cat in categories if cat[0]]
     return {"categories": category_list}
 
@@ -91,9 +105,10 @@ def list_products(
     page: int = 1,
     page_size: int = 10,
     brand_id: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Product).options(
+    query = owned_query(db, Product, current_user).options(
         joinedload(Product.images),
         joinedload(Product.brand),
     )
@@ -145,8 +160,12 @@ def list_products(
     }
 
 @router.post("/", status_code=201)
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
-    resolved_brand_id = _resolve_brand_id(db, product.brand_id)
+def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    resolved_brand_id = _resolve_brand_id(db, product.brand_id, current_user)
     new_product = Product(
         product_name=product.product_name,
         brand_id=resolved_brand_id,
@@ -156,6 +175,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
         brand_voice=product.brand_voice,
         use_brand_voice=product.use_brand_voice,
     )
+    stamp_owner(new_product, current_user)
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
@@ -168,15 +188,18 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return _product_to_dict(product, [])
 
 @router.get("/{product_id}")
-def get_product(product_id: str, db: Session = Depends(get_db)):
+def get_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     product = (
         db.query(Product)
         .options(joinedload(Product.images), joinedload(Product.brand))
         .filter(Product.product_id == product_id)
         .first()
     )
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
 
     dimensions = db.query(ProductDimension).filter(
         ProductDimension.product_id == product_id
@@ -198,20 +221,24 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
     ]
     return _product_to_dict(product, product_dimensions)
 @router.put("/{product_id}")
-def update_product(product_id: str, product_update: ProductUpdate, db: Session = Depends(get_db)):
+def update_product(
+    product_id: str,
+    product_update: ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     product = (
         db.query(Product)
         .options(joinedload(Product.images), joinedload(Product.brand))
         .filter(Product.product_id == product_id)
         .first()
     )
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
 
     if product_update.product_name is not None:
         product.product_name = product_update.product_name
     if product_update.brand_id is not None:
-        product.brand_id = _resolve_brand_id(db, product_update.brand_id)
+        product.brand_id = _resolve_brand_id(db, product_update.brand_id, current_user)
     if product_update.category is not None:
         product.category = product_update.category
     if product_update.description is not None:
@@ -227,10 +254,12 @@ def update_product(product_id: str, product_update: ProductUpdate, db: Session =
     db.refresh(product)
     return _product_to_dict(product)
 @router.delete("/{product_id}", status_code=204)
-def delete_product(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+def delete_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    product = get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     
     db.delete(product)
     db.commit()
@@ -241,14 +270,13 @@ async def upload_product_images(
     request: Request,
     image_urls: Optional[str] = None,
     image_type: str = "product",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     if image_type not in ["product", "scene"]:
         raise HTTPException(status_code=400, detail="Invalid image_type. Must be 'product' or 'scene'")
     
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    product = get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     
     uploaded = []
     failed = []
@@ -351,12 +379,23 @@ async def upload_product_images(
     return {"product_id": product_id, "uploaded": uploaded}
 
 @router.get("/{product_id}/images")
-def get_product_images(product_id: str, db: Session = Depends(get_db)):
+def get_product_images(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     images = db.query(ProductImage).filter(ProductImage.product_id == product_id).all()
     return {"product_id": product_id, "images": images}
 
 @router.delete("/{product_id}/images/{image_id}", status_code=204)
-def delete_product_image(product_id: str, image_id: str, db: Session = Depends(get_db)):
+def delete_product_image(
+    product_id: str,
+    image_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
     image = db.query(ProductImage).filter(
         ProductImage.product_id == product_id,
         ProductImage.image_id == image_id

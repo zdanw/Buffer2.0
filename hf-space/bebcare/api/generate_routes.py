@@ -3,15 +3,20 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 from bebcare.database import get_db
 from bebcare.models import Product
+from bebcare.models.image_provider import ImageProviderConfig
+from bebcare.models.user import User
 from bebcare.schemas.generate import GenerateRequest, GenerateResponse
 from bebcare.generator.content_generator import ContentGenerator
 from bebcare.utils.reference_selector import select_reference_images
+from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.generate_task_store import (
     create_generate_task,
     get_generate_task,
     update_generate_task,
 )
+from bebcare.providers.registry import resolve_image_provider
+from bebcare.services.ownership import assert_owned_ref, get_owned_or_404
 import asyncio
 import logging
 
@@ -62,8 +67,33 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
         "image_size": request.image_size,
+        "owner_user_id": product.owner_user_id,
     }
     return enrich_product_info(db, product, base)
+
+
+def _owned_generate_product(
+    db: Session, request: GenerateRequest, current_user: User
+) -> Product:
+    product = get_owned_or_404(
+        db, Product, request.product_id, current_user, id_attr="product_id"
+    )
+    assert_owned_ref(
+        db, ImageProviderConfig, request.image_provider_id, current_user, id_attr="id"
+    )
+    return product
+
+
+def _require_image_provider(db: Session, request: GenerateRequest, current_user: User) -> None:
+    try:
+        resolve_image_provider(
+            db,
+            request.image_provider_id,
+            request.image_model,
+            owner_user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/", response_model=GenerateResponse)
@@ -71,15 +101,17 @@ def generate_content(
     request: GenerateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    product = db.query(Product).filter(Product.product_id == request.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    product = _owned_generate_product(db, request, current_user)
+    _require_image_provider(db, request, current_user)
 
     product_info = _build_product_info(product, request, db)
 
     task_id = str(uuid4())
-    create_generate_task(task_id, status="PENDING")
+    create_generate_task(
+        task_id, status="PENDING", owner_user_id=current_user.user_id
+    )
 
     async def run_generation(task_id: str, product_info: dict):
         try:
@@ -162,10 +194,9 @@ def generate_copywriting_only(
     request: GenerateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    product = db.query(Product).filter(Product.product_id == request.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    product = _owned_generate_product(db, request, current_user)
 
     base = {
         "product_id": str(product.product_id),
@@ -180,7 +211,9 @@ def generate_copywriting_only(
     product_info = enrich_product_info(db, product, base)
 
     task_id = str(uuid4())
-    create_generate_task(task_id, status="PENDING")
+    create_generate_task(
+        task_id, status="PENDING", owner_user_id=current_user.user_id
+    )
 
     async def run_copywriting_generation(task_id: str, product_info: dict):
         try:
@@ -222,15 +255,17 @@ def generate_image_only(
     request: GenerateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    product = db.query(Product).filter(Product.product_id == request.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    product = _owned_generate_product(db, request, current_user)
+    _require_image_provider(db, request, current_user)
 
     product_info = _build_product_info(product, request, db)
 
     task_id = str(uuid4())
-    create_generate_task(task_id, status="PENDING")
+    create_generate_task(
+        task_id, status="PENDING", owner_user_id=current_user.user_id
+    )
 
     async def run_image_generation(task_id: str, product_info: dict):
         try:
@@ -307,8 +342,11 @@ def generate_image_only(
 
 
 @router.get("/status/{task_id}")
-def get_generate_status(task_id: str):
-    task = get_generate_task(task_id)
+def get_generate_status(
+    task_id: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    task = get_generate_task(task_id, owner_user_id=current_user.user_id)
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

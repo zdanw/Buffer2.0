@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, DateTime, JSON
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 from datetime import datetime
 
 
-class GenerateTask(Base):
+class GenerateTask(OwnedMixin, Base):
     """Async content-generation job status (survives process restart)."""
 
     __tablename__ = "generate_tasks"

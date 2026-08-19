@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from bebcare.models import Brand, Product, GENERIC_BRAND_ID
+from bebcare.models import Brand, Product
 
 
 def _split_selling_points(raw) -> List[str]:
@@ -46,14 +47,13 @@ def _brand_to_context(brand: Brand) -> Dict[str, Any]:
 
 
 def get_brand_for_product(db: Session, product: Product) -> Brand:
-    brand_id = product.brand_id or GENERIC_BRAND_ID
+    brand_id = product.brand_id
+    if not brand_id:
+        raise HTTPException(status_code=404, detail="Not found")
     brand = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    if brand:
-        return brand
-    generic = db.query(Brand).filter(Brand.is_generic.is_(True)).first()
-    if generic:
-        return generic
-    return db.query(Brand).filter(Brand.brand_id == GENERIC_BRAND_ID).first()
+    if brand is None or brand.owner_user_id != product.owner_user_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    return brand
 
 
 def resolve_product_brand_context(db: Session, product: Product) -> Dict[str, Any]:
@@ -81,6 +81,7 @@ def resolve_product_brand_context(db: Session, product: Product) -> Dict[str, An
         "selling_points": selling_points,
         "brand_voice": voice,
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
+        "owner_user_id": product.owner_user_id,
     }
     return merged
 

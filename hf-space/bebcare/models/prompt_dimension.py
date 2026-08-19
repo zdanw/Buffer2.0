@@ -2,6 +2,7 @@ from enum import Enum
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from bebcare.database import Base
+from bebcare.models.ownership import OwnedMixin
 import uuid
 from datetime import datetime
 
@@ -35,14 +36,15 @@ class CompatMode(str, Enum):
     BLOCKLIST = "blocklist"
 
 
-class PromptDimension(Base):
+class PromptDimension(OwnedMixin, Base):
     __tablename__ = "prompt_dimensions"
     __table_args__ = (
         UniqueConstraint(
+            "owner_user_id",
             "product_type",
             "dimension_type",
             "item_id",
-            name="uq_prompt_dimension_scope_item",
+            name="uq_prompt_dimension_owner_scope_item",
         ),
     )
 
@@ -70,7 +72,7 @@ class PromptDimension(Base):
     )
 
 
-class PromptDimensionCompatibility(Base):
+class PromptDimensionCompatibility(OwnedMixin, Base):
     __tablename__ = "prompt_dimension_compatibilities"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -86,7 +88,7 @@ class PromptDimensionCompatibility(Base):
     dimension = relationship("PromptDimension", back_populates="compatibilities")
 
 
-class PromptDimensionCompatPolicy(Base):
+class PromptDimensionCompatPolicy(OwnedMixin, Base):
     """每个源维度项 × 目标维度类型的兼容策略。"""
     __tablename__ = "prompt_dimension_compat_policies"
     __table_args__ = (

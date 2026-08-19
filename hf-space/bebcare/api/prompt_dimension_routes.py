@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -23,8 +25,10 @@ from bebcare.schemas.prompt_dimension import (
     ProductDimensionResponse,
 )
 from bebcare.services.dimension_service import dimension_service, allocate_item_id_for_create
-from bebcare.services.auth_dependency import get_current_admin_user
+from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
+from bebcare.services.ownership import get_owned_or_404, owned_query, stamp_owner
 from bebcare.models import Product
+from bebcare.models.user import User
 
 router = APIRouter(prefix="/prompt-dimensions", tags=["prompt-dimensions"])
 
@@ -123,26 +127,26 @@ def _save_compatibilities(
         if entry.mode == "unrestricted":
             continue
 
-        db.add(
-            PromptDimensionCompatPolicy(
-                dimension_id=dim.dimension_id,
-                target_dimension_type=target_dim_type,
-                mode=entry.mode,
-            )
+        policy = PromptDimensionCompatPolicy(
+            dimension_id=dim.dimension_id,
+            target_dimension_type=target_dim_type,
+            mode=entry.mode,
         )
+        stamp_owner(policy, SimpleNamespace(user_id=dim.owner_user_id))
+        db.add(policy)
 
         relation = "blocked" if entry.mode == "blocklist" else "compatible"
         for target_item_id in entry.items:
-            db.add(
-                PromptDimensionCompatibility(
-                    dimension_id=dim.dimension_id,
-                    source_dimension_type=dim.dimension_type,
-                    target_dimension_type=target_dim_type,
-                    target_item_id=target_item_id,
-                    relation_type=relation,
-                    is_active=True,
-                )
+            edge = PromptDimensionCompatibility(
+                dimension_id=dim.dimension_id,
+                source_dimension_type=dim.dimension_type,
+                target_dimension_type=target_dim_type,
+                target_item_id=target_item_id,
+                relation_type=relation,
+                is_active=True,
             )
+            stamp_owner(edge, SimpleNamespace(user_id=dim.owner_user_id))
+            db.add(edge)
 
 
 @router.get("/dimension-types", response_model=List[DimensionTypeResponse])
@@ -154,12 +158,19 @@ def get_dimension_types():
 
 
 @router.get("/product-types")
-def get_product_types(db: Session = Depends(get_db)):
-    """产品类型列表：直接使用素材 category 与已有维度 product_type 的并集。"""
-    prompt_types = db.query(PromptDimension.product_type).distinct().all()
+def get_product_types(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """产品类型列表：当前用户的素材 category 与已有维度 product_type 的并集。"""
+    prompt_types = owned_query(db, PromptDimension, current_user).with_entities(
+        PromptDimension.product_type
+    ).distinct().all()
     prompt_type_list = [pt[0] for pt in prompt_types if pt[0]]
 
-    product_categories = db.query(Product.category).distinct().all()
+    product_categories = owned_query(db, Product, current_user).with_entities(
+        Product.category
+    ).distinct().all()
     category_list = [cat[0] for cat in product_categories if cat[0]]
 
     all_types = set(prompt_type_list + category_list)
@@ -180,9 +191,10 @@ def list_prompt_dimensions(
     dimension_type: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(PromptDimension)
+    query = owned_query(db, PromptDimension, current_user)
 
     if product_type:
         query = query.filter(PromptDimension.product_type == product_type)
@@ -211,12 +223,14 @@ def list_prompt_dimensions(
 @router.post("/", response_model=PromptDimensionResponse, status_code=201)
 def create_prompt_dimension(
     dimension: PromptDimensionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     item_id = allocate_item_id_for_create(
         db,
         dimension.product_type,
         dimension.dimension_type,
+        owner_user_id=current_user.user_id,
     )
 
     new_dim = PromptDimension(
@@ -225,6 +239,7 @@ def create_prompt_dimension(
         item_id=item_id,
         name=dimension.name
     )
+    stamp_owner(new_dim, current_user)
     db.add(new_dim)
     db.flush()
 
@@ -243,14 +258,14 @@ def create_prompt_dimension(
 
 
 @router.get("/{dimension_id}", response_model=PromptDimensionResponse)
-def get_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
-    dimension = db.query(PromptDimension).filter(
-        PromptDimension.dimension_id == dimension_id
-    ).first()
-
-    if not dimension:
-        raise HTTPException(status_code=404, detail="维度项不存在")
-
+def get_prompt_dimension(
+    dimension_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    dimension = get_owned_or_404(
+        db, PromptDimension, dimension_id, current_user, id_attr="dimension_id"
+    )
     return _to_dimension_response(dimension)
 
 
@@ -258,14 +273,12 @@ def get_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
 def update_prompt_dimension(
     dimension_id: str,
     update_data: PromptDimensionUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    dimension = db.query(PromptDimension).filter(
-        PromptDimension.dimension_id == dimension_id
-    ).first()
-
-    if not dimension:
-        raise HTTPException(status_code=404, detail="维度项不存在")
+    dimension = get_owned_or_404(
+        db, PromptDimension, dimension_id, current_user, id_attr="dimension_id"
+    )
 
     if update_data.name is not None:
         dimension.name = update_data.name
@@ -290,17 +303,19 @@ def update_prompt_dimension(
 
 
 @router.delete("/{dimension_id}", status_code=204)
-def delete_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
-    dimension = db.query(PromptDimension).filter(
-        PromptDimension.dimension_id == dimension_id
-    ).first()
-
-    if not dimension:
-        raise HTTPException(status_code=404, detail="维度项不存在")
+def delete_prompt_dimension(
+    dimension_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    dimension = get_owned_or_404(
+        db, PromptDimension, dimension_id, current_user, id_attr="dimension_id"
+    )
 
     db.query(PromptDimensionCompatibility).filter(
         PromptDimensionCompatibility.target_dimension_type == dimension.dimension_type,
-        PromptDimensionCompatibility.target_item_id == dimension.item_id
+        PromptDimensionCompatibility.target_item_id == dimension.item_id,
+        PromptDimensionCompatibility.owner_user_id == current_user.user_id,
     ).delete()
 
     db.delete(dimension)
@@ -313,12 +328,13 @@ def delete_prompt_dimension(dimension_id: str, db: Session = Depends(get_db)):
 def import_visual_style_pack(
     pack_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
     _admin=Depends(get_current_admin_user),
 ):
     from bebcare.services.vertical_pack_service import initialize_pack
 
     try:
-        return initialize_pack(pack_id, db)
+        return initialize_pack(pack_id, db, owner=current_user)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -327,9 +343,12 @@ def import_visual_style_pack(
 def reset_visual_styles(
     payload: ResetVisualStylesRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
     _admin=Depends(get_current_admin_user),
 ):
-    return dimension_service.reset_visual_styles(db, pack_id=payload.pack_id)
+    return dimension_service.reset_visual_styles(
+        db, pack_id=payload.pack_id, owner=current_user
+    )
 
 
 @router.post("/initialize/")
@@ -347,9 +366,12 @@ def initialize_dimensions(
 def get_dimensions_by_type(
     product_type: str,
     dimension_type: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    return dimension_service.get_dimensions_by_type(db, product_type, dimension_type)
+    return dimension_service.get_dimensions_by_type(
+        db, product_type, dimension_type, owner_user_id=current_user.user_id
+    )
 
 
 @router.get("/{product_type}/compatible")
@@ -358,18 +380,26 @@ def get_compatible_dimensions(
     source_dim_type: str,
     source_item_id: str,
     target_dim_type: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     return dimension_service.get_compatible_dimensions(
-        db, product_type, source_dim_type, source_item_id, target_dim_type
+        db,
+        product_type,
+        source_dim_type,
+        source_item_id,
+        target_dim_type,
+        owner_user_id=current_user.user_id,
     )
 
 
 @router.get("/products/{product_id}/dimensions", response_model=List[ProductDimensionResponse])
-def get_product_dimensions(product_id: str, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="产品不存在")
+def get_product_dimensions(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
 
     dimensions = db.query(ProductDimension).filter(
         ProductDimension.product_id == product_id
@@ -382,14 +412,13 @@ def get_product_dimensions(product_id: str, db: Session = Depends(get_db)):
 def create_product_dimension(
     product_id: str,
     dimension: ProductDimensionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="产品不存在")
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
 
     if dimension.dimension_id:
-        template_dim = db.query(PromptDimension).filter(
+        template_dim = owned_query(db, PromptDimension, current_user).filter(
             PromptDimension.dimension_id == dimension.dimension_id
         ).first()
         if not template_dim:
@@ -433,11 +462,10 @@ def update_product_dimension(
     product_id: str,
     id: str,
     update_data: ProductDimensionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="产品不存在")
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
 
     dimension = db.query(ProductDimension).filter(
         ProductDimension.id == id,
@@ -448,7 +476,7 @@ def update_product_dimension(
         raise HTTPException(status_code=404, detail="产品维度不存在")
 
     if update_data.dimension_id:
-        template_dim = db.query(PromptDimension).filter(
+        template_dim = owned_query(db, PromptDimension, current_user).filter(
             PromptDimension.dimension_id == update_data.dimension_id
         ).first()
         if not template_dim:
@@ -481,10 +509,13 @@ def update_product_dimension(
 
 
 @router.delete("/products/{product_id}/dimensions/{id}", status_code=204)
-def delete_product_dimension(product_id: str, id: str, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.product_id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="产品不存在")
+def delete_product_dimension(
+    product_id: str,
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
 
     dimension = db.query(ProductDimension).filter(
         ProductDimension.id == id,
