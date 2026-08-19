@@ -491,7 +491,11 @@ class APSchedulerService:
                 session, product, task_id, reference_image_count, use_scene_reference, platforms
             )
             try:
-                api_token = resolve_buffer_api_token(session, product_id=product_id)
+                api_token = resolve_buffer_api_token(
+                    session,
+                    product_id=product_id,
+                    owner_user_id=product.owner_user_id,
+                )
             except BufferAccountUnavailable as exc:
                 raise Exception(exc.message) from exc
         finally:
@@ -499,8 +503,7 @@ class APSchedulerService:
 
         if not api_token:
             raise Exception(
-                "No Buffer account configured. Bind the product brand in Settings → Buffer accounts, "
-                "or set a default account / BUFFER_API_TOKEN."
+                "No Buffer account configured. Add a Buffer account on the settings page."
             )
 
         product_info = ctx["product_info"]

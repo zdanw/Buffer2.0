@@ -81,6 +81,7 @@ def resolve_product_brand_context(db: Session, product: Product) -> Dict[str, An
         "selling_points": selling_points,
         "brand_voice": voice,
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
+        "owner_user_id": product.owner_user_id,
     }
     return merged
 

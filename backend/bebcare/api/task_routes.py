@@ -344,13 +344,15 @@ def publish_draft(
         cdn_url = persist_image_url_to_cdn(selected_image, f"draft_{draft_id}_{timestamp}.jpg")
 
         try:
-            api_token = resolve_buffer_api_token(db, product_id=draft.product_id)
+            api_token = resolve_buffer_api_token(
+                db, product_id=draft.product_id, owner_user_id=current_user.user_id
+            )
         except BufferAccountUnavailable as exc:
             raise HTTPException(status_code=400, detail=exc.message) from exc
         if not api_token:
             raise HTTPException(
                 status_code=400,
-                detail="未配置 Buffer 账户。请在 Settings → Buffer 账户中绑定该产品所属品牌，或设置默认账户 / BUFFER_API_TOKEN。",
+                detail="未配置 Buffer 账户。请在设置页添加 Buffer 账户后再发布。",
             )
         publish_result = buffer_publisher.publish(
             selected_copy, cdn_url, request.platforms, api_token=api_token

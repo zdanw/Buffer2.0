@@ -202,3 +202,161 @@ def test_user_b_cannot_see_user_a_drafts(full_client, auth_headers):
     assert str(draft_id) not in ids
     discarded = full_client.post(f"/v1/tasks/drafts/{draft_id}/discard/", headers=headers_b)
     assert discarded.status_code == 404
+
+
+_PROVIDER_BODY = {
+    "name": "My Doubao",
+    "provider_type": "doubao_ark",
+    "base_url": "https://ark.example.invalid",
+    "api_key": "sk-test-not-a-real-key",
+    "supports_list_models": False,
+    "is_default": True,
+}
+
+
+def _create_image_provider(client, headers, **extra):
+    body = dict(_PROVIDER_BODY)
+    body.update(extra)
+    return client.post("/v1/image-providers/", headers=headers, json=body)
+
+
+def test_non_admin_can_create_image_provider(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_ip_na", "iso_ip_na@test.local", "PassIPNA123!"
+    )
+    created = _create_image_provider(full_client, headers)
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["name"] == "My Doubao"
+    assert body.get("is_system") is not True
+    listed = full_client.get("/v1/image-providers/", headers=headers)
+    assert listed.status_code == 200
+    ids = [x["id"] for x in listed.json()]
+    assert body["id"] in ids
+    assert "system" not in ids
+
+
+def test_user_b_cannot_get_or_delete_user_a_image_provider(full_client, auth_headers):
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "iso_ipa", "iso_ipa@test.local", "PassIPA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_ipb", "iso_ipb@test.local", "PassIPB123!"
+    )
+    created = _create_image_provider(full_client, headers_a, name="A Provider")
+    assert created.status_code == 201, created.text
+    provider_id = created.json()["id"]
+
+    listed_b = full_client.get("/v1/image-providers/", headers=headers_b)
+    assert listed_b.status_code == 200
+    ids = [x["id"] for x in listed_b.json()]
+    assert provider_id not in ids
+    assert "system" not in ids
+
+    got = full_client.get(f"/v1/image-providers/{provider_id}/models", headers=headers_b)
+    assert got.status_code == 404
+    deleted = full_client.delete(f"/v1/image-providers/{provider_id}", headers=headers_b)
+    assert deleted.status_code == 404
+    still = full_client.get("/v1/image-providers/", headers=headers_a)
+    assert provider_id in [x["id"] for x in still.json()]
+
+
+def test_user_a_cannot_generate_with_user_b_image_provider(full_client, auth_headers):
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "iso_gip_a", "iso_gip_a@test.local", "PassGIPA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_gip_b", "iso_gip_b@test.local", "PassGIPB123!"
+    )
+    created_b = _create_image_provider(full_client, headers_b, name="B Provider")
+    assert created_b.status_code == 201, created_b.text
+    provider_id_b = created_b.json()["id"]
+    product_id = _create_product(full_client, headers_a, "A Gen With B Provider")
+    resp = full_client.post(
+        "/v1/generate/copywriting/",
+        headers=headers_a,
+        json={
+            "product_id": product_id,
+            "platform": "instagram",
+            "image_provider_id": provider_id_b,
+        },
+    )
+    assert resp.status_code == 404
+
+
+def test_generate_image_without_provider_returns_400(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_noprov", "iso_noprov@test.local", "PassNoProv123!"
+    )
+    product_id = _create_product(full_client, headers, "No Provider Product")
+    resp = full_client.post(
+        "/v1/generate/image/",
+        headers=headers,
+        json={"product_id": product_id, "platform": "instagram"},
+    )
+    assert resp.status_code == 400
+    assert "设置" in (resp.json().get("detail") or "")
+
+
+def test_non_admin_can_create_buffer_account(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_buf_na", "iso_buf_na@test.local", "PassBufNA123!"
+    )
+    with patch(
+        "bebcare.api.buffer_account_routes._probe_token",
+        return_value={"email": "buf@test.local", "id": "remote-1"},
+    ):
+        created = full_client.post(
+            "/v1/buffer-accounts/",
+            headers=headers,
+            json={"name": "My Buffer", "api_token": "fake-token", "is_default": True},
+        )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["name"] == "My Buffer"
+    listed = full_client.get("/v1/buffer-accounts/", headers=headers)
+    assert listed.status_code == 200
+    assert body["id"] in [x["id"] for x in listed.json()]
+
+
+def test_user_b_cannot_get_or_delete_user_a_buffer_account(full_client, auth_headers):
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "iso_bufa", "iso_bufa@test.local", "PassBufA123!"
+    )
+    headers_b = register_or_create_user(
+        full_client, auth_headers, "iso_bufb", "iso_bufb@test.local", "PassBufB123!"
+    )
+    with patch(
+        "bebcare.api.buffer_account_routes._probe_token",
+        return_value={"email": "a@test.local", "id": "remote-a"},
+    ):
+        created = full_client.post(
+            "/v1/buffer-accounts/",
+            headers=headers_a,
+            json={"name": "A Buffer", "api_token": "fake-token-a"},
+        )
+    assert created.status_code == 201, created.text
+    account_id = created.json()["id"]
+
+    listed_b = full_client.get("/v1/buffer-accounts/", headers=headers_b)
+    assert listed_b.status_code == 200
+    assert account_id not in [x["id"] for x in listed_b.json()]
+
+    deleted = full_client.delete(f"/v1/buffer-accounts/{account_id}", headers=headers_b)
+    assert deleted.status_code == 404
+    still = full_client.get("/v1/buffer-accounts/", headers=headers_a)
+    assert account_id in [x["id"] for x in still.json()]
+
+
+def test_publish_without_buffer_account_returns_400(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "iso_nobuf", "iso_nobuf@test.local", "PassNoBuf123!"
+    )
+    product_id = _create_product(full_client, headers, "No Buffer Product")
+    resp = full_client.post(
+        "/v1/publish/",
+        headers=headers,
+        json={"text": "hello", "product_id": product_id, "platforms": ["instagram"]},
+    )
+    assert resp.status_code == 400
+    assert "BUFFER_API_TOKEN" not in (resp.json().get("detail") or "")

@@ -15,6 +15,7 @@ from bebcare.services.generate_task_store import (
     get_generate_task,
     update_generate_task,
 )
+from bebcare.providers.registry import resolve_image_provider
 from bebcare.services.ownership import assert_owned_ref, get_owned_or_404
 import asyncio
 import logging
@@ -66,6 +67,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
         "image_size": request.image_size,
+        "owner_user_id": product.owner_user_id,
     }
     return enrich_product_info(db, product, base)
 
@@ -82,6 +84,18 @@ def _owned_generate_product(
     return product
 
 
+def _require_image_provider(db: Session, request: GenerateRequest, current_user: User) -> None:
+    try:
+        resolve_image_provider(
+            db,
+            request.image_provider_id,
+            request.image_model,
+            owner_user_id=current_user.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/", response_model=GenerateResponse)
 def generate_content(
     request: GenerateRequest,
@@ -90,6 +104,7 @@ def generate_content(
     current_user: User = Depends(get_current_active_user),
 ):
     product = _owned_generate_product(db, request, current_user)
+    _require_image_provider(db, request, current_user)
 
     product_info = _build_product_info(product, request, db)
 
@@ -243,6 +258,7 @@ def generate_image_only(
     current_user: User = Depends(get_current_active_user),
 ):
     product = _owned_generate_product(db, request, current_user)
+    _require_image_provider(db, request, current_user)
 
     product_info = _build_product_info(product, request, db)
 

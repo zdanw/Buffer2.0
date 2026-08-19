@@ -10,6 +10,8 @@ from bebcare.providers.aliyun_maas import AliyunMaasMultimodalProvider
 # Virtual provider id for env Doubao / Seedream (not stored in DB)
 SYSTEM_IMAGE_PROVIDER_ID = "system"
 
+_NO_PROVIDER_MSG = "未配置图像供应商。请到设置页添加你自己的图像供应商后再生成。"
+
 
 def _build_provider(config: ImageProviderConfig, api_key: str):
     kwargs = dict(
@@ -42,15 +44,19 @@ def resolve_image_provider(
     db: Optional[Session] = None,
     image_provider_id: Optional[str] = None,
     image_model: Optional[str] = None,
+    *,
+    owner_user_id: Optional[str] = None,
 ) -> Tuple[object, Optional[str]]:
     """
-    Resolve provider + model id.
-    Order: explicit provider id → DB default → .env Doubao (Seedream).
-    Returns (provider_instance, resolved_model_or_None).
+    Resolve provider + model id for one owner.
+    No env / platform-key fallback. Missing owner_user_id or no usable
+    config raises ValueError (API maps to 400).
     """
+    if not owner_user_id:
+        raise ValueError("owner_user_id is required to resolve an image provider")
+
     if image_provider_id == SYSTEM_IMAGE_PROVIDER_ID:
-        provider = _env_fallback_provider()
-        return provider, image_model or settings.doubao_model_id
+        raise ValueError(_NO_PROVIDER_MSG)
 
     config: Optional[ImageProviderConfig] = None
 
@@ -59,17 +65,19 @@ def resolve_image_provider(
             db.query(ImageProviderConfig)
             .filter(
                 ImageProviderConfig.id == image_provider_id,
+                ImageProviderConfig.owner_user_id == owner_user_id,
                 ImageProviderConfig.is_active == True,  # noqa: E712
             )
             .first()
         )
         if not config:
-            raise ValueError(f"Image provider not found or inactive: {image_provider_id}")
+            raise ValueError(_NO_PROVIDER_MSG)
 
     if config is None and db is not None:
         config = (
             db.query(ImageProviderConfig)
             .filter(
+                ImageProviderConfig.owner_user_id == owner_user_id,
                 ImageProviderConfig.is_active == True,  # noqa: E712
                 ImageProviderConfig.is_default == True,  # noqa: E712
             )
@@ -77,8 +85,7 @@ def resolve_image_provider(
         )
 
     if config is None:
-        provider = _env_fallback_provider()
-        return provider, image_model or settings.doubao_model_id
+        raise ValueError(_NO_PROVIDER_MSG)
 
     api_key = decrypt_secret(config.api_key_encrypted)
     provider = _build_provider(config, api_key)

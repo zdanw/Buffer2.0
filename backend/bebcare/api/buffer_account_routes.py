@@ -12,7 +12,8 @@ from bebcare.schemas.buffer_account import (
 )
 from bebcare.utils.crypto import encrypt_secret, decrypt_secret, mask_secret
 from bebcare.publisher.buffer_publisher import BufferGraphQLClient
-from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
+from bebcare.services.auth_dependency import get_current_active_user
+from bebcare.services.ownership import get_owned_or_404, owned_query, stamp_owner
 from bebcare.models.user import User
 import uuid
 
@@ -51,8 +52,12 @@ def _to_response(account: BufferAccount) -> BufferAccountResponse:
     )
 
 
-def _clear_other_defaults(db: Session, keep_id: str | None = None):
-    q = db.query(BufferAccount).filter(BufferAccount.is_default == True)  # noqa: E712
+def _clear_other_defaults(db: Session, owner_user_id: str, keep_id: str | None = None):
+    q = (
+        db.query(BufferAccount)
+        .filter(BufferAccount.is_default == True)  # noqa: E712
+        .filter(BufferAccount.owner_user_id == owner_user_id)
+    )
     if keep_id:
         q = q.filter(BufferAccount.id != keep_id)
     for row in q.all():
@@ -71,10 +76,10 @@ def _probe_token(api_token: str) -> dict:
 @router.get("/", response_model=List[BufferAccountResponse])
 def list_accounts(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     rows = (
-        db.query(BufferAccount)
+        owned_query(db, BufferAccount, current_user)
         .options(joinedload(BufferAccount.brands))
         .order_by(BufferAccount.created_at.desc())
         .all()
@@ -86,11 +91,11 @@ def list_accounts(
 def create_account(
     body: BufferAccountCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     remote = _probe_token(body.api_token.strip())
     if body.is_default:
-        _clear_other_defaults(db)
+        _clear_other_defaults(db, current_user.user_id)
 
     row = BufferAccount(
         id=str(uuid.uuid4()),
@@ -101,10 +106,11 @@ def create_account(
         is_active=body.is_active,
         is_default=body.is_default,
     )
+    stamp_owner(row, current_user)
     db.add(row)
     db.commit()
     row = (
-        db.query(BufferAccount)
+        owned_query(db, BufferAccount, current_user)
         .options(joinedload(BufferAccount.brands))
         .filter(BufferAccount.id == row.id)
         .first()
@@ -117,11 +123,11 @@ def update_account(
     account_id: str,
     body: BufferAccountUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ):
-    row = db.query(BufferAccount).filter(BufferAccount.id == account_id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Buffer account not found")
+    row = get_owned_or_404(
+        db, BufferAccount, account_id, current_user, id_attr="id"
+    )
 
     data = body.model_dump(exclude_unset=True)
     api_token = data.pop("api_token", None)
@@ -133,7 +139,7 @@ def update_account(
         row.buffer_remote_id = remote.get("id")
 
     if data.get("is_default") is True:
-        _clear_other_defaults(db, keep_id=account_id)
+        _clear_other_defaults(db, current_user.user_id, keep_id=account_id)
 
     for key, value in data.items():
         if key == "name" and isinstance(value, str):
@@ -142,7 +148,7 @@ def update_account(
 
     db.commit()
     row = (
-        db.query(BufferAccount)
+        owned_query(db, BufferAccount, current_user)
         .options(joinedload(BufferAccount.brands))
         .filter(BufferAccount.id == account_id)
         .first()
@@ -154,11 +160,11 @@ def update_account(
 def delete_account(
     account_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ):
-    row = db.query(BufferAccount).filter(BufferAccount.id == account_id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Buffer account not found")
+    row = get_owned_or_404(
+        db, BufferAccount, account_id, current_user, id_attr="id"
+    )
     db.delete(row)
     db.commit()
     return None
@@ -168,18 +174,17 @@ def delete_account(
 def test_account(
     account_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ):
-    row = db.query(BufferAccount).filter(BufferAccount.id == account_id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Buffer account not found")
+    row = get_owned_or_404(
+        db, BufferAccount, account_id, current_user, id_attr="id"
+    )
 
     try:
         token = decrypt_secret(row.api_token_encrypted)
         remote = _probe_token(token)
         email = remote.get("email")
         remote_id = remote.get("id")
-        # Refresh cached identity
         row.buffer_email = email
         row.buffer_remote_id = remote_id
         db.commit()

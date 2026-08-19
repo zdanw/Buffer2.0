@@ -6,7 +6,6 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from bebcare.config.settings import settings
 from bebcare.models.brand import Brand
 from bebcare.models.buffer_account import BufferAccount
 from bebcare.models.product import Product
@@ -26,29 +25,45 @@ def resolve_buffer_api_token(
     *,
     product_id: Optional[str] = None,
     brand_id: Optional[str] = None,
+    owner_user_id: str,
 ) -> Optional[str]:
     """
-    Preference:
+    Preference (always scoped to owner_user_id):
     1. Brand-bound Buffer account (via product → brand or explicit brand_id)
-       — if bound but inactive/missing, do NOT fall through to another account
-    2. Active default Buffer account (unbound brands only)
-    3. Env BUFFER_API_TOKEN
+       — bound account must belong to the same owner; if bound but
+       inactive/missing, do NOT fall through to another account
+    2. Active default Buffer account for this owner
+    3. None (no env BUFFER_API_TOKEN fallback)
     """
     resolved_brand_id = brand_id
     if not resolved_brand_id and product_id:
-        product = db.query(Product).filter(Product.product_id == str(product_id)).first()
+        product = (
+            db.query(Product)
+            .filter(
+                Product.product_id == str(product_id),
+                Product.owner_user_id == owner_user_id,
+            )
+            .first()
+        )
         if product and product.brand_id:
             resolved_brand_id = str(product.brand_id)
 
     if resolved_brand_id:
-        brand = db.query(Brand).filter(Brand.brand_id == str(resolved_brand_id)).first()
+        brand = (
+            db.query(Brand)
+            .filter(
+                Brand.brand_id == str(resolved_brand_id),
+                Brand.owner_user_id == owner_user_id,
+            )
+            .first()
+        )
         if brand and brand.buffer_account_id:
             account = (
                 db.query(BufferAccount)
                 .filter(BufferAccount.id == brand.buffer_account_id)
                 .first()
             )
-            if not account:
+            if not account or account.owner_user_id != owner_user_id:
                 raise BufferAccountUnavailable(
                     f"Brand '{brand.name}' is bound to a missing Buffer account"
                 )
@@ -61,6 +76,7 @@ def resolve_buffer_api_token(
     default = (
         db.query(BufferAccount)
         .filter(
+            BufferAccount.owner_user_id == owner_user_id,
             BufferAccount.is_default == True,  # noqa: E712
             BufferAccount.is_active == True,  # noqa: E712
         )
@@ -69,5 +85,4 @@ def resolve_buffer_api_token(
     if default:
         return decrypt_secret(default.api_token_encrypted)
 
-    env_token = (settings.buffer_api_token or "").strip()
-    return env_token or None
+    return None

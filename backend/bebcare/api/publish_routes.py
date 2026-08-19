@@ -63,14 +63,17 @@ def publish_content(
 
     try:
         api_token = resolve_buffer_api_token(
-            db, product_id=request.product_id, brand_id=request.brand_id
+            db,
+            product_id=request.product_id,
+            brand_id=request.brand_id,
+            owner_user_id=current_user.user_id,
         )
     except BufferAccountUnavailable as exc:
         raise HTTPException(status_code=400, detail=exc.message) from exc
     if not api_token:
         raise HTTPException(
             status_code=400,
-            detail="未配置 Buffer 账户。请在 Settings → Buffer 账户中添加 token，或设置环境变量 BUFFER_API_TOKEN。",
+            detail="未配置 Buffer 账户。请在设置页添加 Buffer 账户后再发布。",
         )
 
     results = buffer_publisher.publish(text, image_url, platforms, api_token=api_token)
