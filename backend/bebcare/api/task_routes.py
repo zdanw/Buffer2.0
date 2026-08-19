@@ -3,13 +3,22 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
 from bebcare.database import get_db
-from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft
+from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
+from bebcare.models.image_provider import ImageProviderConfig
+from bebcare.models.user import User
 from bebcare.schemas.task import TaskCreate, TaskUpdate, TaskResponse, ManualTaskDraftResponse, DraftPublishRequest, DraftCreateRequest
 from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.publisher.buffer_publisher import buffer_publisher
+from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.buffer_account_service import (
     resolve_buffer_api_token,
     BufferAccountUnavailable,
+)
+from bebcare.services.ownership import (
+    assert_owned_ref,
+    get_owned_or_404,
+    owned_query,
+    stamp_owner,
 )
 from bebcare.utils.image_utils import (
     any_non_cdn_image,
@@ -28,11 +37,25 @@ def validate_cron(cron: str):
     if len(fields) != 5:
         raise HTTPException(status_code=400, detail=f"CRON表达式格式错误，需要5个字段，当前有{len(fields)}个")
 
+
+def _assert_task_refs(db: Session, target_products, image_provider_id, current_user: User) -> None:
+    for product_id in target_products or []:
+        assert_owned_ref(db, Product, product_id, current_user, id_attr="product_id")
+    assert_owned_ref(
+        db, ImageProviderConfig, image_provider_id, current_user, id_attr="id"
+    )
+
+
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @router.post("/", response_model=TaskResponse, status_code=201)
-def create_task(task: TaskCreate, db: Session = Depends(get_db)):
+def create_task(
+    task: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     validate_cron(task.cron)
+    _assert_task_refs(db, task.target_products, task.image_provider_id, current_user)
     new_task = ScheduledTask(
         name=task.name,
         cron=task.cron,
@@ -51,6 +74,7 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         image_model=task.image_model,
         image_size=task.image_size,
     )
+    stamp_owner(new_task, current_user)
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
@@ -76,9 +100,10 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db)):
 def list_tasks(
     page: int = 1,
     page_size: int = 10,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(ScheduledTask)
+    query = owned_query(db, ScheduledTask, current_user)
     total = query.count()
     
     offset = (page - 1) * page_size
@@ -95,12 +120,17 @@ def list_tasks(
     }
 
 @router.post("/drafts/", status_code=201)
-def create_draft(request: DraftCreateRequest, db: Session = Depends(get_db)):
+def create_draft(
+    request: DraftCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     images = [url for url in (request.images or []) if url and str(url).strip()]
     copywritings = [text for text in (request.copywritings or []) if text and str(text).strip()]
     if not images and not copywritings:
         raise HTTPException(status_code=400, detail="图片和文案不能同时为空")
 
+    assert_owned_ref(db, Product, request.product_id, current_user, id_attr="product_id")
     draft = ManualTaskDraft(
         draft_id=str(uuid.uuid4()),
         task_id=None,
@@ -113,6 +143,7 @@ def create_draft(request: DraftCreateRequest, db: Session = Depends(get_db)):
         reference_scene_images=request.reference_scene_images or [],
         status="pending",
     )
+    stamp_owner(draft, current_user)
     db.add(draft)
     db.commit()
     db.refresh(draft)
@@ -129,10 +160,11 @@ def get_drafts(
     status: Optional[str] = "pending",
     page: int = 1,
     page_size: int = 10,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     try:
-        query = db.query(ManualTaskDraft)
+        query = owned_query(db, ManualTaskDraft, current_user)
         if status:
             query = query.filter(ManualTaskDraft.status == status)
         
@@ -208,11 +240,15 @@ def get_drafts(
         raise HTTPException(status_code=500, detail=f"Failed to load drafts: {str(e)}")
 
 @router.post("/drafts/{draft_id}/reupload-cdn/")
-def reupload_draft_cdn(draft_id: str, db: Session = Depends(get_db)):
+def reupload_draft_cdn(
+    draft_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     """Retry uploading draft images that are still on temporary (non-CDN) URLs."""
-    draft = db.query(ManualTaskDraft).filter(ManualTaskDraft.draft_id == draft_id).first()
-    if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+    draft = get_owned_or_404(
+        db, ManualTaskDraft, draft_id, current_user, id_attr="draft_id"
+    )
 
     if draft.status != "pending":
         raise HTTPException(status_code=400, detail="Draft is not pending")
@@ -277,10 +313,15 @@ def reupload_draft_cdn(draft_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/drafts/{draft_id}/publish/")
-def publish_draft(draft_id: str, request: DraftPublishRequest, db: Session = Depends(get_db)):
-    draft = db.query(ManualTaskDraft).filter(ManualTaskDraft.draft_id == draft_id).first()
-    if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+def publish_draft(
+    draft_id: str,
+    request: DraftPublishRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    draft = get_owned_or_404(
+        db, ManualTaskDraft, draft_id, current_user, id_attr="draft_id"
+    )
     
     if draft.status != "pending":
         raise HTTPException(status_code=400, detail="Draft is not pending")
@@ -337,10 +378,14 @@ def publish_draft(draft_id: str, request: DraftPublishRequest, db: Session = Dep
         raise HTTPException(status_code=500, detail=f"Publish failed: {str(e)}")
 
 @router.post("/drafts/{draft_id}/discard/")
-def discard_draft(draft_id: str, db: Session = Depends(get_db)):
-    draft = db.query(ManualTaskDraft).filter(ManualTaskDraft.draft_id == draft_id).first()
-    if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+def discard_draft(
+    draft_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    draft = get_owned_or_404(
+        db, ManualTaskDraft, draft_id, current_user, id_attr="draft_id"
+    )
     
     if draft.status != "pending":
         raise HTTPException(status_code=400, detail="Draft is not pending")
@@ -351,15 +396,26 @@ def discard_draft(draft_id: str, db: Session = Depends(get_db)):
     return {"success": True, "draft_id": draft_id}
 
 @router.get("/executions")
-def get_all_executions(db: Session = Depends(get_db)):
-    executions = db.query(TaskExecution).order_by(TaskExecution.created_at.desc()).all()
+def get_all_executions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    executions = (
+        owned_query(db, TaskExecution, current_user)
+        .order_by(TaskExecution.created_at.desc())
+        .all()
+    )
     return executions
 
 @router.get("/{task_id}")
-def get_task(task_id: str, db: Session = Depends(get_db)):
-    task = db.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+def get_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    task = get_owned_or_404(
+        db, ScheduledTask, task_id, current_user, id_attr="task_id"
+    )
     return {
         "task_id": task.task_id,
         "name": task.name,
@@ -385,13 +441,28 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
     }
 
 @router.put("/{task_id}")
-def update_task(task_id: str, task_update: TaskUpdate, db: Session = Depends(get_db)):
-    task = db.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+def update_task(
+    task_id: str,
+    task_update: TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    task = get_owned_or_404(
+        db, ScheduledTask, task_id, current_user, id_attr="task_id"
+    )
     
     if task_update.cron:
         validate_cron(task_update.cron)
+    if task_update.target_products:
+        _assert_task_refs(db, task_update.target_products, None, current_user)
+    if "image_provider_id" in task_update.model_fields_set:
+        assert_owned_ref(
+            db,
+            ImageProviderConfig,
+            task_update.image_provider_id,
+            current_user,
+            id_attr="id",
+        )
     
     if task_update.name:
         task.name = task_update.name
@@ -448,10 +519,14 @@ def update_task(task_id: str, task_update: TaskUpdate, db: Session = Depends(get
     return task
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: str, db: Session = Depends(get_db)):
-    task = db.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+def delete_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    task = get_owned_or_404(
+        db, ScheduledTask, task_id, current_user, id_attr="task_id"
+    )
     
     scheduler_service.remove_task(task_id)
     
@@ -462,8 +537,16 @@ def delete_task(task_id: str, db: Session = Depends(get_db)):
     db.commit()
 
 @router.get("/{task_id}/executions")
-def get_task_executions(task_id: str, db: Session = Depends(get_db)):
-    executions = db.query(TaskExecution).filter(
-        TaskExecution.task_id == task_id
-    ).order_by(TaskExecution.created_at.desc()).all()
+def get_task_executions(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, ScheduledTask, task_id, current_user, id_attr="task_id")
+    executions = (
+        owned_query(db, TaskExecution, current_user)
+        .filter(TaskExecution.task_id == task_id)
+        .order_by(TaskExecution.created_at.desc())
+        .all()
+    )
     return executions

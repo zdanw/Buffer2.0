@@ -4,12 +4,15 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
 from bebcare.database import get_db
-from bebcare.models import PublishRecord
+from bebcare.models import PublishRecord, Product, Brand
+from bebcare.models.user import User
 from bebcare.publisher.buffer_publisher import buffer_publisher
+from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.buffer_account_service import (
     resolve_buffer_api_token,
     BufferAccountUnavailable,
 )
+from bebcare.services.ownership import assert_owned_ref, get_owned_or_404, stamp_owner
 import uuid
 from datetime import datetime
 import logging
@@ -28,7 +31,11 @@ class PublishRequest(BaseModel):
 
 
 @router.post("/")
-def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
+def publish_content(
+    request: PublishRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
     text = request.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="文案不能为空")
@@ -38,6 +45,9 @@ def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
     if not platforms:
         raise HTTPException(status_code=400, detail="请至少选择一个发布平台")
 
+    assert_owned_ref(db, Product, request.product_id, current_user, id_attr="product_id")
+    assert_owned_ref(db, Brand, request.brand_id, current_user, id_attr="brand_id")
+
     image_url = (request.image_url or "").strip() or None
     publish_id = str(uuid.uuid4())
 
@@ -46,6 +56,7 @@ def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
         content={"text": text, "image_url": image_url},
         status="pending",
     )
+    stamp_owner(publish_record, current_user)
     db.add(publish_record)
     db.commit()
     db.refresh(publish_record)
@@ -82,6 +93,7 @@ def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
             buffer_id=platform_result.get("post_id"),
             published_at=datetime.utcnow() if ok else None,
         )
+        stamp_owner(platform_record, current_user)
         db.add(platform_record)
 
     publish_record.status = "completed" if success_platforms else "failed"
@@ -101,8 +113,12 @@ def publish_content(request: PublishRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/status/{publish_id}")
-def get_publish_status(publish_id: UUID, db: Session = Depends(get_db)):
-    record = db.query(PublishRecord).filter(PublishRecord.publish_id == str(publish_id)).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="Publish record not found")
+def get_publish_status(
+    publish_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    record = get_owned_or_404(
+        db, PublishRecord, str(publish_id), current_user, id_attr="publish_id"
+    )
     return record

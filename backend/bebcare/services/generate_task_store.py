@@ -16,11 +16,21 @@ def _purge_expired(db: Session) -> None:
     )
 
 
-def create_generate_task(task_id: str, status: str = "PENDING") -> None:
+def create_generate_task(
+    task_id: str, status: str = "PENDING", *, owner_user_id: str
+) -> None:
     db = SessionLocal()
     try:
         _purge_expired(db)
-        db.add(GenerateTask(task_id=task_id, status=status, result=None))
+        db.add(
+            GenerateTask(
+                task_id=task_id,
+                status=status,
+                result=None,
+                owner_user_id=owner_user_id,
+                workspace_id=None,
+            )
+        )
         db.commit()
     finally:
         db.close()
@@ -48,10 +58,17 @@ def update_generate_task(
         db.close()
 
 
-def get_generate_task(task_id: str) -> Optional[dict]:
+def get_generate_task(task_id: str, *, owner_user_id: str) -> Optional[dict]:
     db = SessionLocal()
     try:
-        row = db.query(GenerateTask).filter(GenerateTask.task_id == task_id).first()
+        row = (
+            db.query(GenerateTask)
+            .filter(
+                GenerateTask.task_id == task_id,
+                GenerateTask.owner_user_id == owner_user_id,
+            )
+            .first()
+        )
         if not row:
             return None
         return {
