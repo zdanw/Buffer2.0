@@ -119,8 +119,9 @@ def seed_system_brands(db: Session, force_update: bool = True) -> Dict[str, str]
 
 def assign_legacy_products_to_bebcare(db: Session) -> int:
     """
-    Link products without brand_id to Bebcare when they look like legacy baby catalog,
-    otherwise Generic.
+    Link admin-owned products without brand_id to Bebcare when they look like
+    the legacy baby catalog, otherwise Generic. Other users' products are left
+    unchanged.
     """
     bebcare = db.query(Brand).filter(Brand.brand_id == BEBCARE_BRAND_ID).first()
     generic = db.query(Brand).filter(Brand.brand_id == GENERIC_BRAND_ID).first()
@@ -133,8 +134,16 @@ def assign_legacy_products_to_bebcare(db: Session) -> int:
         "air purifiers",
         "video monitor",
     }
+    admin = _earliest_admin(db)
     updated = 0
-    products = db.query(Product).filter(Product.brand_id.is_(None)).all()
+    products = (
+        db.query(Product)
+        .filter(
+            Product.brand_id.is_(None),
+            Product.owner_user_id == admin.user_id,
+        )
+        .all()
+    )
     for product in products:
         cat = (product.category or "").strip().lower()
         has_baby_voice = bool((product.brand_voice or "").strip())

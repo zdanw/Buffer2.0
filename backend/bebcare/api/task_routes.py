@@ -376,6 +376,8 @@ def publish_draft(
             "published_platforms": success_platforms,
             "cdn_url": cdn_url
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Publish failed: {str(e)}")
 

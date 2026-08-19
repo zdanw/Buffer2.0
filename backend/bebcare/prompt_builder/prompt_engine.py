@@ -94,18 +94,19 @@ Follow these principles:
         "quality": [],
     }
 
-    def _get_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:
+    def _get_dimensions(self, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """获取指定产品类型的维度配置。
 
         新类目在 DB 无维度时不得跨类目回退到 Night Lights，否则会污染提示词。
         无数据时返回空池，由 _select_* 使用「默认*」占位。
+        无 owner 时不查询 DB，避免返回全部用户的维度。
         """
-        if db is not None and dimension_service is not None:
+        if db is not None and dimension_service is not None and owner_user_id:
             try:
                 result = dimension_service.get_dimensions_by_product_type(
                     product_type,
                     db,
-                    owner_user_id=getattr(self, "_dim_owner_user_id", None),
+                    owner_user_id=owner_user_id,
                 )
                 if any(result.get(key) for key in self._EMPTY_DIMENSIONS):
                     return result
@@ -152,17 +153,17 @@ Follow these principles:
             pool = list(items)
         return pool if pool else list(items)
 
-    def _select_scene(self, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_scene(self, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """选择一个场景"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         scenes = dimensions.get("scenes") or []
         if not scenes:
             return {"id": "default", "name": "默认场景"}
         return random.choice(scenes)
     
-    def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的光线"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         lighting = dimensions.get("lighting") or []
 
         def unrestricted():
@@ -181,9 +182,9 @@ Follow these principles:
             return {"id": "default", "name": "默认光线"}
         return random.choice(compatible_lighting)
     
-    def _select_style(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_style(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的风格"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         styles = dimensions.get("styles") or []
 
         def unrestricted():
@@ -201,9 +202,9 @@ Follow these principles:
             return {"id": "default", "name": "默认风格"}
         return random.choice(compatible_styles)
     
-    def _select_details(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_details(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的细节/道具"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         details = dimensions.get("details") or []
 
         def unrestricted():
@@ -221,9 +222,9 @@ Follow these principles:
             return {"id": "default", "name": "默认细节"}
         return random.choice(compatible_details)
     
-    def _select_viewpoint(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_viewpoint(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的视角"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         viewpoints = dimensions.get("viewpoints") or []
 
         def unrestricted():
@@ -237,9 +238,9 @@ Follow these principles:
             return {"id": "default", "name": "默认视角"}
         return random.choice(compatible_viewpoints)
     
-    def _select_composition(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_composition(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的构图"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         compositions = dimensions.get("compositions") or []
 
         def unrestricted():
@@ -255,9 +256,9 @@ Follow these principles:
             return {"id": "default", "name": "默认构图"}
         return random.choice(compatible_compositions)
     
-    def _select_quality(self, scene: dict, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_quality(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """根据场景选择兼容的画质"""
-        dimensions = self._get_dimensions(product_type, db)
+        dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         qualities = dimensions.get("quality") or []
 
         def unrestricted():
@@ -271,24 +272,24 @@ Follow these principles:
             return {"id": "default", "name": "默认画质"}
         return random.choice(compatible_qualities)
     
-    def _select_dimensions(self, product_type: str = "Night Lights", db=None) -> dict:
+    def _select_dimensions(self, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
         """基于规则选择所有维度，确保兼容性"""
         # 1. 先选择场景
-        scene = self._select_scene(product_type, db)
+        scene = self._select_scene(product_type, db, owner_user_id=owner_user_id)
         
         # 2. 根据场景选择兼容的光线
-        lighting = self._select_lighting(scene, product_type, db)
+        lighting = self._select_lighting(scene, product_type, db, owner_user_id=owner_user_id)
         
         # 3. 根据场景选择兼容的风格
-        style = self._select_style(scene, product_type, db)
+        style = self._select_style(scene, product_type, db, owner_user_id=owner_user_id)
         
         # 4. 根据场景选择兼容的细节
-        details = self._select_details(scene, product_type, db)
+        details = self._select_details(scene, product_type, db, owner_user_id=owner_user_id)
         
         # 5. 根据场景选择兼容的视角、构图、画质
-        viewpoint = self._select_viewpoint(scene, product_type, db)
-        composition = self._select_composition(scene, product_type, db)
-        quality = self._select_quality(scene, product_type, db)
+        viewpoint = self._select_viewpoint(scene, product_type, db, owner_user_id=owner_user_id)
+        composition = self._select_composition(scene, product_type, db, owner_user_id=owner_user_id)
+        quality = self._select_quality(scene, product_type, db, owner_user_id=owner_user_id)
         
         return {
             "scene": scene,
@@ -400,11 +401,9 @@ Follow these principles:
         else:
             selling_points_str = "high-quality product"
         
-        self._dim_owner_user_id = product_info.get("owner_user_id")
-        try:
-            selected_dimensions = self._select_dimensions(product_type, db)
-        finally:
-            self._dim_owner_user_id = None
+        selected_dimensions = self._select_dimensions(
+            product_type, db, owner_user_id=product_info.get("owner_user_id")
+        )
         
         nunito_constraint = ""
         logo_rule = (product_info.get("logo_font_rule") or "").strip()
@@ -473,11 +472,9 @@ Follow these principles:
             or 'General'
         ).strip()
 
-        self._dim_owner_user_id = product_info.get("owner_user_id")
-        try:
-            selected_dimensions = self._select_dimensions(product_type, db)
-        finally:
-            self._dim_owner_user_id = None
+        selected_dimensions = self._select_dimensions(
+            product_type, db, owner_user_id=product_info.get("owner_user_id")
+        )
         dimensions_info = {
             "scene": "参考场景图",
             "viewpoint": "沿用参考图",
