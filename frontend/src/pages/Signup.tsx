@@ -48,7 +48,7 @@ export default function Signup() {
         if (response.refresh_token) {
           setRefreshToken(response.refresh_token);
         }
-        navigate('/products', { replace: true });
+        navigate('/studio', { replace: true });
       } else {
         setError(t('signup.responseError'));
       }
