@@ -214,11 +214,11 @@ export const en: TranslationTree = {
       },
       type: {
         label: 'Type',
-        tooltip: 'Provider adapter. OpenAI-compatible works with most REST APIs; Doubao Ark and Aliyun MaaS use preset endpoints.',
+        tooltip: 'Provider adapter. OpenAI-compatible works with most REST APIs; Doubao Ark, Aliyun MaaS, and Google Gemini use preset endpoints.',
       },
       baseUrl: {
         label: 'Base URL',
-        tooltip: 'API root URL. For OpenAI-compatible providers this is usually https://api.openai.com/v1. Doubao/Aliyun presets fill this automatically.',
+        tooltip: 'API root URL. For OpenAI-compatible providers this is usually https://api.openai.com/v1. Doubao/Aliyun/Google presets fill this automatically.',
       },
       apiKey: {
         label: 'API Key',
@@ -259,6 +259,7 @@ export const en: TranslationTree = {
       openai_compatible: 'OpenAI compatible',
       doubao_ark: 'Doubao Ark',
       aliyun_maas: 'Aliyun MaaS image-to-image',
+      google_gemini: 'Google Gemini (Nano Banana)',
     },
     validation: {
       nameAndUrlRequired: 'Name and Base URL are required',

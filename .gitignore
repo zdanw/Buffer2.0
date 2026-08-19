@@ -121,6 +121,9 @@ checkpoints/*.pt
 # Nested ModelScope deploy copy (own git repo / credentials — keep local only)
 space4/
 
+# Isolated git worktrees (feature branches)
+.worktrees/
+
 # Node
 node_modules/
 

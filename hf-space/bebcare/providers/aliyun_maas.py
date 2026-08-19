@@ -145,7 +145,6 @@ class AliyunMaasMultimodalProvider:
 
         # prompt_extend=false：保留系统拼装/DeepSeek 生成的提示词，避免被阿里云改写冲掉
         parameters = {
-            "size": _to_aliyun_size(size),
             "n": 1,
             "watermark": False,
             "prompt_extend": False,
@@ -153,6 +152,8 @@ class AliyunMaasMultimodalProvider:
         if negative_prompt:
             parameters["negative_prompt"] = negative_prompt[:500]
         parameters.update(self.extra_params)
+        # Request size must win over provider extra_params.
+        parameters["size"] = _to_aliyun_size(size)
 
         payload = {
             "model": model_id,

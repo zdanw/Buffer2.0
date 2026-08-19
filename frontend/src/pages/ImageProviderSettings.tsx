@@ -51,6 +51,10 @@ const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean 
       'https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
     list: true,
   },
+  google_gemini: {
+    base_url: 'https://generativelanguage.googleapis.com/v1beta',
+    list: true,
+  },
 };
 
 export default function ImageProviderSettings() {

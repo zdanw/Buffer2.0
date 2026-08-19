@@ -60,7 +60,6 @@ class DoubaoArkImageProvider:
             "model": model_id,
             "prompt": prompt,
             "negative_prompt": negative_prompt or "",
-            "size": size,
             "sequential_image_generation": "disabled",
             "response_format": "url",
             "watermark": False,
@@ -68,6 +67,14 @@ class DoubaoArkImageProvider:
         if reference_images:
             data["image"] = reference_images
         data.update(self.extra_params)
+        # Request size must win over provider extra_params (e.g. size=2K → 1:1).
+        data["size"] = size
+        logger.info(
+            "Doubao generate model=%s size=%s refs=%s",
+            model_id,
+            size,
+            len(reference_images or []),
+        )
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=600)
         try:

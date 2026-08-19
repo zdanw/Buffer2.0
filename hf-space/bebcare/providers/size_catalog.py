@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 DEFAULT_SIZE = "2048x2048"
-_SIZE_RE = re.compile(r"^(\d{2,5})[xX*](\d{2,5})$")
+_SIZE_RE = re.compile(r"^(\d{2,5})\s*[xX×*]\s*(\d{2,5})$")
 _MIN_DIM = 64
 _MAX_DIM = 8192
 
@@ -26,6 +26,7 @@ _BY_PROVIDER: Dict[str, List[Dict[str, Any]]] = {
     "doubao_ark": _COMMON_SIZES,
     "aliyun_maas": _COMMON_SIZES,
     "openai_compatible": _COMMON_SIZES,
+    "google_gemini": _COMMON_SIZES,
 }
 
 

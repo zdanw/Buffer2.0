@@ -6,6 +6,7 @@ from bebcare.utils.crypto import decrypt_secret
 from bebcare.providers.openai_compatible import OpenAICompatibleImageProvider
 from bebcare.providers.doubao_ark import DoubaoArkImageProvider
 from bebcare.providers.aliyun_maas import AliyunMaasMultimodalProvider
+from bebcare.providers.google_gemini import GoogleGeminiImageProvider
 
 # Virtual provider id for env Doubao / Seedream (not stored in DB)
 SYSTEM_IMAGE_PROVIDER_ID = "system"
@@ -28,6 +29,8 @@ def _build_provider(config: ImageProviderConfig, api_key: str):
         return OpenAICompatibleImageProvider(**kwargs)
     if config.provider_type == "aliyun_maas":
         return AliyunMaasMultimodalProvider(**kwargs)
+    if config.provider_type == "google_gemini":
+        return GoogleGeminiImageProvider(**kwargs)
     raise ValueError(f"Unsupported provider_type: {config.provider_type}")
 
 

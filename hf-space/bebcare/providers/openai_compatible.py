@@ -82,7 +82,6 @@ class OpenAICompatibleImageProvider:
         data = {
             "model": model_id,
             "prompt": prompt,
-            "size": size,
             "n": 1,
             "response_format": "url",
         }
@@ -92,6 +91,14 @@ class OpenAICompatibleImageProvider:
             # Best-effort: many OpenAI-compatible gateways accept `image` as URL(s)
             data["image"] = reference_images if len(reference_images) > 1 else reference_images[0]
         data.update(self.extra_params)
+        # Request size must win over provider extra_params.
+        data["size"] = size
+        logger.info(
+            "OpenAI-compatible generate model=%s size=%s refs=%s",
+            model_id,
+            size,
+            len(reference_images or []),
+        )
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=120)
         try:

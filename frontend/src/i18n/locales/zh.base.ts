@@ -213,11 +213,11 @@ export const zh: TranslationTree = {
       },
       type: {
         label: '类型',
-        tooltip: 'Provider 适配器。OpenAI 兼容适用于大多数 REST API；豆包 Ark 与阿里云 MaaS 会使用预设端点。',
+        tooltip: 'Provider 适配器。OpenAI 兼容适用于大多数 REST API；豆包 Ark、阿里云 MaaS 与 Google Gemini 会使用预设端点。',
       },
       baseUrl: {
         label: 'Base URL',
-        tooltip: 'API 根地址。OpenAI 兼容一般为 https://api.openai.com/v1；选择豆包/阿里云时会自动填入。',
+        tooltip: 'API 根地址。OpenAI 兼容一般为 https://api.openai.com/v1；选择豆包/阿里云/Google 时会自动填入。',
       },
       apiKey: {
         label: 'API Key',
@@ -258,6 +258,7 @@ export const zh: TranslationTree = {
       openai_compatible: 'OpenAI 兼容',
       doubao_ark: '豆包 Ark',
       aliyun_maas: '阿里云 MaaS 图生图',
+      google_gemini: 'Google Gemini（Nano Banana）',
     },
     validation: {
       nameAndUrlRequired: '名称与 Base URL 必填',

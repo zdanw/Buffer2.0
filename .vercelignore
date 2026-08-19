@@ -1,0 +1,21 @@
+# Monorepo: only frontend is deployed on Vercel
+backend/
+hf-space/
+space4/
+hf-space4/
+scripts/
+docs/
+.cursor/
+.github/
+.dev/
+.pytest_cache/
+
+# Local / heavy artifacts
+**/node_modules/
+**/Long-CLIP/
+**/chroma_data/
+**/.venv/
+**/venv/
+**/*.pt
+**/*.db
+.git/
