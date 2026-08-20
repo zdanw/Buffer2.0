@@ -51,6 +51,7 @@ def _to_user_response(db: Session, user: User) -> UserResponse:
         onboarding_completed_at=user.onboarding_completed_at,
         image_credits_remaining=remaining_credits(db, user.user_id),
         has_system_image_provider=_has_system_image_provider(db),
+        billing_contact=settings.billing_contact or settings.admin_email,
     )
 
 @router.post("/login/")

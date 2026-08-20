@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     # 平台出图次数：注册试用张数；预扣超时（分钟）后可回收
     image_credit_signup_trial: int = 2
     image_credit_reserve_ttl_minutes: int = 15
+    # 用户「升级订阅」联系方式（邮箱或 https 链接）；空则仅展示说明文案
+    billing_contact: str | None = None
 
     # 应用配置
     app_host: str = "0.0.0.0"

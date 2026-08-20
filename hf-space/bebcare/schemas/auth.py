@@ -45,6 +45,7 @@ class UserResponse(BaseModel):
     onboarding_completed_at: Optional[datetime] = None
     image_credits_remaining: int = 0
     has_system_image_provider: bool = False
+    billing_contact: Optional[str] = None
 
     class Config:
         from_attributes = True

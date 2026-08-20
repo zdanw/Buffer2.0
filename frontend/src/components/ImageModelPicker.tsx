@@ -19,6 +19,7 @@ import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/Aspec
 import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
 import ModelIdSelect from '@/components/ModelIdSelect';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
+import { SubscribeCreditsButton } from '@/components/SubscribeCreditsModal';
 
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
@@ -68,6 +69,7 @@ export default function ImageModelPicker({
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
   const [creditsRemaining, setCreditsRemaining] = useState(0);
+  const [billingContact, setBillingContact] = useState<string | null>(null);
   const [systemSummary, setSystemSummary] = useState<SystemProviderSummary | null>(null);
   const [modeInitialized, setModeInitialized] = useState(false);
   const lastGlobalDefaultIdRef = useRef<string | null>(null);
@@ -89,6 +91,7 @@ export default function ImageModelPicker({
         getSystemImageProviderSummary(),
       ]);
       setCreditsRemaining(me.image_credits_remaining ?? 0);
+      setBillingContact(me.billing_contact ?? null);
       setSystemSummary(summary);
     } catch (e) {
       console.error('Failed to load image credits / system provider:', e);
@@ -380,6 +383,12 @@ export default function ImageModelPicker({
         {mode === 'platform' && platformEnabled ? (
           <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.willConsumeOne')}</p>
         ) : null}
+        <div className="mt-2">
+          <SubscribeCreditsButton
+            creditsRemaining={creditsRemaining}
+            billingContact={billingContact}
+          />
+        </div>
         {showExhaustedBanner ? (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
             {t('imageModelPicker.creditsExhausted')}{' '}

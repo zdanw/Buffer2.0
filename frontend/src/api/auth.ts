@@ -41,6 +41,7 @@ export interface UserResponse {
   onboarding_completed_at?: string | null;
   image_credits_remaining?: number;
   has_system_image_provider?: boolean;
+  billing_contact?: string | null;
 }
 
 export const login = async (data: LoginData): Promise<TokenResponse> => {

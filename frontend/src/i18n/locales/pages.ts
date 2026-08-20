@@ -470,10 +470,11 @@ export const pagesEn: TranslationTree = {
   },
   systemImageProviders: {
     title: 'Platform image provider',
-    subtitle: 'Shared image model used when users spend platform credits.',
+    subtitle: 'Shared image model used when users spend platform credits (not per-user).',
     empty: 'No system provider yet. Add one so Studio can use platform credits.',
     loadFailed: 'Failed to load system providers',
     saveFailed: 'Failed to save',
+    name: 'Provider name',
     apiKey: 'API Key',
     apiKeyKeep: 'API Key (leave blank to keep)',
     apiKeyRequired: 'API Key is required',
@@ -515,6 +516,16 @@ export const pagesEn: TranslationTree = {
       aspectRatio: 'Output image aspect ratio. Choose a preset or enter a custom WxH size.',
       source: 'Platform uses shared credits; My provider uses your own API key (no credit cost).',
     },
+  },
+  subscribeCredits: {
+    button: 'Upgrade / buy credits',
+    title: 'Subscribe to platform credits',
+    remaining: 'You have {{n}} credit(s) left.',
+    body:
+      'Buy a credit pack to keep using the platform image model. After payment, an admin will add credits to your account. Online checkout will be available later.',
+    packHint: 'Credit packs do not reset monthly — unused credits stay until used.',
+    byokHint: 'Or add your own API key under Image Models to generate without using platform credits.',
+    contactCta: 'Contact to purchase',
   },
   referenceImages: {
     title: 'Reference images',
@@ -995,10 +1006,11 @@ export const pagesZh: TranslationTree = {
   },
   systemImageProviders: {
     title: '平台图像供应商',
-    subtitle: '用户使用平台额度出图时调用的共享图像模型。',
+    subtitle: '全站共享：用户使用平台额度出图时调用（不是给某个用户单独配置）。',
     empty: '尚未配置系统供应商。添加后 Studio 才能使用平台额度。',
     loadFailed: '加载系统供应商失败',
     saveFailed: '保存失败',
+    name: '供应商名称',
     apiKey: 'API Key',
     apiKeyKeep: 'API Key（留空则保持不变）',
     apiKeyRequired: '必须填写 API Key',
@@ -1039,6 +1051,16 @@ export const pagesZh: TranslationTree = {
       aspectRatio: '输出图片宽高比。可选手动预设，或自定义宽高（WxH）。',
       source: '平台额度使用共享次数；我的供应商使用你自己的 API Key（不扣次数）。',
     },
+  },
+  subscribeCredits: {
+    button: '升级订阅 / 购买次数',
+    title: '订阅平台出图次数',
+    remaining: '当前剩余 {{n}} 次。',
+    body:
+      '购买次数包后可继续使用平台图像模型。付款后由管理员为你的账号发放次数。在线支付收银台将在后续版本接入。',
+    packHint: '次数包不按月重置，买多少用多少。',
+    byokHint: '也可以在「图像模型」自行配置 API Key，出图不消耗平台次数。',
+    contactCta: '联系购买',
   },
   referenceImages: {
     title: '参考图',
