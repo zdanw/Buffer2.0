@@ -8,6 +8,11 @@ import {
   type ImageModelInfo,
   type ImageSizeOption,
 } from '@/api/imageProviders';
+import { getCurrentUser } from '@/api/auth';
+import {
+  getSystemImageProviderSummary,
+  type SystemProviderSummary,
+} from '@/api/systemImageProvider';
 import { useI18n } from '@/i18n/useI18n';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/AspectRatioSelect';
@@ -18,10 +23,13 @@ import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
 
+export type ImageProviderMode = 'platform' | 'byok';
+
 export interface ImageModelSelection {
   image_provider_id?: string | null;
   image_model?: string | null;
   image_size?: string | null;
+  image_provider_mode?: ImageProviderMode | null;
 }
 
 interface ImageModelPickerProps {
@@ -29,7 +37,6 @@ interface ImageModelPickerProps {
   onChange: (next: ImageModelSelection) => void;
   disabled?: boolean;
   compact?: boolean;
-  /** Prefer provider marked is_default; re-sync when global default changes. */
   preferGlobalDefault?: boolean;
 }
 
@@ -60,7 +67,9 @@ export default function ImageModelPicker({
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
-  /** Re-apply Studio selection only when the starred default provider changes. */
+  const [creditsRemaining, setCreditsRemaining] = useState(0);
+  const [systemSummary, setSystemSummary] = useState<SystemProviderSummary | null>(null);
+  const [modeInitialized, setModeInitialized] = useState(false);
   const lastGlobalDefaultIdRef = useRef<string | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -68,6 +77,25 @@ export default function ImageModelPicker({
   defaultSizeRef.current = defaultSize;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const mode: ImageProviderMode = value.image_provider_mode === 'platform' ? 'platform' : 'byok';
+  const hasSystem = Boolean(systemSummary?.has_provider);
+  const platformEnabled = hasSystem && creditsRemaining > 0;
+
+  const loadBilling = async () => {
+    try {
+      const [me, summary] = await Promise.all([
+        getCurrentUser(),
+        getSystemImageProviderSummary(),
+      ]);
+      setCreditsRemaining(me.image_credits_remaining ?? 0);
+      setSystemSummary(summary);
+    } catch (e) {
+      console.error('Failed to load image credits / system provider:', e);
+      setCreditsRemaining(0);
+      setSystemSummary({ has_provider: false });
+    }
+  };
 
   const loadProviders = async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoadingProviders(true);
@@ -84,64 +112,115 @@ export default function ImageModelPicker({
 
   useEffect(() => {
     void loadProviders();
+    void loadBilling();
   }, []);
 
-  // Settings CRUD / set-default while Studio stays mounted in lazyPanel.
   useEffect(() => {
     return onImageProvidersChanged(() => {
       void loadProviders({ silent: true });
+      void loadBilling();
     });
   }, []);
 
-  // Re-fetch when navigating back to Studio.
   useEffect(() => {
     if (!preferGlobalDefault) return;
     const onStudio =
       location.pathname === '/studio' || location.pathname === '/preview';
     if (!onStudio) return;
     void loadProviders({ silent: true });
+    void loadBilling();
   }, [preferGlobalDefault, location.pathname]);
 
-  // Resolve selection to a real owned provider (no empty/"system" fallback).
+  // Default mode once billing + providers known
   useEffect(() => {
-    if (loadingProviders) return;
+    if (loadingProviders || modeInitialized) return;
+    if (systemSummary === null) return;
+    const current = valueRef.current;
+    if (current.image_provider_mode) {
+      setModeInitialized(true);
+      return;
+    }
+    const nextMode: ImageProviderMode =
+      systemSummary.has_provider && creditsRemaining > 0 ? 'platform' : 'byok';
+    const preferred = providers.find((p) => p.is_default) || providers[0];
+    onChangeRef.current({
+      ...current,
+      image_provider_mode: nextMode,
+      image_provider_id:
+        nextMode === 'byok' ? preferred?.id ?? null : systemSummary.id ?? null,
+      image_model:
+        nextMode === 'platform'
+          ? systemSummary.default_model ?? null
+          : preferred?.default_model ?? null,
+      image_size: current.image_size || defaultSizeRef.current,
+    });
+    setModeInitialized(true);
+  }, [loadingProviders, systemSummary, creditsRemaining, providers, modeInitialized]);
+
+  // BYOK: keep provider selection valid
+  useEffect(() => {
+    if (loadingProviders || mode !== 'byok') return;
     const current = valueRef.current;
     if (providers.length === 0) {
       if (current.image_provider_id) {
         onChangeRef.current({
+          ...current,
           image_provider_id: null,
           image_model: null,
           image_size: current.image_size || null,
+          image_provider_mode: 'byok',
         });
       }
       lastGlobalDefaultIdRef.current = null;
       return;
     }
-
     const preferred = providers.find((p) => p.is_default) || providers[0];
-    const applyPreferred = () => {
-      onChangeRef.current({
-        image_provider_id: preferred.id,
-        image_model: preferred.default_model || null,
-        image_size: current.image_size || defaultSizeRef.current,
-      });
-    };
-
     const valid = providers.some((p) => p.id === current.image_provider_id);
-
     if (preferGlobalDefault) {
       const defaultChanged = lastGlobalDefaultIdRef.current !== preferred.id;
       lastGlobalDefaultIdRef.current = preferred.id;
       if (!valid || defaultChanged) {
-        applyPreferred();
+        onChangeRef.current({
+          ...current,
+          image_provider_mode: 'byok',
+          image_provider_id: preferred.id,
+          image_model: preferred.default_model || null,
+          image_size: current.image_size || defaultSizeRef.current,
+        });
       }
       return;
     }
-
-    if (!valid) applyPreferred();
-  }, [loadingProviders, providers, preferGlobalDefault]);
+    if (!valid) {
+      onChangeRef.current({
+        ...current,
+        image_provider_mode: 'byok',
+        image_provider_id: preferred.id,
+        image_model: preferred.default_model || null,
+        image_size: current.image_size || defaultSizeRef.current,
+      });
+    }
+  }, [loadingProviders, providers, preferGlobalDefault, mode]);
 
   useEffect(() => {
+    if (mode === 'platform') {
+      const manual = (systemSummary?.manual_models || []).map((m) => ({
+        id: m.id,
+        description: m.description ?? undefined,
+        source: 'manual' as const,
+      }));
+      setModels(manual);
+      setHint(null);
+      setLoadingModels(false);
+      if (!value.image_model && systemSummary?.default_model) {
+        onChange({
+          ...value,
+          image_provider_mode: 'platform',
+          image_provider_id: systemSummary.id ?? null,
+          image_model: systemSummary.default_model,
+        });
+      }
+      return;
+    }
     const providerId = value.image_provider_id;
     if (!providerId) {
       setModels([]);
@@ -161,7 +240,7 @@ export default function ImageModelPicker({
         if (!value.image_model && provider?.default_model) {
           onChange({ ...value, image_model: provider.default_model });
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setModels([]);
           setHint(t('imageModelPicker.fetchFailed'));
@@ -173,8 +252,8 @@ export default function ImageModelPicker({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only refetch when provider changes
-  }, [value.image_provider_id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, value.image_provider_id, systemSummary?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +261,7 @@ export default function ImageModelPicker({
       setLoadingSizes(true);
       try {
         const res = await getImageSizeCapabilities({
-          provider_id: value.image_provider_id,
+          provider_id: mode === 'platform' ? undefined : value.image_provider_id,
           model: value.image_model,
         });
         if (cancelled) return;
@@ -208,8 +287,27 @@ export default function ImageModelPicker({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on provider/model
-  }, [value.image_provider_id, value.image_model]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, value.image_provider_id, value.image_model]);
+
+  const setMode = (next: ImageProviderMode) => {
+    if (next === 'platform') {
+      onChange({
+        ...value,
+        image_provider_mode: 'platform',
+        image_provider_id: systemSummary?.id ?? null,
+        image_model: systemSummary?.default_model ?? null,
+      });
+      return;
+    }
+    const preferred = providers.find((p) => p.is_default) || providers[0];
+    onChange({
+      ...value,
+      image_provider_mode: 'byok',
+      image_provider_id: preferred?.id ?? null,
+      image_model: preferred?.default_model ?? null,
+    });
+  };
 
   const selected = models.find((m) => m.id === value.image_model);
   const modelIdSet = new Set(models.map((m) => m.id));
@@ -229,6 +327,16 @@ export default function ImageModelPicker({
     ? 'space-y-2'
     : 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3';
 
+  const showExhaustedBanner =
+    !platformEnabled && providers.length === 0 && !loadingProviders;
+  const showSystemUnavailable =
+    mode === 'platform' && !hasSystem && !loadingProviders;
+  const showByokEmpty =
+    mode === 'byok' && providers.length === 0 && !loadingProviders;
+
+  const modelDisabled =
+    disabled || (mode === 'byok' ? !value.image_provider_id : !hasSystem);
+
   return (
     <div className={wrapClass}>
       {!compact && (
@@ -240,44 +348,100 @@ export default function ImageModelPicker({
 
       <div>
         <LabelWithTooltip
-          label={`${t('imageModelPicker.provider')}${loadingProviders ? ` ${t('imageModelPicker.loading')}` : ''}`}
-          tooltip={t('imageModelPicker.tooltips.provider')}
+          label={t('imageModelPicker.source')}
+          tooltip={t('imageModelPicker.tooltips.source')}
         />
-        {providers.length === 0 && !loadingProviders ? (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
-            {t('imageModelPicker.noProviders')}{' '}
-            <Link to="/image-models" className="underline font-medium text-amber-900 hover:text-amber-950">
+        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            disabled={disabled || !platformEnabled}
+            onClick={() => setMode('platform')}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-colors ${
+              mode === 'platform'
+                ? 'border-forge-500 bg-forge-50 text-forge-800'
+                : 'border-gray-300 bg-white text-gray-700'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {t('imageModelPicker.sourcePlatform', { n: creditsRemaining })}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setMode('byok')}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-colors ${
+              mode === 'byok'
+                ? 'border-forge-500 bg-forge-50 text-forge-800'
+                : 'border-gray-300 bg-white text-gray-700'
+            }`}
+          >
+            {t('imageModelPicker.sourceByok')}
+          </button>
+        </div>
+        {mode === 'platform' && platformEnabled ? (
+          <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.willConsumeOne')}</p>
+        ) : null}
+        {showExhaustedBanner ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            {t('imageModelPicker.creditsExhausted')}{' '}
+            <Link to="/image-models" className="underline font-medium text-amber-900">
               {t('imageModelPicker.goAddProvider')}
             </Link>
           </p>
-        ) : (
-          <select
-            value={value.image_provider_id || ''}
-            disabled={disabled || loadingProviders || providers.length === 0}
-            onChange={(e) => {
-              const id = e.target.value || null;
-              const provider = providers.find((p) => p.id === id);
-              onChange({
-                image_provider_id: id,
-                image_model: provider?.default_model || null,
-                image_size: value.image_size || defaultSize,
-              });
-              setForceCustomModel(false);
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-          >
-            {loadingProviders && !value.image_provider_id ? (
-              <option value="">{t('imageModelPicker.loading')}</option>
-            ) : null}
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
-              </option>
-            ))}
-          </select>
-        )}
+        ) : null}
+        {showSystemUnavailable ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            {t('imageModelPicker.systemUnavailable')}
+          </p>
+        ) : null}
       </div>
+
+      {mode === 'byok' ? (
+        <div>
+          <LabelWithTooltip
+            label={`${t('imageModelPicker.provider')}${loadingProviders ? ` ${t('imageModelPicker.loading')}` : ''}`}
+            tooltip={t('imageModelPicker.tooltips.provider')}
+          />
+          {showByokEmpty ? (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
+              {t('imageModelPicker.noProviders')}{' '}
+              <Link
+                to="/image-models"
+                className="underline font-medium text-amber-900 hover:text-amber-950"
+              >
+                {t('imageModelPicker.goAddProvider')}
+              </Link>
+            </p>
+          ) : (
+            <select
+              value={value.image_provider_id || ''}
+              disabled={disabled || loadingProviders || providers.length === 0}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                const provider = providers.find((p) => p.id === id);
+                onChange({
+                  ...value,
+                  image_provider_mode: 'byok',
+                  image_provider_id: id,
+                  image_model: provider?.default_model || null,
+                  image_size: value.image_size || defaultSize,
+                });
+                setForceCustomModel(false);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
+            >
+              {loadingProviders && !value.image_provider_id ? (
+                <option value="">{t('imageModelPicker.loading')}</option>
+              ) : null}
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      ) : null}
 
       <div>
         <LabelWithTooltip
@@ -289,7 +453,7 @@ export default function ImageModelPicker({
             models={models}
             value={value.image_model ?? null}
             isCustom={isCustomModel}
-            disabled={disabled || !value.image_provider_id}
+            disabled={modelDisabled}
             onSelectPreset={(modelId) => {
               setForceCustomModel(false);
               onChange({ ...value, image_model: modelId });
@@ -301,13 +465,13 @@ export default function ImageModelPicker({
           <input
             type="text"
             value={value.image_model || ''}
-            disabled={disabled || !value.image_provider_id}
+            disabled={modelDisabled}
             onChange={(e) => {
               setForceCustomModel(true);
               onChange({ ...value, image_model: e.target.value || null });
             }}
             placeholder={
-              value.image_provider_id
+              mode === 'platform' || value.image_provider_id
                 ? t('placeholders.imageModelPicker.manualModel')
                 : t('placeholders.imageModelPicker.selectProviderFirst')
             }
@@ -372,11 +536,9 @@ export default function ImageModelPicker({
                 className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
               />
             </div>
-            {customInvalid ? (
-              <p className="text-xs text-amber-600 mt-1">{t('imageModelPicker.customSizeHint')}</p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1">{t('imageModelPicker.customSizeHint')}</p>
-            )}
+            <p className={`text-xs mt-1 ${customInvalid ? 'text-amber-600' : 'text-gray-500'}`}>
+              {t('imageModelPicker.customSizeHint')}
+            </p>
           </>
         )}
       </div>

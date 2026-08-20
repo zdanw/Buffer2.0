@@ -109,6 +109,7 @@ export default function Studio() {
   const [imageProviderId, setImageProviderId] = useState<string | null>(null);
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
+  const [imageProviderMode, setImageProviderMode] = useState<'platform' | 'byok' | null>(null);
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
   const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
@@ -314,6 +315,7 @@ export default function Studio() {
         image_provider_id: imageProviderId || undefined,
         image_model: imageModel || undefined,
         image_size: imageSize || undefined,
+        image_provider_mode: type === 'copywriting' ? undefined : imageProviderMode || undefined,
       };
 
       let response;
@@ -325,12 +327,27 @@ export default function Studio() {
         response = await generateContent(request);
       }
       setTaskId(response.task_id);
-    } catch (error) {
+      } catch (error: unknown) {
       console.error('Failed to generate content:', error);
       setIsGenerating(false);
       setGeneratingType(null);
       setTaskId(null);
-      alert(t('preview.generateFailed'));
+      const detail =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
+              ?.data?.detail
+          : undefined;
+      const status =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+      if (status === 402) {
+        alert(detail || t('imageModelPicker.creditsExhausted'));
+      } else if (status === 503) {
+        alert(detail || t('imageModelPicker.systemUnavailable'));
+      } else {
+        alert(detail || t('preview.generateFailed'));
+      }
     }
   };
 
@@ -543,11 +560,13 @@ export default function Studio() {
               image_provider_id: imageProviderId,
               image_model: imageModel,
               image_size: imageSize,
+              image_provider_mode: imageProviderMode,
             }}
             onChange={(next) => {
               setImageProviderId(next.image_provider_id ?? null);
               setImageModel(next.image_model ?? null);
               setImageSize(next.image_size ?? '2048x2048');
+              setImageProviderMode(next.image_provider_mode ?? null);
             }}
             disabled={isGenerating}
           />

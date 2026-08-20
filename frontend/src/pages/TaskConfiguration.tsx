@@ -51,6 +51,7 @@ export default function TaskConfiguration() {
     use_scene_reference: false,
     use_vision_image_prompt: false,
     image_provider_id: null,
+    image_provider_mode: null as 'platform' | 'byok' | null,
     image_model: null,
     image_size: '2048x2048',
   });
@@ -129,6 +130,7 @@ export default function TaskConfiguration() {
       use_scene_reference: false,
       use_vision_image_prompt: false,
       image_provider_id: null,
+      image_provider_mode: null,
       image_model: null,
       image_size: '2048x2048',
     });
@@ -245,6 +247,7 @@ export default function TaskConfiguration() {
         use_scene_reference: task.use_scene_reference || false,
         use_vision_image_prompt: task.use_vision_image_prompt || false,
         image_provider_id: task.image_provider_id || null,
+        image_provider_mode: (task.image_provider_mode as 'platform' | 'byok' | null) || null,
         image_model: task.image_model || null,
         image_size: task.image_size || '2048x2048',
       });
@@ -266,6 +269,7 @@ export default function TaskConfiguration() {
         use_scene_reference: false,
         use_vision_image_prompt: false,
         image_provider_id: null,
+        image_provider_mode: null,
         image_model: null,
         image_size: '2048x2048',
       });
@@ -712,6 +716,7 @@ export default function TaskConfiguration() {
                     image_provider_id: formData.image_provider_id,
                     image_model: formData.image_model,
                     image_size: formData.image_size,
+                    image_provider_mode: formData.image_provider_mode,
                   }}
                   onChange={(next) =>
                     setFormData({
@@ -719,6 +724,7 @@ export default function TaskConfiguration() {
                       image_provider_id: next.image_provider_id ?? null,
                       image_model: next.image_model ?? null,
                       image_size: next.image_size ?? '2048x2048',
+                      image_provider_mode: next.image_provider_mode ?? null,
                     })
                   }
                 />

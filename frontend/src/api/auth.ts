@@ -39,6 +39,8 @@ export interface UserResponse {
   is_admin: boolean;
   created_at: string;
   onboarding_completed_at?: string | null;
+  image_credits_remaining?: number;
+  has_system_image_provider?: boolean;
 }
 
 export const login = async (data: LoginData): Promise<TokenResponse> => {

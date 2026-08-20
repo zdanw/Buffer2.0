@@ -10,6 +10,7 @@ export interface GenerateRequest {
   image_provider_id?: string | null;
   image_model?: string | null;
   image_size?: string | null;
+  image_provider_mode?: 'platform' | 'byok' | null;
 }
 
 export interface GenerateResponse {
