@@ -8,10 +8,11 @@ from bebcare.providers.doubao_ark import DoubaoArkImageProvider
 from bebcare.providers.aliyun_maas import AliyunMaasMultimodalProvider
 from bebcare.providers.google_gemini import GoogleGeminiImageProvider
 
-# Virtual provider id for env Doubao / Seedream (not stored in DB)
+# Virtual provider id for legacy env Doubao (not stored in DB)
 SYSTEM_IMAGE_PROVIDER_ID = "system"
 
 _NO_PROVIDER_MSG = "未配置图像供应商。请到设置页添加你自己的图像供应商后再生成。"
+SYSTEM_PROVIDER_UNAVAILABLE_MSG = "平台图像供应商未配置，请联系管理员。"
 
 
 def _build_provider(config: ImageProviderConfig, api_key: str):
@@ -41,6 +42,39 @@ def _env_fallback_provider():
         default_model=settings.doubao_model_id,
         supports_list_models=False,
     )
+
+
+def resolve_system_image_provider(
+    db: Session,
+    image_model: Optional[str] = None,
+) -> Tuple[object, Optional[str]]:
+    """Resolve the active system (platform) image provider. No owner filter."""
+    config = (
+        db.query(ImageProviderConfig)
+        .filter(
+            ImageProviderConfig.is_system == True,  # noqa: E712
+            ImageProviderConfig.is_active == True,  # noqa: E712
+            ImageProviderConfig.is_default == True,  # noqa: E712
+        )
+        .first()
+    )
+    if config is None:
+        config = (
+            db.query(ImageProviderConfig)
+            .filter(
+                ImageProviderConfig.is_system == True,  # noqa: E712
+                ImageProviderConfig.is_active == True,  # noqa: E712
+            )
+            .order_by(ImageProviderConfig.updated_at.desc())
+            .first()
+        )
+    if config is None:
+        raise ValueError(SYSTEM_PROVIDER_UNAVAILABLE_MSG)
+
+    api_key = decrypt_secret(config.api_key_encrypted)
+    provider = _build_provider(config, api_key)
+    resolved_model = image_model or config.default_model
+    return provider, resolved_model
 
 
 def resolve_image_provider(
