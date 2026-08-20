@@ -507,7 +507,8 @@ export const pagesEn: TranslationTree = {
     willConsumeOne: 'This generation will use 1 platform credit.',
     creditsExhausted:
       'Platform credits used up. Buy a credit pack or add your own API key.',
-    systemUnavailable: 'Platform image generation is not configured. Contact an admin.',
+    systemUnavailable:
+      'Platform image provider is not configured yet, so platform credits cannot be used. Ask an admin to add one under Platform Image.',
     contactAdmin: 'Contact admin for credits',
     tooltips: {
       title: 'Choose platform credits or your own image provider for this generation.',
@@ -1042,7 +1043,8 @@ export const pagesZh: TranslationTree = {
     sourceByok: '我的供应商',
     willConsumeOne: '本次将消耗 1 次平台额度。',
     creditsExhausted: '平台出图次数已用完。请购买次数包，或自行配置 API Key。',
-    systemUnavailable: '平台图像供应商未配置，请联系管理员。',
+    systemUnavailable:
+      '尚未配置平台图像供应商，因此暂时无法使用平台额度（剩余次数仍有效）。请管理员在「平台图像」中添加供应商。',
     contactAdmin: '联系管理员开通次数',
     tooltips: {
       title: '选择使用平台额度或自己的图像供应商进行本次生成。',
