@@ -367,6 +367,8 @@ Bebcare_Buffer2.0/
 | `DEEPSEEK_API_KEY`        | 文案 / Prompt API Key           | （必填）              |
 | `DEEPSEEK_API_URL`        | OpenAI 兼容 base URL            | （必填）              |
 | `DEEPSEEK_MODEL`          | 文案模型名                         | `deepseek-v4-pro` |
+| `IMAGE_CREDIT_SIGNUP_TRIAL` | 注册赠送平台出图次数                 | `2`               |
+| `IMAGE_CREDIT_RESERVE_TTL_MINUTES` | 预扣超时后可回收（分钟）          | `15`              |
 | `VISION_MODEL`            | 可选多模态写 Prompt 模型              | 见 `.env.example`  |
 | `DOUBAO_API_KEY`          | 默认图像 Provider Key             | （必填）              |
 | `BUFFER_API_TOKEN`        | Buffer GraphQL Token          | （必填）              |
