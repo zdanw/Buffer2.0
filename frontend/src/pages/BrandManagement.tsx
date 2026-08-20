@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, RefreshCw, Lock, Upload } from 'lucide-react';
 import {
   createBrand,
@@ -15,6 +16,13 @@ import { listBufferAccounts, type BufferAccount } from '@/api/bufferAccounts';
 import BrandBadge from '@/components/BrandBadge';
 import BrandAvatar from '@/components/BrandAvatar';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import SetupFlowCallout from '@/components/SetupFlowCallout';
+import {
+  clearBrandFormDraft,
+  loadBrandFormDraft,
+  saveBrandFormDraft,
+  type BrandFormDraft,
+} from '@/lib/formDraft';
 import { LIMITS, alertValidationErrors, createValidators } from '@/lib/formValidation';
 import { useI18n } from '@/i18n/useI18n';
 import { useBrandContext } from '@/context/BrandContext';
@@ -31,9 +39,14 @@ const EMPTY_FORM: BrandCreate = {
   buffer_account_id: '',
 };
 
+const RETURN_TO_PRODUCT_KEY = 'pulseforge:return-to-product';
+const BUFFER_API_HELP_URL = 'https://support.buffer.com/article/984-how-to-create-your-buffer-api-key';
+
 export default function BrandManagement() {
   const { t } = useI18n();
   const v = createValidators(t);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { refreshBrands } = useBrandContext();
   const [brands, setBrands] = useState<BrandSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +79,94 @@ export default function BrandManagement() {
       .then(setBufferAccounts)
       .catch(() => setBufferAccounts([]));
   }, [loadBrands]);
+
+  const refreshBufferAccounts = useCallback(async () => {
+    try {
+      setBufferAccounts(await listBufferAccounts());
+    } catch {
+      setBufferAccounts([]);
+    }
+  }, []);
+
+  const applyBrandDraft = useCallback((draft: BrandFormDraft, bufferAccountId?: string | null) => {
+    setIsEdit(draft.isEdit);
+    setEditingId(draft.editingId);
+    setActiveTab(draft.activeTab as TabId);
+    setLogoPreview(draft.logoPreview);
+    setLogoFile(null);
+    setForm({
+      ...EMPTY_FORM,
+      ...draft.form,
+      buffer_account_id: bufferAccountId || (draft.form.buffer_account_id as string) || '',
+    } as typeof form);
+    setShowModal(true);
+  }, []);
+
+  useEffect(() => {
+    const resume = searchParams.get('resumeForm');
+    const openAdd = searchParams.get('openAdd');
+    const bufferAccountId = searchParams.get('bufferAccountId');
+
+    if (resume === '1') {
+      const draft = loadBrandFormDraft();
+      if (draft) {
+        applyBrandDraft(draft, bufferAccountId);
+      }
+      void refreshBufferAccounts();
+      navigate('/brand', { replace: true });
+      return;
+    }
+
+    if (openAdd === '1') {
+      setIsEdit(false);
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+      setLogoPreview(null);
+      setLogoFile(null);
+      setActiveTab('voice');
+      setShowModal(true);
+      navigate('/brand', { replace: true });
+    }
+  }, [searchParams, navigate, applyBrandDraft, refreshBufferAccounts]);
+
+  useEffect(() => {
+    if (!showModal) return;
+    saveBrandFormDraft({
+      form: { ...form },
+      activeTab,
+      isEdit,
+      editingId,
+      logoPreview,
+    });
+  }, [showModal, form, activeTab, isEdit, editingId, logoPreview]);
+
+  const goToBufferSetup = () => {
+    saveBrandFormDraft({
+      form: { ...form },
+      activeTab,
+      isEdit,
+      editingId,
+      logoPreview,
+    });
+    const url = `${window.location.origin}/buffer-accounts?from=brand&openAdd=1`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    if (!showModal) return;
+    const onFocus = () => void refreshBufferAccounts();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [showModal, refreshBufferAccounts]);
+
+  const goToProductAfterBrandCreate = (brandId: string) => {
+    try {
+      sessionStorage.removeItem(RETURN_TO_PRODUCT_KEY);
+    } catch {
+      /* ignore */
+    }
+    navigate(`/products?resumeForm=1&brandId=${encodeURIComponent(brandId)}`);
+  };
 
   const openCreate = () => {
     setIsEdit(false);
@@ -126,6 +227,18 @@ export default function BrandManagement() {
         if (logoFile) {
           await uploadBrandLogo(created.brand_id, logoFile);
         }
+        try {
+          if (sessionStorage.getItem(RETURN_TO_PRODUCT_KEY) === '1') {
+            await loadBrands();
+            await refreshBrands();
+            clearBrandFormDraft();
+            setShowModal(false);
+            goToProductAfterBrandCreate(created.brand_id);
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
       }
       await loadBrands();
       await refreshBrands();
@@ -134,6 +247,7 @@ export default function BrandManagement() {
       } catch {
         /* keep current list */
       }
+      clearBrandFormDraft();
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -190,6 +304,18 @@ export default function BrandManagement() {
     { id: 'content', label: t('brands.tabs.content') },
     { id: 'advanced', label: t('brands.tabs.advanced') },
   ];
+
+  const selectableBufferAccounts = bufferAccounts.filter((account) => {
+    if (!account.is_active && account.id !== form.buffer_account_id) return false;
+    const boundElsewhere = (account.brand_ids || []).some((id) => id !== editingId);
+    return !boundElsewhere || account.id === form.buffer_account_id;
+  });
+  const hasUnboundBufferAccount = bufferAccounts.some(
+    (account) =>
+      account.is_active &&
+      ((account.brand_ids || []).length === 0 ||
+        (account.brand_ids || []).every((id) => id === editingId)),
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
@@ -403,15 +529,7 @@ export default function BrandManagement() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
                     >
                       <option value="">{t('brands.bufferAccountNone')}</option>
-                      {bufferAccounts
-                        .filter((account) => {
-                          if (!account.is_active && account.id !== form.buffer_account_id) return false;
-                          const boundElsewhere = (account.brand_ids || []).some(
-                            (id) => id !== editingId
-                          );
-                          return !boundElsewhere || account.id === form.buffer_account_id;
-                        })
-                        .map((account) => (
+                      {selectableBufferAccounts.map((account) => (
                           <option key={account.id} value={account.id}>
                             {account.name}
                             {account.buffer_email ? ` (${account.buffer_email})` : ''}
@@ -419,6 +537,20 @@ export default function BrandManagement() {
                         ))}
                     </select>
                     <p className="mt-1 text-xs text-gray-400">{t('brands.bufferAccountHint')}</p>
+                    {!hasUnboundBufferAccount && (
+                      <div className="mt-3">
+                        <SetupFlowCallout
+                          variant="warning"
+                          title={t('brands.bufferSetup.title')}
+                          description={t('brands.bufferSetup.description')}
+                          actionLabel={t('brands.bufferSetup.action')}
+                          onAction={goToBufferSetup}
+                          openActionInNewTab
+                          learnMoreUrl={BUFFER_API_HELP_URL}
+                          learnMoreLabel={t('brands.bufferSetup.learnMore')}
+                        />
+                      </div>
+                    )}
                   </div>
                 </>
               )}

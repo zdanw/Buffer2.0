@@ -40,6 +40,14 @@ export const pagesEn: TranslationTree = {
     uploadSizeHint: 'Max {{max}} per file · {{max}} total per upload',
     inheritedBrandVoice: 'Using {{brand}} brand voice',
     viewBrandVoice: 'View brand voice in Brand settings',
+    brandSetup: {
+      title: 'Create a brand first',
+      description:
+        'Opens brand setup in a new tab. Keep this form open, create your brand, then select it here.',
+      action: 'Create brand',
+    },
+    brandPickHint:
+      'Generic is for neutral content. Select one of your brands above to inherit its voice and publishing rules.',
     productVoiceOverride: 'Product-specific override',
     incomplete: 'Incomplete',
     incompleteBannerTitle: 'Product images required',
@@ -76,6 +84,13 @@ export const pagesEn: TranslationTree = {
     bufferAccount: 'Buffer account',
     bufferAccountNone: 'Not bound',
     bufferAccountHint: 'Each Buffer account can be bound to only one brand. Bound accounts do not appear for other brands.',
+    bufferSetup: {
+      title: 'No Buffer account available',
+      description:
+        'Opens Buffer settings in a new tab. Keep this form open, add your token, then select the account here.',
+      action: 'Add Buffer account',
+      learnMore: 'How to get a Buffer API token',
+    },
     defaultHashtags: 'Default hashtags',
     emojiStyle: 'Emoji style',
     emojiNone: 'None',
@@ -577,6 +592,14 @@ export const pagesZh: TranslationTree = {
     uploadSizeHint: '单文件最大 {{max}} · 单次上传总计不超过 {{max}}',
     inheritedBrandVoice: '使用 {{brand}} 品牌调性',
     viewBrandVoice: '在品牌设置中查看品牌调性',
+    brandSetup: {
+      title: '请先创建品牌',
+      description:
+        '将在新标签页打开品牌设置。保持此表单打开，创建品牌后在此选择。',
+      action: '创建品牌',
+    },
+    brandPickHint:
+      'Generic 适用于中性内容。请在上方选择您的品牌以继承其调性与发布规则。',
     productVoiceOverride: '本产品单独覆盖',
     incomplete: '未完成',
     incompleteBannerTitle: '需要上传产品图',
@@ -613,6 +636,13 @@ export const pagesZh: TranslationTree = {
     bufferAccount: 'Buffer 账户',
     bufferAccountNone: '未绑定',
     bufferAccountHint: '每个 Buffer 账户只能绑定一个品牌。已被占用的账户不会出现在其他品牌的选项中。',
+    bufferSetup: {
+      title: '暂无可用 Buffer 账户',
+      description:
+        '将在新标签页打开 Buffer 设置。保持此表单打开，添加 Token 后在此选择账户。',
+      action: '添加 Buffer 账户',
+      learnMore: '如何获取 Buffer API Token',
+    },
     defaultHashtags: '默认话题标签',
     emojiStyle: '表情风格',
     emojiNone: '无',

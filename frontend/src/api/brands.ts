@@ -124,6 +124,20 @@ export function ownedBrandId(
   return brands[0]?.brand_id ?? '';
 }
 
+/** Prefer a non-generic brand for new products; fall back to Generic only when none exist. */
+export function defaultProductBrandId(
+  brands: BrandSummary[],
+  preferred?: string | null,
+): string {
+  const nonGeneric = brands.filter((b) => !b.is_generic);
+  if (preferred) {
+    const match = brands.find((b) => b.brand_id === preferred);
+    if (match && !match.is_generic) return preferred;
+  }
+  if (nonGeneric.length > 0) return nonGeneric[0].brand_id;
+  return ownedBrandId(brands, preferred);
+}
+
 export function findOwnedBrand<T extends { brand_id: string }>(
   brands: T[],
   brandId?: string | null,

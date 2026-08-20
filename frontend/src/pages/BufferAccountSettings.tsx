@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Edit2,
@@ -10,6 +11,7 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  ArrowRight,
 } from 'lucide-react';
 import {
   listBufferAccounts,
@@ -21,6 +23,7 @@ import {
   type BufferAccountCreate,
 } from '@/api/bufferAccounts';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import BufferTokenGuide from '@/components/BufferTokenGuide';
 import { useI18n } from '@/i18n/useI18n';
 
 const EMPTY_FORM: BufferAccountCreate = {
@@ -43,6 +46,9 @@ function formatApiDetail(detail: unknown, fallback: string): string {
 
 export default function BufferAccountSettings() {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('from');
   const [accounts, setAccounts] = useState<BufferAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -78,6 +84,30 @@ export default function BufferAccountSettings() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (searchParams.get('openAdd') === '1') {
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM });
+      setShowToken(false);
+      setFormError('');
+      setShowModal(true);
+      const from = searchParams.get('from');
+      navigate(from ? `/buffer-accounts?from=${from}` : '/buffer-accounts', { replace: true });
+    }
+  }, [loading, searchParams, navigate]);
+
+  const returnToBrand = () => {
+    window.close();
+  };
+
+  const returnToProduct = (brandId?: string) => {
+    const query = brandId
+      ? `?resumeForm=1&brandId=${encodeURIComponent(brandId)}`
+      : '?resumeForm=1';
+    navigate(`/products${query}`);
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -123,15 +153,22 @@ export default function BufferAccountSettings() {
         }
         await updateBufferAccount(editingId, payload);
         setSuccess(t('common.updated'));
+        setShowModal(false);
       } else {
         await createBufferAccount({
           name: form.name.trim(),
           api_token: form.api_token.trim(),
           is_active: form.is_active ?? true,
         });
+        setShowModal(false);
+        if (returnTo === 'brand') {
+          setSuccess(t('bufferAccounts.returnFlow.brandCreated'));
+          setTimeout(() => setSuccess(''), 6000);
+          void load({ silent: true });
+          return;
+        }
         setSuccess(t('common.created'));
       }
-      setShowModal(false);
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
     } catch (err: any) {
@@ -221,6 +258,41 @@ export default function BufferAccountSettings() {
         </div>
       )}
 
+      {returnTo === 'brand' && (
+        <div className="mb-4 rounded-xl border border-forge-200 bg-forge-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-medium text-forge-900 text-sm">{t('bufferAccounts.returnFlow.brandTitle')}</p>
+            <p className="text-xs text-forge-800/80 mt-1">{t('bufferAccounts.returnFlow.brandDescription')}</p>
+            <p className="text-xs text-forge-700/70 mt-1">{t('bufferAccounts.returnFlow.brandCloseHint')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => returnToBrand()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-forge-300 bg-white px-3 py-2 text-sm font-medium text-forge-800 hover:bg-forge-100 shrink-0"
+          >
+            {t('bufferAccounts.returnFlow.brandAction')}
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {returnTo === 'product' && (
+        <div className="mb-4 rounded-xl border border-forge-200 bg-forge-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-medium text-forge-900 text-sm">{t('bufferAccounts.returnFlow.productTitle')}</p>
+            <p className="text-xs text-forge-800/80 mt-1">{t('bufferAccounts.returnFlow.productDescription')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => returnToProduct()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-forge-600 px-3 py-2 text-sm text-white hover:bg-forge-700 shrink-0"
+          >
+            {t('bufferAccounts.returnFlow.productAction')}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="space-y-3">
         {accounts.map((account) => (
           <div
@@ -297,8 +369,20 @@ export default function BufferAccountSettings() {
         ))}
 
         {accounts.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
-            {t('bufferAccounts.emptyState')}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8">
+            <h3 className="text-lg font-semibold text-gray-900">{t('bufferAccounts.emptyStateTitle')}</h3>
+            <p className="mt-2 text-sm text-gray-600 leading-relaxed">{t('bufferAccounts.emptyStateBody')}</p>
+            <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4">
+              <BufferTokenGuide />
+            </div>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="mt-6 inline-flex items-center gap-2 bg-forge-600 text-white px-4 py-2 rounded-lg hover:bg-forge-700 text-sm"
+            >
+              <Plus className="w-5 h-5" />
+              {t('bufferAccounts.addAccount')}
+            </button>
           </div>
         )}
       </div>
@@ -323,6 +407,11 @@ export default function BufferAccountSettings() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!editingId && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <BufferTokenGuide compact />
+                </div>
+              )}
               {formError && (
                 <div className="px-4 py-3 bg-red-50 text-red-700 rounded-lg text-sm flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />

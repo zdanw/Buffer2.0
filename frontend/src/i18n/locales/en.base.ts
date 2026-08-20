@@ -286,6 +286,9 @@ export const en: TranslationTree = {
     testConnection: 'Test connection',
     emptyState:
       'No Buffer accounts yet. Add a token here, then bind it on a brand’s edit form.',
+    emptyStateTitle: 'Connect Buffer to publish',
+    emptyStateBody:
+      'PulseForge publishes through your Buffer account. Add an API token below, then bind it to a brand in Brand kits — one token per brand.',
     confirmDelete: 'Delete this Buffer account? The bound brand will be unbound.',
     tokenLabel: 'Token',
     noEmail: 'Email not verified yet',
@@ -316,6 +319,31 @@ export const en: TranslationTree = {
     errorDialog: {
       title: 'Something went wrong',
       ok: 'OK',
+    },
+    tokenGuide: {
+      title: 'How to get your Buffer API token',
+      intro: 'PulseForge uses your personal Buffer API key to publish posts. You need a Buffer account with a verified email.',
+      steps: {
+        signIn: 'Sign in at publish.buffer.com',
+        openSettings: 'Open Settings → API, or go directly to the API settings page',
+        personalAccess: 'Select the Personal Access tab',
+        generate: 'Click Generate API Key, name it (e.g. "PulseForge"), and copy the token',
+        paste: 'Paste the token below — it is shown only once in Buffer',
+      },
+      notes: 'Only organization owners can create API keys. Each key can be bound to one brand in PulseForge.',
+      openApiSettings: 'Open Buffer API settings',
+      helpArticle: 'Buffer help article',
+    },
+    returnFlow: {
+      brandTitle: 'Adding a token for your brand',
+      brandDescription:
+        'Keep your brand form open in the other tab. After saving here, close this tab and pick the account in the dropdown.',
+      brandCloseHint: 'If this tab won’t close, switch back to your brand tab — the account list refreshes automatically.',
+      brandAction: 'Close this tab',
+      brandCreated: 'Buffer account added. Close this tab and select it in your brand form.',
+      productTitle: 'Return to product form',
+      productDescription: 'Your product details are saved. After creating the brand, return to finish adding the product.',
+      productAction: 'Back to product form',
     },
   },
 };
