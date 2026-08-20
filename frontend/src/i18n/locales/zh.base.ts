@@ -11,6 +11,7 @@ export const zh: TranslationTree = {
       create: '创作',
       insights: '洞察',
       settings: '设置',
+      admin: '管理',
     },
     brand: '品牌',
     products: '产品',

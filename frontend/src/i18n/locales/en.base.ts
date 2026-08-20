@@ -12,6 +12,7 @@ export const en: TranslationTree = {
       create: 'Create',
       insights: 'Insights',
       settings: 'Settings',
+      admin: 'Admin',
     },
     brand: 'Brand',
     products: 'Products',

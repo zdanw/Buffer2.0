@@ -61,11 +61,12 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
     { labelKey: 'nav.groups.content', items: contentItems },
     { labelKey: 'nav.groups.create', items: createItems },
     { labelKey: 'nav.groups.insights', items: insightsItems },
-    {
-      labelKey: 'nav.groups.settings',
-      items: isAdmin ? [...settingsItems, ...adminItems] : settingsItems,
-    },
+    { labelKey: 'nav.groups.settings', items: settingsItems },
   ];
+
+  if (isAdmin) {
+    groups.push({ labelKey: 'nav.groups.admin', items: adminItems });
+  }
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
