@@ -72,6 +72,7 @@ from bebcare.api.prompt_dimension_routes import router as prompt_dimension_route
 from bebcare.api.image_provider_routes import router as image_provider_router
 from bebcare.api.buffer_account_routes import router as buffer_account_router
 from bebcare.api.credit_grant_routes import router as credit_grant_router
+from bebcare.api.system_image_provider_routes import router as system_image_provider_router
 from bebcare.services.auth_dependency import get_current_active_user
 import bebcare.models  # noqa: F401 — register metadata
 
@@ -113,6 +114,7 @@ def _build_full_test_app() -> FastAPI:
     api.include_router(publish_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(prompt_dimension_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(image_provider_router)
+    api.include_router(system_image_provider_router)
     api.include_router(buffer_account_router)
     app.include_router(api)
 

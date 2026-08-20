@@ -23,9 +23,20 @@ from bebcare.providers.size_catalog import get_size_capabilities
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.ownership import get_owned_or_404, owned_query, stamp_owner
 from bebcare.models.user import User
+from pydantic import BaseModel
+from typing import List, Optional, Any
 import uuid
 
 router = APIRouter(prefix="/image-providers", tags=["image-providers"])
+
+
+class SystemProviderSummary(BaseModel):
+    has_provider: bool
+    id: Optional[str] = None
+    name: Optional[str] = None
+    provider_type: Optional[str] = None
+    default_model: Optional[str] = None
+    manual_models: List[Any] = []
 
 
 def _to_response(config: ImageProviderConfig) -> ImageProviderResponse:
@@ -50,7 +61,7 @@ def _to_response(config: ImageProviderConfig) -> ImageProviderResponse:
         extra_params=config.extra_params,
         is_active=bool(config.is_active),
         is_default=bool(config.is_default),
-        is_system=False,
+        is_system=bool(getattr(config, "is_system", False)),
         created_at=config.created_at,
         updated_at=config.updated_at,
     )
@@ -75,10 +86,51 @@ def list_providers(
 ):
     rows = (
         owned_query(db, ImageProviderConfig, current_user)
+        .filter(ImageProviderConfig.is_system == False)  # noqa: E712
         .order_by(ImageProviderConfig.created_at.desc())
         .all()
     )
     return [_to_response(r) for r in rows]
+
+
+@router.get("/system/summary", response_model=SystemProviderSummary)
+def system_provider_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Public (authenticated) summary of the platform image provider — no API key."""
+    row = (
+        db.query(ImageProviderConfig)
+        .filter(
+            ImageProviderConfig.is_system == True,  # noqa: E712
+            ImageProviderConfig.is_active == True,  # noqa: E712
+            ImageProviderConfig.is_default == True,  # noqa: E712
+        )
+        .first()
+    )
+    if row is None:
+        row = (
+            db.query(ImageProviderConfig)
+            .filter(
+                ImageProviderConfig.is_system == True,  # noqa: E712
+                ImageProviderConfig.is_active == True,  # noqa: E712
+            )
+            .order_by(ImageProviderConfig.updated_at.desc())
+            .first()
+        )
+    if row is None:
+        return SystemProviderSummary(has_provider=False)
+    manual = _normalize_manual_models(
+        row.manual_models if isinstance(row.manual_models, list) else []
+    )
+    return SystemProviderSummary(
+        has_provider=True,
+        id=row.id,
+        name=row.name,
+        provider_type=row.provider_type,
+        default_model=row.default_model,
+        manual_models=[m.model_dump() for m in manual],
+    )
 
 
 @router.get("/capabilities", response_model=ImageSizeCapabilitiesResponse)
@@ -135,6 +187,7 @@ def create_provider(
         extra_params=body.extra_params,
         is_active=body.is_active,
         is_default=body.is_default,
+        is_system=False,
     )
     stamp_owner(row, current_user)
     db.add(row)
