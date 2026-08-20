@@ -1,14 +1,16 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class TokenData(BaseModel):
     username: str | None = None
+
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -16,18 +18,22 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     is_admin: bool = False
 
+
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = Field(None, min_length=6)
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
 
+
 class UserLogin(BaseModel):
     username: str
     password: str
 
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
 
 class UserResponse(BaseModel):
     user_id: str
@@ -37,6 +43,8 @@ class UserResponse(BaseModel):
     is_admin: bool
     created_at: datetime
     onboarding_completed_at: Optional[datetime] = None
-    
+    image_credits_remaining: int = 0
+    has_system_image_provider: bool = False
+
     class Config:
         from_attributes = True

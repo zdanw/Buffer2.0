@@ -19,8 +19,39 @@ from bebcare.services.auth_dependency import get_current_admin_user, get_current
 from bebcare.services.auth_scheme import oauth2_scheme
 from bebcare.schemas.auth import Token, UserCreate, UserUpdate, UserResponse, RefreshTokenRequest
 from bebcare.config.settings import settings
+from bebcare.services.credit_grant_service import (
+    ensure_signup_trial,
+    remaining_credits,
+)
+from bebcare.models.image_provider import ImageProviderConfig
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _has_system_image_provider(db: Session) -> bool:
+    return (
+        db.query(ImageProviderConfig.id)
+        .filter(
+            ImageProviderConfig.is_system == True,  # noqa: E712
+            ImageProviderConfig.is_active == True,  # noqa: E712
+        )
+        .first()
+        is not None
+    )
+
+
+def _to_user_response(db: Session, user: User) -> UserResponse:
+    return UserResponse(
+        user_id=user.user_id,
+        username=user.username,
+        email=user.email,
+        is_active=user.is_active,
+        is_admin=user.is_admin,
+        created_at=user.created_at,
+        onboarding_completed_at=user.onboarding_completed_at,
+        image_credits_remaining=remaining_credits(db, user.user_id),
+        has_system_image_provider=_has_system_image_provider(db),
+    )
 
 @router.post("/login/")
 def login_for_access_token(
@@ -72,6 +103,8 @@ def register_user(
     )
 
     db.add(new_user)
+    db.flush()
+    ensure_signup_trial(db, new_user.user_id)
     db.commit()
     db.refresh(new_user)
 
@@ -121,9 +154,10 @@ def refresh_access_token(
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user_info(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-    return current_user
+    return _to_user_response(db, current_user)
 
 
 @router.post("/me/onboarding-complete")
@@ -142,7 +176,7 @@ def list_users(
     current_user: User = Depends(get_current_admin_user)
 ):
     users = db.query(User).order_by(User.created_at.desc()).all()
-    return users
+    return [_to_user_response(db, u) for u in users]
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
@@ -168,10 +202,12 @@ def create_user(
     )
     
     db.add(new_user)
+    db.flush()
+    ensure_signup_trial(db, new_user.user_id)
     db.commit()
     db.refresh(new_user)
     
-    return new_user
+    return _to_user_response(db, new_user)
 
 @router.put("/users/{user_id}", response_model=UserResponse)
 def update_user(
@@ -205,7 +241,7 @@ def update_user(
     db.commit()
     db.refresh(user)
     
-    return user
+    return _to_user_response(db, user)
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(

@@ -71,6 +71,7 @@ from bebcare.api.publish_routes import router as publish_router
 from bebcare.api.prompt_dimension_routes import router as prompt_dimension_router
 from bebcare.api.image_provider_routes import router as image_provider_router
 from bebcare.api.buffer_account_routes import router as buffer_account_router
+from bebcare.api.credit_grant_routes import router as credit_grant_router
 from bebcare.services.auth_dependency import get_current_active_user
 import bebcare.models  # noqa: F401 — register metadata
 
@@ -82,6 +83,7 @@ def _build_test_app() -> FastAPI:
     app = FastAPI(title="Bebcare Test API")
     api = APIRouter(prefix="/v1")
     api.include_router(auth_router)
+    api.include_router(credit_grant_router)
     api.include_router(generate_router, dependencies=[Depends(get_current_active_user)])
     app.include_router(api)
 
@@ -103,6 +105,7 @@ def _build_full_test_app() -> FastAPI:
     app = FastAPI(title="Bebcare Full Test API")
     api = APIRouter(prefix="/v1")
     api.include_router(auth_router)
+    api.include_router(credit_grant_router)
     api.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(product_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(task_router, dependencies=[Depends(get_current_active_user)])
