@@ -8,15 +8,36 @@ import {
   setSystemImageProviderDefault,
   type SystemImageProvider,
 } from '@/api/systemImageProvider';
+import type { ImageProviderType } from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 
+const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean }> = {
+  openai_compatible: {
+    base_url: 'https://api.openai.com/v1',
+    list: true,
+  },
+  doubao_ark: {
+    base_url: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
+    list: false,
+  },
+  aliyun_maas: {
+    base_url:
+      'https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+    list: true,
+  },
+  google_gemini: {
+    base_url: 'https://generativelanguage.googleapis.com/v1beta',
+    list: true,
+  },
+};
+
 const EMPTY = {
   name: '',
-  provider_type: 'openai_compatible',
-  base_url: 'https://api.openai.com/v1',
+  provider_type: 'openai_compatible' as ImageProviderType,
+  base_url: TYPE_PRESETS.openai_compatible.base_url,
   api_key: '',
-  supports_list_models: true,
+  supports_list_models: TYPE_PRESETS.openai_compatible.list,
   default_model: '',
   is_active: true,
   is_default: true,
@@ -232,16 +253,26 @@ export default function SystemImageProviderSettings() {
             <select
               className="w-full border rounded-lg px-3 py-2 text-sm"
               value={form.provider_type}
-              onChange={(e) => setForm({ ...form, provider_type: e.target.value })}
+              onChange={(e) => {
+                const providerType = e.target.value as ImageProviderType;
+                const preset = TYPE_PRESETS[providerType];
+                setForm({
+                  ...form,
+                  provider_type: providerType,
+                  base_url: preset.base_url,
+                  supports_list_models: preset.list,
+                });
+              }}
             >
-              <option value="openai_compatible">openai_compatible</option>
-              <option value="doubao_ark">doubao_ark</option>
-              <option value="aliyun_maas">aliyun_maas</option>
-              <option value="google_gemini">google_gemini</option>
+              {(Object.keys(TYPE_PRESETS) as ImageProviderType[]).map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
             </select>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Base URL"
+              placeholder={t('systemImageProviders.baseUrl')}
               value={form.base_url}
               onChange={(e) => setForm({ ...form, base_url: e.target.value })}
               required

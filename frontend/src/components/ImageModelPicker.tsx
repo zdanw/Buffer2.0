@@ -330,12 +330,10 @@ export default function ImageModelPicker({
     ? 'space-y-2'
     : 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3';
 
-  // Credits exhausted only when remaining is actually 0 (do not conflate with missing system provider).
   const showExhaustedBanner =
-    creditsRemaining <= 0 && providers.length === 0 && !loadingProviders;
-  // System provider missing: explain why "平台额度" is disabled even if remaining > 0.
+    !platformEnabled && providers.length === 0 && !loadingProviders;
   const showSystemUnavailable =
-    !hasSystem && !loadingProviders && systemSummary !== null;
+    mode === 'platform' && !hasSystem && !loadingProviders;
   const showByokEmpty =
     mode === 'byok' && providers.length === 0 && !loadingProviders;
 

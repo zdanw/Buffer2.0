@@ -1,10 +1,11 @@
 import axiosInstance from './axiosInstance';
+import type { ImageProviderType } from './imageProviders';
 
 export interface SystemProviderSummary {
   has_provider: boolean;
   id?: string | null;
   name?: string | null;
-  provider_type?: string | null;
+  provider_type?: ImageProviderType | null;
   default_model?: string | null;
   manual_models?: { id: string; description?: string | null }[];
 }
@@ -17,7 +18,7 @@ export const getSystemImageProviderSummary = async (): Promise<SystemProviderSum
 export interface SystemImageProvider {
   id: string;
   name: string;
-  provider_type: string;
+  provider_type: ImageProviderType;
   base_url: string;
   api_key_masked: string;
   supports_list_models: boolean;
