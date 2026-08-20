@@ -18,6 +18,7 @@ class TaskBase(BaseModel):
     use_scene_reference: bool = False
     use_vision_image_prompt: bool = False
     image_provider_id: Optional[str] = None
+    image_provider_mode: Optional[str] = None  # platform | byok
     image_model: Optional[str] = None
     image_size: Optional[str] = None
 
@@ -39,6 +40,7 @@ class TaskUpdate(BaseModel):
     use_scene_reference: Optional[bool] = None
     use_vision_image_prompt: Optional[bool] = None
     image_provider_id: Optional[str] = None
+    image_provider_mode: Optional[str] = None
     image_model: Optional[str] = None
     image_size: Optional[str] = None
 

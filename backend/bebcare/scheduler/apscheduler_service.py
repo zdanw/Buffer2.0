@@ -15,6 +15,11 @@ from bebcare.services.buffer_account_service import (
 )
 from bebcare.services.ownership import stamp_owner
 from bebcare.config.settings import settings
+from bebcare.services.generate_task_store import (
+    create_generate_task,
+    update_generate_task,
+)
+from bebcare.services.credit_grant_service import CreditError, reserve_one
 from sqlalchemy.orm import Session
 from bebcare.database import engine
 import logging
@@ -22,6 +27,45 @@ import threading
 import uuid
 
 logger = logging.getLogger(__name__)
+
+
+def _run_platform_image_generation(owner_user_id: str, mode: str | None, generate_fn):
+    """Reserve one platform credit around a single image generation when mode=platform."""
+    if mode != "platform":
+        return generate_fn()
+
+    gen_task_id = str(uuid.uuid4())
+    create_generate_task(gen_task_id, status="PENDING", owner_user_id=owner_user_id)
+    session = Session(bind=engine)
+    try:
+        reserve_one(session, user_id=owner_user_id, generate_task_id=gen_task_id)
+        session.commit()
+    except CreditError as exc:
+        session.rollback()
+        update_generate_task(
+            gen_task_id,
+            status="FAILURE",
+            set_result=True,
+            result={"error": str(exc)},
+        )
+        raise Exception(
+            "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
+        ) from exc
+    finally:
+        session.close()
+
+    try:
+        result = generate_fn()
+        update_generate_task(gen_task_id, status="SUCCESS")
+        return result
+    except Exception:
+        update_generate_task(
+            gen_task_id,
+            status="FAILURE",
+            set_result=True,
+            result={"error": "scheduler image generation failed"},
+        )
+        raise
 
 
 def products_for_task(session, task) -> list:
@@ -274,7 +318,11 @@ class APSchedulerService:
         owner_user_id = (
             task_cfg.owner_user_id if task_cfg else product.owner_user_id
         )
+        provider_mode = (
+            getattr(task_cfg, "image_provider_mode", None) if task_cfg else None
+        ) or "byok"
         product_info["owner_user_id"] = owner_user_id
+        product_info["image_provider_mode"] = provider_mode
         return {
             "product_id_str": product_id_str,
             "product_info": product_info,
@@ -282,6 +330,7 @@ class APSchedulerService:
             "reference_product_images": selected["reference_product_images"],
             "reference_scene_images": selected["reference_scene_images"],
             "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
+            "image_provider_mode": provider_mode,
             "image_model": task_cfg.image_model if task_cfg else None,
             "image_size": getattr(task_cfg, "image_size", None) if task_cfg else None,
             "owner_user_id": owner_user_id,
@@ -437,13 +486,17 @@ class APSchedulerService:
                     product_info["avoid_image_prompts"] = [
                         p for p in image_prompts_list if p
                     ]
-                    image_result = content_generator.generate_image(
-                        product_info,
-                        platform,
-                        ctx["reference_image_urls"],
-                        image_provider_id=ctx["image_provider_id"],
-                        image_model=ctx["image_model"],
-                        image_size=ctx.get("image_size"),
+                    image_result = _run_platform_image_generation(
+                        ctx["owner_user_id"],
+                        ctx.get("image_provider_mode"),
+                        lambda: content_generator.generate_image(
+                            product_info,
+                            platform,
+                            ctx["reference_image_urls"],
+                            image_provider_id=ctx["image_provider_id"],
+                            image_model=ctx["image_model"],
+                            image_size=ctx.get("image_size"),
+                        ),
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -554,13 +607,17 @@ class APSchedulerService:
         copywriting = content_generator.generate_copywriting(product_info, platform)
         logger.info(f"Generated copywriting: {copywriting[:100]}...")
 
-        image_result = content_generator.generate_image(
-            product_info,
-            platform,
-            reference_image_urls,
-            image_provider_id=ctx["image_provider_id"],
-            image_model=ctx["image_model"],
-            image_size=ctx.get("image_size"),
+        image_result = _run_platform_image_generation(
+            ctx["owner_user_id"],
+            ctx.get("image_provider_mode"),
+            lambda: content_generator.generate_image(
+                product_info,
+                platform,
+                reference_image_urls,
+                image_provider_id=ctx["image_provider_id"],
+                image_model=ctx["image_model"],
+                image_size=ctx.get("image_size"),
+            ),
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None

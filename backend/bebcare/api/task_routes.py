@@ -38,9 +38,18 @@ def validate_cron(cron: str):
         raise HTTPException(status_code=400, detail=f"CRON表达式格式错误，需要5个字段，当前有{len(fields)}个")
 
 
-def _assert_task_refs(db: Session, target_products, image_provider_id, current_user: User) -> None:
+def _assert_task_refs(
+    db: Session,
+    target_products,
+    image_provider_id,
+    current_user: User,
+    *,
+    image_provider_mode: str | None = None,
+) -> None:
     for product_id in target_products or []:
         assert_owned_ref(db, Product, product_id, current_user, id_attr="product_id")
+    if image_provider_mode == "platform":
+        return
     assert_owned_ref(
         db, ImageProviderConfig, image_provider_id, current_user, id_attr="id"
     )
@@ -55,7 +64,13 @@ def create_task(
     current_user: User = Depends(get_current_active_user),
 ):
     validate_cron(task.cron)
-    _assert_task_refs(db, task.target_products, task.image_provider_id, current_user)
+    _assert_task_refs(
+        db,
+        task.target_products,
+        task.image_provider_id,
+        current_user,
+        image_provider_mode=task.image_provider_mode,
+    )
     new_task = ScheduledTask(
         name=task.name,
         cron=task.cron,
@@ -71,6 +86,7 @@ def create_task(
         use_scene_reference=task.use_scene_reference,
         use_vision_image_prompt=task.use_vision_image_prompt,
         image_provider_id=task.image_provider_id,
+        image_provider_mode=task.image_provider_mode,
         image_model=task.image_model,
         image_size=task.image_size,
     )
@@ -436,6 +452,7 @@ def get_task(
         "use_scene_reference": task.use_scene_reference,
         "use_vision_image_prompt": bool(task.use_vision_image_prompt),
         "image_provider_id": task.image_provider_id,
+        "image_provider_mode": task.image_provider_mode,
         "image_model": task.image_model,
         "image_size": task.image_size,
         "created_at": task.created_at,
@@ -460,13 +477,19 @@ def update_task(
     if task_update.target_products:
         _assert_task_refs(db, task_update.target_products, None, current_user)
     if "image_provider_id" in task_update.model_fields_set:
-        assert_owned_ref(
-            db,
-            ImageProviderConfig,
-            task_update.image_provider_id,
-            current_user,
-            id_attr="id",
+        mode = (
+            task_update.image_provider_mode
+            if "image_provider_mode" in task_update.model_fields_set
+            else task.image_provider_mode
         )
+        if mode != "platform":
+            assert_owned_ref(
+                db,
+                ImageProviderConfig,
+                task_update.image_provider_id,
+                current_user,
+                id_attr="id",
+            )
     
     if task_update.name:
         task.name = task_update.name
@@ -496,6 +519,8 @@ def update_task(
         task.use_vision_image_prompt = task_update.use_vision_image_prompt
     if "image_provider_id" in task_update.model_fields_set:
         task.image_provider_id = task_update.image_provider_id
+    if "image_provider_mode" in task_update.model_fields_set:
+        task.image_provider_mode = task_update.image_provider_mode
     if "image_model" in task_update.model_fields_set:
         task.image_model = task_update.image_model
     if "image_size" in task_update.model_fields_set:

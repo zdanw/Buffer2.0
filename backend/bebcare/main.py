@@ -106,6 +106,20 @@ async def startup_event():
     logger.info("Starting Bebcare AI Studio API (env=%s, log_level=%s)", settings.app_env, settings.log_level)
     logger.info("CORS allow_origins=%s", cors_origins)
     initialize_data()
+    try:
+        from bebcare.database import SessionLocal
+        from bebcare.services.credit_grant_service import reclaim_stale_reservations
+
+        db = SessionLocal()
+        try:
+            n = reclaim_stale_reservations(db)
+            db.commit()
+            if n:
+                logger.info("Reclaimed %s stale image credit reservation(s)", n)
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("Failed to reclaim stale image credit reservations")
     scheduler_service.start()
     scheduler_service.reload_enabled_tasks()
 
