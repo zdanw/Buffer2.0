@@ -27,6 +27,7 @@ export const en: TranslationTree = {
     calendar: 'Calendar',
     imageModels: 'Image Models',
     bufferAccounts: 'Buffer accounts',
+    systemImage: 'Platform Image',
     users: 'Users',
     logout: 'Log out',
     adminAccount: 'Admin account',

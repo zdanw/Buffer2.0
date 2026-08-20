@@ -26,6 +26,7 @@ export const zh: TranslationTree = {
     calendar: '发布日历',
     imageModels: '图像模型',
     bufferAccounts: 'Buffer 账户',
+    systemImage: '平台图像',
     users: '用户管理',
     logout: '退出登录',
     adminAccount: '管理员账户',

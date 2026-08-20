@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { listUsers, createUser, updateUser, deleteUser } from '../api/auth';
 import type { UserResponse, CreateUserData, UpdateUserData } from '../api/auth';
-import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { grantUserCredits } from '../api/credits';
+import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff, Coins } from 'lucide-react';
 import {
   LIMITS,
   alertValidationErrors,
@@ -46,6 +47,10 @@ function UserManagement() {
     is_active: true,
     is_admin: false,
   });
+  const [grantUser, setGrantUser] = useState<UserResponse | null>(null);
+  const [grantQty, setGrantQty] = useState('20');
+  const [grantNote, setGrantNote] = useState('');
+  const [granting, setGranting] = useState(false);
 
   const fetchUsers = async (opts?: { silent?: boolean }) => {
     try {
@@ -240,6 +245,9 @@ function UserManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {t('users.createdAt')}
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {t('users.grantCredits')}
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {t('fields.actions')}
               </th>
@@ -296,6 +304,11 @@ function UserManagement() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatServerDateTime(user.created_at, locale, t('datetime.unknown'))}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {t('users.creditsRemaining', {
+                        n: user.image_credits_remaining ?? 0,
+                      })}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -357,8 +370,24 @@ function UserManagement() {
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatServerDateTime(user.created_at, locale, t('datetime.unknown'))}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {t('users.creditsRemaining', {
+                        n: user.image_credits_remaining ?? 0,
+                      })}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setGrantUser(user);
+                            setGrantQty('20');
+                            setGrantNote('');
+                          }}
+                          className="p-1 text-amber-600 hover:bg-amber-50 rounded"
+                          title={t('users.grantCredits')}
+                        >
+                          <Coins className="w-5 h-5" />
+                        </button>
                         <button
                           onClick={() => handleEditUser(user)}
                           className="p-1 text-forge-600 hover:bg-forge-50 rounded"
@@ -497,6 +526,76 @@ function UserManagement() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {grantUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <form
+            className="bg-white rounded-xl p-6 w-full max-w-md mx-4 space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const qty = Number(grantQty);
+              if (!Number.isFinite(qty) || qty < 1) return;
+              setGranting(true);
+              setError('');
+              try {
+                await grantUserCredits(grantUser.user_id, qty, grantNote || undefined);
+                setSuccess(t('users.grantSuccess'));
+                setGrantUser(null);
+                await fetchUsers({ silent: true });
+              } catch (err: any) {
+                setError(err.response?.data?.detail || t('users.grantFailed'));
+              } finally {
+                setGranting(false);
+              }
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">
+                {t('users.grantCredits')} — {grantUser.username}
+              </h2>
+              <button type="button" onClick={() => setGrantUser(null)}>
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+            <label className="block text-sm text-gray-700">
+              {t('users.grantQuantity')}
+              <input
+                type="number"
+                min={1}
+                value={grantQty}
+                onChange={(e) => setGrantQty(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                required
+              />
+            </label>
+            <label className="block text-sm text-gray-700">
+              {t('users.grantNote')}
+              <input
+                type="text"
+                value={grantNote}
+                onChange={(e) => setGrantNote(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setGrantUser(null)}
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={granting}
+                className="flex-1 px-4 py-2 bg-forge-600 text-white rounded-lg disabled:opacity-50"
+              >
+                {t('common.save')}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

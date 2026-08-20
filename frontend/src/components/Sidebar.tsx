@@ -45,6 +45,7 @@ const settingsItems: NavItem[] = [
 ];
 
 const adminItems: NavItem[] = [
+  { id: 'system-image', labelKey: 'nav.systemImage', icon: Cpu },
   { id: 'users', labelKey: 'nav.users', icon: Users },
 ];
 
