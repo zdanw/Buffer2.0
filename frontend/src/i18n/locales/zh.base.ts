@@ -66,7 +66,7 @@ export const zh: TranslationTree = {
   api: {
     bannerTitle: '无法连接 PulseForge API',
     bannerBody: '品牌与产品数据仍在服务端，并未删除。当前无法加载是因为后端未启动，或开发代理指向了错误端口。请启动 API 后刷新。',
-    bannerCommand: '.\\scripts\\backend.ps1 start   # 若 8080 被占用：在 frontend/.env.local 设置 VITE_API_PROXY_TARGET',
+    bannerCommand: '.\\scripts\\backend.ps1 start',
     retry: '重试连接',
     emptyBrandsTitle: '还没有品牌套件',
     emptyBrandsBody: '新账户从空开始，不会看到管理员的种子品牌。请创建自己的品牌套件，定义语气、受众与内容规则。',

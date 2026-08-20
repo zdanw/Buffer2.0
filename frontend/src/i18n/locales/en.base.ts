@@ -67,7 +67,7 @@ export const en: TranslationTree = {
   api: {
     bannerTitle: 'Cannot reach PulseForge API',
     bannerBody: 'Your brands and products are stored on the server — they are not deleted. The app cannot load them because the backend is not running or the dev proxy points at the wrong port. Start the API, then refresh.',
-    bannerCommand: '.\\scripts\\backend.ps1 start   # if 8080 is busy: set VITE_API_PROXY_TARGET in frontend/.env.local',
+    bannerCommand: '.\\scripts\\backend.ps1 start',
     retry: 'Retry connection',
     emptyBrandsTitle: 'No brand kits yet',
     emptyBrandsBody: 'New accounts start empty — you will not see admin seed brands. Create your own brand kit to define voice, audience, and content rules.',

@@ -11,6 +11,7 @@ import { useI18n } from '@/i18n/useI18n';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/AspectRatioSelect';
 import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
+import ModelIdSelect from '@/components/ModelIdSelect';
 
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
@@ -48,6 +49,7 @@ export default function ImageModelPicker({
   const [allowCustom, setAllowCustom] = useState(true);
   const [customDraft, setCustomDraft] = useState('');
   const [forceCustom, setForceCustom] = useState(false);
+  const [forceCustomModel, setForceCustomModel] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
@@ -83,6 +85,7 @@ export default function ImageModelPicker({
         if (cancelled) return;
         setModels(res.models);
         setHint(res.message || null);
+        setForceCustomModel(false);
         const provider = providers.find((p) => p.id === providerId);
         if (!value.image_model && provider?.default_model) {
           onChange({ ...value, image_model: provider.default_model });
@@ -138,6 +141,11 @@ export default function ImageModelPicker({
   }, [value.image_provider_id, value.image_model]);
 
   const selected = models.find((m) => m.id === value.image_model);
+  const modelIdSet = new Set(models.map((m) => m.id));
+  const isCustomModel =
+    models.length === 0 ||
+    forceCustomModel ||
+    (value.image_model ? !modelIdSet.has(value.image_model) : false);
   const currentSize = value.image_size || defaultSize;
   const presetSet = new Set(sizes.map((s) => s.size));
   const isCustom =
@@ -175,6 +183,7 @@ export default function ImageModelPicker({
               image_model: provider?.default_model || null,
               image_size: value.image_size || defaultSize,
             });
+            setForceCustomModel(false);
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
         >
@@ -197,37 +206,38 @@ export default function ImageModelPicker({
           tooltip={t('imageModelPicker.tooltips.modelId')}
         />
         {models.length > 0 ? (
-          <select
+          <ModelIdSelect
+            models={models}
+            value={value.image_model ?? null}
+            isCustom={isCustomModel}
+            disabled={disabled || !value.image_provider_id}
+            onSelectPreset={(modelId) => {
+              setForceCustomModel(false);
+              onChange({ ...value, image_model: modelId });
+            }}
+            onSelectCustom={() => setForceCustomModel(true)}
+          />
+        ) : null}
+        {isCustomModel && (
+          <input
+            type="text"
             value={value.image_model || ''}
             disabled={disabled || !value.image_provider_id}
-            onChange={(e) =>
-              onChange({ ...value, image_model: e.target.value || null })
+            onChange={(e) => {
+              setForceCustomModel(true);
+              onChange({ ...value, image_model: e.target.value || null });
+            }}
+            placeholder={
+              value.image_provider_id
+                ? t('placeholders.imageModelPicker.manualModel')
+                : t('placeholders.imageModelPicker.selectProviderFirst')
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-          >
-            <option value="">{t('imageModelPicker.selectOrManual')}</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id} title={m.description || undefined}>
-                {m.id}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <input
-          type="text"
-          value={value.image_model || ''}
-          disabled={disabled || !value.image_provider_id}
-          onChange={(e) =>
-            onChange({ ...value, image_model: e.target.value || null })
-          }
-          placeholder={
-            value.image_provider_id
-              ? t('placeholders.imageModelPicker.manualModel')
-              : t('placeholders.imageModelPicker.selectProviderFirst')
-          }
-          className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-        />
-        {selected?.description && (
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100 ${
+              models.length > 0 ? 'mt-2' : ''
+            }`}
+          />
+        )}
+        {selected?.description && !isCustomModel && (
           <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{selected.description}</p>
         )}
         {hint && <p className="text-xs text-amber-600 mt-1">{hint}</p>}

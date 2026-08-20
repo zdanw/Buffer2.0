@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Control local backend (uvicorn on :8080)
+# Control local backend (uvicorn; port from backend/.env APP_PORT, default 8888)
 #
 # Usage:
 #   ./scripts/backend.sh start|stop|status|restart
@@ -20,7 +20,13 @@ esac
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/dev-common.sh"
 
-PORT=8080
+DEFAULT_PORT=8888
+configured_port="$(dev_env_file_value "$DEV_BACKEND_DIR/.env" "APP_PORT")"
+if [[ "$configured_port" =~ ^[0-9]+$ ]]; then
+  PORT="$configured_port"
+else
+  PORT="$DEFAULT_PORT"
+fi
 LOG_FILE="$DEV_STATE_DIR/backend.log"
 PID_FILE="$DEV_STATE_DIR/backend.pid"
 

@@ -109,7 +109,7 @@ function LegacyRedirect() {
   if (target) {
     return <Navigate to={{ pathname: target, search: location.search }} replace />;
   }
-  return <Navigate to="/products" replace />;
+  return <Navigate to="/studio" replace />;
 }
 
 function AppContent() {
@@ -118,7 +118,7 @@ function AppContent() {
   const { t } = useI18n();
   const { brands, loadError, refreshBrands, loading: brandsLoading } = useBrandContext();
   const { shouldShowOnboarding, skipOnboarding, markComplete } = useOnboarding();
-  const initialTab = ROUTE_TABS[location.pathname] || 'products';
+  const initialTab = ROUTE_TABS[location.pathname] || 'studio';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [mountedTabs, setMountedTabs] = useState(() => new Set<string>([initialTab]));
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
@@ -140,7 +140,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const tab = ROUTE_TABS[location.pathname] || 'products';
+    const tab = ROUTE_TABS[location.pathname] || 'studio';
     setActiveTab(tab);
     setMountedTabs((prev) => {
       if (prev.has(tab)) return prev;
@@ -250,7 +250,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const token = getToken();
   if (token) {
-    return <Navigate to="/products" replace />;
+    return <Navigate to="/studio" replace />;
   }
   return <>{children}</>;
 }

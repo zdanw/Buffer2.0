@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # 应用配置
     app_host: str = "0.0.0.0"
-    app_port: int = 8080
+    app_port: int = 8888
 
     # 日志配置
     log_level: str = "INFO"
