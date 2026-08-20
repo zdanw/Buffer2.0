@@ -224,7 +224,7 @@ export default function SystemImageProviderSettings() {
             </div>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder={t('users.username')}
+              placeholder={t('systemImageProviders.name')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
