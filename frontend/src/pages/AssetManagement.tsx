@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
-import { GENERIC_BRAND_ID, getBrand } from '@/api/brands';
+import { findOwnedBrand, ownedBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -53,7 +53,7 @@ export default function AssetManagement() {
     description: '',
     selling_points: [],
     brand_voice: '',
-    brand_id: GENERIC_BRAND_ID,
+    brand_id: '',
     use_brand_voice: false,
   });
   const [inheritedVoice, setInheritedVoice] = useState<string>('');
@@ -64,13 +64,13 @@ export default function AssetManagement() {
   }, [activeBrandId]);
 
   useEffect(() => {
-    const brandId = formData.brand_id || GENERIC_BRAND_ID;
-    if (!formData.use_brand_voice) {
-      void getBrand(brandId)
-        .then((kit) => setInheritedVoice(kit.voice || ''))
-        .catch(() => setInheritedVoice(''));
+    if (formData.use_brand_voice) {
+      setInheritedVoice('');
+      return;
     }
-  }, [formData.brand_id, formData.use_brand_voice]);
+    const brand = findOwnedBrand(brands, formData.brand_id);
+    setInheritedVoice(brand?.voice || '');
+  }, [formData.brand_id, formData.use_brand_voice, brands]);
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -81,11 +81,9 @@ export default function AssetManagement() {
       setDetailInheritedVoice('');
       return;
     }
-    const brandId = selectedProduct.brand_id || GENERIC_BRAND_ID;
-    void getBrand(brandId)
-      .then((kit) => setDetailInheritedVoice(kit.voice || ''))
-      .catch(() => setDetailInheritedVoice(''));
-  }, [selectedProduct?.product_id, selectedProduct?.use_brand_voice, selectedProduct?.brand_id]);
+    const brand = findOwnedBrand(brands, selectedProduct.brand_id);
+    setDetailInheritedVoice(brand?.voice || '');
+  }, [selectedProduct?.product_id, selectedProduct?.use_brand_voice, selectedProduct?.brand_id, brands]);
 
   const loadDimensionTypes = async () => {
     try {
@@ -174,7 +172,7 @@ export default function AssetManagement() {
         description: '',
         selling_points: [],
         brand_voice: '',
-        brand_id: activeBrandId || GENERIC_BRAND_ID,
+        brand_id: ownedBrandId(brands, activeBrandId),
         use_brand_voice: false,
       });
     } catch (error) {
@@ -293,7 +291,7 @@ export default function AssetManagement() {
         description: product.description,
         selling_points: product.selling_points || [],
         brand_voice: product.brand_voice,
-        brand_id: product.brand_id || GENERIC_BRAND_ID,
+        brand_id: ownedBrandId(brands, product.brand_id || activeBrandId),
         use_brand_voice: product.use_brand_voice ?? false,
       });
     } else {
@@ -305,7 +303,7 @@ export default function AssetManagement() {
         description: '',
         selling_points: [],
         brand_voice: '',
-        brand_id: activeBrandId || GENERIC_BRAND_ID,
+        brand_id: ownedBrandId(brands, activeBrandId),
         use_brand_voice: false,
       });
     }
@@ -708,7 +706,7 @@ export default function AssetManagement() {
                 <div>
                   <LabelWithTooltip label={t('assets.brand')} tooltip={t('assets.tooltips.brand')} />
                   <BrandPicker
-                    value={formData.brand_id || GENERIC_BRAND_ID}
+                    value={formData.brand_id || ownedBrandId(brands, activeBrandId)}
                     onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
                     brands={brands}
                     loading={brandsLoading}

@@ -60,6 +60,7 @@ class DoubaoArkImageProvider:
             "model": model_id,
             "prompt": prompt,
             "negative_prompt": negative_prompt or "",
+            "size": size,
             "sequential_image_generation": "disabled",
             "response_format": "url",
             "watermark": False,
@@ -67,14 +68,6 @@ class DoubaoArkImageProvider:
         if reference_images:
             data["image"] = reference_images
         data.update(self.extra_params)
-        # Request size must win over provider extra_params (e.g. size=2K → 1:1).
-        data["size"] = size
-        logger.info(
-            "Doubao generate model=%s size=%s refs=%s",
-            model_id,
-            size,
-            len(reference_images or []),
-        )
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=600)
         try:
@@ -97,6 +90,15 @@ class DoubaoArkImageProvider:
         if not image_urls:
             raise Exception("No images generated")
         return image_urls
+
+    def verify_credentials(self) -> None:
+        """Lightweight auth probe via GET /models. Raises on auth / HTTP failure."""
+        response = requests.get(self._models_url(), headers=self._headers(), timeout=30)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            detail = response.text[:500] if response.text else str(e)
+            raise Exception(f"Doubao connection test failed: {detail}") from e
 
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:

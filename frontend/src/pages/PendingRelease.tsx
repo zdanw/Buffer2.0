@@ -187,9 +187,10 @@ export default function PendingRelease() {
       if (remaining <= 0 && currentPage > 1) {
         void loadDrafts(currentPage - 1);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to publish:', error);
-      alert(t('pending.publishFailed'));
+      const detail = error?.response?.data?.detail;
+      alert(typeof detail === 'string' && detail.trim() ? detail : t('pending.publishFailed'));
     } finally {
       setLoading(false);
     }

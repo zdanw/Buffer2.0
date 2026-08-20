@@ -211,6 +211,18 @@ class AliyunMaasMultimodalProvider:
             raise Exception(f"No images in Aliyun response: {str(result)[:500]}")
         return image_urls
 
+    def verify_credentials(self) -> None:
+        """Lightweight auth probe via GET compatible-mode /models. Raises on failure."""
+        url = self._models_url()
+        if not url:
+            raise Exception("Aliyun connection test failed: cannot derive models URL from base_url")
+        response = requests.get(url, headers=self._headers(), timeout=30)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            detail = response.text[:500] if response.text else str(e)
+            raise Exception(f"Aliyun connection test failed: {detail}") from e
+
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:
             return []

@@ -112,3 +112,22 @@ export const initializeBrandPack = async (brandId: string): Promise<{ status: st
 };
 
 export const GENERIC_BRAND_ID = '00000000-0000-0000-0000-000000000001';
+
+/** 仅返回当前用户品牌列表里有的 id，避免请求他人/系统品牌导致 404。 */
+export function ownedBrandId(
+  brands: { brand_id: string }[],
+  preferred?: string | null,
+): string {
+  if (preferred && brands.some((b) => b.brand_id === preferred)) {
+    return preferred;
+  }
+  return brands[0]?.brand_id ?? '';
+}
+
+export function findOwnedBrand<T extends { brand_id: string }>(
+  brands: T[],
+  brandId?: string | null,
+): T | undefined {
+  if (!brandId) return undefined;
+  return brands.find((b) => b.brand_id === brandId);
+}

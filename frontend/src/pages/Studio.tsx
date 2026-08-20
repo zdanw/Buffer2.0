@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus, Download } from 'lucide-react';
 import type { BrandSummary } from '@/api/brands';
-import { getBrand } from '@/api/brands';
 import type { Product } from '@/api/products';
 import { getProducts } from '@/api/products';
 import {
@@ -105,8 +104,10 @@ export default function Studio() {
   const [useVisionImagePrompt, setUseVisionImagePrompt] = useState(
     savedState.useVisionImagePrompt ?? false
   );
-  const [imageProviderId, setImageProviderId] = useState<string | null>(savedState.imageProviderId ?? null);
-  const [imageModel, setImageModel] = useState<string | null>(savedState.imageModel ?? null);
+  // Provider/model always start from the user's global default (ImageModelPicker);
+  // do not restore last session override from localStorage.
+  const [imageProviderId, setImageProviderId] = useState<string | null>(null);
+  const [imageModel, setImageModel] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
@@ -128,7 +129,6 @@ export default function Studio() {
   const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [previewBrandLogo, setPreviewBrandLogo] = useState<string | null>(null);
 
   const previewBrand = useMemo((): BrandSummary | null => {
     const product = products.find((p) => p.product_id === selectedProduct);
@@ -138,6 +138,7 @@ export default function Studio() {
     if (brandId) {
       const brand = brands.find((b) => b.brand_id === brandId);
       if (brand) return brand;
+      // 产品上嵌套了他人品牌摘要时只用于展示，不另发 getBrand
       if (product.brand) {
         return {
           brand_id: product.brand.brand_id,
@@ -158,30 +159,7 @@ export default function Studio() {
       : previewBrand.name
     : t('brand.name');
 
-  useEffect(() => {
-    const brandId = previewBrand?.brand_id;
-    if (!brandId) {
-      setPreviewBrandLogo(null);
-      return;
-    }
-    if (previewBrand?.logo_url) {
-      setPreviewBrandLogo(previewBrand.logo_url);
-      return;
-    }
-
-    let cancelled = false;
-    void getBrand(brandId)
-      .then((kit) => {
-        if (!cancelled) setPreviewBrandLogo(kit.logo_url ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setPreviewBrandLogo(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previewBrand?.brand_id, previewBrand?.logo_url]);
+  const previewBrandLogo = previewBrand?.logo_url ?? null;
 
   const generateActionsDisabled =
     isGenerating || !selectedProduct || selectedPlatforms.length === 0;
@@ -365,6 +343,16 @@ export default function Studio() {
       alert(t('preview.selectPlatform'));
       return;
     }
+    const boundBrand =
+      brands.find((b) => b.brand_id === previewBrand?.brand_id) || previewBrand;
+    if (boundBrand && 'buffer_account_id' in boundBrand && !boundBrand.buffer_account_id) {
+      alert(
+        t('preview.bindBufferAccount', {
+          name: boundBrand.is_generic ? t('brands.generic') : boundBrand.name,
+        })
+      );
+      return;
+    }
     
     setIsPublishing(true);
     setPublishStatus(null);
@@ -373,13 +361,15 @@ export default function Studio() {
       await publishContent(
         generatedContent.text,
         generatedContent.image,
-        selectedPlatforms
+        selectedPlatforms,
+        { product_id: selectedProduct || undefined, brand_id: boundBrand?.brand_id }
       );
       setPublishStatus('success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to publish content:', error);
       setPublishStatus('failed');
-      alert(t('preview.publishFailed'));
+      const detail = error?.response?.data?.detail;
+      alert(typeof detail === 'string' && detail.trim() ? detail : t('preview.publishFailed'));
     } finally {
       setIsPublishing(false);
     }
@@ -548,6 +538,7 @@ export default function Studio() {
           </div>
 
           <ImageModelPicker
+            preferGlobalDefault
             value={{
               image_provider_id: imageProviderId,
               image_model: imageModel,

@@ -203,6 +203,8 @@ export const en: TranslationTree = {
     testConnection: 'Test connection',
     emptyState: 'No image providers yet. Add your own API key to generate images.',
     systemDefault: 'System default',
+    currentDefault: 'Current global default',
+    setDefaultSuccess: 'Set as global default',
     confirmDelete: 'Delete this provider?',
     keyLabel: 'Key',
     defaultModel: 'Default',
@@ -297,9 +299,6 @@ export const en: TranslationTree = {
         tooltip:
           'Paste the Buffer access token. Stored encrypted on the server. Required when creating; leave empty when editing to keep the existing token.',
         keepPlaceholder: 'Leave blank to keep current token',
-      },
-      isDefault: {
-        label: 'Set as global default (for unbound brands)',
       },
       isActive: {
         label: 'Enabled',

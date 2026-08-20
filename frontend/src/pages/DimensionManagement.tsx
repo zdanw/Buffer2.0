@@ -76,7 +76,7 @@ async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
     let page = 1;
     let pages = 1;
     do {
-      const res = await getPromptDimensions(productType, undefined, page, 100);
+      const res = await getPromptDimensions(productType, undefined, page, 100, false);
       for (const dim of res.data) {
         if (dim.enabled === false) continue;
         const bucket = result[dim.dimension_type] || (result[dim.dimension_type] = []);

@@ -257,6 +257,11 @@ export default function BrandManagement() {
                     <div className="mt-1 flex flex-wrap gap-1">
                       {brand.is_generic && <BrandBadge variant="generic" />}
                       {brand.is_generic && <BrandBadge variant="system" />}
+                      {!brand.buffer_account_id && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-amber-50 text-amber-700">
+                          {t('brands.bufferAccountNone')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

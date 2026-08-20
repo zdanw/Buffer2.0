@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from pydantic import BaseModel
 from bebcare.database import get_db
@@ -191,6 +191,7 @@ def list_prompt_dimensions(
     dimension_type: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
+    include_compat: bool = True,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -203,11 +204,22 @@ def list_prompt_dimensions(
 
     total = query.count()
     offset = (page - 1) * page_size
-    dimensions = query.order_by(PromptDimension.product_type, PromptDimension.dimension_type, PromptDimension.item_id).offset(offset).limit(page_size).all()
+    fetch = query
+    if include_compat:
+        fetch = fetch.options(
+            selectinload(PromptDimension.compatibilities),
+            selectinload(PromptDimension.compat_policies),
+        )
+    dimensions = fetch.order_by(
+        PromptDimension.product_type,
+        PromptDimension.dimension_type,
+        PromptDimension.item_id,
+    ).offset(offset).limit(page_size).all()
 
+    empty_compat = None if include_compat else _empty_compat_dict()
     results = []
     for dim in dimensions:
-        results.append(_to_dimension_response(dim))
+        results.append(_to_dimension_response(dim, compatibilities=empty_compat))
 
     return {
         "data": results,

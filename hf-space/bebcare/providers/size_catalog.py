@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 DEFAULT_SIZE = "2048x2048"
-_SIZE_RE = re.compile(r"^(\d{2,5})\s*[xX×*]\s*(\d{2,5})$")
+_SIZE_RE = re.compile(r"^(\d{2,5})[xX*](\d{2,5})$")
 _MIN_DIM = 64
 _MAX_DIM = 8192
 

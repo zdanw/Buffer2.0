@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sparkles, Package, ArrowRight } from 'lucide-react';
-import { createBrand, GENERIC_BRAND_ID } from '@/api/brands';
+import { createBrand } from '@/api/brands';
 import { createProduct, uploadProductImages } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
@@ -28,19 +28,21 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
   const finish = async () => {
     setBusy(true);
     try {
-      let brandId = GENERIC_BRAND_ID;
+      let brandId: string | undefined;
       if (!useGeneric && brandName.trim()) {
         const brand = await createBrand({ name: brandName.trim(), voice: brandVoice.trim() || undefined });
         brandId = brand.brand_id;
+        setActiveBrandId(brandId);
+        await refreshBrands();
+      } else {
+        setActiveBrandId(null);
       }
-      setActiveBrandId(brandId);
-      await refreshBrands();
 
       if (productName.trim()) {
         const product = await createProduct({
           product_name: productName.trim(),
           category: 'General',
-          brand_id: brandId,
+          ...(brandId ? { brand_id: brandId } : {}),
         });
         if (imageFile) {
           await uploadProductImages(product.product_id, [imageFile], 'product');

@@ -253,12 +253,21 @@ def test_provider(
 
     try:
         provider = build_provider_from_config(row)
+        verify = getattr(provider, "verify_credentials", None)
+        if callable(verify):
+            verify()
+
         if row.supports_list_models:
             models = provider.list_models()
-            return ImageProviderTestResponse(
-                ok=True,
-                message=f"连接成功，拉取到 {len(models)} 个模型" if models else "连接成功（模型列表为空，可手填 Model ID）",
-            )
+            if models:
+                msg = f"连接成功，拉取到 {len(models)} 个模型"
+            elif callable(verify):
+                msg = "连接成功（鉴权通过，模型列表为空，可手填 Model ID）"
+            else:
+                msg = "连接成功（模型列表为空，可手填 Model ID）"
+            return ImageProviderTestResponse(ok=True, message=msg)
+        if callable(verify):
+            return ImageProviderTestResponse(ok=True, message="连接成功（鉴权通过）")
         if not row.default_model:
             return ImageProviderTestResponse(ok=True, message="配置有效（未启用列表拉取，请确认 default_model）")
         return ImageProviderTestResponse(ok=True, message="配置有效")

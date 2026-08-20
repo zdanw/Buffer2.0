@@ -145,6 +145,7 @@ class AliyunMaasMultimodalProvider:
 
         # prompt_extend=false：保留系统拼装/DeepSeek 生成的提示词，避免被阿里云改写冲掉
         parameters = {
+            "size": _to_aliyun_size(size),
             "n": 1,
             "watermark": False,
             "prompt_extend": False,
@@ -152,8 +153,6 @@ class AliyunMaasMultimodalProvider:
         if negative_prompt:
             parameters["negative_prompt"] = negative_prompt[:500]
         parameters.update(self.extra_params)
-        # Request size must win over provider extra_params.
-        parameters["size"] = _to_aliyun_size(size)
 
         payload = {
             "model": model_id,
@@ -211,6 +210,18 @@ class AliyunMaasMultimodalProvider:
         if not image_urls:
             raise Exception(f"No images in Aliyun response: {str(result)[:500]}")
         return image_urls
+
+    def verify_credentials(self) -> None:
+        """Lightweight auth probe via GET compatible-mode /models. Raises on failure."""
+        url = self._models_url()
+        if not url:
+            raise Exception("Aliyun connection test failed: cannot derive models URL from base_url")
+        response = requests.get(url, headers=self._headers(), timeout=30)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            detail = response.text[:500] if response.text else str(e)
+            raise Exception(f"Aliyun connection test failed: {detail}") from e
 
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:

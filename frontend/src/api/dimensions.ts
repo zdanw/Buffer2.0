@@ -125,20 +125,22 @@ export const getPromptDimensions = async (
   productType?: string,
   dimensionType?: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  includeCompat: boolean = true,
 ): Promise<PaginatedResponse<PromptDimension>> => {
   const params = new URLSearchParams();
   if (productType) params.append('product_type', productType);
   if (dimensionType) params.append('dimension_type', dimensionType);
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
-  
+  if (!includeCompat) params.append('include_compat', 'false');
+
   const response = await axiosInstance.get(`/prompt-dimensions/?${params.toString()}`);
-  
+
   if (response.data && response.data.data && Array.isArray(response.data.data)) {
     return response.data;
   }
-  
+
   return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
 };
 

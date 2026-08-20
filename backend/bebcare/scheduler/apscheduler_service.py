@@ -542,7 +542,7 @@ class APSchedulerService:
 
         if not api_token:
             raise Exception(
-                "No Buffer account configured. Add a Buffer account on the settings page."
+                "未绑定 Buffer 账户。请到「品牌管理」为该品牌绑定 Buffer 账户后再发布。"
             )
 
         product_info = ctx["product_info"]

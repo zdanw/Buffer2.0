@@ -82,6 +82,7 @@ class OpenAICompatibleImageProvider:
         data = {
             "model": model_id,
             "prompt": prompt,
+            "size": size,
             "n": 1,
             "response_format": "url",
         }
@@ -91,14 +92,6 @@ class OpenAICompatibleImageProvider:
             # Best-effort: many OpenAI-compatible gateways accept `image` as URL(s)
             data["image"] = reference_images if len(reference_images) > 1 else reference_images[0]
         data.update(self.extra_params)
-        # Request size must win over provider extra_params.
-        data["size"] = size
-        logger.info(
-            "OpenAI-compatible generate model=%s size=%s refs=%s",
-            model_id,
-            size,
-            len(reference_images or []),
-        )
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=120)
         try:
@@ -121,6 +114,15 @@ class OpenAICompatibleImageProvider:
         if not image_urls:
             raise Exception("No images generated")
         return image_urls
+
+    def verify_credentials(self) -> None:
+        """Lightweight auth probe via GET /models. Raises on auth / HTTP failure."""
+        response = requests.get(self._models_url(), headers=self._headers(), timeout=30)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            detail = response.text[:500] if response.text else str(e)
+            raise Exception(f"OpenAI-compatible connection test failed: {detail}") from e
 
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:

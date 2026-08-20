@@ -203,6 +203,17 @@ class GoogleGeminiImageProvider:
             raise Exception("No images generated")
         return image_urls
 
+    def verify_credentials(self) -> None:
+        """Lightweight auth probe via GET /models. Raises on auth / HTTP failure."""
+        response = requests.get(
+            self._models_url(), headers=self._headers(), timeout=30
+        )
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            detail = response.text[:500] if response.text else str(e)
+            raise Exception(f"Google Gemini connection test failed: {detail}") from e
+
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:
             return []

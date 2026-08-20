@@ -13,11 +13,16 @@ from bebcare.utils.crypto import decrypt_secret
 
 
 class BufferAccountUnavailable(Exception):
-    """Brand is bound to a Buffer account that cannot be used."""
+    """Brand has no usable Buffer account binding."""
 
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
+
+
+_UNBOUND_MSG = (
+    "品牌「{name}」尚未绑定 Buffer 账户，请到「品牌管理」中为该品牌绑定后再发布。"
+)
 
 
 def resolve_buffer_api_token(
@@ -28,12 +33,12 @@ def resolve_buffer_api_token(
     owner_user_id: str,
 ) -> Optional[str]:
     """
-    Preference (always scoped to owner_user_id):
+    Resolve Buffer token for one owner (no global-default / env fallback):
     1. Brand-bound Buffer account (via product → brand or explicit brand_id)
        — bound account must belong to the same owner; if bound but
-       inactive/missing, do NOT fall through to another account
-    2. Active default Buffer account for this owner
-    3. None (no env BUFFER_API_TOKEN fallback)
+       inactive/missing, raise (do not fall through)
+    2. Brand exists but unbound → raise with bind reminder
+    3. No brand resolved → None (caller maps to 400)
     """
     resolved_brand_id = brand_id
     if not resolved_brand_id and product_id:
@@ -48,41 +53,34 @@ def resolve_buffer_api_token(
         if product and product.brand_id:
             resolved_brand_id = str(product.brand_id)
 
-    if resolved_brand_id:
-        brand = (
-            db.query(Brand)
-            .filter(
-                Brand.brand_id == str(resolved_brand_id),
-                Brand.owner_user_id == owner_user_id,
-            )
-            .first()
-        )
-        if brand and brand.buffer_account_id:
-            account = (
-                db.query(BufferAccount)
-                .filter(BufferAccount.id == brand.buffer_account_id)
-                .first()
-            )
-            if not account or account.owner_user_id != owner_user_id:
-                raise BufferAccountUnavailable(
-                    f"Brand '{brand.name}' is bound to a missing Buffer account"
-                )
-            if not account.is_active:
-                raise BufferAccountUnavailable(
-                    f"Brand '{brand.name}' is bound to disabled Buffer account '{account.name}'"
-                )
-            return decrypt_secret(account.api_token_encrypted)
+    if not resolved_brand_id:
+        return None
 
-    default = (
-        db.query(BufferAccount)
+    brand = (
+        db.query(Brand)
         .filter(
-            BufferAccount.owner_user_id == owner_user_id,
-            BufferAccount.is_default == True,  # noqa: E712
-            BufferAccount.is_active == True,  # noqa: E712
+            Brand.brand_id == str(resolved_brand_id),
+            Brand.owner_user_id == owner_user_id,
         )
         .first()
     )
-    if default:
-        return decrypt_secret(default.api_token_encrypted)
+    if not brand:
+        return None
 
-    return None
+    if not brand.buffer_account_id:
+        raise BufferAccountUnavailable(_UNBOUND_MSG.format(name=brand.name))
+
+    account = (
+        db.query(BufferAccount)
+        .filter(BufferAccount.id == brand.buffer_account_id)
+        .first()
+    )
+    if not account or account.owner_user_id != owner_user_id:
+        raise BufferAccountUnavailable(
+            f"Brand '{brand.name}' is bound to a missing Buffer account"
+        )
+    if not account.is_active:
+        raise BufferAccountUnavailable(
+            f"Brand '{brand.name}' is bound to disabled Buffer account '{account.name}'"
+        )
+    return decrypt_secret(account.api_token_encrypted)

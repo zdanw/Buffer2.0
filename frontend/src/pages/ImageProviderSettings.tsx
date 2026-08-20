@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Check,
   Zap,
+  Star,
   Eye,
   EyeOff,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import {
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
+import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 
 const EMPTY_FORM: ImageProviderCreate = {
   name: '',
@@ -72,6 +74,7 @@ export default function ImageProviderSettings() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -227,6 +230,7 @@ export default function ImageProviderSettings() {
       setShowModal(false);
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
+      notifyImageProvidersChanged();
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(Array.isArray(detail) ? detail[0]?.msg : detail || t('common.saveFailed'));
@@ -241,6 +245,7 @@ export default function ImageProviderSettings() {
     try {
       await deleteImageProvider(id);
       setProviders((prev) => prev.filter((p) => p.id !== id));
+      notifyImageProvidersChanged();
     } catch (err: any) {
       setError(err.response?.data?.detail || t('common.deleteFailed'));
     } finally {
@@ -262,6 +267,28 @@ export default function ImageProviderSettings() {
       setError(err.response?.data?.detail || t('imageProviders.test.failed'));
     } finally {
       setTestingId(null);
+    }
+  };
+
+  const handleSetDefault = async (p: ImageProvider) => {
+    if (p.is_system || p.is_default) return;
+    setSettingDefaultId(p.id);
+    setError('');
+    try {
+      await updateImageProvider(p.id, { is_default: true });
+      setProviders((prev) =>
+        prev.map((row) => ({
+          ...row,
+          is_default: row.id === p.id,
+        }))
+      );
+      setSuccess(t('imageProviders.setDefaultSuccess'));
+      setTimeout(() => setSuccess(''), 2500);
+      notifyImageProvidersChanged();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || t('common.saveFailed'));
+    } finally {
+      setSettingDefaultId(null);
     }
   };
 
@@ -345,6 +372,29 @@ export default function ImageProviderSettings() {
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
+              {!p.is_system && (
+                <button
+                  type="button"
+                  onClick={() => void handleSetDefault(p)}
+                  disabled={p.is_default || settingDefaultId === p.id}
+                  className={`p-2 rounded-lg disabled:cursor-default ${
+                    p.is_default
+                      ? 'text-forge-600 bg-forge-50'
+                      : 'text-gray-500 hover:text-forge-600 hover:bg-forge-50'
+                  }`}
+                  title={
+                    p.is_default
+                      ? t('imageProviders.currentDefault')
+                      : t('imageProviders.fields.isDefault.label')
+                  }
+                >
+                  {settingDefaultId === p.id ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Star className={`w-5 h-5 ${p.is_default ? 'fill-current' : ''}`} />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => void handleTest(p.id)}

@@ -562,13 +562,6 @@ class ContentGenerator:
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
         size = resolve_size(image_size or product_info.get("image_size"))
-        logger.info(
-            "Image generate resolved size=%s (requested=%s) provider_id=%s model=%s",
-            size,
-            image_size or product_info.get("image_size"),
-            provider_id,
-            model_id,
-        )
         session, own = self._db_session(db)
         try:
             owner_user_id = product_info.get("owner_user_id")

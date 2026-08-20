@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   listImageProviders,
   listProviderModels,
@@ -12,6 +13,7 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/AspectRatioSelect';
 import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
 import ModelIdSelect from '@/components/ModelIdSelect';
+import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
 
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
@@ -27,6 +29,8 @@ interface ImageModelPickerProps {
   onChange: (next: ImageModelSelection) => void;
   disabled?: boolean;
   compact?: boolean;
+  /** Prefer provider marked is_default; re-sync when global default changes. */
+  preferGlobalDefault?: boolean;
 }
 
 function normalizeSizeInput(raw: string): string | null {
@@ -40,8 +44,10 @@ export default function ImageModelPicker({
   onChange,
   disabled = false,
   compact = false,
+  preferGlobalDefault = false,
 }: ImageModelPickerProps) {
   const { t } = useI18n();
+  const location = useLocation();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
   const [models, setModels] = useState<ImageModelInfo[]>([]);
   const [sizes, setSizes] = useState<ImageSizeOption[]>([]);
@@ -54,21 +60,86 @@ export default function ImageModelPicker({
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
+  /** Re-apply Studio selection only when the starred default provider changes. */
+  const lastGlobalDefaultIdRef = useRef<string | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const defaultSizeRef = useRef(defaultSize);
+  defaultSizeRef.current = defaultSize;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const loadProviders = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingProviders(true);
+    try {
+      const list = await listImageProviders();
+      setProviders(list.filter((p) => p.is_active && !p.is_system));
+    } catch (e) {
+      console.error('Failed to load image providers:', e);
+      setProviders([]);
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
 
   useEffect(() => {
-    void (async () => {
-      setLoadingProviders(true);
-      try {
-        const list = await listImageProviders();
-        // Empty option uses the user's default provider; hide inactive/system virtual cards.
-        setProviders(list.filter((p) => p.is_active && !p.is_system));
-      } catch (e) {
-        console.error('Failed to load image providers:', e);
-      } finally {
-        setLoadingProviders(false);
-      }
-    })();
+    void loadProviders();
   }, []);
+
+  // Settings CRUD / set-default while Studio stays mounted in lazyPanel.
+  useEffect(() => {
+    return onImageProvidersChanged(() => {
+      void loadProviders({ silent: true });
+    });
+  }, []);
+
+  // Re-fetch when navigating back to Studio.
+  useEffect(() => {
+    if (!preferGlobalDefault) return;
+    const onStudio =
+      location.pathname === '/studio' || location.pathname === '/preview';
+    if (!onStudio) return;
+    void loadProviders({ silent: true });
+  }, [preferGlobalDefault, location.pathname]);
+
+  // Resolve selection to a real owned provider (no empty/"system" fallback).
+  useEffect(() => {
+    if (loadingProviders) return;
+    const current = valueRef.current;
+    if (providers.length === 0) {
+      if (current.image_provider_id) {
+        onChangeRef.current({
+          image_provider_id: null,
+          image_model: null,
+          image_size: current.image_size || null,
+        });
+      }
+      lastGlobalDefaultIdRef.current = null;
+      return;
+    }
+
+    const preferred = providers.find((p) => p.is_default) || providers[0];
+    const applyPreferred = () => {
+      onChangeRef.current({
+        image_provider_id: preferred.id,
+        image_model: preferred.default_model || null,
+        image_size: current.image_size || defaultSizeRef.current,
+      });
+    };
+
+    const valid = providers.some((p) => p.id === current.image_provider_id);
+
+    if (preferGlobalDefault) {
+      const defaultChanged = lastGlobalDefaultIdRef.current !== preferred.id;
+      lastGlobalDefaultIdRef.current = preferred.id;
+      if (!valid || defaultChanged) {
+        applyPreferred();
+      }
+      return;
+    }
+
+    if (!valid) applyPreferred();
+  }, [loadingProviders, providers, preferGlobalDefault]);
 
   useEffect(() => {
     const providerId = value.image_provider_id;
@@ -172,31 +243,39 @@ export default function ImageModelPicker({
           label={`${t('imageModelPicker.provider')}${loadingProviders ? ` ${t('imageModelPicker.loading')}` : ''}`}
           tooltip={t('imageModelPicker.tooltips.provider')}
         />
-        <select
-          value={value.image_provider_id || ''}
-          disabled={disabled || loadingProviders}
-          onChange={(e) => {
-            const id = e.target.value || null;
-            const provider = providers.find((p) => p.id === id);
-            onChange({
-              image_provider_id: id,
-              image_model: provider?.default_model || null,
-              image_size: value.image_size || defaultSize,
-            });
-            setForceCustomModel(false);
-          }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
-        >
-          <option value="">{t('imageModelPicker.systemDefault')}</option>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
-            </option>
-          ))}
-        </select>
-        {!value.image_provider_id && (
-          <p className="text-xs text-gray-400 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
+        {providers.length === 0 && !loadingProviders ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
+            {t('imageModelPicker.noProviders')}{' '}
+            <Link to="/image-models" className="underline font-medium text-amber-900 hover:text-amber-950">
+              {t('imageModelPicker.goAddProvider')}
+            </Link>
+          </p>
+        ) : (
+          <select
+            value={value.image_provider_id || ''}
+            disabled={disabled || loadingProviders || providers.length === 0}
+            onChange={(e) => {
+              const id = e.target.value || null;
+              const provider = providers.find((p) => p.id === id);
+              onChange({
+                image_provider_id: id,
+                image_model: provider?.default_model || null,
+                image_size: value.image_size || defaultSize,
+              });
+              setForceCustomModel(false);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
+          >
+            {loadingProviders && !value.image_provider_id ? (
+              <option value="">{t('imageModelPicker.loading')}</option>
+            ) : null}
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 

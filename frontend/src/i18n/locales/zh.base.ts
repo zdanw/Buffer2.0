@@ -202,6 +202,8 @@ export const zh: TranslationTree = {
     testConnection: '测试连接',
     emptyState: '尚未添加图像 Provider。请添加你自己的 API Key 以生成图像。',
     systemDefault: '系统默认',
+    currentDefault: '当前全局默认',
+    setDefaultSuccess: '已设为全局默认',
     confirmDelete: '确定删除该 Provider？',
     keyLabel: 'Key',
     defaultModel: '默认',
@@ -294,9 +296,6 @@ export const zh: TranslationTree = {
         labelOptional: 'Buffer API Token（留空则保留原 Token）',
         tooltip: '粘贴 Buffer 访问令牌，服务端加密存储。创建时必填；编辑时留空表示不修改。',
         keepPlaceholder: '留空表示不修改当前 Token',
-      },
-      isDefault: {
-        label: '设为全局默认（用于未绑定品牌）',
       },
       isActive: {
         label: '启用',

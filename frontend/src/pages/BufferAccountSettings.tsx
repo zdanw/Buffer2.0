@@ -27,7 +27,6 @@ const EMPTY_FORM: BufferAccountCreate = {
   name: '',
   api_token: '',
   is_active: true,
-  is_default: false,
 };
 
 function formatApiDetail(detail: unknown, fallback: string): string {
@@ -94,7 +93,6 @@ export default function BufferAccountSettings() {
       name: account.name,
       api_token: '',
       is_active: account.is_active,
-      is_default: account.is_default,
     });
     setShowToken(false);
     setFormError('');
@@ -119,7 +117,6 @@ export default function BufferAccountSettings() {
         const payload: Record<string, unknown> = {
           name: form.name.trim(),
           is_active: form.is_active,
-          is_default: form.is_default,
         };
         if (form.api_token.trim()) {
           payload.api_token = form.api_token.trim();
@@ -131,7 +128,6 @@ export default function BufferAccountSettings() {
           name: form.name.trim(),
           api_token: form.api_token.trim(),
           is_active: form.is_active ?? true,
-          is_default: form.is_default ?? false,
         });
         setSuccess(t('common.created'));
       }
@@ -234,11 +230,6 @@ export default function BufferAccountSettings() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900">{account.name}</h3>
-                {account.is_default && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-forge-100 text-forge-700">
-                    {t('common.default')}
-                  </span>
-                )}
                 {!account.is_active && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">
                     {t('common.disabled')}
@@ -390,18 +381,6 @@ export default function BufferAccountSettings() {
                   </button>
                 </div>
               </div>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!form.is_default}
-                  onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
-                  className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
-                />
-                <span className="text-sm text-gray-700">
-                  {t('bufferAccounts.fields.isDefault.label')}
-                </span>
-              </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
                 <input

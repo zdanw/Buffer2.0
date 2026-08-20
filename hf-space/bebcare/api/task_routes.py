@@ -352,7 +352,7 @@ def publish_draft(
         if not api_token:
             raise HTTPException(
                 status_code=400,
-                detail="未配置 Buffer 账户。请在设置页添加 Buffer 账户后再发布。",
+                detail="未绑定 Buffer 账户。请到「品牌管理」为该品牌绑定 Buffer 账户后再发布。",
             )
         publish_result = buffer_publisher.publish(
             selected_copy, cdn_url, request.platforms, api_token=api_token

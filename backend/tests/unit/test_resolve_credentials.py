@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bebcare.providers.registry import resolve_image_provider
-from bebcare.services.buffer_account_service import resolve_buffer_api_token
-
+from bebcare.services.buffer_account_service import (
+    resolve_buffer_api_token,
+    BufferAccountUnavailable,
+)
 
 def test_resolve_image_provider_requires_owner_user_id():
     with pytest.raises(ValueError):
@@ -36,12 +38,20 @@ def test_resolve_buffer_token_no_account_returns_none_not_env():
     assert token is None
 
 
-def test_resolve_buffer_token_ignores_other_owner_default():
-    other_default = MagicMock()
-    other_default.owner_user_id = "u-b"
-    other_default.is_active = True
-    other_default.is_default = True
+def test_resolve_buffer_token_no_longer_uses_global_default():
+    """Without a brand binding, default accounts are ignored."""
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = None
     token = resolve_buffer_api_token(db, owner_user_id="u-a")
     assert token is None
+
+
+def test_resolve_buffer_token_unbound_brand_raises():
+    brand = MagicMock()
+    brand.name = "Acme"
+    brand.buffer_account_id = None
+    db = MagicMock()
+    # First query path: brand by id
+    db.query.return_value.filter.return_value.first.return_value = brand
+    with pytest.raises(BufferAccountUnavailable, match="Acme"):
+        resolve_buffer_api_token(db, brand_id="b-1", owner_user_id="u-1")
