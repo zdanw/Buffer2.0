@@ -15,4 +15,6 @@ APP_RLS_TABLES: tuple[str, ...] = (
     "image_provider_configs",
     "generate_tasks",
     "buffer_accounts",
+    "image_credit_grants",
+    "image_credit_reservations",
 )

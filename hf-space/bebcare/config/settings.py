@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # 是否允许公开注册（自托管可关闭）
     allow_public_signup: bool = True
 
+    # 平台出图次数：注册试用张数；预扣超时（分钟）后可回收
+    image_credit_signup_trial: int = 2
+    image_credit_reserve_ttl_minutes: int = 15
+
     # 应用配置
     app_host: str = "0.0.0.0"
     app_port: int = 8888

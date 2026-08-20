@@ -15,6 +15,7 @@ from .prompt_dimension import (
 from .image_provider import ImageProviderConfig
 from .generate_task import GenerateTask
 from .buffer_account import BufferAccount
+from .image_credit import ImageCreditGrant, ImageCreditReservation
 
 __all__ = [
     "Brand",
@@ -37,4 +38,6 @@ __all__ = [
     "ImageProviderConfig",
     "GenerateTask",
     "BufferAccount",
+    "ImageCreditGrant",
+    "ImageCreditReservation",
 ]
