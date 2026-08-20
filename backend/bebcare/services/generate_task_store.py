@@ -43,6 +43,11 @@ def update_generate_task(
     result: Any = None,
     set_result: bool = False,
 ) -> None:
+    from bebcare.services.credit_grant_service import (
+        confirm_reservation,
+        refund_reservation,
+    )
+
     db = SessionLocal()
     try:
         row = db.query(GenerateTask).filter(GenerateTask.task_id == task_id).first()
@@ -53,6 +58,12 @@ def update_generate_task(
         if set_result:
             row.result = result
         row.updated_at = datetime.utcnow()
+
+        if status == "SUCCESS":
+            confirm_reservation(db, task_id)
+        elif status in ("FAILURE", "FAILED", "CANCELLED"):
+            refund_reservation(db, task_id)
+
         db.commit()
     finally:
         db.close()

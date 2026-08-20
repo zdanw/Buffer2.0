@@ -294,8 +294,10 @@ def test_generate_image_without_provider_returns_400(full_client, auth_headers):
         headers=headers,
         json={"product_id": product_id, "platform": "instagram"},
     )
-    assert resp.status_code == 400
-    assert "设置" in (resp.json().get("detail") or "")
+    # No BYOK: 400 (exhausted/no mode), or 402/503 if trial+platform path without system provider.
+    assert resp.status_code in (400, 402, 503), resp.text
+    detail = resp.json().get("detail") or ""
+    assert any(k in detail for k in ("供应商", "额度", "平台", "API"))
 
 
 def test_non_admin_can_create_buffer_account(full_client, auth_headers):

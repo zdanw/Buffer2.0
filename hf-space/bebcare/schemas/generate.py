@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, Literal
 
 class GenerateRequest(BaseModel):
     product_id: str
@@ -11,6 +11,7 @@ class GenerateRequest(BaseModel):
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
     image_size: Optional[str] = None
+    image_provider_mode: Optional[Literal["platform", "byok"]] = None
 
 class GenerateResponse(BaseModel):
     task_id: str

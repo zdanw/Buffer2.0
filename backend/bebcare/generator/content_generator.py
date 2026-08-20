@@ -465,7 +465,10 @@ class ContentGenerator:
         image_model: Optional[str] = None,
         image_size: Optional[str] = None,
     ) -> Dict:
-        from bebcare.providers.registry import resolve_image_provider
+        from bebcare.providers.registry import (
+            resolve_image_provider,
+            resolve_system_image_provider,
+        )
         from bebcare.providers.size_catalog import resolve_size
 
         use_scene_reference = product_info.get("use_scene_reference", False)
@@ -574,9 +577,15 @@ class ContentGenerator:
                     .first()
                 )
                 owner_user_id = product_row.owner_user_id if product_row else None
-            provider, resolved_model = resolve_image_provider(
-                session, provider_id, model_id, owner_user_id=owner_user_id
-            )
+            mode = product_info.get("image_provider_mode") or "byok"
+            if mode == "platform":
+                provider, resolved_model = resolve_system_image_provider(
+                    session, model_id
+                )
+            else:
+                provider, resolved_model = resolve_image_provider(
+                    session, provider_id, model_id, owner_user_id=owner_user_id
+                )
         finally:
             if own:
                 session.close()
