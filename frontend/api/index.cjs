@@ -45,7 +45,11 @@ module.exports = (req, res) => {
   }
 
   let targetPath = req.url;
-  if (targetPath.startsWith('/api')) {
+  // Stripe Dashboard endpoint alias → backend billing webhook
+  const pathOnly = (targetPath || '').split('?')[0];
+  if (pathOnly === '/payments/webhook' || pathOnly === '/api/payments/webhook') {
+    targetPath = '/v1/billing/webhook';
+  } else if (targetPath.startsWith('/api')) {
     targetPath = targetPath.replace(/^\/api/, '/v1');
   } else if (!targetPath.startsWith('/v1')) {
     targetPath = '/v1' + targetPath;

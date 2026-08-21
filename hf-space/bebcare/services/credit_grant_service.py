@@ -1,4 +1,4 @@
-"""Image credit grants: create, FIFO reserve, confirm/refund, trial, reclaim."""
+"""Image credit grants: create, FEFO reserve, confirm/refund, trial, reclaim, expiry."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from bebcare.config.settings import settings
@@ -20,6 +20,7 @@ SOURCE_STRIPE = "stripe"
 STATUS_ACTIVE = "active"
 STATUS_EXHAUSTED = "exhausted"
 STATUS_REVOKED = "revoked"
+STATUS_EXPIRED = "expired"
 
 RES_RESERVED = "reserved"
 RES_CONFIRMED = "confirmed"
@@ -34,12 +35,21 @@ class CreditError(Exception):
         super().__init__(message or code)
 
 
+def _unexpired_clause(now: Optional[datetime] = None):
+    cutoff = now or datetime.utcnow()
+    return or_(
+        ImageCreditGrant.expires_at.is_(None),
+        ImageCreditGrant.expires_at > cutoff,
+    )
+
+
 def remaining_credits(db: Session, user_id: str) -> int:
     total = (
         db.query(func.coalesce(func.sum(ImageCreditGrant.remaining), 0))
         .filter(
             ImageCreditGrant.user_id == user_id,
             ImageCreditGrant.status == STATUS_ACTIVE,
+            _unexpired_clause(),
         )
         .scalar()
     )
@@ -54,6 +64,7 @@ def create_grant(
     source: str,
     note: Optional[str] = None,
     external_ref: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
 ) -> ImageCreditGrant:
     if quantity < 1:
         raise CreditError("invalid", "quantity must be >= 1")
@@ -66,6 +77,7 @@ def create_grant(
         status=STATUS_ACTIVE,
         note=note,
         external_ref=external_ref,
+        expires_at=expires_at,
     )
     db.add(grant)
     db.flush()
@@ -104,14 +116,20 @@ def reserve_one(
             return existing
         raise CreditError("invalid", "reservation already finalized for task")
 
+    # FEFO: earliest expires_at first; NULL (never expires) last; then created_at
     q = (
         db.query(ImageCreditGrant)
         .filter(
             ImageCreditGrant.user_id == user_id,
             ImageCreditGrant.status == STATUS_ACTIVE,
             ImageCreditGrant.remaining > 0,
+            _unexpired_clause(),
         )
-        .order_by(ImageCreditGrant.created_at.asc())
+        .order_by(
+            case((ImageCreditGrant.expires_at.is_(None), 1), else_=0).asc(),
+            ImageCreditGrant.expires_at.asc(),
+            ImageCreditGrant.created_at.asc(),
+        )
     )
     # Postgres: row lock; SQLite ignores FOR UPDATE.
     try:
@@ -140,6 +158,29 @@ def reserve_one(
     db.add(res)
     db.flush()
     return res
+
+
+def expire_due_grants(db: Session) -> int:
+    """Zero remaining and mark expired for due active grants. Idempotent."""
+    now = datetime.utcnow()
+    rows = (
+        db.query(ImageCreditGrant)
+        .filter(
+            ImageCreditGrant.status == STATUS_ACTIVE,
+            ImageCreditGrant.expires_at.isnot(None),
+            ImageCreditGrant.expires_at <= now,
+        )
+        .all()
+    )
+    count = 0
+    for grant in rows:
+        grant.remaining = 0
+        grant.status = STATUS_EXPIRED
+        grant.updated_at = now
+        count += 1
+    if count:
+        db.flush()
+    return count
 
 
 def confirm_reservation(db: Session, generate_task_id: str) -> None:
@@ -180,7 +221,7 @@ def refund_reservation(db: Session, generate_task_id: str) -> None:
             db.query(ImageCreditGrant).filter(ImageCreditGrant.id == res.grant_id).first()
         )
 
-    if grant and grant.status != STATUS_REVOKED:
+    if grant and grant.status not in (STATUS_REVOKED, STATUS_EXPIRED):
         grant.remaining += res.amount
         if grant.status == STATUS_EXHAUSTED:
             grant.status = STATUS_ACTIVE

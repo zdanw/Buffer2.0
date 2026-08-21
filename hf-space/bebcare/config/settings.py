@@ -56,13 +56,16 @@ class Settings(BaseSettings):
     # 平台出图次数：注册试用张数；预扣超时（分钟）后可回收
     image_credit_signup_trial: int = 2
     image_credit_reserve_ttl_minutes: int = 15
+    # Stripe 购买的 grant 有效天数；定时清零任务间隔（分钟）
+    image_credit_stripe_expiry_days: int = 30
+    image_credit_expire_interval_minutes: int = 60
     # 用户「升级订阅」联系方式（邮箱或 https 链接）；空则仅展示说明文案
     billing_contact: str | None = None
 
     # Stripe（测试/正式密钥；空则关闭在线购买）
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
-    # JSON 数组：[{"price_id":"price_xxx","credits":20,"label":"20 credits"}]
+    # JSON 数组：[{"price_id":"price_xxx","credits":30,"label":"Basic — 30 credits"}]
     stripe_credit_packs: str = "[]"
     # Checkout success/cancel 回跳根 URL
     frontend_base_url: str = "http://localhost:5174"

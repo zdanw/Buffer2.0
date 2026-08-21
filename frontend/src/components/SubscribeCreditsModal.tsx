@@ -22,9 +22,14 @@ export default function SubscribeCreditsModal({
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Modal stays mounted while closed; clear checkout UI state so reopen is clickable.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setBuyingId(null);
+      return;
+    }
     let cancelled = false;
+    setBuyingId(null);
     setLoading(true);
     setError(null);
     void listCreditPacks()
@@ -42,6 +47,15 @@ export default function SubscribeCreditsModal({
     };
   }, [open, t]);
 
+  // Browser back from Stripe can restore this page from bfcache with buyingId still set.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setBuyingId(null);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   if (!open) return null;
 
   const handleBuy = async (priceId: string) => {
@@ -49,7 +63,7 @@ export default function SubscribeCreditsModal({
     setError(null);
     try {
       const { url } = await createCheckoutSession(priceId);
-      window.location.href = url;
+      window.location.assign(url);
     } catch {
       setError(t('subscribeCredits.checkoutFailed'));
       setBuyingId(null);

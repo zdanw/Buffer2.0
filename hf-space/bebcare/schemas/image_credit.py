@@ -17,6 +17,7 @@ class CreditGrantResponse(BaseModel):
     status: str
     note: Optional[str] = None
     external_ref: Optional[str] = None
+    expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

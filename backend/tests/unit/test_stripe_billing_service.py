@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -55,6 +56,7 @@ def enable_billing(monkeypatch):
     monkeypatch.setattr(
         settings_mod.settings, "frontend_base_url", "http://localhost:5174"
     )
+    monkeypatch.setattr(settings_mod.settings, "image_credit_stripe_expiry_days", 30)
 
 
 def test_create_checkout_session_persists_pending(
@@ -62,14 +64,16 @@ def test_create_checkout_session_persists_pending(
 ):
     import stripe
 
-    monkeypatch.setattr(
-        stripe.checkout.Session,
-        "create",
-        lambda **kwargs: {
+    captured = {}
+
+    def _create(**kwargs):
+        captured.update(kwargs)
+        return {
             "id": "cs_test_1",
             "url": "https://checkout.stripe.com/test",
-        },
-    )
+        }
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", _create)
     row, url = create_checkout_session(
         db_session, user_id=user_id, price_id="price_a"
     )
@@ -77,6 +81,8 @@ def test_create_checkout_session_persists_pending(
     assert row.status == "pending"
     assert row.stripe_session_id == "cs_test_1"
     assert row.credits == 20
+    assert captured.get("mode") == "subscription"
+    assert captured.get("subscription_data", {}).get("metadata", {}).get("credits") == "20"
 
 
 def test_create_checkout_unknown_price(db_session, user_id, enable_billing):
@@ -117,6 +123,9 @@ def test_fulfill_is_idempotent(db_session, user_id, enable_billing):
     )
     assert len(grants) == 1
     assert grants[0].quantity == 20
+    assert grants[0].expires_at is not None
+    delta = grants[0].expires_at - datetime.utcnow()
+    assert timedelta(days=29) < delta < timedelta(days=31)
     row = (
         db_session.query(StripeCheckoutSession)
         .filter(StripeCheckoutSession.stripe_session_id == "cs_test_1")
@@ -124,3 +133,35 @@ def test_fulfill_is_idempotent(db_session, user_id, enable_billing):
     )
     assert row.status == "paid"
     assert row.grant_id == grants[0].id
+
+
+def test_fulfill_subscription_invoice_skips_create_and_grants_cycle(
+    db_session, user_id, enable_billing
+):
+    from bebcare.services.stripe_billing_service import fulfill_subscription_invoice
+
+    assert (
+        fulfill_subscription_invoice(
+            db_session,
+            invoice_id="in_create",
+            billing_reason="subscription_create",
+            metadata={"user_id": user_id, "credits": "20", "price_id": "price_a"},
+        )
+        is None
+    )
+    grant = fulfill_subscription_invoice(
+        db_session,
+        invoice_id="in_cycle_1",
+        billing_reason="subscription_cycle",
+        metadata={"user_id": user_id, "credits": "20", "price_id": "price_a"},
+    )
+    assert grant is not None
+    assert grant.quantity == 20
+    assert grant.external_ref == "in_cycle_1"
+    again = fulfill_subscription_invoice(
+        db_session,
+        invoice_id="in_cycle_1",
+        billing_reason="subscription_cycle",
+        metadata={"user_id": user_id, "credits": "20", "price_id": "price_a"},
+    )
+    assert again.id == grant.id

@@ -8,6 +8,10 @@
   },
   "routes": [
     {
+      "src": "/payments/webhook",
+      "dest": "/api/index.cjs"
+    },
+    {
       "src": "/v1/(.*)",
       "dest": "/api/index.cjs"
     },

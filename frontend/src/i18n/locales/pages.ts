@@ -540,7 +540,7 @@ export const pagesEn: TranslationTree = {
     remaining: 'You have {{n}} credit(s) left.',
     body:
       'Choose a credit pack and pay online via Stripe. Credits are added to your account after payment succeeds.',
-    packHint: 'Credit packs do not reset monthly — unused credits stay until used.',
+    packHint: 'Monthly subscription. Credits are valid for 30 days after each payment. Unused credits expire.',
     byokHint: 'Or add your own API key under Image Models to generate without using platform credits.',
     buyCta: 'Buy {{n}} credits',
     unavailable: 'Online checkout is not configured yet.',
@@ -1097,7 +1097,7 @@ export const pagesZh: TranslationTree = {
     title: '购买平台出图次数',
     remaining: '当前剩余 {{n}} 次。',
     body: '选择次数包并通过 Stripe 在线支付。支付成功后次数将自动发放到你的账号。',
-    packHint: '次数包不按月重置，买多少用多少。',
+    packHint: '按月订阅。每次扣款后的次数 30 天内有效，过期未用完作废。',
     byokHint: '也可以在「图像模型」自行配置 API Key，出图不消耗平台次数。',
     buyCta: '购买 {{n}} 次',
     unavailable: '在线购买暂未开通。',

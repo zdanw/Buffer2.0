@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import stripe
@@ -44,18 +44,24 @@ def create_checkout_session(
 
     stripe.api_key = settings.stripe_secret_key
     base = settings.frontend_base_url.rstrip("/")
+    meta = {
+        "user_id": user_id,
+        "local_session_id": local_id,
+        "credits": str(pack.credits),
+        "price_id": pack.price_id,
+    }
     session = stripe.checkout.Session.create(
-        mode="payment",
+        mode="subscription",
         line_items=[{"price": pack.price_id, "quantity": 1}],
         success_url=f"{base}/studio?checkout=success",
         cancel_url=f"{base}/studio?checkout=cancel",
         client_reference_id=user_id,
-        metadata={
+        metadata=meta,
+        subscription_data={"metadata": {
             "user_id": user_id,
-            "local_session_id": local_id,
             "credits": str(pack.credits),
             "price_id": pack.price_id,
-        },
+        }},
     )
     row.stripe_session_id = session["id"]
     row.updated_at = datetime.utcnow()
@@ -117,6 +123,7 @@ def fulfill_checkout_session(
         raise BillingError("invalid_credits")
 
     price_id = (metadata.get("price_id") or row.price_id or "").strip()
+    expiry_days = max(1, int(settings.image_credit_stripe_expiry_days))
     grant = create_grant(
         db,
         user_id=user_id,
@@ -124,9 +131,66 @@ def fulfill_checkout_session(
         source=SOURCE_STRIPE,
         note=f"stripe:{price_id}" if price_id else "stripe",
         external_ref=stripe_session_id,
+        expires_at=datetime.utcnow() + timedelta(days=expiry_days),
     )
     row.status = "paid"
     row.grant_id = grant.id
     row.updated_at = datetime.utcnow()
     db.flush()
     return row
+
+
+def fulfill_subscription_invoice(
+    db: Session,
+    *,
+    invoice_id: str,
+    billing_reason: Optional[str] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> Optional[ImageCreditGrant]:
+    """Grant credits on recurring subscription invoices (not the create invoice)."""
+    reason = (billing_reason or "").strip()
+    if reason in ("", "subscription_create"):
+        # First period is fulfilled via checkout.session.completed
+        return None
+
+    invoice_id = (invoice_id or "").strip()
+    if not invoice_id:
+        raise BillingError("invalid_invoice")
+
+    existing = (
+        db.query(ImageCreditGrant)
+        .filter(
+            ImageCreditGrant.source == SOURCE_STRIPE,
+            ImageCreditGrant.external_ref == invoice_id,
+        )
+        .first()
+    )
+    if existing is not None:
+        return existing
+
+    metadata = dict(metadata or {})
+    user_id = (metadata.get("user_id") or "").strip()
+    if not user_id:
+        raise BillingError("missing_user")
+
+    credits_raw = metadata.get("credits")
+    if credits_raw is not None and str(credits_raw).strip() != "":
+        credits = int(credits_raw)
+    else:
+        price_id = (metadata.get("price_id") or "").strip()
+        pack = find_pack(price_id) if price_id else None
+        credits = int(pack.credits) if pack else 0
+    if credits < 1:
+        raise BillingError("invalid_credits")
+
+    price_id = (metadata.get("price_id") or "").strip()
+    expiry_days = max(1, int(settings.image_credit_stripe_expiry_days))
+    return create_grant(
+        db,
+        user_id=user_id,
+        quantity=credits,
+        source=SOURCE_STRIPE,
+        note=f"stripe_sub:{price_id}" if price_id else "stripe_sub",
+        external_ref=invoice_id,
+        expires_at=datetime.utcnow() + timedelta(days=expiry_days),
+    )

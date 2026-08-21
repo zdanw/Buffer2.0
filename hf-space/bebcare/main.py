@@ -110,18 +110,24 @@ async def startup_event():
     initialize_data()
     try:
         from bebcare.database import SessionLocal
-        from bebcare.services.credit_grant_service import reclaim_stale_reservations
+        from bebcare.services.credit_grant_service import (
+            expire_due_grants,
+            reclaim_stale_reservations,
+        )
 
         db = SessionLocal()
         try:
             n = reclaim_stale_reservations(db)
+            expired = expire_due_grants(db)
             db.commit()
             if n:
                 logger.info("Reclaimed %s stale image credit reservation(s)", n)
+            if expired:
+                logger.info("Expired %s image credit grant(s) on startup", expired)
         finally:
             db.close()
     except Exception:
-        logger.exception("Failed to reclaim stale image credit reservations")
+        logger.exception("Failed to reclaim/expire image credit grants")
     scheduler_service.start()
     scheduler_service.reload_enabled_tasks()
 

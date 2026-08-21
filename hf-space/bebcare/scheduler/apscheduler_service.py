@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 from datetime import datetime
 from types import SimpleNamespace
@@ -27,6 +28,23 @@ import threading
 import uuid
 
 logger = logging.getLogger(__name__)
+
+
+def _run_expire_due_grants():
+    from bebcare.database import SessionLocal
+    from bebcare.services.credit_grant_service import expire_due_grants
+
+    db = SessionLocal()
+    try:
+        n = expire_due_grants(db)
+        db.commit()
+        if n:
+            logger.info("Expired %s image credit grant(s)", n)
+    except Exception:
+        db.rollback()
+        logger.exception("expire_due_grants failed")
+    finally:
+        db.close()
 
 
 def _run_platform_image_generation(owner_user_id: str, mode: str | None, generate_fn):
@@ -125,11 +143,20 @@ class APSchedulerService:
     
     def start(self):
         self.scheduler.start()
+        minutes = max(1, int(settings.image_credit_expire_interval_minutes))
+        self.scheduler.add_job(
+            _run_expire_due_grants,
+            trigger=IntervalTrigger(minutes=minutes),
+            id="expire_image_credit_grants",
+            replace_existing=True,
+            max_instances=1,
+        )
         logger.info(
-            "APScheduler started (workers=%s, max_concurrent_jobs=%s, max_instances=%s)",
+            "APScheduler started (workers=%s, max_concurrent_jobs=%s, max_instances=%s, credit_expire_every=%sm)",
             settings.scheduler_max_workers,
             settings.max_concurrent_jobs,
             settings.scheduler_max_instances,
+            minutes,
         )
         logger.info(f"Scheduler running: {self.scheduler.running}")
         logger.info(f"Scheduler timezone: {self.scheduler.timezone}")

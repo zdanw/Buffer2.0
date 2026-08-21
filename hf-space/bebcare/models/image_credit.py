@@ -17,9 +17,10 @@ class ImageCreditGrant(Base):
     source = Column(String(32), nullable=False)  # signup_trial | admin_grant | stripe | wechat
     quantity = Column(Integer, nullable=False)
     remaining = Column(Integer, nullable=False)
-    status = Column(String(16), nullable=False, default="active")  # active|exhausted|revoked
+    status = Column(String(16), nullable=False, default="active")  # active|exhausted|revoked|expired
     note = Column(Text, nullable=True)
     external_ref = Column(String(255), nullable=True)
+    expires_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

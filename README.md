@@ -364,6 +364,8 @@ Bebcare_Buffer2.0/
 | `DEEPSEEK_MODEL`                   | 文案模型名                            | `deepseek-v4-pro`           |
 | `IMAGE_CREDIT_SIGNUP_TRIAL`        | 注册赠送平台出图次数                       | `2`                         |
 | `IMAGE_CREDIT_RESERVE_TTL_MINUTES` | 预扣超时后可回收（分钟）                     | `15`                        |
+| `IMAGE_CREDIT_STRIPE_EXPIRY_DAYS`  | Stripe 购买次数有效天数                    | `30`                        |
+| `IMAGE_CREDIT_EXPIRE_INTERVAL_MINUTES` | 过期清零任务间隔（分钟）                  | `60`                        |
 | `STRIPE_SECRET_KEY`                | Stripe 密钥（测试 `sk_test_…`）；空则关闭购买 | （可选）                        |
 | `STRIPE_WEBHOOK_SECRET`            | Webhook 签名密钥 `whsec_…`           | （可选）                        |
 | `STRIPE_CREDIT_PACKS`              | 允许购买的 price→次数 JSON 数组           | `[]`                        |
@@ -383,11 +385,33 @@ Bebcare_Buffer2.0/
 
 ### Stripe 沙盒（平台出图次数包）
 
-1. Stripe Dashboard 开启 **Test mode**，创建 Product + one-time Price，复制 `price_…`
-2. 在 `backend/.env` 填写 `STRIPE_SECRET_KEY`、`STRIPE_CREDIT_PACKS`（JSON 数组含 `price_id` / `credits` / `label`）、`FRONTEND_BASE_URL`
+**月付订阅**（Checkout `mode=subscription`）。推荐 SKU（金额在 Stripe Dashboard 建 **recurring / monthly** Price）：
+
+| 档位 | 次数 / 月 | 标价 (USD) / 月 |
+|------|-----------|-----------------|
+| Basic | 30 | 3.99 |
+| Pro | 120 | 9.99 |
+| Super | 300 | 19.99 |
+
+每次成功扣款后发放对应次数，自发放起 **30 天内有效**（过期清零）。首期由 `checkout.session.completed` 发放；续费由 `invoice.paid`（`subscription_cycle`）发放。
+
+1. Stripe Dashboard 开启 **Test mode**，为上表创建 Product + **recurring (monthly)** Price，复制各 `price_…`
+2. 在 `backend/.env` 填写 `STRIPE_SECRET_KEY`、`STRIPE_CREDIT_PACKS`、`FRONTEND_BASE_URL`。**`STRIPE_CREDIT_PACKS` 必须写在同一行**（`.env` 不支持多行 JSON），示例：
+
+```json
+[
+  {"price_id":"price_…","credits":30,"label":"Basic — 30 credits"},
+  {"price_id":"price_…","credits":120,"label":"Pro — 120 credits"},
+  {"price_id":"price_…","credits":300,"label":"Super — 300 credits"}
+]
+```
+
 3. 本地转发 webhook：`stripe listen --forward-to localhost:8888/v1/billing/webhook`，将输出的 `whsec_…` 写入 `STRIPE_WEBHOOK_SECRET`
-4. 前端 Studio 选择次数包 → Checkout；测试卡 `4242 4242 4242 4242`；支付成功后 `/auth/me` 的 `image_credits_remaining` 应增加
-5. 未配置密钥时购买按钮不可用（`billing_enabled=false`）
+4. **生产（Vercel）**：在 Stripe Dashboard 添加 endpoint  
+   `https://buffrer2-0.vercel.app/payments/webhook`  
+   （Vercel 会转发到 HF Space 的 `POST /v1/billing/webhook`）。将 Dashboard 生成的 `whsec_…` 写入 HF Space 的 `STRIPE_WEBHOOK_SECRET`。需监听：`checkout.session.completed`、`invoice.paid`。
+5. 前端 Studio 选择次数包 → Checkout；测试卡 `4242 4242 4242 4242`；支付成功后 `/auth/me` 的 `image_credits_remaining` 应增加
+6. 未配置密钥时购买按钮不可用（`billing_enabled=false`）
 
 
 

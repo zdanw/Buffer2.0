@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime, timedelta
+
 import pytest
 from bebcare.database import Base, SessionLocal, engine
 from bebcare.models.user import User
@@ -10,7 +12,9 @@ from bebcare.services.credit_grant_service import (
     confirm_reservation,
     refund_reservation,
     ensure_signup_trial,
+    expire_due_grants,
     CreditError,
+    STATUS_EXPIRED,
 )
 import bebcare.models  # noqa: F401
 
@@ -122,3 +126,57 @@ def test_double_reserve_last_credit(db_session, user_id):
     with pytest.raises(CreditError) as ei:
         reserve_one(db_session, user_id=user_id, generate_task_id=tid2)
     assert ei.value.code == "insufficient"
+
+
+def test_expired_grant_excluded_from_remaining(db_session, user_id):
+    past = datetime.utcnow() - timedelta(days=1)
+    create_grant(
+        db_session, user_id=user_id, quantity=5, source="stripe", expires_at=past
+    )
+    db_session.flush()
+    assert remaining_credits(db_session, user_id) == 0
+
+
+def test_future_expiry_still_counts(db_session, user_id):
+    future = datetime.utcnow() + timedelta(days=10)
+    create_grant(
+        db_session, user_id=user_id, quantity=4, source="stripe", expires_at=future
+    )
+    db_session.flush()
+    assert remaining_credits(db_session, user_id) == 4
+
+
+def test_reserve_fefo_uses_earlier_expiry(db_session, user_id):
+    soon = datetime.utcnow() + timedelta(days=1)
+    later = datetime.utcnow() + timedelta(days=10)
+    create_grant(
+        db_session, user_id=user_id, quantity=1, source="stripe", expires_at=later
+    )
+    g_soon = create_grant(
+        db_session, user_id=user_id, quantity=1, source="stripe", expires_at=soon
+    )
+    db_session.flush()
+    tid = str(uuid.uuid4())
+    db_session.add(
+        GenerateTask(
+            task_id=tid, status="PENDING", owner_user_id=user_id, workspace_id=None
+        )
+    )
+    db_session.flush()
+    res = reserve_one(db_session, user_id=user_id, generate_task_id=tid)
+    assert res.grant_id == g_soon.id
+
+
+def test_expire_due_grants_zeros_and_marks(db_session, user_id):
+    past = datetime.utcnow() - timedelta(hours=1)
+    g = create_grant(
+        db_session, user_id=user_id, quantity=3, source="stripe", expires_at=past
+    )
+    db_session.flush()
+    n = expire_due_grants(db_session)
+    db_session.flush()
+    assert n == 1
+    db_session.refresh(g)
+    assert g.remaining == 0
+    assert g.status == STATUS_EXPIRED
+    assert expire_due_grants(db_session) == 0

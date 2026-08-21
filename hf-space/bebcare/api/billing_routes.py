@@ -17,6 +17,7 @@ from bebcare.services.stripe_billing_service import (
     BillingError,
     create_checkout_session,
     fulfill_checkout_session,
+    fulfill_subscription_invoice,
 )
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -94,6 +95,37 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             if e.code == "session_not_found":
                 # Acknowledge unknown sessions so Stripe stops retrying forever
                 # when local row was never created (e.g. manual Dashboard session).
+                return {"received": True, "ignored": True}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=e.code
+            )
+    elif event["type"] == "invoice.paid":
+        invoice = event["data"]["object"]
+        meta: dict = {}
+        sub_id = invoice.get("subscription")
+        if isinstance(sub_id, dict):
+            meta = dict(sub_id.get("metadata") or {})
+            sub_id = sub_id.get("id")
+        if (not meta.get("user_id")) and isinstance(sub_id, str) and sub_id:
+            try:
+                stripe.api_key = settings.stripe_secret_key
+                sub = stripe.Subscription.retrieve(sub_id)
+                meta = dict(getattr(sub, "metadata", None) or sub.get("metadata") or {})
+            except Exception:
+                meta = {}
+        if not meta.get("user_id"):
+            meta = {**meta, **dict(invoice.get("metadata") or {})}
+        try:
+            fulfill_subscription_invoice(
+                db,
+                invoice_id=invoice["id"],
+                billing_reason=invoice.get("billing_reason"),
+                metadata=meta,
+            )
+            db.commit()
+        except BillingError as e:
+            db.rollback()
+            if e.code in ("missing_user", "invalid_credits"):
                 return {"received": True, "ignored": True}
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=e.code
