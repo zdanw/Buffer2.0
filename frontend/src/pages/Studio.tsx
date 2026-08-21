@@ -25,13 +25,12 @@ import GeneratedImagePanel from '@/components/GeneratedImagePanel';
 import BrandAvatar from '@/components/BrandAvatar';
 import PlatformIcon from '@/components/icons/PlatformIcon';
 import type { PlatformId } from '@/components/icons/PlatformIcon';
+import { getAuthUserId, studioStateStorageKey } from '@/api/auth';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { downloadImage } from '@/lib/download';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
-const LEGACY_STORAGE_KEY = 'bebcare_content_preview_state';
-const STORAGE_KEY = 'pulseforge_studio_state';
 
 interface PreviewState {
   selectedProduct: string;
@@ -55,38 +54,37 @@ interface PreviewState {
   generatingType: string | null;
 }
 
-const loadStateFromStorage = (): PreviewState => {
+const emptyPreviewState = (): PreviewState => ({
+  selectedProduct: '',
+  selectedPlatforms: ['instagram'],
+  useSceneReference: false,
+  useVisionImagePrompt: false,
+  imageProviderId: null,
+  imageModel: null,
+  imageSize: '2048x2048',
+  generatedContent: null,
+  taskId: null,
+  isGenerating: false,
+  generatingType: null,
+});
+
+const loadStateFromStorage = (userId: string | null): PreviewState => {
+  if (!userId) return emptyPreviewState();
   try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    const saved = localStorage.getItem(studioStateStorageKey(userId));
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem(LEGACY_STORAGE_KEY)) {
-        localStorage.setItem(STORAGE_KEY, saved);
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
-      }
-      return parsed;
+      return JSON.parse(saved) as PreviewState;
     }
   } catch (e) {
     console.error('Failed to load state from localStorage:', e);
   }
-  return {
-    selectedProduct: '',
-    selectedPlatforms: ['instagram'],
-    useSceneReference: false,
-    useVisionImagePrompt: false,
-    imageProviderId: null,
-    imageModel: null,
-    imageSize: '2048x2048',
-    generatedContent: null,
-    taskId: null,
-    isGenerating: false,
-    generatingType: null,
-  };
+  return emptyPreviewState();
 };
 
-const saveStateToStorage = (state: PreviewState) => {
+const saveStateToStorage = (userId: string | null, state: PreviewState) => {
+  if (!userId) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(studioStateStorageKey(userId), JSON.stringify(state));
   } catch (e) {
     console.error('Failed to save state to localStorage:', e);
   }
@@ -95,7 +93,8 @@ const saveStateToStorage = (state: PreviewState) => {
 export default function Studio() {
   const { t } = useI18n();
   const { activeBrandId, activeBrand, brands } = useBrandContext();
-  const savedState = loadStateFromStorage();
+  const userId = getAuthUserId();
+  const savedState = loadStateFromStorage(userId);
   
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>(savedState.selectedProduct);
@@ -104,12 +103,12 @@ export default function Studio() {
   const [useVisionImagePrompt, setUseVisionImagePrompt] = useState(
     savedState.useVisionImagePrompt ?? false
   );
-  // Provider/model always start from the user's global default (ImageModelPicker);
-  // do not restore last session override from localStorage.
+  // Provider starts as platform default (empty); ImageModelPicker may switch to BYOK.
+  // Do not restore last session override from localStorage.
   const [imageProviderId, setImageProviderId] = useState<string | null>(null);
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
-  const [imageProviderMode, setImageProviderMode] = useState<'platform' | 'byok' | null>(null);
+  const [imageProviderMode, setImageProviderMode] = useState<'platform' | 'byok' | null>('platform');
   const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
   const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
@@ -179,7 +178,7 @@ export default function Studio() {
   };
 
   useEffect(() => {
-    saveStateToStorage({
+    saveStateToStorage(userId, {
       selectedProduct,
       selectedPlatforms,
       useSceneReference,
@@ -192,7 +191,7 @@ export default function Studio() {
       isGenerating,
       generatingType,
     });
-  }, [selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
+  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;

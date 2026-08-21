@@ -66,9 +66,53 @@ export const register = async (data: RegisterData): Promise<TokenResponse> => {
   return response.data;
 };
 
+const AUTH_USER_ID_KEY = 'pulseforge_auth_user_id';
+const ACTIVE_BRAND_KEY = 'pulseforge_active_brand_id';
+const ONBOARDING_SKIP_KEY = 'pulseforge_onboarding_skipped';
+const STUDIO_STATE_KEY = 'pulseforge_studio_state';
+const LEGACY_STUDIO_STATE_KEYS = [
+  STUDIO_STATE_KEY,
+  'bebcare_content_preview_state',
+] as const;
+
+export const getAuthUserId = (): string | null => {
+  return localStorage.getItem(AUTH_USER_ID_KEY);
+};
+
+export const studioStateStorageKey = (userId: string): string =>
+  `${STUDIO_STATE_KEY}:${userId}`;
+
+/** Clear browser-local session data that must not leak across accounts. */
+export const clearSessionLocalState = (): void => {
+  for (const key of LEGACY_STUDIO_STATE_KEYS) {
+    localStorage.removeItem(key);
+  }
+  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(`${STUDIO_STATE_KEY}:`)) {
+      localStorage.removeItem(key);
+    }
+  }
+  localStorage.removeItem(ACTIVE_BRAND_KEY);
+  localStorage.removeItem(ONBOARDING_SKIP_KEY);
+  localStorage.removeItem(AUTH_USER_ID_KEY);
+};
+
 export const getCurrentUser = async (): Promise<UserResponse> => {
   const response = await axiosInstance.get('/auth/me');
-  return response.data;
+  const user = response.data as UserResponse;
+  const previousUserId = getAuthUserId();
+  if (previousUserId && previousUserId !== user.user_id) {
+    // Token swapped to another account without logout — drop shared session keys.
+    localStorage.removeItem(ACTIVE_BRAND_KEY);
+    localStorage.removeItem(ONBOARDING_SKIP_KEY);
+  }
+  // Unscoped studio drafts are obsolete (state is now per-user).
+  for (const key of LEGACY_STUDIO_STATE_KEYS) {
+    localStorage.removeItem(key);
+  }
+  localStorage.setItem(AUTH_USER_ID_KEY, user.user_id);
+  return user;
 };
 
 export const completeOnboarding = async (): Promise<void> => {
@@ -121,6 +165,7 @@ export const removeRefreshToken = (): void => {
 };
 
 export const clearAuth = (): void => {
+  clearSessionLocalState();
   removeToken();
   removeRefreshToken();
 };
