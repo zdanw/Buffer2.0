@@ -99,6 +99,7 @@ venv.bak/
 .idea/
 .vscode/
 .trae/
+.cursor/
 .ruff_cache/
 .mypy_cache/
 .dmypy.json
