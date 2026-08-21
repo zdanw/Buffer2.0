@@ -11,6 +11,7 @@ from bebcare.api.image_provider_routes import router as image_provider_router
 from bebcare.api.buffer_account_routes import router as buffer_account_router
 from bebcare.api.credit_grant_routes import router as credit_grant_router
 from bebcare.api.system_image_provider_routes import router as system_image_provider_router
+from bebcare.api.billing_routes import router as billing_router
 from bebcare.database import init_db
 from bebcare.config.settings import settings
 from bebcare.logging_config import setup_logging
@@ -84,6 +85,7 @@ app.add_middleware(
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(auth_router)
 api_router.include_router(credit_grant_router)
+api_router.include_router(billing_router)
 
 @api_router.get("/health")
 async def api_health():
