@@ -46,6 +46,7 @@ class UserResponse(BaseModel):
     image_credits_remaining: int = 0
     has_system_image_provider: bool = False
     billing_contact: Optional[str] = None
+    billing_enabled: bool = False
 
     class Config:
         from_attributes = True

@@ -369,7 +369,10 @@ Bebcare_Buffer2.0/
 | `DEEPSEEK_MODEL`          | 文案模型名                         | `deepseek-v4-pro` |
 | `IMAGE_CREDIT_SIGNUP_TRIAL` | 注册赠送平台出图次数                 | `2`               |
 | `IMAGE_CREDIT_RESERVE_TTL_MINUTES` | 预扣超时后可回收（分钟）          | `15`              |
-| `BILLING_CONTACT`         | 「升级订阅」联系邮箱或 https 链接     | 默认 `ADMIN_EMAIL` |
+| `STRIPE_SECRET_KEY`       | Stripe 密钥（测试 `sk_test_…`）；空则关闭购买 | （可选）        |
+| `STRIPE_WEBHOOK_SECRET`   | Webhook 签名密钥 `whsec_…`         | （可选）            |
+| `STRIPE_CREDIT_PACKS`     | 允许购买的 price→次数 JSON 数组       | `[]`              |
+| `FRONTEND_BASE_URL`       | Checkout 成功/取消回跳根 URL          | `http://localhost:5174` |
 | `VISION_MODEL`            | 可选多模态写 Prompt 模型              | 见 `.env.example`  |
 | `DOUBAO_API_KEY`          | 默认图像 Provider Key             | （必填）              |
 | `BUFFER_API_TOKEN`        | Buffer GraphQL Token          | （必填）              |
@@ -380,6 +383,15 @@ Bebcare_Buffer2.0/
 | `LOG_LEVEL`               | 日志级别                          | `INFO`            |
 | `APP_PORT`                | 本地监听端口（HF 镜像内为 7860）          | `8888`            |
 
+
+
+### Stripe 沙盒（平台出图次数包）
+
+1. Stripe Dashboard 开启 **Test mode**，创建 Product + one-time Price，复制 `price_…`
+2. 在 `backend/.env` 填写 `STRIPE_SECRET_KEY`、`STRIPE_CREDIT_PACKS`（JSON 数组含 `price_id` / `credits` / `label`）、`FRONTEND_BASE_URL`
+3. 本地转发 webhook：`stripe listen --forward-to localhost:8888/v1/billing/webhook`，将输出的 `whsec_…` 写入 `STRIPE_WEBHOOK_SECRET`
+4. 前端 Studio 选择次数包 → Checkout；测试卡 `4242 4242 4242 4242`；支付成功后 `/auth/me` 的 `image_credits_remaining` 应增加
+5. 未配置密钥时购买按钮不可用（`billing_enabled=false`）
 
 
 

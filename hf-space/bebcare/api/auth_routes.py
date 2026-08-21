@@ -23,6 +23,7 @@ from bebcare.services.credit_grant_service import (
     ensure_signup_trial,
     remaining_credits,
 )
+from bebcare.billing.packs import is_billing_enabled
 from bebcare.models.image_provider import ImageProviderConfig
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -52,6 +53,7 @@ def _to_user_response(db: Session, user: User) -> UserResponse:
         image_credits_remaining=remaining_credits(db, user.user_id),
         has_system_image_provider=_has_system_image_provider(db),
         billing_contact=settings.billing_contact or settings.admin_email,
+        billing_enabled=is_billing_enabled(),
     )
 
 @router.post("/login/")

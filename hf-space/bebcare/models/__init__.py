@@ -16,6 +16,7 @@ from .image_provider import ImageProviderConfig
 from .generate_task import GenerateTask
 from .buffer_account import BufferAccount
 from .image_credit import ImageCreditGrant, ImageCreditReservation
+from .stripe_checkout import StripeCheckoutSession
 
 __all__ = [
     "Brand",
@@ -40,4 +41,5 @@ __all__ = [
     "BufferAccount",
     "ImageCreditGrant",
     "ImageCreditReservation",
+    "StripeCheckoutSession",
 ]
