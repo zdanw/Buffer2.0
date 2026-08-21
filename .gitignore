@@ -70,8 +70,8 @@ instance/
 # Scrapy
 .scrapy
 
-# Sphinx
-docs/_build/
+# Sphinx / local docs (specs & plans stay local; not committed)
+docs/
 
 # PyBuilder
 .pybuilder/
