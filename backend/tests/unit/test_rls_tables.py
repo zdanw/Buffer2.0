@@ -11,3 +11,4 @@ def test_rls_table_list_covers_orm_tables():
 def test_credit_tables_in_rls_list():
     assert "image_credit_grants" in APP_RLS_TABLES
     assert "image_credit_reservations" in APP_RLS_TABLES
+    assert "stripe_checkout_sessions" in APP_RLS_TABLES
