@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listImageProviders,
   listProviderModels,
@@ -57,6 +57,8 @@ export default function ImageModelPicker({
 }: ImageModelPickerProps) {
   const { t } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
   const [models, setModels] = useState<ImageModelInfo[]>([]);
   const [sizes, setSizes] = useState<ImageSizeOption[]>([]);
@@ -70,7 +72,8 @@ export default function ImageModelPicker({
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
   const [creditsRemaining, setCreditsRemaining] = useState(0);
-  const [billingContact, setBillingContact] = useState<string | null>(null);
+  const [billingEnabled, setBillingEnabled] = useState(false);
+  const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
   const [systemSummary, setSystemSummary] = useState<SystemProviderSummary | null>(null);
   const [modeInitialized, setModeInitialized] = useState(false);
   const valueRef = useRef(value);
@@ -93,11 +96,12 @@ export default function ImageModelPicker({
         getSystemImageProviderSummary(),
       ]);
       setCreditsRemaining(me.image_credits_remaining ?? 0);
-      setBillingContact(me.billing_contact ?? null);
+      setBillingEnabled(Boolean(me.billing_enabled));
       setSystemSummary(summary);
     } catch (e) {
       console.error('Failed to load image credits / system provider:', e);
       setCreditsRemaining(0);
+      setBillingEnabled(false);
       setSystemSummary({ has_provider: false });
     }
   };
@@ -119,6 +123,25 @@ export default function ImageModelPicker({
     void loadProviders();
     void loadBilling();
   }, []);
+
+  useEffect(() => {
+    const checkout = searchParams.get('checkout');
+    if (checkout !== 'success' && checkout !== 'cancel') return;
+    setCheckoutBanner(
+      checkout === 'success'
+        ? t('subscribeCredits.checkoutSuccess')
+        : t('subscribeCredits.checkoutCancel')
+    );
+    if (checkout === 'success') {
+      void loadBilling();
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('checkout');
+    navigate(
+      { pathname: location.pathname, search: next.toString() ? `?${next}` : '' },
+      { replace: true }
+    );
+  }, [searchParams, navigate, location.pathname, t]);
 
   useEffect(() => {
     return onImageProvidersChanged(() => {
@@ -336,9 +359,14 @@ export default function ImageModelPicker({
           <div className="mt-2">
             <SubscribeCreditsButton
               creditsRemaining={creditsRemaining}
-              billingContact={billingContact}
+              billingEnabled={billingEnabled}
             />
           </div>
+        ) : null}
+        {checkoutBanner ? (
+          <p className="text-sm text-forge-800 bg-forge-50 border border-forge-200 rounded-lg px-3 py-2 mt-2">
+            {checkoutBanner}
+          </p>
         ) : null}
         {showPlatformExhausted ? (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">

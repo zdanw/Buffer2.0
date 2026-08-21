@@ -42,6 +42,7 @@ export interface UserResponse {
   image_credits_remaining?: number;
   has_system_image_provider?: boolean;
   billing_contact?: string | null;
+  billing_enabled?: boolean;
 }
 
 export const login = async (data: LoginData): Promise<TokenResponse> => {

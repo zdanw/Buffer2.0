@@ -1,35 +1,60 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
+import { createCheckoutSession, listCreditPacks, type CreditPack } from '@/api/billing';
 
 interface SubscribeCreditsModalProps {
   open: boolean;
   onClose: () => void;
   creditsRemaining: number;
-  billingContact?: string | null;
-}
-
-function contactHref(contact: string): string {
-  const c = contact.trim();
-  if (/^https?:\/\//i.test(c)) return c;
-  if (c.includes('@')) {
-    return `mailto:${c}?subject=${encodeURIComponent('Platform image credit pack')}`;
-  }
-  return c;
+  billingEnabled: boolean;
 }
 
 export default function SubscribeCreditsModal({
   open,
   onClose,
   creditsRemaining,
-  billingContact,
+  billingEnabled,
 }: SubscribeCreditsModalProps) {
   const { t } = useI18n();
+  const [packs, setPacks] = useState<CreditPack[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void listCreditPacks()
+      .then((res) => {
+        if (!cancelled) setPacks(res.packs);
+      })
+      .catch(() => {
+        if (!cancelled) setError(t('subscribeCredits.loadFailed'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, t]);
+
   if (!open) return null;
 
-  const contact = (billingContact || '').trim();
-  const href = contact ? contactHref(contact) : null;
-  const isExternal = Boolean(href && /^https?:\/\//i.test(href));
+  const handleBuy = async (priceId: string) => {
+    setBuyingId(priceId);
+    setError(null);
+    try {
+      const { url } = await createCheckoutSession(priceId);
+      window.location.href = url;
+    } catch {
+      setError(t('subscribeCredits.checkoutFailed'));
+      setBuyingId(null);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -58,24 +83,45 @@ export default function SubscribeCreditsModal({
           <li>{t('subscribeCredits.byokHint')}</li>
         </ul>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-1">
-          {href ? (
-            <a
-              href={href}
-              {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="flex-1 text-center px-4 py-2.5 rounded-lg bg-forge-600 text-white text-sm font-medium hover:bg-forge-700"
-            >
-              {t('subscribeCredits.contactCta')}
-            </a>
-          ) : null}
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            {t('common.close')}
-          </button>
-        </div>
+        {!billingEnabled ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {t('subscribeCredits.unavailable')}
+          </p>
+        ) : loading ? (
+          <p className="text-sm text-gray-500">{t('common.loading')}</p>
+        ) : (
+          <div className="space-y-2">
+            {packs.map((pack) => (
+              <button
+                key={pack.price_id}
+                type="button"
+                disabled={buyingId !== null}
+                onClick={() => void handleBuy(pack.price_id)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-forge-600 text-white text-sm font-medium hover:bg-forge-700 disabled:opacity-60"
+              >
+                <span>{pack.label}</span>
+                <span className="opacity-90">
+                  {buyingId === pack.price_id
+                    ? t('subscribeCredits.redirecting')
+                    : t('subscribeCredits.buyCta', { n: pack.credits })}
+                </span>
+              </button>
+            ))}
+            {packs.length === 0 ? (
+              <p className="text-sm text-gray-500">{t('subscribeCredits.noPacks')}</p>
+            ) : null}
+          </div>
+        )}
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          {t('common.close')}
+        </button>
       </div>
     </div>
   );
@@ -84,11 +130,11 @@ export default function SubscribeCreditsModal({
 /** Compact trigger button used near the image model picker. */
 export function SubscribeCreditsButton({
   creditsRemaining,
-  billingContact,
+  billingEnabled,
   className = '',
 }: {
   creditsRemaining: number;
-  billingContact?: string | null;
+  billingEnabled: boolean;
   className?: string;
 }) {
   const { t } = useI18n();
@@ -98,10 +144,12 @@ export function SubscribeCreditsButton({
     <>
       <button
         type="button"
+        disabled={!billingEnabled}
         onClick={() => setOpen(true)}
+        title={!billingEnabled ? t('subscribeCredits.unavailable') : undefined}
         className={
           className ||
-          'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100'
+          'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50'
         }
       >
         {t('subscribeCredits.button')}
@@ -110,7 +158,7 @@ export function SubscribeCreditsButton({
         open={open}
         onClose={() => setOpen(false)}
         creditsRemaining={creditsRemaining}
-        billingContact={billingContact}
+        billingEnabled={billingEnabled}
       />
     </>
   );
