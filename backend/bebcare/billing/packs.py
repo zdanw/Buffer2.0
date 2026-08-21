@@ -11,6 +11,7 @@ class CreditPack:
     price_id: str
     credits: int
     label: str
+    price_display: str | None = None
 
 
 def parse_credit_packs(raw: str) -> list[CreditPack]:
@@ -24,11 +25,22 @@ def parse_credit_packs(raw: str) -> list[CreditPack]:
         price_id = str(item.get("price_id") or "").strip()
         label = str(item.get("label") or "").strip()
         credits = item.get("credits")
+        raw_display = item.get("price_display")
+        price_display = (
+            str(raw_display).strip() if raw_display is not None else ""
+        ) or None
         if not price_id or not label:
             raise ValueError(f"pack[{i}] requires price_id and label")
         if not isinstance(credits, int) or credits < 1:
             raise ValueError(f"pack[{i}] credits must be int >= 1")
-        packs.append(CreditPack(price_id=price_id, credits=credits, label=label))
+        packs.append(
+            CreditPack(
+                price_id=price_id,
+                credits=credits,
+                label=label,
+                price_display=price_display,
+            )
+        )
     return packs
 
 

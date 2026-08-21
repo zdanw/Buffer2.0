@@ -4,12 +4,20 @@ from bebcare.billing.packs import parse_credit_packs, is_billing_enabled
 
 def test_parse_credit_packs_ok():
     packs = parse_credit_packs(
-        '[{"price_id":"price_a","credits":20,"label":"20 shots"}]'
+        '[{"price_id":"price_a","credits":20,"label":"20 shots","price_display":"$3.99"}]'
     )
     assert len(packs) == 1
     assert packs[0].price_id == "price_a"
     assert packs[0].credits == 20
     assert packs[0].label == "20 shots"
+    assert packs[0].price_display == "$3.99"
+
+
+def test_parse_credit_packs_price_display_optional():
+    packs = parse_credit_packs(
+        '[{"price_id":"price_a","credits":20,"label":"20 shots"}]'
+    )
+    assert packs[0].price_display is None
 
 
 def test_parse_credit_packs_rejects_bad_credits():

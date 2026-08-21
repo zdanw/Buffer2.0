@@ -31,7 +31,12 @@ def list_credit_packs(
     return CreditPacksResponse(
         enabled=is_billing_enabled(),
         packs=[
-            CreditPackOut(price_id=p.price_id, credits=p.credits, label=p.label)
+            CreditPackOut(
+                price_id=p.price_id,
+                credits=p.credits,
+                label=p.label,
+                price_display=p.price_display,
+            )
             for p in packs
         ],
     )

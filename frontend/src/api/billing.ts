@@ -4,6 +4,7 @@ export interface CreditPack {
   price_id: string;
   credits: number;
   label: string;
+  price_display?: string | null;
 }
 
 export async function listCreditPacks(): Promise<{

@@ -368,7 +368,7 @@ Bebcare_Buffer2.0/
 | `IMAGE_CREDIT_EXPIRE_INTERVAL_MINUTES` | 过期清零任务间隔（分钟）                  | `60`                        |
 | `STRIPE_SECRET_KEY`                | Stripe 密钥（测试 `sk_test_…`）；空则关闭购买 | （可选）                        |
 | `STRIPE_WEBHOOK_SECRET`            | Webhook 签名密钥 `whsec_…`           | （可选）                        |
-| `STRIPE_CREDIT_PACKS`              | 允许购买的 price→次数 JSON 数组           | `[]`                        |
+| `STRIPE_CREDIT_PACKS`              | 允许购买的 price→次数 JSON 数组（可选 `price_display`） | `[]`                        |
 | `FRONTEND_BASE_URL`                | Checkout 成功/取消回跳根 URL            | `http://localhost:5174`     |
 | `VISION_MODEL`                     | 可选多模态写 Prompt 模型                 | 见 `.env.example`            |
 | `DOUBAO_API_KEY`                   | 默认图像 Provider Key                | （必填）                        |
@@ -400,11 +400,13 @@ Bebcare_Buffer2.0/
 
 ```json
 [
-  {"price_id":"price_…","credits":30,"label":"Basic — 30 credits"},
-  {"price_id":"price_…","credits":120,"label":"Pro — 120 credits"},
-  {"price_id":"price_…","credits":300,"label":"Super — 300 credits"}
+  {"price_id":"price_…","credits":30,"label":"Basic — 30 credits","price_display":"$3.99"},
+  {"price_id":"price_…","credits":120,"label":"Pro — 120 credits","price_display":"$9.99"},
+  {"price_id":"price_…","credits":300,"label":"Super — 300 credits","price_display":"$19.99"}
 ]
 ```
+
+`price_display` 为可选展示价（仅用于购买弹窗文案）；真实扣款金额以 Stripe Price 为准。
 
 3. 本地转发 webhook：`stripe listen --forward-to localhost:8888/v1/billing/webhook`，将输出的 `whsec_…` 写入 `STRIPE_WEBHOOK_SECRET`
 4. **生产（Vercel）**：在 Stripe Dashboard 添加 endpoint  

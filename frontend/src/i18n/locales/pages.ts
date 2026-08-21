@@ -148,6 +148,8 @@ export const pagesEn: TranslationTree = {
       kitComplete: 'Kit complete',
       kitIncomplete: 'Complete your brand kit',
       viewingAll: 'Viewing all brands',
+      creditsRemaining: '{{n}} credits left',
+      creditsHint: 'Platform image credits remaining',
     },
   },
   onboarding: {
@@ -708,6 +710,8 @@ export const pagesZh: TranslationTree = {
       kitComplete: '套件完整',
       kitIncomplete: '完善品牌套件',
       viewingAll: '查看全部品牌',
+      creditsRemaining: '剩余 {{n}} 次',
+      creditsHint: '平台出图剩余次数',
     },
   },
   onboarding: {

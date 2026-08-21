@@ -7,6 +7,7 @@ class CreditPackOut(BaseModel):
     price_id: str
     credits: int
     label: str
+    price_display: str | None = None
 
 
 class CreditPacksResponse(BaseModel):

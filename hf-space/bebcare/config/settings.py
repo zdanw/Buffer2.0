@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # Stripe（测试/正式密钥；空则关闭在线购买）
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
-    # JSON 数组：[{"price_id":"price_xxx","credits":30,"label":"Basic — 30 credits"}]
+    # JSON 数组：[{"price_id":"price_xxx","credits":30,"label":"Basic — 30 credits","price_display":"$3.99"}]
     stripe_credit_packs: str = "[]"
     # Checkout success/cancel 回跳根 URL
     frontend_base_url: str = "http://localhost:5174"

@@ -113,11 +113,11 @@ export default function SubscribeCreditsModal({
                 onClick={() => void handleBuy(pack.price_id)}
                 className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-forge-600 text-white text-sm font-medium hover:bg-forge-700 disabled:opacity-60"
               >
-                <span>{pack.label}</span>
-                <span className="opacity-90">
+                <span className="text-left">{pack.label}</span>
+                <span className="opacity-90 shrink-0 font-semibold">
                   {buyingId === pack.price_id
                     ? t('subscribeCredits.redirecting')
-                    : t('subscribeCredits.buyCta', { n: pack.credits })}
+                    : pack.price_display || t('subscribeCredits.buyCta', { n: pack.credits })}
                 </span>
               </button>
             ))}
