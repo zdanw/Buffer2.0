@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
 import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
-import { findOwnedBrand, ownedBrandId } from '@/api/brands';
+import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -25,13 +25,24 @@ import BrandPicker from '@/components/BrandPicker';
 import BrandBadge from '@/components/BrandBadge';
 import BrandInheritanceHint from '@/components/BrandInheritanceHint';
 import CategoryCombobox, { findCanonicalCategory } from '@/components/CategoryCombobox';
+import SetupFlowCallout from '@/components/SetupFlowCallout';
+import {
+  clearProductFormDraft,
+  loadProductFormDraft,
+  saveProductFormDraft,
+  type ProductFormDraft,
+} from '@/lib/formDraft';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
+
+const RETURN_TO_PRODUCT_KEY = 'pulseforge:return-to-product';
 
 export default function AssetManagement() {
   const { t } = useI18n();
   const v = createValidators(t);
-  const { activeBrandId, brands, loading: brandsLoading } = useBrandContext();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { activeBrandId, brands, loading: brandsLoading, refreshBrands } = useBrandContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -62,6 +73,80 @@ export default function AssetManagement() {
   useEffect(() => {
     void Promise.all([loadProducts(1), loadDimensionTypes()]);
   }, [activeBrandId]);
+
+  const applyProductDraft = useCallback((draft: ProductFormDraft, brandId?: string | null) => {
+    setIsEdit(draft.isEdit);
+    setFormData({
+      product_name: '',
+      category: '',
+      description: '',
+      selling_points: [],
+      brand_voice: '',
+      use_brand_voice: false,
+      ...draft.formData,
+      brand_id: brandId || (draft.formData.brand_id as string) || '',
+    });
+    if (draft.isEdit && draft.selectedProductId) {
+      const product = products.find((p) => p.product_id === draft.selectedProductId);
+      if (product) setSelectedProduct(product);
+    } else {
+      setSelectedProduct(null);
+    }
+    setShowModal(true);
+  }, [products]);
+
+  useEffect(() => {
+    const resume = searchParams.get('resumeForm');
+    const brandId = searchParams.get('brandId');
+    if (resume !== '1') return;
+
+    const draft = loadProductFormDraft();
+    if (draft) {
+      applyProductDraft(draft, brandId);
+    } else if (brandId) {
+      setFormData((prev) => ({ ...prev, brand_id: brandId }));
+      setShowModal(true);
+    }
+    navigate('/products', { replace: true });
+  }, [searchParams, navigate, applyProductDraft]);
+
+  useEffect(() => {
+    if (!showModal) return;
+    saveProductFormDraft({
+      formData: { ...formData },
+      isEdit,
+      selectedProductId: selectedProduct?.product_id ?? null,
+    });
+  }, [showModal, formData, isEdit, selectedProduct?.product_id]);
+
+  const ownedBrands = brands.filter((b) => !b.is_generic);
+  const effectiveBrandId = formData.brand_id || defaultProductBrandId(brands, activeBrandId);
+  const selectedBrand = brands.find((b) => b.brand_id === effectiveBrandId);
+  const needsBrandSetup = !isEdit && ownedBrands.length === 0;
+  const usingGenericWithBrandsAvailable =
+    !isEdit && ownedBrands.length > 0 && selectedBrand?.is_generic;
+
+  const goToBrandSetup = () => {
+    saveProductFormDraft({
+      formData: { ...formData },
+      isEdit,
+      selectedProductId: selectedProduct?.product_id ?? null,
+    });
+    try {
+      sessionStorage.setItem(RETURN_TO_PRODUCT_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    const url = `${window.location.origin}/brand?openAdd=1`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    if (!showModal) return;
+    const onFocus = () => void refreshBrands();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [showModal, refreshBrands]);
 
   useEffect(() => {
     if (formData.use_brand_voice) {
@@ -165,6 +250,7 @@ export default function AssetManagement() {
           setTotal(t => t + 1);
         }
       }
+      clearProductFormDraft();
       setShowModal(false);
       setFormData({
         product_name: '',
@@ -172,7 +258,7 @@ export default function AssetManagement() {
         description: '',
         selling_points: [],
         brand_voice: '',
-        brand_id: ownedBrandId(brands, activeBrandId),
+        brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
       });
     } catch (error) {
@@ -291,7 +377,7 @@ export default function AssetManagement() {
         description: product.description,
         selling_points: product.selling_points || [],
         brand_voice: product.brand_voice,
-        brand_id: ownedBrandId(brands, product.brand_id || activeBrandId),
+        brand_id: defaultProductBrandId(brands, product.brand_id || activeBrandId),
         use_brand_voice: product.use_brand_voice ?? false,
       });
     } else {
@@ -303,7 +389,7 @@ export default function AssetManagement() {
         description: '',
         selling_points: [],
         brand_voice: '',
-        brand_id: ownedBrandId(brands, activeBrandId),
+        brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
       });
     }
@@ -706,12 +792,29 @@ export default function AssetManagement() {
                 <div>
                   <LabelWithTooltip label={t('assets.brand')} tooltip={t('assets.tooltips.brand')} />
                   <BrandPicker
-                    value={formData.brand_id || ownedBrandId(brands, activeBrandId)}
+                    value={formData.brand_id || defaultProductBrandId(brands, activeBrandId)}
                     onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
                     brands={brands}
                     loading={brandsLoading}
                   />
                   {!formData.use_brand_voice && <BrandInheritanceHint voice={inheritedVoice} className="mt-1" />}
+                  {needsBrandSetup && (
+                    <div className="mt-3">
+                      <SetupFlowCallout
+                        variant="warning"
+                        title={t('assets.brandSetup.title')}
+                        description={t('assets.brandSetup.description')}
+                        actionLabel={t('assets.brandSetup.action')}
+                        onAction={goToBrandSetup}
+                        openActionInNewTab
+                      />
+                    </div>
+                  )}
+                  {usingGenericWithBrandsAvailable && (
+                    <p className="mt-2 text-xs text-amber-700 leading-relaxed">
+                      {t('assets.brandPickHint')}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <LabelWithTooltip

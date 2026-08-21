@@ -69,6 +69,8 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   '/pending': '/review',
 };
 
+const ADMIN_TABS = new Set(['system-image', 'users']);
+
 function PageFallback() {
   return (
     <div className="flex items-center justify-center h-64">
@@ -144,6 +146,10 @@ function AppContent() {
 
   useEffect(() => {
     const tab = ROUTE_TABS[location.pathname] || 'studio';
+    if (ADMIN_TABS.has(tab) && !currentUser?.is_admin) {
+      navigate({ pathname: '/studio', search: '' }, { replace: true });
+      return;
+    }
     setActiveTab(tab);
     setMountedTabs((prev) => {
       if (prev.has(tab)) return prev;
@@ -151,9 +157,12 @@ function AppContent() {
       next.add(tab);
       return next;
     });
-  }, [location.pathname]);
+  }, [location.pathname, currentUser?.is_admin, navigate]);
 
   const handleTabChange = (tab: string) => {
+    if (ADMIN_TABS.has(tab) && !currentUser?.is_admin) {
+      return;
+    }
     setActiveTab(tab);
     setMountedTabs((prev) => {
       if (prev.has(tab)) return prev;

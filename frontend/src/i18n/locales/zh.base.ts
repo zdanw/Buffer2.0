@@ -11,6 +11,7 @@ export const zh: TranslationTree = {
       create: '创作',
       insights: '洞察',
       settings: '设置',
+      admin: '管理',
     },
     brand: '品牌',
     products: '产品',
@@ -283,6 +284,9 @@ export const zh: TranslationTree = {
     testConnection: '测试连接',
     emptyState:
       '尚未配置 Buffer 账户。先在此添加 token，再到品牌编辑页绑定。',
+    emptyStateTitle: '连接 Buffer 以发布内容',
+    emptyStateBody:
+      'PulseForge 通过您的 Buffer 账户发布。在此添加 API Token，然后在品牌套件中绑定 — 每个品牌对应一个 Token。',
     confirmDelete: '确定删除该 Buffer 账户？已绑定的品牌将解除绑定。',
     tokenLabel: 'Token',
     noEmail: '尚未验证邮箱',
@@ -312,6 +316,31 @@ export const zh: TranslationTree = {
     errorDialog: {
       title: '操作失败',
       ok: '知道了',
+    },
+    tokenGuide: {
+      title: '如何获取 Buffer API Token',
+      intro: 'PulseForge 使用您的 Buffer 个人 API 密钥发布内容。需要已验证邮箱的 Buffer 账户。',
+      steps: {
+        signIn: '登录 publish.buffer.com',
+        openSettings: '打开 Settings → API，或直接访问 API 设置页',
+        personalAccess: '选择 Personal Access（个人访问）标签',
+        generate: '点击 Generate API Key，命名（如「PulseForge」）并复制 Token',
+        paste: '将 Token 粘贴到下方 — Buffer 仅显示一次',
+      },
+      notes: '仅组织所有者可创建 API 密钥。每个密钥在 PulseForge 中只能绑定一个品牌。',
+      openApiSettings: '打开 Buffer API 设置',
+      helpArticle: 'Buffer 帮助文档',
+    },
+    returnFlow: {
+      brandTitle: '正在为品牌添加 Token',
+      brandDescription:
+        '请保持另一个标签页中的品牌表单打开。保存后关闭此标签页，并在下拉框中选择账户。',
+      brandCloseHint: '若无法关闭此标签页，请切回品牌标签页 — 账户列表会自动刷新。',
+      brandAction: '关闭此标签页',
+      brandCreated: 'Buffer 账户已添加。关闭此标签页，并在品牌表单中选择该账户。',
+      productTitle: '返回产品表单',
+      productDescription: '产品信息已保存。创建品牌后返回此处继续添加产品。',
+      productAction: '返回产品表单',
     },
   },
 };
