@@ -329,7 +329,7 @@ Bebcare_Buffer2.0/
 ├── space4/                       # 魔搭创空间部署副本
 ├── scripts/
 │   └── sync_deploy_copies.py     # 同步 / --check
-├── docs/                         # 可选文档副本
+├── docs/                         # 本地规格/计划（已 gitignore，不入库）
 ├── 项目书.md                     # 建设目标、里程碑、风险
 ├── 项目说明.md                   # 交付说明与日常使用
 └── README.md
