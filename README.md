@@ -194,8 +194,6 @@ python ../scripts/sync_deploy_copies.py
 
 已有本地 SQLite（以前靠 `create_all`）首次切换可：`python scripts/stamp_existing_db.py`（通常启动已自动处理）。
 
-
-
 ## 使用方式
 
 
@@ -329,9 +327,6 @@ Bebcare_Buffer2.0/
 ├── space4/                       # 魔搭创空间部署副本
 ├── scripts/
 │   └── sync_deploy_copies.py     # 同步 / --check
-├── docs/                         # 本地规格/计划（已 gitignore，不入库）
-├── 项目书.md                     # 建设目标、里程碑、风险
-├── 项目说明.md                   # 交付说明与日常使用
 └── README.md
 ```
 
@@ -353,35 +348,36 @@ Bebcare_Buffer2.0/
 ## 配置参数表
 
 
-| 参数名                       | 说明                            | 典型值               |
-| ------------------------- | ----------------------------- | ----------------- |
-| `APP_ENV`                 | 运行环境；production 禁止 SQLite     | `development`     |
-| `DATABASE_URL`            | 数据库连接；本地可省略                   | （SQLite 默认）       |
-| `AUTO_MIGRATE`            | 启动时 alembic upgrade           | `true`            |
-| `SEED_BABY_DIMENSIONS`    | 启动时追加 baby_family 视觉预设   | `false`（Bebcare 生产可 `true`） |
-| `MAX_CONCURRENT_JOBS`     | 全局调度并发                        | `1`               |
-| `SCHEDULER_MAX_WORKERS`   | 调度线程池                         | `2`               |
-| `SCHEDULER_MAX_INSTANCES` | 单任务最大重叠实例                     | `1`               |
-| `DB_POOL_SIZE`            | SQLAlchemy 池大小（Supabase 宜小）   | `3`～`8`           |
-| `ENABLE_CLIP`             | 是否启用 CLIP 去重                  | `false`           |
-| `DEEPSEEK_API_KEY`        | 文案 / Prompt API Key           | （必填）              |
-| `DEEPSEEK_API_URL`        | OpenAI 兼容 base URL            | （必填）              |
-| `DEEPSEEK_MODEL`          | 文案模型名                         | `deepseek-v4-pro` |
-| `IMAGE_CREDIT_SIGNUP_TRIAL` | 注册赠送平台出图次数                 | `2`               |
-| `IMAGE_CREDIT_RESERVE_TTL_MINUTES` | 预扣超时后可回收（分钟）          | `15`              |
-| `STRIPE_SECRET_KEY`       | Stripe 密钥（测试 `sk_test_…`）；空则关闭购买 | （可选）        |
-| `STRIPE_WEBHOOK_SECRET`   | Webhook 签名密钥 `whsec_…`         | （可选）            |
-| `STRIPE_CREDIT_PACKS`     | 允许购买的 price→次数 JSON 数组       | `[]`              |
-| `FRONTEND_BASE_URL`       | Checkout 成功/取消回跳根 URL          | `http://localhost:5174` |
-| `VISION_MODEL`            | 可选多模态写 Prompt 模型              | 见 `.env.example`  |
-| `DOUBAO_API_KEY`          | 默认图像 Provider Key             | （必填）              |
-| `BUFFER_API_TOKEN`        | Buffer GraphQL Token          | （必填）              |
-| `GITHUB_*`                | 图床仓库凭证                        | （必填）              |
-| `SECRET_KEY`              | JWT + Provider Key 加密（≥32 字符） | （必填）              |
-| `ADMIN_PASSWORD`          | 首次初始化管理员密码                    | （必填）              |
-| `ALLOWED_ORIGINS`         | CORS 白名单（逗号分隔，禁止 `*`）         | 本地含 `:5174`       |
-| `LOG_LEVEL`               | 日志级别                          | `INFO`            |
-| `APP_PORT`                | 本地监听端口（HF 镜像内为 7860）          | `8888`            |
+| 参数名                                | 说明                               | 典型值                         |
+| ---------------------------------- | -------------------------------- | --------------------------- |
+| `APP_ENV`                          | 运行环境；production 禁止 SQLite        | `development`               |
+| `DATABASE_URL`                     | 数据库连接；本地可省略                      | （SQLite 默认）                 |
+| `AUTO_MIGRATE`                     | 启动时 alembic upgrade              | `true`                      |
+| `SEED_BABY_DIMENSIONS`             | 启动时追加 baby_family 视觉预设           | `false`（Bebcare 生产可 `true`） |
+| `MAX_CONCURRENT_JOBS`              | 全局调度并发                           | `1`                         |
+| `SCHEDULER_MAX_WORKERS`            | 调度线程池                            | `2`                         |
+| `SCHEDULER_MAX_INSTANCES`          | 单任务最大重叠实例                        | `1`                         |
+| `DB_POOL_SIZE`                     | SQLAlchemy 池大小（Supabase 宜小）      | `3`～`8`                     |
+| `ENABLE_CLIP`                      | 是否启用 CLIP 去重                     | `false`                     |
+| `DEEPSEEK_API_KEY`                 | 文案 / Prompt API Key              | （必填）                        |
+| `DEEPSEEK_API_URL`                 | OpenAI 兼容 base URL               | （必填）                        |
+| `DEEPSEEK_MODEL`                   | 文案模型名                            | `deepseek-v4-pro`           |
+| `IMAGE_CREDIT_SIGNUP_TRIAL`        | 注册赠送平台出图次数                       | `2`                         |
+| `IMAGE_CREDIT_RESERVE_TTL_MINUTES` | 预扣超时后可回收（分钟）                     | `15`                        |
+| `STRIPE_SECRET_KEY`                | Stripe 密钥（测试 `sk_test_…`）；空则关闭购买 | （可选）                        |
+| `STRIPE_WEBHOOK_SECRET`            | Webhook 签名密钥 `whsec_…`           | （可选）                        |
+| `STRIPE_CREDIT_PACKS`              | 允许购买的 price→次数 JSON 数组           | `[]`                        |
+| `FRONTEND_BASE_URL`                | Checkout 成功/取消回跳根 URL            | `http://localhost:5174`     |
+| `VISION_MODEL`                     | 可选多模态写 Prompt 模型                 | 见 `.env.example`            |
+| `DOUBAO_API_KEY`                   | 默认图像 Provider Key                | （必填）                        |
+| `BUFFER_API_TOKEN`                 | Buffer GraphQL Token             | （必填）                        |
+| `GITHUB_*`                         | 图床仓库凭证                           | （必填）                        |
+| `SECRET_KEY`                       | JWT + Provider Key 加密（≥32 字符）    | （必填）                        |
+| `ADMIN_PASSWORD`                   | 首次初始化管理员密码                       | （必填）                        |
+| `ALLOWED_ORIGINS`                  | CORS 白名单（逗号分隔，禁止 `*`）            | 本地含 `:5174`                 |
+| `LOG_LEVEL`                        | 日志级别                             | `INFO`                      |
+| `APP_PORT`                         | 本地监听端口（HF 镜像内为 7860）             | `8888`                      |
+
 
 
 
