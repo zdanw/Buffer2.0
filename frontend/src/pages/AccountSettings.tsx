@@ -53,8 +53,8 @@ export default function AccountSettings() {
   const [subBusy, setSubBusy] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const [me, status, inv] = await Promise.all([
@@ -67,9 +67,9 @@ export default function AccountSettings() {
       setSub(status);
       setInvoices(inv);
     } catch {
-      setError(t('common.loadFailed'));
+      if (!opts?.silent) setError(t('common.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -535,7 +535,7 @@ export default function AccountSettings() {
         open={buyOpen}
         onClose={() => {
           setBuyOpen(false);
-          void load();
+          void load({ silent: true });
         }}
         creditsRemaining={credits}
         billingEnabled={Boolean(user.billing_enabled)}

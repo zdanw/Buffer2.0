@@ -354,6 +354,16 @@ body {
   .border-canvas-border {
     border-color: var(--pf-canvas-border);
   }
+  .sidebar-nav-scroll {
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sidebar-nav-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 /* App shell: keep sidebar visible on large screens (mobile off-canvas toggle) */
