@@ -17,6 +17,7 @@ from .generate_task import GenerateTask
 from .buffer_account import BufferAccount
 from .image_credit import ImageCreditGrant, ImageCreditReservation
 from .stripe_checkout import StripeCheckoutSession
+from .stripe_subscription import StripeSubscription
 
 __all__ = [
     "Brand",
@@ -42,4 +43,5 @@ __all__ = [
     "ImageCreditGrant",
     "ImageCreditReservation",
     "StripeCheckoutSession",
+    "StripeSubscription",
 ]

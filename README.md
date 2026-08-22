@@ -411,7 +411,7 @@ Bebcare_Buffer2.0/
 3. 本地转发 webhook：`stripe listen --forward-to localhost:8888/v1/billing/webhook`，将输出的 `whsec_…` 写入 `STRIPE_WEBHOOK_SECRET`
 4. **生产（Vercel）**：在 Stripe Dashboard 添加 endpoint  
    `https://buffrer2-0.vercel.app/payments/webhook`  
-   （Vercel 会转发到 HF Space 的 `POST /v1/billing/webhook`）。将 Dashboard 生成的 `whsec_…` 写入 HF Space 的 `STRIPE_WEBHOOK_SECRET`。需监听：`checkout.session.completed`、`invoice.paid`。
+   （Vercel 会转发到 HF Space 的 `POST /v1/billing/webhook`）。将 Dashboard 生成的 `whsec_…` 写入 HF Space 的 `STRIPE_WEBHOOK_SECRET`。需监听：`checkout.session.completed`、`invoice.paid`、`customer.subscription.updated`、`customer.subscription.deleted`。
 5. 前端 Studio 选择次数包 → Checkout；测试卡 `4242 4242 4242 4242`；支付成功后 `/auth/me` 的 `image_credits_remaining` 应增加
 6. 未配置密钥时购买按钮不可用（`billing_enabled=false`）
 

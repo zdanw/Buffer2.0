@@ -74,6 +74,11 @@ def test_create_checkout_session_persists_pending(
         }
 
     monkeypatch.setattr(stripe.checkout.Session, "create", _create)
+
+    def _customer_create(**kwargs):
+        return {"id": "cus_test_1"}
+
+    monkeypatch.setattr(stripe.Customer, "create", _customer_create)
     row, url = create_checkout_session(
         db_session, user_id=user_id, price_id="price_a"
     )
@@ -82,6 +87,7 @@ def test_create_checkout_session_persists_pending(
     assert row.stripe_session_id == "cs_test_1"
     assert row.credits == 20
     assert captured.get("mode") == "subscription"
+    assert captured.get("customer") == "cus_test_1"
     assert captured.get("subscription_data", {}).get("metadata", {}).get("credits") == "20"
 
 
@@ -165,3 +171,61 @@ def test_fulfill_subscription_invoice_skips_create_and_grants_cycle(
         metadata={"user_id": user_id, "credits": "20", "price_id": "price_a"},
     )
     assert again.id == grant.id
+
+
+def test_cancel_and_resume_subscription(db_session, user_id, enable_billing, monkeypatch):
+    import stripe
+    from bebcare.models.stripe_subscription import StripeSubscription
+    from bebcare.services.stripe_billing_service import (
+        cancel_subscription_at_period_end,
+        resume_subscription,
+        subscription_status_payload,
+    )
+
+    db_session.add(
+        StripeSubscription(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            stripe_customer_id="cus_x",
+            stripe_subscription_id="sub_x",
+            status="active",
+            cancel_at_period_end=False,
+            current_period_end=datetime.utcnow() + timedelta(days=10),
+            price_id="price_a",
+        )
+    )
+    db_session.flush()
+
+    def _modify(sub_id, **kwargs):
+        return {
+            "id": sub_id,
+            "customer": "cus_x",
+            "status": "active",
+            "cancel_at_period_end": bool(kwargs.get("cancel_at_period_end")),
+            "current_period_end": int((datetime.utcnow() + timedelta(days=10)).timestamp()),
+            "metadata": {"user_id": user_id},
+            "items": {"data": [{"price": {"id": "price_a"}}]},
+        }
+
+    monkeypatch.setattr(stripe.Subscription, "modify", _modify)
+
+    cancel_subscription_at_period_end(db_session, user_id=user_id)
+    payload = subscription_status_payload(db_session, user_id=user_id)
+    assert payload["has_subscription"] is True
+    assert payload["cancel_at_period_end"] is True
+
+    resume_subscription(db_session, user_id=user_id)
+    payload = subscription_status_payload(db_session, user_id=user_id)
+    assert payload["cancel_at_period_end"] is False
+
+
+def test_invoice_refund_amount_reads_charge(monkeypatch, enable_billing):
+    from bebcare.services.stripe_billing_service import _invoice_refund_amount
+
+    assert (
+        _invoice_refund_amount(
+            {"amount_paid": 999, "charge": {"amount_refunded": 999}}
+        )
+        == 999
+    )
+    assert _invoice_refund_amount({"amount_paid": 999, "amount_refunded": 0}) == 0

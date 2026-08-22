@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react';
 import { listUsers, createUser, updateUser, deleteUser } from '../api/auth';
 import type { UserResponse, CreateUserData, UpdateUserData } from '../api/auth';
 import { grantUserCredits } from '../api/credits';
-import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff, Coins } from 'lucide-react';
+import {
+  listUserInvoices,
+  refundUserInvoice,
+  type BillingInvoice,
+} from '../api/billing';
+import { Plus, Edit2, Trash2, X, Check, UserCog, RefreshCw, Eye, EyeOff, Coins, Receipt } from 'lucide-react';
 import {
   LIMITS,
   alertValidationErrors,
@@ -51,6 +56,11 @@ function UserManagement() {
   const [grantQty, setGrantQty] = useState('20');
   const [grantNote, setGrantNote] = useState('');
   const [granting, setGranting] = useState(false);
+  const [refundUser, setRefundUser] = useState<UserResponse | null>(null);
+  const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [revokeCredits, setRevokeCredits] = useState(true);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
 
   const fetchUsers = async (opts?: { silent?: boolean }) => {
     try {
@@ -389,6 +399,25 @@ function UserManagement() {
                           <Coins className="w-5 h-5" />
                         </button>
                         <button
+                          onClick={() => {
+                            setRefundUser(user);
+                            setRevokeCredits(true);
+                            setInvoices([]);
+                            setInvoicesLoading(true);
+                            void listUserInvoices(user.user_id)
+                              .then(setInvoices)
+                              .catch(() => {
+                                setError(t('users.refundLoadFailed'));
+                                setInvoices([]);
+                              })
+                              .finally(() => setInvoicesLoading(false));
+                          }}
+                          className="p-1 text-rose-600 hover:bg-rose-50 rounded"
+                          title={t('users.refundCredits')}
+                        >
+                          <Receipt className="w-5 h-5" />
+                        </button>
+                        <button
                           onClick={() => handleEditUser(user)}
                           className="p-1 text-forge-600 hover:bg-forge-50 rounded"
                         >
@@ -596,6 +625,132 @@ function UserManagement() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {refundUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg mx-4 space-y-3 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">
+                {t('users.refundTitle')} — {refundUser.username}
+              </h2>
+              <button type="button" onClick={() => setRefundUser(null)}>
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+            <label className="flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={revokeCredits}
+                onChange={(e) => setRevokeCredits(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>{t('users.refundRevokeLabel')}</span>
+            </label>
+            {invoicesLoading ? (
+              <p className="text-sm text-gray-500">{t('common.loading')}</p>
+            ) : invoices.length === 0 ? (
+              <p className="text-sm text-gray-500">{t('users.refundEmpty')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {invoices.map((inv) => {
+                  const amount = ((inv.amount_paid || 0) / 100).toFixed(2);
+                  const cur = (inv.currency || 'usd').toUpperCase();
+                  const isRefunded =
+                    (inv.amount_paid || 0) > 0 &&
+                    (inv.amount_refunded || 0) >= (inv.amount_paid || 0);
+                  return (
+                    <li
+                      key={inv.invoice_id}
+                      className="border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium text-gray-900">
+                          {t('users.refundAmount')}: {amount} {cur}
+                        </p>
+                        <p className="text-gray-500 truncate">
+                          {inv.created
+                            ? formatServerDateTime(inv.created, locale, t('datetime.unknown'))
+                            : inv.invoice_id}
+                        </p>
+                        <p className="text-gray-500">
+                          {t('users.refundRemainingCredits', {
+                            n: inv.grant_remaining ?? 0,
+                          })}
+                        </p>
+                      </div>
+                      {isRefunded ? (
+                        <span className="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700">
+                          {t('users.refundedStatus')}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!inv.refundable || refundingId === inv.invoice_id}
+                          onClick={() => {
+                            if (!window.confirm(t('users.refundConfirm'))) return;
+                            setRefundingId(inv.invoice_id);
+                            setError('');
+                            void refundUserInvoice(
+                              refundUser.user_id,
+                              inv.invoice_id,
+                              revokeCredits
+                            )
+                              .then(async () => {
+                                setSuccess(t('users.refundSuccess'));
+                                // Optimistic: mark this invoice refunded before re-fetch
+                                setInvoices((prev) =>
+                                  prev.map((row) =>
+                                    row.invoice_id === inv.invoice_id
+                                      ? {
+                                          ...row,
+                                          amount_refunded: row.amount_paid,
+                                          refundable: false,
+                                          grant_remaining: revokeCredits
+                                            ? 0
+                                            : row.grant_remaining,
+                                        }
+                                      : row
+                                  )
+                                );
+                                try {
+                                  const next = await listUserInvoices(refundUser.user_id);
+                                  setInvoices(next);
+                                } catch {
+                                  /* keep optimistic row */
+                                }
+                                await fetchUsers({ silent: true });
+                              })
+                              .catch((err: any) => {
+                                setError(
+                                  err.response?.data?.detail || t('users.refundFailed')
+                                );
+                              })
+                              .finally(() => setRefundingId(null));
+                          }}
+                          className="shrink-0 px-3 py-1.5 rounded-lg text-sm bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          {refundingId === inv.invoice_id
+                            ? t('users.refundBusy')
+                            : inv.refundable
+                              ? t('users.refundAction')
+                              : t('users.refundNotRefundable')}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setRefundUser(null)}
+              className="w-full px-4 py-2 border rounded-lg text-sm"
+            >
+              {t('common.close')}
+            </button>
+          </div>
         </div>
       )}
     </div>
