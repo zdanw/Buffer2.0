@@ -29,7 +29,6 @@ MANIFEST
 space4/
 hf-space4/
 
-
 # PyInstaller
 *.manifest
 *.spec
@@ -119,7 +118,7 @@ dmypy.json
 chroma_data/
 checkpoints/*.pt
 
-# Nested ModelScope deploy copy (own git repo / credentials — keep local only)
+# Nested ModelScope deploy copy (removed; keep ignore if recreated locally)
 space4/
 
 # Isolated git worktrees (feature branches)

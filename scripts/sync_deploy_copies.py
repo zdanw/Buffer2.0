@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Sync backend/ → hf-space/ and space4/ (backend is source of truth).
+"""Sync backend/ → hf-space/ (backend is source of truth).
 
 Usage:
   python scripts/sync_deploy_copies.py          # apply sync
   python scripts/sync_deploy_copies.py --check  # exit 1 if drift
 
-Preserves deploy-only files (Dockerfile, README, ms_deploy.json, …).
+Preserves deploy-only files (Dockerfile, README, …).
 Does not copy backend-only artifacts (tests, Long-CLIP, railway, …).
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "backend"
-TARGETS = (ROOT / "hf-space", ROOT / "space4")
+TARGETS = (ROOT / "hf-space",)
 
 # Relative paths under backend/ to mirror into each deploy copy.
 SYNC_PATHS = (
@@ -147,7 +147,7 @@ def apply_sync(target: Path, files: list[Path]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync backend → hf-space / space4")
+    parser = argparse.ArgumentParser(description="Sync backend → hf-space")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -155,7 +155,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--target",
-        choices=("hf-space", "space4", "all"),
+        choices=("hf-space", "all"),
         default="all",
         help="Which deploy copy to sync (default: all)",
     )
