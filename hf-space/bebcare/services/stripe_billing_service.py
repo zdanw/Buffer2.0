@@ -182,25 +182,69 @@ def sync_subscription_from_stripe_object(
     )
 
 
-def get_active_subscription(
+def _pack_label(price_id: Optional[str]) -> Optional[str]:
+    if not price_id:
+        return None
+    pack = find_pack(price_id)
+    return pack.label if pack else None
+
+
+def list_user_subscriptions(
     db: Session, *, user_id: str
-) -> Optional[StripeSubscription]:
-    rows = (
+) -> list[StripeSubscription]:
+    return (
         db.query(StripeSubscription)
         .filter(StripeSubscription.user_id == user_id)
         .order_by(StripeSubscription.updated_at.desc())
         .all()
     )
+
+
+def get_active_subscription(
+    db: Session, *, user_id: str
+) -> Optional[StripeSubscription]:
+    rows = list_user_subscriptions(db, user_id=user_id)
     for row in rows:
         if row.status in _ACTIVE_STATUSES:
             return row
     return rows[0] if rows else None
 
 
+def get_user_subscription(
+    db: Session, *, user_id: str, stripe_subscription_id: str
+) -> Optional[StripeSubscription]:
+    sub_id = (stripe_subscription_id or "").strip()
+    if not sub_id:
+        return None
+    return (
+        db.query(StripeSubscription)
+        .filter(
+            StripeSubscription.user_id == user_id,
+            StripeSubscription.stripe_subscription_id == sub_id,
+        )
+        .first()
+    )
+
+
+def _subscription_item_payload(row: StripeSubscription) -> dict[str, Any]:
+    return {
+        "stripe_subscription_id": row.stripe_subscription_id,
+        "price_id": row.price_id,
+        "label": _pack_label(row.price_id),
+        "status": row.status,
+        "cancel_at_period_end": bool(row.cancel_at_period_end),
+        "current_period_end": row.current_period_end,
+    }
+
+
 def subscription_status_payload(
     db: Session, *, user_id: str
 ) -> dict[str, Any]:
-    row = get_active_subscription(db, user_id=user_id)
+    rows = list_user_subscriptions(db, user_id=user_id)
+    active_rows = [r for r in rows if r.status in _ACTIVE_STATUSES]
+    # UI shows only the latest active subscription (most recently updated).
+    row = active_rows[0] if active_rows else None
+    subscriptions = [_subscription_item_payload(row)] if row is not None else []
     if row is None:
         return {
             "has_subscription": False,
@@ -209,21 +253,30 @@ def subscription_status_payload(
             "current_period_end": None,
             "stripe_subscription_id": None,
             "price_id": None,
+            "label": None,
+            "subscriptions": [],
         }
     return {
-        "has_subscription": row.status in _ACTIVE_STATUSES,
+        "has_subscription": True,
         "status": row.status,
         "cancel_at_period_end": bool(row.cancel_at_period_end),
         "current_period_end": row.current_period_end,
         "stripe_subscription_id": row.stripe_subscription_id,
         "price_id": row.price_id,
+        "label": _pack_label(row.price_id),
+        "subscriptions": subscriptions,
     }
 
 
 def cancel_subscription_at_period_end(
-    db: Session, *, user_id: str
+    db: Session,
+    *,
+    user_id: str,
+    stripe_subscription_id: str,
 ) -> StripeSubscription:
-    row = get_active_subscription(db, user_id=user_id)
+    row = get_user_subscription(
+        db, user_id=user_id, stripe_subscription_id=stripe_subscription_id
+    )
     if row is None or row.status not in _ACTIVE_STATUSES:
         raise BillingError("no_subscription")
     if row.cancel_at_period_end:
@@ -237,8 +290,15 @@ def cancel_subscription_at_period_end(
     return synced
 
 
-def resume_subscription(db: Session, *, user_id: str) -> StripeSubscription:
-    row = get_active_subscription(db, user_id=user_id)
+def resume_subscription(
+    db: Session,
+    *,
+    user_id: str,
+    stripe_subscription_id: str,
+) -> StripeSubscription:
+    row = get_user_subscription(
+        db, user_id=user_id, stripe_subscription_id=stripe_subscription_id
+    )
     if row is None or row.status not in _ACTIVE_STATUSES:
         raise BillingError("no_subscription")
     if not row.cancel_at_period_end:
@@ -250,6 +310,51 @@ def resume_subscription(db: Session, *, user_id: str) -> StripeSubscription:
     synced = sync_subscription_from_stripe_object(db, sub, user_id=user_id)
     assert synced is not None
     return synced
+
+
+def cancel_other_subscriptions_immediately(
+    db: Session,
+    *,
+    user_id: str,
+    keep_stripe_subscription_id: str,
+) -> list[StripeSubscription]:
+    """Immediately end other active subs after a successful new checkout.
+
+    No refund / proration. Existing credit grants are left untouched.
+    """
+    keep_id = (keep_stripe_subscription_id or "").strip()
+    if not keep_id:
+        return []
+    rows = [
+        r
+        for r in list_user_subscriptions(db, user_id=user_id)
+        if r.status in _ACTIVE_STATUSES
+        and r.stripe_subscription_id != keep_id
+    ]
+    if not rows:
+        return []
+    _stripe_api_key()
+    cancelled: list[StripeSubscription] = []
+    for row in rows:
+        try:
+            sub = stripe.Subscription.cancel(row.stripe_subscription_id)
+            synced = sync_subscription_from_stripe_object(db, sub, user_id=user_id)
+            if synced is not None:
+                cancelled.append(synced)
+            else:
+                row.status = "canceled"
+                row.cancel_at_period_end = False
+                row.updated_at = datetime.utcnow()
+                db.flush()
+                cancelled.append(row)
+        except Exception:
+            # Best-effort: local mark so UI does not keep showing a live sub.
+            row.status = "canceled"
+            row.cancel_at_period_end = False
+            row.updated_at = datetime.utcnow()
+            db.flush()
+            cancelled.append(row)
+    return cancelled
 
 
 def create_checkout_session(
@@ -419,6 +524,11 @@ def _maybe_sync_subscription_from_checkout(
                 status="active",
                 price_id=(metadata.get("price_id") or row.price_id or None),
             )
+    cancel_other_subscriptions_immediately(
+        db,
+        user_id=user_id,
+        keep_stripe_subscription_id=sub_id.strip(),
+    )
 
 
 def fulfill_subscription_invoice(

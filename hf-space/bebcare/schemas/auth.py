@@ -26,6 +26,12 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
 
 
+class MeUpdate(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=6)
+    current_password: Optional[str] = None
+
+
 class UserLogin(BaseModel):
     username: str
     password: str

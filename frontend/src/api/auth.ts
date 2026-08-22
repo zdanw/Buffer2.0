@@ -116,6 +116,15 @@ export const getCurrentUser = async (): Promise<UserResponse> => {
   return user;
 };
 
+export const updateCurrentUser = async (data: {
+  email?: string;
+  password?: string;
+  current_password?: string;
+}): Promise<UserResponse> => {
+  const response = await axiosInstance.patch('/auth/me', data);
+  return response.data;
+};
+
 export const completeOnboarding = async (): Promise<void> => {
   await axiosInstance.post('/auth/me/onboarding-complete');
 };

@@ -14,10 +14,18 @@ from bebcare.services.auth_service import (
     create_refresh_token,
     get_password_hash,
     get_user,
+    verify_password,
 )
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.services.auth_scheme import oauth2_scheme
-from bebcare.schemas.auth import Token, UserCreate, UserUpdate, UserResponse, RefreshTokenRequest
+from bebcare.schemas.auth import (
+    Token,
+    UserCreate,
+    UserUpdate,
+    MeUpdate,
+    UserResponse,
+    RefreshTokenRequest,
+)
 from bebcare.config.settings import settings
 from bebcare.services.credit_grant_service import (
     ensure_signup_trial,
@@ -160,6 +168,37 @@ def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
+    return _to_user_response(db, current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_current_user_info(
+    body: MeUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if body.email is not None:
+        email = body.email.strip()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        existing_email = (
+            db.query(User)
+            .filter(User.email == email, User.user_id != current_user.user_id)
+            .first()
+        )
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        current_user.email = email
+
+    if body.password is not None:
+        if not body.current_password or not verify_password(
+            body.current_password, current_user.hashed_password
+        ):
+            raise HTTPException(status_code=400, detail="Incorrect current password")
+        current_user.hashed_password = get_password_hash(body.password)
+
+    db.commit()
+    db.refresh(current_user)
     return _to_user_response(db, current_user)
 
 

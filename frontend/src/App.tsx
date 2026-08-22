@@ -21,6 +21,7 @@ const PendingRelease = lazy(() => import('./pages/PendingRelease'));
 const Studio = lazy(() => import('./pages/Studio'));
 const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
 const SystemImageProviderSettings = lazy(() => import('./pages/SystemImageProviderSettings'));
 const BufferAccountSettings = lazy(() => import('./pages/BufferAccountSettings'));
@@ -38,6 +39,7 @@ const TAB_ROUTES: Record<string, string> = {
   calendar: '/calendar',
   'image-models': '/image-models',
   'buffer-accounts': '/buffer-accounts',
+  account: '/account',
   'system-image': '/system-image',
   users: '/users',
 };
@@ -57,6 +59,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/calendar': 'calendar',
   '/image-models': 'image-models',
   '/buffer-accounts': 'buffer-accounts',
+  '/account': 'account',
   '/system-image': 'system-image',
   '/users': 'users',
 };
@@ -224,6 +227,7 @@ function AppContent() {
           {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
           {lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)}
           {lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)}
+          {lazyPanel('account', activeTab, mountedTabs, AccountSettings)}
           {currentUser?.is_admin
             ? lazyPanel('system-image', activeTab, mountedTabs, SystemImageProviderSettings)
             : null}

@@ -7,6 +7,15 @@ export interface CreditPack {
   price_display?: string | null;
 }
 
+export interface SubscriptionItem {
+  stripe_subscription_id: string;
+  price_id?: string | null;
+  label?: string | null;
+  status?: string | null;
+  cancel_at_period_end: boolean;
+  current_period_end?: string | null;
+}
+
 export interface SubscriptionStatus {
   has_subscription: boolean;
   status?: string | null;
@@ -14,6 +23,8 @@ export interface SubscriptionStatus {
   current_period_end?: string | null;
   stripe_subscription_id?: string | null;
   price_id?: string | null;
+  label?: string | null;
+  subscriptions: SubscriptionItem[];
 }
 
 export interface BillingInvoice {
@@ -49,17 +60,39 @@ export async function createCheckoutSession(priceId: string): Promise<{
 
 export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   const { data } = await axiosInstance.get('/billing/subscription');
-  return data;
+  return {
+    ...data,
+    subscriptions: data.subscriptions ?? [],
+  };
 }
 
-export async function cancelSubscription(): Promise<SubscriptionStatus> {
-  const { data } = await axiosInstance.post('/billing/subscription/cancel');
-  return data;
+export async function listMyInvoices(): Promise<BillingInvoice[]> {
+  const { data } = await axiosInstance.get('/billing/invoices');
+  return data.invoices ?? [];
 }
 
-export async function resumeSubscription(): Promise<SubscriptionStatus> {
-  const { data } = await axiosInstance.post('/billing/subscription/resume');
-  return data;
+export async function cancelSubscription(
+  stripeSubscriptionId: string
+): Promise<SubscriptionStatus> {
+  const { data } = await axiosInstance.post('/billing/subscription/cancel', {
+    stripe_subscription_id: stripeSubscriptionId,
+  });
+  return {
+    ...data,
+    subscriptions: data.subscriptions ?? [],
+  };
+}
+
+export async function resumeSubscription(
+  stripeSubscriptionId: string
+): Promise<SubscriptionStatus> {
+  const { data } = await axiosInstance.post('/billing/subscription/resume', {
+    stripe_subscription_id: stripeSubscriptionId,
+  });
+  return {
+    ...data,
+    subscriptions: data.subscriptions ?? [],
+  };
 }
 
 export async function listUserInvoices(userId: string): Promise<BillingInvoice[]> {

@@ -15,6 +15,7 @@ from bebcare.schemas.billing import (
     InvoiceOut,
     RefundCreate,
     RefundResponse,
+    SubscriptionActionRequest,
     SubscriptionStatusResponse,
 )
 from bebcare.services.auth_dependency import (
@@ -102,13 +103,32 @@ def get_subscription(
     )
 
 
-@router.post("/subscription/cancel", response_model=SubscriptionStatusResponse)
-def cancel_subscription(
+@router.get("/invoices", response_model=InvoiceListResponse)
+def list_my_invoices(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        cancel_subscription_at_period_end(db, user_id=current_user.user_id)
+        rows = list_user_invoices(db, user_id=current_user.user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="stripe_error"
+        )
+    return InvoiceListResponse(invoices=[InvoiceOut(**r) for r in rows])
+
+
+@router.post("/subscription/cancel", response_model=SubscriptionStatusResponse)
+def cancel_subscription(
+    body: SubscriptionActionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    try:
+        cancel_subscription_at_period_end(
+            db,
+            user_id=current_user.user_id,
+            stripe_subscription_id=body.stripe_subscription_id,
+        )
         db.commit()
     except BillingError as e:
         db.rollback()
@@ -120,11 +140,16 @@ def cancel_subscription(
 
 @router.post("/subscription/resume", response_model=SubscriptionStatusResponse)
 def resume_user_subscription(
+    body: SubscriptionActionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        resume_subscription(db, user_id=current_user.user_id)
+        resume_subscription(
+            db,
+            user_id=current_user.user_id,
+            stripe_subscription_id=body.stripe_subscription_id,
+        )
         db.commit()
     except BillingError as e:
         db.rollback()

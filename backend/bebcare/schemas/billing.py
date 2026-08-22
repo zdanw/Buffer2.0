@@ -25,6 +25,19 @@ class CheckoutSessionResponse(BaseModel):
     session_id: str
 
 
+class SubscriptionItemOut(BaseModel):
+    stripe_subscription_id: str
+    price_id: Optional[str] = None
+    label: Optional[str] = None
+    status: Optional[str] = None
+    cancel_at_period_end: bool = False
+    current_period_end: Optional[datetime] = None
+
+
+class SubscriptionActionRequest(BaseModel):
+    stripe_subscription_id: str = Field(..., min_length=1)
+
+
 class SubscriptionStatusResponse(BaseModel):
     has_subscription: bool
     status: Optional[str] = None
@@ -32,6 +45,8 @@ class SubscriptionStatusResponse(BaseModel):
     current_period_end: Optional[datetime] = None
     stripe_subscription_id: Optional[str] = None
     price_id: Optional[str] = None
+    label: Optional[str] = None
+    subscriptions: List[SubscriptionItemOut] = Field(default_factory=list)
 
 
 class InvoiceOut(BaseModel):

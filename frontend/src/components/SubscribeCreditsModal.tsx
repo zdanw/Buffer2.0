@@ -9,6 +9,7 @@ import {
   listCreditPacks,
   resumeSubscription,
   type CreditPack,
+  type SubscriptionItem,
   type SubscriptionStatus,
 } from '@/api/billing';
 
@@ -31,7 +32,7 @@ export default function SubscribeCreditsModal({
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
-  const [subBusy, setSubBusy] = useState(false);
+  const [subBusyId, setSubBusyId] = useState<string | null>(null);
 
   // Modal stays mounted while closed; clear checkout UI state so reopen is clickable.
   useEffect(() => {
@@ -71,6 +72,12 @@ export default function SubscribeCreditsModal({
 
   if (!open) return null;
 
+  const packLabelFor = (item: SubscriptionItem) =>
+    item.label ||
+    packs.find((p) => p.price_id === item.price_id)?.label ||
+    item.price_id ||
+    item.stripe_subscription_id;
+
   const handleBuy = async (priceId: string) => {
     setBuyingId(priceId);
     setError(null);
@@ -83,43 +90,42 @@ export default function SubscribeCreditsModal({
     }
   };
 
-  const handleCancel = async () => {
-    if (!window.confirm(t('subscribeCredits.cancelConfirm'))) return;
-    setSubBusy(true);
+  const handleCancel = async (item: SubscriptionItem) => {
+    const label = packLabelFor(item);
+    if (!window.confirm(t('subscribeCredits.cancelConfirm', { pack: label }))) return;
+    setSubBusyId(item.stripe_subscription_id);
     setError(null);
     try {
-      const status = await cancelSubscription();
+      const status = await cancelSubscription(item.stripe_subscription_id);
       setSub(status);
     } catch {
       setError(t('subscribeCredits.cancelFailed'));
     } finally {
-      setSubBusy(false);
+      setSubBusyId(null);
     }
   };
 
-  const handleResume = async () => {
-    setSubBusy(true);
+  const handleResume = async (item: SubscriptionItem) => {
+    setSubBusyId(item.stripe_subscription_id);
     setError(null);
     try {
-      const status = await resumeSubscription();
+      const status = await resumeSubscription(item.stripe_subscription_id);
       setSub(status);
     } catch {
       setError(t('subscribeCredits.resumeFailed'));
     } finally {
-      setSubBusy(false);
+      setSubBusyId(null);
     }
   };
 
-  const periodEndLabel = sub?.current_period_end
-    ? formatServerDateTime(sub.current_period_end, locale, t('datetime.unknown'))
-    : null;
+  const subscriptions = sub?.subscriptions ?? [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4"
+        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -139,35 +145,66 @@ export default function SubscribeCreditsModal({
         <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
           <li>{t('subscribeCredits.packHint')}</li>
           <li>{t('subscribeCredits.cancelPolicy')}</li>
+          <li>{t('subscribeCredits.switchPolicy')}</li>
           <li>{t('subscribeCredits.byokHint')}</li>
         </ul>
 
-        {sub?.has_subscription ? (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-2">
-            <p className="text-sm text-gray-800">
-              {sub.cancel_at_period_end
-                ? t('subscribeCredits.pendingCancel', { date: periodEndLabel || '—' })
-                : t('subscribeCredits.activeSub', { date: periodEndLabel || '—' })}
+        {subscriptions.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-800">
+              {t('subscribeCredits.mySubscriptions')}
             </p>
-            {sub.cancel_at_period_end ? (
-              <button
-                type="button"
-                disabled={subBusy}
-                onClick={() => void handleResume()}
-                className="w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-white text-forge-800 hover:bg-forge-50 disabled:opacity-60"
-              >
-                {subBusy ? t('common.loading') : t('subscribeCredits.resumeCta')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={subBusy}
-                onClick={() => void handleCancel()}
-                className="w-full px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {subBusy ? t('common.loading') : t('subscribeCredits.cancelCta')}
-              </button>
-            )}
+            {subscriptions.map((item) => {
+              const label = packLabelFor(item);
+              const periodEndLabel = item.current_period_end
+                ? formatServerDateTime(
+                    item.current_period_end,
+                    locale,
+                    t('datetime.unknown')
+                  )
+                : null;
+              const busy = subBusyId === item.stripe_subscription_id;
+              return (
+                <div
+                  key={item.stripe_subscription_id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-2"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{label}</p>
+                    <p className="text-sm text-gray-700 mt-0.5">
+                      {item.cancel_at_period_end
+                        ? t('subscribeCredits.pendingCancel', {
+                            date: periodEndLabel || '—',
+                          })
+                        : t('subscribeCredits.activeSub', {
+                            date: periodEndLabel || '—',
+                          })}
+                    </p>
+                  </div>
+                  {item.cancel_at_period_end ? (
+                    <button
+                      type="button"
+                      disabled={subBusyId !== null}
+                      onClick={() => void handleResume(item)}
+                      className="w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-white text-forge-800 hover:bg-forge-50 disabled:opacity-60"
+                    >
+                      {busy ? t('common.loading') : t('subscribeCredits.resumeCta')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={subBusyId !== null}
+                      onClick={() => void handleCancel(item)}
+                      className="w-full px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {busy
+                        ? t('common.loading')
+                        : t('subscribeCredits.cancelPackCta', { pack: label })}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
