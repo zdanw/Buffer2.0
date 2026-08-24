@@ -19,8 +19,6 @@ import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/Aspec
 import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
 import ModelIdSelect from '@/components/ModelIdSelect';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
-import { SubscribeCreditsButton } from '@/components/SubscribeCreditsModal';
-
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
 
@@ -72,7 +70,6 @@ export default function ImageModelPicker({
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
   const [creditsRemaining, setCreditsRemaining] = useState(0);
-  const [billingEnabled, setBillingEnabled] = useState(false);
   const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
   const [systemSummary, setSystemSummary] = useState<SystemProviderSummary | null>(null);
   const [modeInitialized, setModeInitialized] = useState(false);
@@ -96,12 +93,10 @@ export default function ImageModelPicker({
         getSystemImageProviderSummary(),
       ]);
       setCreditsRemaining(me.image_credits_remaining ?? 0);
-      setBillingEnabled(Boolean(me.billing_enabled));
       setSystemSummary(summary);
     } catch (e) {
       console.error('Failed to load image credits / system provider:', e);
       setCreditsRemaining(0);
-      setBillingEnabled(false);
       setSystemSummary({ has_provider: false });
     }
   };
@@ -354,14 +349,6 @@ export default function ImageModelPicker({
         </select>
         {usingPlatformDefault ? (
           <p className="text-xs text-gray-400 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
-        ) : null}
-        {usingPlatformDefault ? (
-          <div className="mt-2">
-            <SubscribeCreditsButton
-              creditsRemaining={creditsRemaining}
-              billingEnabled={billingEnabled}
-            />
-          </div>
         ) : null}
         {checkoutBanner ? (
           <p className="text-sm text-forge-800 bg-forge-50 border border-forge-200 rounded-lg px-3 py-2 mt-2">

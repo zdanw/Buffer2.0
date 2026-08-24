@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { getCurrentUser } from '@/api/auth';
 import { useI18n } from '@/i18n/useI18n';
+import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { formatServerDateTime } from '@/lib/datetime';
 import {
   cancelSubscription,
@@ -252,18 +255,71 @@ export default function SubscribeCreditsModal({
   );
 }
 
-/** Compact trigger button used near the image model picker. */
+/** Compact trigger button; fetches billing state when props are omitted. */
 export function SubscribeCreditsButton({
-  creditsRemaining,
-  billingEnabled,
+  creditsRemaining: creditsProp,
+  billingEnabled: billingProp,
   className = '',
+  variant = 'block',
 }: {
-  creditsRemaining: number;
-  billingEnabled: boolean;
+  creditsRemaining?: number;
+  billingEnabled?: boolean;
   className?: string;
+  variant?: 'block' | 'inline';
 }) {
   const { t } = useI18n();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
+  const selfFetch = creditsProp === undefined;
+  const [creditsRemaining, setCreditsRemaining] = useState(creditsProp ?? 0);
+  const [billingEnabled, setBillingEnabled] = useState(billingProp ?? false);
+
+  const loadBilling = async () => {
+    try {
+      const me = await getCurrentUser();
+      setCreditsRemaining(me.image_credits_remaining ?? 0);
+      setBillingEnabled(Boolean(me.billing_enabled));
+    } catch {
+      setCreditsRemaining(0);
+      setBillingEnabled(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selfFetch) return;
+    void loadBilling();
+    return onImageProvidersChanged(() => {
+      void loadBilling();
+    });
+  }, [selfFetch]);
+
+  useEffect(() => {
+    if (selfFetch) return;
+    setCreditsRemaining(creditsProp ?? 0);
+    setBillingEnabled(billingProp ?? false);
+  }, [creditsProp, billingProp, selfFetch]);
+
+  useEffect(() => {
+    if (!selfFetch) return;
+    const checkout = searchParams.get('checkout');
+    if (checkout !== 'success' && checkout !== 'cancel') return;
+    if (checkout === 'success') {
+      void loadBilling();
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('checkout');
+    navigate(
+      { pathname: location.pathname, search: next.toString() ? `?${next}` : '' },
+      { replace: true }
+    );
+  }, [searchParams, navigate, location.pathname, selfFetch]);
+
+  const defaultClassName =
+    variant === 'inline'
+      ? 'px-3 py-1.5 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50'
+      : 'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50';
 
   return (
     <>
@@ -272,10 +328,7 @@ export function SubscribeCreditsButton({
         disabled={!billingEnabled}
         onClick={() => setOpen(true)}
         title={!billingEnabled ? t('subscribeCredits.unavailable') : undefined}
-        className={
-          className ||
-          'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50'
-        }
+        className={className || defaultClassName}
       >
         {t('subscribeCredits.button')}
       </button>

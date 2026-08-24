@@ -34,7 +34,7 @@ export default function UserAccountMenu() {
   if (!user) return null;
 
   return (
-    <div className="ml-auto shrink-0">
+    <div className="shrink-0">
       <button
         type="button"
         onClick={() => navigate('/account')}

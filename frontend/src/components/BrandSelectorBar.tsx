@@ -1,4 +1,5 @@
 import BrandPicker from '@/components/BrandPicker';
+import { SubscribeCreditsButton } from '@/components/SubscribeCreditsModal';
 import UserAccountMenu from '@/components/UserAccountMenu';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
@@ -37,7 +38,10 @@ export default function BrandSelectorBar() {
           <span className="text-ink-400">{t('brands.selector.viewingAll')}</span>
         )}
       </div>
-      <UserAccountMenu />
+      <div className="ml-auto flex items-center gap-2 shrink-0">
+        <SubscribeCreditsButton variant="inline" />
+        <UserAccountMenu />
+      </div>
     </div>
   );
 }
