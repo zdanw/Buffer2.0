@@ -66,6 +66,7 @@ export default function AssetManagement() {
     brand_voice: '',
     brand_id: '',
     use_brand_voice: false,
+    has_on_body_branding: true,
   });
   const [inheritedVoice, setInheritedVoice] = useState<string>('');
   const [detailInheritedVoice, setDetailInheritedVoice] = useState<string>('');
@@ -83,6 +84,7 @@ export default function AssetManagement() {
       selling_points: [],
       brand_voice: '',
       use_brand_voice: false,
+      has_on_body_branding: true,
       ...draft.formData,
       brand_id: brandId || (draft.formData.brand_id as string) || '',
     });
@@ -260,6 +262,7 @@ export default function AssetManagement() {
         brand_voice: '',
         brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
+        has_on_body_branding: true,
       });
     } catch (error) {
       console.error('Failed to save product:', error);
@@ -379,6 +382,7 @@ export default function AssetManagement() {
         brand_voice: product.brand_voice,
         brand_id: defaultProductBrandId(brands, product.brand_id || activeBrandId),
         use_brand_voice: product.use_brand_voice ?? false,
+        has_on_body_branding: product.has_on_body_branding ?? true,
       });
     } else {
       setIsEdit(false);
@@ -391,6 +395,7 @@ export default function AssetManagement() {
         brand_voice: '',
         brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
+        has_on_body_branding: true,
       });
     }
     setShowModal(true);
@@ -876,6 +881,18 @@ export default function AssetManagement() {
                   <p className="mt-1 text-xs text-gray-400 text-right">
                     {t('common.charCount', { current: (formData.selling_points || []).filter(Boolean).join(',').length, max: LIMITS.sellingPointsJoined })}
                   </p>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.has_on_body_branding ?? true}
+                      onChange={(e) => setFormData({ ...formData, has_on_body_branding: e.target.checked })}
+                      className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+                    />
+                    {t('assets.hasOnBodyBranding')}
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">{t('assets.hasOnBodyBrandingHint')}</p>
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">

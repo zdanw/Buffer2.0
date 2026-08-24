@@ -36,6 +36,7 @@ const EMPTY_FORM: BrandCreate = {
   tone_keywords: '',
   emoji_style: 'moderate',
   words_to_avoid: '',
+  logo_in_images: 'preserve',
   buffer_account_id: '',
 };
 
@@ -196,6 +197,7 @@ export default function BrandManagement() {
       default_selling_points: kit.default_selling_points,
       default_hashtags: kit.default_hashtags,
       logo_font_rule: kit.logo_font_rule || '',
+      logo_in_images: kit.logo_in_images || 'preserve',
       copy_system_prompt: kit.copy_system_prompt || '',
       image_system_prompt: kit.image_system_prompt || '',
       buffer_account_id: kit.buffer_account_id || '',
@@ -596,6 +598,34 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
+                    <LabelWithTooltip label={t('brands.logoInImages')} tooltip={t('brands.tooltips.logoInImages')} />
+                    <select
+                      value={form.logo_in_images || 'preserve'}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          logo_in_images: e.target.value as 'preserve' | 'omit' | 'composite',
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500"
+                    >
+                      <option value="preserve">{t('brands.logoInImagesPreserve')}</option>
+                      <option value="omit">{t('brands.logoInImagesOmit')}</option>
+                      <option value="composite">{t('brands.logoInImagesComposite')}</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {form.logo_in_images === 'omit'
+                        ? t('brands.logoInImagesOmitHint')
+                        : form.logo_in_images === 'composite'
+                          ? t('brands.logoInImagesCompositeHint')
+                          : t('brands.logoInImagesPreserveHint')}
+                    </p>
+                    {form.logo_in_images === 'composite' && !logoPreview && (
+                      <p className="mt-1 text-xs text-amber-600">{t('brands.logoCompositeNeedsUpload')}</p>
+                    )}
+                  </div>
+                  {(form.logo_in_images || 'preserve') === 'preserve' && (
+                  <div>
                     <LabelWithTooltip label={t('brands.logoFontRule')} tooltip={t('brands.tooltips.logoFontRule')} />
                     <input
                       type="text"
@@ -605,6 +635,7 @@ export default function BrandManagement() {
                       placeholder={t('placeholders.brands.logoFontRule')}
                     />
                   </div>
+                  )}
                 </>
               )}
 

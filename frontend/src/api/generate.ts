@@ -38,6 +38,7 @@ export interface GenerateResult {
   reference_product_images?: string[];
   reference_scene_images?: string[];
   warning?: string;
+  logo_mode?: string;
 }
 
 export interface GenerateStatus {

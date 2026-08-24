@@ -31,6 +31,8 @@ def _brand_to_context(brand: Brand) -> Dict[str, Any]:
         "vertical_pack": brand.vertical_pack or "general",
         "default_product_type": brand.default_product_type,
         "logo_font_rule": brand.logo_font_rule,
+        "logo_url": brand.logo_url,
+        "logo_in_images": brand.logo_in_images or "preserve",
         "copy_system_prompt": brand.copy_system_prompt,
         "image_system_prompt": brand.image_system_prompt,
         "vision_image_system_prompt": brand.vision_image_system_prompt,
@@ -81,6 +83,7 @@ def resolve_product_brand_context(db: Session, product: Product) -> Dict[str, An
         "selling_points": selling_points,
         "brand_voice": voice,
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
+        "has_on_body_branding": bool(getattr(product, "has_on_body_branding", True)),
         "owner_user_id": product.owner_user_id,
     }
     return merged

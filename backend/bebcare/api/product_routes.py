@@ -68,6 +68,7 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
         "selling_points": product.selling_points.split(",") if product.selling_points else [],
         "brand_voice": product.brand_voice,
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
+        "has_on_body_branding": bool(getattr(product, "has_on_body_branding", True)),
         "created_at": product.created_at,
         "updated_at": product.updated_at,
         "product_images": product_images,
@@ -174,6 +175,7 @@ def create_product(
         selling_points=",".join(product.selling_points) if product.selling_points else None,
         brand_voice=product.brand_voice,
         use_brand_voice=product.use_brand_voice,
+        has_on_body_branding=product.has_on_body_branding,
     )
     stamp_owner(new_product, current_user)
     db.add(new_product)
@@ -249,6 +251,8 @@ def update_product(
         product.brand_voice = product_update.brand_voice
     if product_update.use_brand_voice is not None:
         product.use_brand_voice = product_update.use_brand_voice
+    if product_update.has_on_body_branding is not None:
+        product.has_on_body_branding = product_update.has_on_body_branding
 
     db.commit()
     db.refresh(product)

@@ -9,6 +9,11 @@ import httpx
 from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
 from bebcare.utils.image_utils import persist_image_url_to_cdn
+from bebcare.services.logo_policy import (
+    resolve_effective_logo_mode,
+    should_composite_logo,
+    build_vision_logo_instruction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +307,8 @@ class ContentGenerator:
         scene_urls = [u for u in (product_info.get("reference_scene_images") or []) if u]
         product_urls = [u for u in (product_info.get("reference_product_images") or []) if u]
         avoid_text = self._format_recent_prompt_avoidance(recent_prompts or [])
+        logo_instruction = build_vision_logo_instruction(product_info)
+        logo_suffix = f" {logo_instruction}" if logo_instruction else ""
 
         # 调度等路径可能未拆分；回退到扁平参考图列表
         if use_scene and not scene_urls and reference_images:
@@ -332,7 +339,7 @@ class ContentGenerator:
                         f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
                         "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
                         "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
-                        f"{avoid_text}"
+                        f"{avoid_text}{logo_suffix}"
                     ),
                 }
             )
@@ -348,7 +355,7 @@ class ContentGenerator:
                     "text": (
                         f"请仅根据以上参考图，为「{product_name}」自主生成一段最终中文图像提示词。"
                         "外观以参考图为准；场景与光线由你自主决定。"
-                        f"{avoid_text}"
+                        f"{avoid_text}{logo_suffix}"
                     ),
                 }
             )
@@ -614,16 +621,36 @@ class ContentGenerator:
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
         cdn_upload_failed = False
+        effective_logo_mode = resolve_effective_logo_mode(product_info)
+        composite_logo_url = (
+            (product_info.get("logo_url") or "").strip()
+            if should_composite_logo(product_info)
+            else None
+        )
+        if (
+            effective_logo_mode == "composite"
+            and not composite_logo_url
+        ):
+            logger.warning(
+                "logo_in_images=composite but brand has no logo_url; skipping overlay"
+            )
         logger.info(
-            "[CDN] persist batch start product_id=%s count=%s",
+            "[CDN] persist batch start product_id=%s count=%s logo_mode=%s composite=%s",
             product_id,
             len(image_urls),
+            effective_logo_mode,
+            bool(composite_logo_url),
         )
         for i, url in enumerate(image_urls):
             file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
             try:
                 cdn_urls.append(
-                    await asyncio.to_thread(persist_image_url_to_cdn, url, file_name)
+                    await asyncio.to_thread(
+                        persist_image_url_to_cdn,
+                        url,
+                        file_name,
+                        composite_logo_url,
+                    )
                 )
             except Exception as e:
                 cdn_upload_failed = True
@@ -641,6 +668,7 @@ class ContentGenerator:
             "image_urls": cdn_urls,
             "dimensions": selected_dimensions,
             "image_prompt": image_prompt,
+            "logo_mode": effective_logo_mode,
         }
         if cdn_upload_failed:
             logger.error(

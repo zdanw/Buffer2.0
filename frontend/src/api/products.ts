@@ -16,6 +16,7 @@ export interface Product {
   brand_voice: string;
   brand_id?: string;
   use_brand_voice?: boolean;
+  has_on_body_branding?: boolean;
   brand?: BrandNested | null;
   created_at: string;
   updated_at: string;
@@ -42,6 +43,7 @@ export interface ProductCreate {
   brand_voice?: string;
   brand_id?: string;
   use_brand_voice?: boolean;
+  has_on_body_branding?: boolean;
 }
 
 export interface Pagination {

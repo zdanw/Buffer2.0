@@ -29,6 +29,7 @@ import { getAuthUserId, studioStateStorageKey } from '@/api/auth';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { downloadImage } from '@/lib/download';
+import { resolveEffectiveLogoMode } from '@/lib/logoPolicy';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
 
@@ -48,6 +49,7 @@ interface PreviewState {
     reference_product_images?: string[];
     reference_scene_images?: string[];
     warning?: string;
+    logo_mode?: string;
   } | null;
   taskId: string | null;
   isGenerating: boolean;
@@ -121,6 +123,7 @@ export default function Studio() {
     reference_product_images?: string[];
     reference_scene_images?: string[];
     warning?: string;
+    logo_mode?: string;
   } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
@@ -160,6 +163,23 @@ export default function Studio() {
     : t('brand.name');
 
   const previewBrandLogo = previewBrand?.logo_url ?? null;
+
+  const selectedProductRecord = useMemo(
+    () => products.find((p) => p.product_id === selectedProduct) ?? null,
+    [products, selectedProduct],
+  );
+
+  const effectiveLogoMode = useMemo(
+    () => resolveEffectiveLogoMode(previewBrand, selectedProductRecord),
+    [previewBrand, selectedProductRecord],
+  );
+
+  const brandingModeLabel = useMemo(() => {
+    const mode = effectiveLogoMode;
+    if (mode === 'omit') return t('studio.brandingOmit');
+    if (mode === 'composite') return t('studio.brandingComposite');
+    return t('studio.brandingPreserve');
+  }, [effectiveLogoMode, t]);
 
   const generateActionsDisabled =
     isGenerating || !selectedProduct || selectedPlatforms.length === 0;
@@ -216,6 +236,7 @@ export default function Studio() {
                 reference_scene_images:
                   status.result?.reference_scene_images ?? prev?.reference_scene_images,
                 warning: status.result?.warning ?? prev?.warning,
+                logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
               }));
             }
           } else if (status.status === 'FAILURE') {
@@ -483,6 +504,11 @@ export default function Studio() {
                   </option>
                 ))}
               </select>
+            )}
+            {selectedProduct && (
+              <p className="mt-2 text-xs text-gray-500">
+                {t('studio.brandingMode', { mode: brandingModeLabel })}
+              </p>
             )}
           </div>
 

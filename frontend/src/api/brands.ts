@@ -8,6 +8,7 @@ export interface BrandSummary {
   is_system: boolean;
   voice?: string | null;
   logo_url?: string | null;
+  logo_in_images?: 'preserve' | 'omit' | 'composite' | null;
   vertical_pack?: string | null;
   product_count: number;
   buffer_account_id?: string | null;
@@ -28,6 +29,7 @@ export interface BrandKit {
   words_to_avoid?: string | null;
   logo_url?: string | null;
   logo_font_rule?: string | null;
+  logo_in_images?: 'preserve' | 'omit' | 'composite';
   vertical_pack?: string | null;
   default_product_type?: string | null;
   copy_system_prompt?: string | null;
@@ -58,6 +60,7 @@ export interface BrandCreate {
   words_to_avoid?: string;
   logo_url?: string;
   logo_font_rule?: string;
+  logo_in_images?: 'preserve' | 'omit' | 'composite';
   vertical_pack?: string;
   default_product_type?: string;
   buffer_account_id?: string | null;
