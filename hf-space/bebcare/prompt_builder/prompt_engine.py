@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 import json
 import random
 
+from bebcare.services.logo_policy import build_logo_constraint_block
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 
 try:
@@ -405,14 +406,7 @@ Follow these principles:
             product_type, db, owner_user_id=product_info.get("owner_user_id")
         )
         
-        nunito_constraint = ""
-        logo_rule = (product_info.get("logo_font_rule") or "").strip()
-        if logo_rule:
-            nunito_constraint = f"5. {logo_rule}"
-        elif 'Nunito' in product_description or 'nunito' in product_description:
-            nunito_constraint = (
-                "5. 产品上印有 bebcare 字符时，必须以 Nunito 字体呈现，且不得额外生成其它文字"
-            )
+        logo_constraint = build_logo_constraint_block(product_info)
         
         prompt = f"""
 ## 产品信息：
@@ -434,7 +428,7 @@ Follow these principles:
 2. 产品颜色、材质、纹理、印刷/标识必须与描述一致，禁止改色、变形、缺失或多余部件
 3. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
 4. 禁止无关产品入画；道具不得遮挡或改变产品主体
-{nunito_constraint}
+{logo_constraint}
 
 ## 输出要求
 - 仅输出一段最终中文图像提示词
@@ -485,6 +479,8 @@ Follow these principles:
             "lighting": selected_dimensions['lighting']['name'],
         }
 
+        logo_constraint = build_logo_constraint_block(product_info, start_index=8)
+
         prompt = f"""
 将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
 
@@ -496,6 +492,7 @@ Follow these principles:
 5. 仅对背景进行轻微优化，避免过度改动
 6. 画面中禁止生成文字、水印、二维码、网址或额外品牌名
 7. 若场景参考图中出现其他产品，使用本次提供的{product_name}将其替换
+{logo_constraint}
 
 ## 软引导（不得违反硬约束）
 - 风格倾向：{dimensions_info['style']}

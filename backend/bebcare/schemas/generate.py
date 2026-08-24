@@ -8,6 +8,7 @@ class GenerateRequest(BaseModel):
     style_hint: Optional[str] = None
     use_scene_reference: bool = False
     use_vision_image_prompt: bool = False
+    realistic_placement: bool = True
     image_provider_id: Optional[str] = None
     image_model: Optional[str] = None
     image_size: Optional[str] = None

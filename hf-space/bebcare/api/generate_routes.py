@@ -234,6 +234,7 @@ def generate_content(
                         "reference_scene_images", []
                     ),
                     "warning": image_result.get("warning"),
+                    "logo_mode": image_result.get("logo_mode"),
                 },
             )
             warning = image_result.get("warning")
@@ -386,6 +387,7 @@ def generate_image_only(
                         "reference_scene_images", []
                     ),
                     "warning": image_result.get("warning"),
+                    "logo_mode": image_result.get("logo_mode"),
                 },
             )
             warning = image_result.get("warning")

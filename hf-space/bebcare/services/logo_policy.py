@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Dict, List
 
 LOGO_IN_IMAGES_PRESERVE = "preserve"
@@ -11,18 +10,6 @@ LOGO_IN_IMAGES_COMPOSITE = "composite"
 
 VALID_LOGO_IN_IMAGES = frozenset(
     {LOGO_IN_IMAGES_PRESERVE, LOGO_IN_IMAGES_OMIT, LOGO_IN_IMAGES_COMPOSITE}
-)
-
-# Rules that tell the model to invent a logo — incompatible with preserve/omit.
-_SYNTHESIZE_LOGO_RULE_RE = re.compile(
-    r"(always\s+use|use\s+(the\s+)?official|logo\s+asset|without\s+recreat)",
-    re.IGNORECASE,
-)
-
-# Dimension preset phrases that nudge the prompt LLM to feature/invent a logo.
-_DIMENSION_LOGO_PHRASE_RE = re.compile(
-    r"[，、及与和\s]*品牌\s*logo|logo\s*细节|品牌\s*标识",
-    re.IGNORECASE,
 )
 
 
@@ -36,40 +23,16 @@ def resolve_effective_logo_mode(product_info: Dict) -> str:
     return mode
 
 
-def sanitize_logo_font_rule(rule: str, mode: str) -> str:
-    """Drop legacy rules that ask the model to add/synthesize a logo."""
-    text = (rule or "").strip()
-    if not text or mode not in (LOGO_IN_IMAGES_PRESERVE, LOGO_IN_IMAGES_OMIT):
-        return text
-    if _SYNTHESIZE_LOGO_RULE_RE.search(text):
-        return ""
-    return text
-
-
-def sanitize_dimension_text(text: str, mode: str) -> str:
-    """Remove logo-focus phrases from dimension labels when not compositing."""
-    label = (text or "").strip()
-    if not label or mode == LOGO_IN_IMAGES_COMPOSITE:
-        return label
-    cleaned = _DIMENSION_LOGO_PHRASE_RE.sub("", label)
-    cleaned = re.sub(r"[，、]{2,}", "，", cleaned)
-    cleaned = re.sub(r"[，、]\s*$", "", cleaned)
-    return cleaned.strip()
-
-
 def build_logo_constraint_lines(product_info: Dict) -> List[str]:
     mode = resolve_effective_logo_mode(product_info)
     if mode == LOGO_IN_IMAGES_PRESERVE:
         lines = [
             "仅保留参考图中已有的产品印刷标识；禁止新增、移动、重绘、改色或编造品牌logo；"
-            "若参考图中无标识则不要生成任何品牌文字或logo；"
-            "禁止描述参考图中不存在的logo位置、字样或颜色"
+            "若参考图中无标识则不要生成任何品牌文字或logo"
         ]
-        rule = sanitize_logo_font_rule(
-            (product_info.get("logo_font_rule") or "").strip(), mode
-        )
+        rule = (product_info.get("logo_font_rule") or "").strip()
         if rule:
-            lines.append(f"印刷标识保真要求（仅当参考图可见时）：{rule}")
+            lines.append(f"印刷标识保真要求：{rule}")
         return lines
     if mode == LOGO_IN_IMAGES_OMIT:
         return ["禁止画面中任何品牌文字、logo、水印或产品印刷标识"]

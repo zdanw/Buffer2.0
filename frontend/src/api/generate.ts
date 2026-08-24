@@ -7,6 +7,7 @@ export interface GenerateRequest {
   style_hint?: string;
   use_scene_reference?: boolean;
   use_vision_image_prompt?: boolean;
+  realistic_placement?: boolean;
   image_provider_id?: string | null;
   image_model?: string | null;
   image_size?: string | null;

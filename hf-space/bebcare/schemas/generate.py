@@ -34,3 +34,4 @@ class GenerateResult(BaseModel):
     reference_product_images: Optional[list] = None
     reference_scene_images: Optional[list] = None
     warning: Optional[str] = None
+    logo_mode: Optional[str] = None

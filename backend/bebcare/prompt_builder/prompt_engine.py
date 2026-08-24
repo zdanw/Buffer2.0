@@ -6,8 +6,13 @@ from typing import List, Dict, Optional
 import json
 import random
 
-from bebcare.services.logo_policy import build_logo_constraint_block
+from bebcare.services.logo_policy import (
+    build_logo_constraint_block,
+    resolve_effective_logo_mode,
+    sanitize_dimension_text,
+)
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
+from bebcare.prompt_builder.placement_rules import build_physics_placement_block
 
 try:
     from bebcare.services.dimension_service import dimension_service
@@ -407,7 +412,18 @@ Follow these principles:
         )
         
         logo_constraint = build_logo_constraint_block(product_info)
-        
+        logo_mode = resolve_effective_logo_mode(product_info)
+        realistic = product_info.get("realistic_placement", True)
+        physics_block = ""
+        if realistic:
+            physics_block = (
+                "\n## 摆放与物理（写入最终提示词）\n"
+                + build_physics_placement_block(product_info)
+            )
+
+        def _dim_label(key: str) -> str:
+            return sanitize_dimension_text(selected_dimensions[key]["name"], logo_mode)
+
         prompt = f"""
 ## 产品信息：
 - 名称：{product_name}
@@ -415,34 +431,35 @@ Follow these principles:
 - 核心卖点：{selling_points_str}
 
 ## 选定维度：
-- 场景：{selected_dimensions['scene']['name']}
-- 视角：{selected_dimensions['viewpoint']['name']}
-- 构图：{selected_dimensions['composition']['name']}
-- 风格：{selected_dimensions['style']['name']}
-- 画质：{selected_dimensions['quality']['name']}
-- 细节/道具：{selected_dimensions['details']['name']}
-- 光线：{selected_dimensions['lighting']['name']}
+- 场景：{_dim_label('scene')}
+- 视角：{_dim_label('viewpoint')}
+- 构图：{_dim_label('composition')}
+- 风格：{_dim_label('style')}
+- 画质：{_dim_label('quality')}
+- 细节/道具：{_dim_label('details')}
+- 光线：{_dim_label('lighting')}
 
 ## 硬约束（必须遵守，优先级高于风格与氛围；写入最终中文提示词）
-1. 产品外形、结构、部件数量与相对位置不可改变；有参考图时，外观以参考图为准
-2. 产品颜色、材质、纹理、印刷/标识必须与描述一致，禁止改色、变形、缺失或多余部件
-3. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
+1. 下游图像模型会收到产品参考图：外形、结构、比例、颜色、材质、部件必须与参考图一致，禁止改色、变形、缺失或编造部件
+2. 产品描述与维度仅作氛围参考；与参考图冲突时以参考图为准
+3. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（参考图中已有的产品印刷除外）
 4. 禁止无关产品入画；道具不得遮挡或改变产品主体
 {logo_constraint}
+{physics_block}
 
 ## 输出要求
 - 仅输出一段最终中文图像提示词
-- 先写产品保真描述，再融合场景/光线/构图/风格/画质/细节
+- 先写产品保真描述（严格对齐参考图），再融合场景/光线/构图/风格/画质/细节
 """
         
         dimensions_info = {
-            "scene": selected_dimensions['scene']['name'],
-            "viewpoint": selected_dimensions['viewpoint']['name'],
-            "composition": selected_dimensions['composition']['name'],
-            "style": selected_dimensions['style']['name'],
-            "quality": selected_dimensions['quality']['name'],
-            "details": selected_dimensions['details']['name'],
-            "lighting": selected_dimensions['lighting']['name']
+            "scene": _dim_label("scene"),
+            "viewpoint": _dim_label("viewpoint"),
+            "composition": _dim_label("composition"),
+            "style": _dim_label("style"),
+            "quality": _dim_label("quality"),
+            "details": _dim_label("details"),
+            "lighting": _dim_label("lighting"),
         }
         
         return {

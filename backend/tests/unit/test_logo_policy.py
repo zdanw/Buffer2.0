@@ -4,6 +4,8 @@ from bebcare.services.logo_policy import (
     LOGO_IN_IMAGES_PRESERVE,
     build_logo_constraint_block,
     resolve_effective_logo_mode,
+    sanitize_dimension_text,
+    sanitize_logo_font_rule,
     should_composite_logo,
 )
 
@@ -42,3 +44,17 @@ def test_composite_should_overlay_when_logo_present():
 
 def test_composite_skipped_without_logo_url():
     assert not should_composite_logo({"logo_in_images": "composite", "logo_url": None})
+
+
+def test_sanitize_legacy_synthesize_logo_rule():
+    assert sanitize_logo_font_rule(
+        "Always use the official Boopkin logo asset without recreating",
+        LOGO_IN_IMAGES_PRESERVE,
+    ) == ""
+
+
+def test_sanitize_dimension_removes_logo_focus():
+    raw = "微距特写，聚焦LED显示屏及品牌logo"
+    cleaned = sanitize_dimension_text(raw, LOGO_IN_IMAGES_PRESERVE)
+    assert "logo" not in cleaned.lower()
+    assert "LED" in cleaned

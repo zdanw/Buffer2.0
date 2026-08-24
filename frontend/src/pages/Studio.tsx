@@ -38,6 +38,7 @@ interface PreviewState {
   selectedPlatforms: string[];
   useSceneReference: boolean;
   useVisionImagePrompt: boolean;
+  realisticPlacement: boolean;
   imageProviderId?: string | null;
   imageModel?: string | null;
   imageSize?: string | null;
@@ -61,6 +62,7 @@ const emptyPreviewState = (): PreviewState => ({
   selectedPlatforms: ['instagram'],
   useSceneReference: false,
   useVisionImagePrompt: false,
+  realisticPlacement: true,
   imageProviderId: null,
   imageModel: null,
   imageSize: '2048x2048',
@@ -104,6 +106,9 @@ export default function Studio() {
   const [useSceneReference, setUseSceneReference] = useState(savedState.useSceneReference);
   const [useVisionImagePrompt, setUseVisionImagePrompt] = useState(
     savedState.useVisionImagePrompt ?? false
+  );
+  const [realisticPlacement, setRealisticPlacement] = useState(
+    savedState.realisticPlacement ?? true
   );
   // Provider starts as platform default (empty); ImageModelPicker may switch to BYOK.
   // Do not restore last session override from localStorage.
@@ -203,6 +208,7 @@ export default function Studio() {
       selectedPlatforms,
       useSceneReference,
       useVisionImagePrompt,
+      realisticPlacement,
       imageProviderId,
       imageModel,
       imageSize,
@@ -211,7 +217,7 @@ export default function Studio() {
       isGenerating,
       generatingType,
     });
-  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
+  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -332,6 +338,7 @@ export default function Studio() {
         style_hint: 'storytelling',
         use_scene_reference: useSceneReference,
         use_vision_image_prompt: useVisionImagePrompt,
+        realistic_placement: realisticPlacement,
         image_provider_id: imageProviderId || undefined,
         image_model: imageModel || undefined,
         image_size: imageSize || undefined,
@@ -572,6 +579,24 @@ export default function Studio() {
                   type="checkbox"
                   checked={useVisionImagePrompt}
                   onChange={() => setUseVisionImagePrompt(!useVisionImagePrompt)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-700">{t('studio.realisticPlacement')}</span>
+                <HelpTooltip content={t('studio.tooltips.realisticPlacement')} />
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={realisticPlacement}
+                  onChange={() => setRealisticPlacement(!realisticPlacement)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
