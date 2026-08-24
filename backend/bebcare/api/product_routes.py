@@ -3,6 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from collections import defaultdict
+from copy import deepcopy
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
@@ -86,6 +87,48 @@ def _resolve_brand_id(db: Session, brand_id: str | None, current_user: User) -> 
     assert_owned_ref(db, Brand, brand_id, current_user, id_attr="brand_id")
     return brand_id
 
+
+_PRODUCT_NAME_MAX = 255
+
+
+def _copied_product_name(db: Session, current_user: User, original: str) -> str:
+    def _clip(name: str) -> str:
+        return name[:_PRODUCT_NAME_MAX]
+
+    n = 1
+    while n <= 100:
+        suffix = " (copy)" if n == 1 else f" (copy {n})"
+        if len(original) + len(suffix) <= _PRODUCT_NAME_MAX:
+            candidate = f"{original}{suffix}"
+        else:
+            candidate = _clip(original[: _PRODUCT_NAME_MAX - len(suffix)] + suffix)
+        exists = (
+            owned_query(db, Product, current_user)
+            .filter(Product.product_name == candidate)
+            .first()
+        )
+        if not exists:
+            return candidate
+        n += 1
+    return _clip(f"{original} (copy {uuid.uuid4().hex[:6]})")
+
+
+def _dimension_dicts(dimensions: list) -> list:
+    return [
+        {
+            "id": dim.id,
+            "dimension_id": dim.dimension_id,
+            "dimension_type": dim.dimension_type,
+            "item_id": dim.item_id,
+            "name": dim.name,
+            "time": dim.time,
+            "lighting": dim.lighting,
+            "is_custom": dim.is_custom,
+            "created_at": dim.created_at,
+        }
+        for dim in dimensions
+    ]
+
 @router.get("/categories")
 def get_categories(
     db: Session = Depends(get_db),
@@ -134,21 +177,9 @@ def list_products(
 
     result = []
     for product in products:
-        product_dimensions = [
-            {
-                "id": dim.id,
-                "dimension_id": dim.dimension_id,
-                "dimension_type": dim.dimension_type,
-                "item_id": dim.item_id,
-                "name": dim.name,
-                "time": dim.time,
-                "lighting": dim.lighting,
-                "is_custom": dim.is_custom,
-                "created_at": dim.created_at,
-            }
-            for dim in dims_by_product.get(product.product_id, [])
-        ]
-        result.append(_product_to_dict(product, product_dimensions))
+        result.append(
+            _product_to_dict(product, _dimension_dicts(dims_by_product.get(product.product_id, [])))
+        )
     
     return {
         "data": result,
@@ -207,21 +238,107 @@ def get_product(
         ProductDimension.product_id == product_id
     ).order_by(ProductDimension.dimension_type).all()
 
-    product_dimensions = [
-        {
-            "id": dim.id,
-            "dimension_id": dim.dimension_id,
-            "dimension_type": dim.dimension_type,
-            "item_id": dim.item_id,
-            "name": dim.name,
-            "time": dim.time,
-            "lighting": dim.lighting,
-            "is_custom": dim.is_custom,
-            "created_at": dim.created_at,
-        }
-        for dim in dimensions
-    ]
-    return _product_to_dict(product, product_dimensions)
+    return _product_to_dict(product, _dimension_dicts(dimensions))
+
+
+@router.post("/{product_id}/duplicate", status_code=201)
+def duplicate_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
+    source = (
+        db.query(Product)
+        .options(joinedload(Product.images), joinedload(Product.brand))
+        .filter(Product.product_id == product_id)
+        .first()
+    )
+
+    new_product = Product(
+        product_name=_copied_product_name(db, current_user, source.product_name),
+        brand_id=source.brand_id,
+        category=source.category,
+        description=source.description,
+        selling_points=source.selling_points,
+        brand_voice=source.brand_voice,
+        use_brand_voice=bool(getattr(source, "use_brand_voice", True)),
+        has_on_body_branding=bool(getattr(source, "has_on_body_branding", True)),
+    )
+    stamp_owner(new_product, current_user)
+    db.add(new_product)
+    db.flush()
+
+    image_pairs: list[tuple[ProductImage, ProductImage]] = []
+    for src_img in source.images:
+        cloned = ProductImage(
+            product_id=new_product.product_id,
+            cdn_url=src_img.cdn_url,
+            phash=src_img.phash,
+            width=src_img.width,
+            height=src_img.height,
+            image_type=src_img.image_type,
+        )
+        db.add(cloned)
+        image_pairs.append((src_img, cloned))
+    db.flush()
+
+    source_dims = (
+        db.query(ProductDimension)
+        .filter(ProductDimension.product_id == product_id)
+        .order_by(ProductDimension.dimension_type)
+        .all()
+    )
+    for dim in source_dims:
+        db.add(
+            ProductDimension(
+                product_id=new_product.product_id,
+                dimension_id=dim.dimension_id,
+                dimension_type=dim.dimension_type,
+                item_id=dim.item_id,
+                name=dim.name,
+                time=dim.time,
+                lighting=deepcopy(dim.lighting),
+                is_custom=dim.is_custom,
+            )
+        )
+
+    db.commit()
+
+    for src_img, cloned in image_pairs:
+        chroma_client.duplicate_image(
+            src_img.image_id,
+            cloned.image_id,
+            {
+                "product_id": str(new_product.product_id),
+                "image_id": str(cloned.image_id),
+                "product_name": new_product.product_name,
+                "category": new_product.category,
+                "description": new_product.description,
+                "cdn_url": cloned.cdn_url,
+                "phash": cloned.phash,
+                "selling_points": new_product.selling_points,
+                "brand_id": new_product.brand_id,
+                "image_type": cloned.image_type,
+                "created_at": str(cloned.uploaded_at),
+            },
+        )
+
+    cloned_product = (
+        db.query(Product)
+        .options(joinedload(Product.images), joinedload(Product.brand))
+        .filter(Product.product_id == new_product.product_id)
+        .first()
+    )
+    cloned_dims = (
+        db.query(ProductDimension)
+        .filter(ProductDimension.product_id == new_product.product_id)
+        .order_by(ProductDimension.dimension_type)
+        .all()
+    )
+    return _product_to_dict(cloned_product, _dimension_dicts(cloned_dims))
+
+
 @router.put("/{product_id}")
 def update_product(
     product_id: str,

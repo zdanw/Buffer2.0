@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
-import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage } from '@/api/products';
 import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -51,9 +51,12 @@ export default function AssetManagement() {
   const [listBusy, setListBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [uploadingType, setUploadingType] = useState<'product' | 'scene' | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const selectNameOnOpen = useRef(false);
   const [dimensionTypes, setDimensionTypes] = useState<DimensionType[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -120,6 +123,18 @@ export default function AssetManagement() {
       selectedProductId: selectedProduct?.product_id ?? null,
     });
   }, [showModal, formData, isEdit, selectedProduct?.product_id]);
+
+  useEffect(() => {
+    if (!showModal || !selectNameOnOpen.current) return;
+    const el = nameInputRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.focus();
+      el.select();
+      selectNameOnOpen.current = false;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [showModal, formData.product_name]);
 
   const ownedBrands = brands.filter((b) => !b.is_generic);
   const effectiveBrandId = formData.brand_id || defaultProductBrandId(brands, activeBrandId);
@@ -401,6 +416,24 @@ export default function AssetManagement() {
     setShowModal(true);
   };
 
+  const handleDuplicate = async (productId: string) => {
+    if (duplicating || deleting) return;
+    setDuplicating(true);
+    try {
+      const created = await duplicateProduct(productId);
+      invalidateCache('products');
+      invalidateCache('categories');
+      await loadProducts(1, undefined, { silent: true, keepRows: true });
+      selectNameOnOpen.current = true;
+      openModal(created);
+    } catch (error) {
+      console.error('Failed to duplicate product:', error);
+      alert(t('assets.duplicateFailed'));
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   return (
     <>
       <div className="p-4 sm:p-6 lg:p-8">
@@ -522,15 +555,35 @@ export default function AssetManagement() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => openModal(selectedProduct)}
                     className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg"
+                    aria-label={t('common.edit')}
+                    title={t('common.edit')}
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
                   <button
+                    type="button"
+                    onClick={() => void handleDuplicate(selectedProduct.product_id)}
+                    disabled={duplicating || deleting}
+                    className="p-2 text-gray-500 hover:text-forge-600 hover:bg-forge-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={t('assets.duplicateProduct')}
+                    title={t('assets.duplicateHint')}
+                  >
+                    {duplicating ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <CopyPlus className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleDelete(selectedProduct.product_id)}
-                    disabled={deleting}
+                    disabled={deleting || duplicating}
                     className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={t('common.delete')}
+                    title={t('common.delete')}
                   >
                     {deleting ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
@@ -827,6 +880,7 @@ export default function AssetManagement() {
                     tooltip={t('assets.tooltips.productName')}
                   />
                   <input
+                    ref={nameInputRef}
                     type="text"
                     value={formData.product_name}
                     onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}

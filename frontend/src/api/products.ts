@@ -103,6 +103,11 @@ export const deleteProduct = async (productId: string): Promise<void> => {
   await axiosInstance.delete(`/products/${productId}`);
 };
 
+export const duplicateProduct = async (productId: string): Promise<Product> => {
+  const response = await axiosInstance.post(`/products/${productId}/duplicate`);
+  return response.data;
+};
+
 export const uploadProductImages = async (productId: string, files: File[], imageType: 'product' | 'scene' = 'product'): Promise<{ product_id: string; uploaded: ProductImage[]; failed?: string[]; message?: string }> => {
   const formData = new FormData();
   files.forEach((file) => {

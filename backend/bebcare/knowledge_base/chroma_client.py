@@ -80,6 +80,27 @@ class ChromaClient:
             n_results=n_results,
         )
 
+    def duplicate_image(self, source_image_id, new_image_id, metadata):
+        embedding = [0.0] * _PLACEHOLDER_DIM
+        try:
+            stored = self.collection.get(
+                ids=[str(source_image_id)],
+                include=["embeddings", "metadatas"],
+            )
+            raw = stored.get("embeddings") if isinstance(stored, dict) else None
+            if isinstance(raw, (list, tuple)) and raw and raw[0] is not None:
+                embedding = list(raw[0])
+        except Exception:
+            logger.exception(
+                "chroma get for duplicate failed source=%s", source_image_id
+            )
+        try:
+            self.add_image(new_image_id, embedding, metadata)
+        except Exception:
+            logger.exception(
+                "chroma add for duplicate failed new=%s", new_image_id
+            )
+
     def delete_image(self, image_id):
         self.collection.delete(ids=[image_id])
 
