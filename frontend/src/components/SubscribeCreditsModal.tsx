@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { getCurrentUser } from '@/api/auth';
 import { useI18n } from '@/i18n/useI18n';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
@@ -318,8 +318,11 @@ export function SubscribeCreditsButton({
 
   const defaultClassName =
     variant === 'inline'
-      ? 'px-3 py-1.5 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50'
+      ? 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-forge-700 bg-white border border-gray-200 shadow-sm hover:bg-forge-50 hover:border-forge-300 hover:text-forge-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 whitespace-nowrap'
       : 'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50';
+
+  const label =
+    variant === 'inline' ? t('subscribeCredits.buttonShort') : t('subscribeCredits.button');
 
   return (
     <>
@@ -327,10 +330,17 @@ export function SubscribeCreditsButton({
         type="button"
         disabled={!billingEnabled}
         onClick={() => setOpen(true)}
-        title={!billingEnabled ? t('subscribeCredits.unavailable') : undefined}
+        title={
+          !billingEnabled
+            ? t('subscribeCredits.unavailable')
+            : variant === 'inline'
+              ? t('subscribeCredits.remaining', { n: creditsRemaining })
+              : undefined
+        }
         className={className || defaultClassName}
       >
-        {t('subscribeCredits.button')}
+        {variant === 'inline' ? <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /> : null}
+        {label}
       </button>
       <SubscribeCreditsModal
         open={open}

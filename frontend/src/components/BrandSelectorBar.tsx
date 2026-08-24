@@ -38,7 +38,7 @@ export default function BrandSelectorBar() {
           <span className="text-ink-400">{t('brands.selector.viewingAll')}</span>
         )}
       </div>
-      <div className="ml-auto flex items-center gap-2 shrink-0">
+      <div className="ml-auto flex items-center gap-3 shrink-0 border-l border-canvas-border pl-4">
         <SubscribeCreditsButton variant="inline" />
         <UserAccountMenu />
       </div>

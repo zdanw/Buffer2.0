@@ -618,6 +618,7 @@ export const pagesEn: TranslationTree = {
   },
   subscribeCredits: {
     button: 'Upgrade / buy credits',
+    buttonShort: 'Upgrade',
     title: 'Buy platform credits',
     remaining: 'You have {{n}} credit(s) left.',
     body:
@@ -1272,6 +1273,7 @@ export const pagesZh: TranslationTree = {
   },
   subscribeCredits: {
     button: '升级订阅 / 购买次数',
+    buttonShort: '购买次数',
     title: '购买平台出图次数',
     remaining: '当前剩余 {{n}} 次。',
     body: '选择次数包并通过 Stripe 在线支付。支付成功后次数将自动发放到你的账号。',
