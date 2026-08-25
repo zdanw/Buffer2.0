@@ -31,6 +31,8 @@ class Brand(OwnedMixin, Base):
     words_to_avoid = Column(Text)
     logo_url = Column(String(500))
     logo_font_rule = Column(Text)
+    # preserve | omit | composite (overlay brand logo_url after generation)
+    logo_in_images = Column(String(32), default="preserve", nullable=False)
     vertical_pack = Column(String(64), default="general")
     default_product_type = Column(String(100))
 

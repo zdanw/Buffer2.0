@@ -25,6 +25,7 @@ class ScheduledTask(OwnedMixin, Base):
     image_provider_mode = Column(String(16), nullable=True)  # platform | byok
     image_model = Column(String(255), nullable=True)
     image_size = Column(String(32), nullable=True)
+    notify_on_publish = Column(Boolean, default=False)
     last_run_at = Column(DateTime)
     next_run_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)

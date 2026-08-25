@@ -250,6 +250,7 @@ class BufferPublishService:
                         id
                         text
                         dueAt
+                        externalLink
                     }}
                 }}
                 ... on MutationError {{
@@ -277,7 +278,8 @@ class BufferPublishService:
                 "post": {
                     "id": post.get("id"),
                     "text": post.get("text"),
-                    "dueAt": post.get("dueAt", "立即")
+                    "dueAt": post.get("dueAt", "立即"),
+                    "externalLink": post.get("externalLink"),
                 }
             }
         elif "message" in create_post_result:
@@ -339,12 +341,22 @@ class BufferPublishService:
                     result = self.create_post(channel["id"], text, media_url, platform)
                     
                     if result and result.get("status") == "success":
+                        post = result["post"]
+                        external_link = post.get("externalLink")
+                        post_id = post.get("id")
+                        post_link = external_link or (
+                            f"https://publish.buffer.com/all-channels/post/{post_id}"
+                            if post_id
+                            else None
+                        )
                         results.append({
                             "platform": platform,
                             "channel": channel["name"],
                             "status": "success",
-                            "post_id": result["post"].get("id"),
-                            "scheduled_at": result["post"].get("scheduledAt")
+                            "post_id": post_id,
+                            "post_link": post_link,
+                            "external_link": external_link,
+                            "scheduled_at": post.get("scheduledAt"),
                         })
                     else:
                         error_msg = result.get("message", "Failed to create post") if result else "Unknown error"
@@ -410,6 +422,8 @@ class BufferPublisher:
                 "success": result.get("status") == "success",
                 "channel": result.get("channel"),
                 "post_id": result.get("post_id"),
+                "post_link": result.get("post_link"),
+                "external_link": result.get("external_link"),
                 "error": result.get("error"),
             }
 

@@ -54,6 +54,7 @@ export default function TaskConfiguration() {
     image_provider_mode: null as 'platform' | 'byok' | null,
     image_model: null,
     image_size: '2048x2048',
+    notify_on_publish: false,
   });
 
   useEffect(() => {
@@ -133,6 +134,7 @@ export default function TaskConfiguration() {
       image_provider_mode: null,
       image_model: null,
       image_size: '2048x2048',
+      notify_on_publish: false,
     });
     setSelectedTask(null);
     setIsEdit(false);
@@ -182,12 +184,16 @@ export default function TaskConfiguration() {
 
     setSaving(true);
     try {
+      const payload: TaskCreate = {
+        ...formData,
+        notify_on_publish: formData.mode === 'auto' ? Boolean(formData.notify_on_publish) : false,
+      };
       if (isEdit && selectedTask) {
-        const updated = await updateTask(selectedTask.task_id, formData);
+        const updated = await updateTask(selectedTask.task_id, payload);
         setTasks((prev) => prev.map((t) => (t.task_id === updated.task_id ? updated : t)));
         invalidateCache('tasks');
       } else {
-        const created = await createTask(formData);
+        const created = await createTask(payload);
         invalidateCache('tasks');
         if (currentPage === 1) {
           setTasks((prev) => [created, ...prev].slice(0, pageSize));
@@ -250,6 +256,7 @@ export default function TaskConfiguration() {
         image_provider_mode: (task.image_provider_mode as 'platform' | 'byok' | null) || null,
         image_model: task.image_model || null,
         image_size: task.image_size || '2048x2048',
+        notify_on_publish: task.notify_on_publish || false,
       });
     } else {
       setIsEdit(false);
@@ -272,6 +279,7 @@ export default function TaskConfiguration() {
         image_provider_mode: null,
         image_model: null,
         image_size: '2048x2048',
+        notify_on_publish: false,
       });
     }
     setShowModal(true);
@@ -588,6 +596,24 @@ export default function TaskConfiguration() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {formData.mode === 'auto' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.notify_on_publish || false}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notify_on_publish: e.target.checked })
+                    }
+                    className="w-4 h-4 text-forge-600 rounded"
+                    id="task-notify-email"
+                  />
+                  <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                    {t('tasks.notifyOnPublish')}
+                    <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
+                  </label>
                 </div>
               )}
 

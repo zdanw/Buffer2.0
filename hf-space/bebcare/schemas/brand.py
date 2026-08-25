@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from datetime import datetime
+
+LogoInImages = Literal["preserve", "omit", "composite"]
 
 
 class BrandSummary(BaseModel):
@@ -11,6 +13,7 @@ class BrandSummary(BaseModel):
     is_system: bool = False
     voice: Optional[str] = None
     logo_url: Optional[str] = None
+    logo_in_images: Optional[str] = "preserve"
     vertical_pack: Optional[str] = None
     product_count: int = 0
     buffer_account_id: Optional[str] = None
@@ -29,6 +32,7 @@ class BrandBase(BaseModel):
     words_to_avoid: Optional[str] = None
     logo_url: Optional[str] = Field(None, max_length=500)
     logo_font_rule: Optional[str] = None
+    logo_in_images: LogoInImages = "preserve"
     vertical_pack: Optional[str] = Field("general", max_length=64)
     default_product_type: Optional[str] = Field(None, max_length=100)
 
@@ -49,6 +53,7 @@ class BrandUpdate(BaseModel):
     words_to_avoid: Optional[str] = None
     logo_url: Optional[str] = Field(None, max_length=500)
     logo_font_rule: Optional[str] = None
+    logo_in_images: Optional[LogoInImages] = None
     vertical_pack: Optional[str] = Field(None, max_length=64)
     default_product_type: Optional[str] = Field(None, max_length=100)
     copy_system_prompt: Optional[str] = None

@@ -50,6 +50,7 @@ def _brand_summary(brand: Brand, product_count: int = 0) -> dict:
         "is_system": bool(brand.is_system),
         "voice": brand.voice,
         "logo_url": brand.logo_url,
+        "logo_in_images": brand.logo_in_images or "preserve",
         "vertical_pack": brand.vertical_pack,
         "product_count": product_count,
         "buffer_account_id": brand.buffer_account_id,
@@ -141,6 +142,7 @@ def create_brand(
         words_to_avoid=payload.words_to_avoid,
         logo_font_rule=payload.logo_font_rule,
         logo_url=payload.logo_url,
+        logo_in_images=payload.logo_in_images or "preserve",
         vertical_pack=payload.vertical_pack or "general",
         default_product_type=payload.default_product_type or "General",
     )

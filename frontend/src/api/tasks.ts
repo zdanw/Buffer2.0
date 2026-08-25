@@ -19,6 +19,7 @@ export interface ScheduledTask {
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;
   image_size?: string | null;
+  notify_on_publish?: boolean;
   created_at: string;
   updated_at: string;
   last_run_at?: string;
@@ -99,6 +100,7 @@ export interface TaskCreate {
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;
   image_size?: string | null;
+  notify_on_publish?: boolean;
 }
 
 export interface DraftPublishRequest {

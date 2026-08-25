@@ -8,6 +8,7 @@ from bebcare.generator.content_generator import content_generator
 from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
+from bebcare.models.user import User
 from bebcare.utils.reference_selector import select_reference_images
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.buffer_account_service import (
@@ -21,6 +22,7 @@ from bebcare.services.generate_task_store import (
     update_generate_task,
 )
 from bebcare.services.credit_grant_service import CreditError, reserve_one
+from bebcare.services.email_service import send_auto_publish_notification
 from sqlalchemy.orm import Session
 from bebcare.database import engine
 import logging
@@ -118,6 +120,36 @@ def products_for_task(session, task) -> list:
 
 def _task_owner(task):
     return SimpleNamespace(user_id=task.owner_user_id)
+
+
+def _maybe_send_publish_notification(session, task, product_id: str, result: dict):
+    if not task or not getattr(task, "notify_on_publish", False):
+        return
+    if task.mode != "auto":
+        return
+    if not result.get("platforms"):
+        return
+
+    user = session.query(User).filter(User.user_id == task.owner_user_id).first()
+    if not user or not user.email:
+        logger.warning(
+            "Auto-publish email skipped for task %s: owner has no email",
+            task.task_id,
+        )
+        return
+
+    product_name = result.get("product_name") or product_id
+    platform_posts = result.get("platform_posts") or []
+    image_url = (result.get("images") or [None])[0]
+
+    send_auto_publish_notification(
+        user.email,
+        task_name=task.name,
+        product_name=product_name,
+        copywriting=result.get("copywriting") or "",
+        image_url=image_url,
+        platform_posts=platform_posts,
+    )
 
 
 class APSchedulerService:
@@ -434,6 +466,10 @@ class APSchedulerService:
                         execution.image_prompt = result.get("image_prompt")
                         execution.reference_product_images = result.get("reference_product_images", [])
                         execution.reference_scene_images = result.get("reference_scene_images", [])
+                        task = session.query(ScheduledTask).filter(
+                            ScheduledTask.task_id == task_id
+                        ).first()
+                        _maybe_send_publish_notification(session, task, str(product_id), result)
                     else:
                         execution.status = "FAILED"
                         execution.error_message = error_message
@@ -687,9 +723,16 @@ class APSchedulerService:
         logger.info(f"Publish result: {publish_result}")
 
         success_platforms = []
-        for platform_name, result in publish_result.items():
-            if result.get("success"):
+        platform_posts = []
+        for platform_name, pub in publish_result.items():
+            if pub.get("success"):
                 success_platforms.append(platform_name)
+                platform_posts.append({
+                    "platform": platform_name,
+                    "channel": pub.get("channel"),
+                    "post_id": pub.get("post_id"),
+                    "post_link": pub.get("post_link") or pub.get("external_link"),
+                })
         published_platforms = success_platforms
 
         if not published_platforms:
@@ -698,6 +741,8 @@ class APSchedulerService:
         return {
             "images": generated_images,
             "platforms": published_platforms,
+            "platform_posts": platform_posts,
+            "product_name": product_info.get("product_name") or str(product_id),
             "copywriting": copywriting,
             "dimensions": dimensions,
             "image_prompt": image_prompt,
