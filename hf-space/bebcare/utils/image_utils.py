@@ -136,12 +136,45 @@ def _source_label(image_url: str) -> str:
     return f"http({image_url[:160]})"
 
 
-def persist_image_url_to_cdn(image_url, file_name=None):
-    """Download a remote (often temporary) image and upload to GitHub CDN."""
+def composite_brand_logo_on_image(
+    base_image: Image.Image,
+    logo_url: str,
+    *,
+    max_width_ratio: float = 0.18,
+    padding_ratio: float = 0.03,
+) -> Image.Image:
+    """Overlay brand logo on bottom-right; preserves logo aspect ratio and transparency."""
+    logo = download_image(logo_url).convert("RGBA")
+    base = base_image.convert("RGBA")
+    canvas_w, canvas_h = base.size
+    max_logo_w = max(1, int(canvas_w * max_width_ratio))
+    logo_w, logo_h = logo.size
+    scale = min(1.0, max_logo_w / logo_w) if logo_w else 1.0
+    new_w = max(1, int(logo_w * scale))
+    new_h = max(1, int(logo_h * scale))
+    if (new_w, new_h) != logo.size:
+        logo = logo.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    pad = max(4, int(min(canvas_w, canvas_h) * padding_ratio))
+    x = canvas_w - new_w - pad
+    y = canvas_h - new_h - pad
+    base.alpha_composite(logo, (x, y))
+    return base
+
+
+def composite_brand_logo_bytes(image_url: str, logo_url: str) -> bytes:
+    """Download generated image, overlay logo, return JPEG bytes."""
+    base = _open_image_bytes(download_image_bytes(image_url))
+    composited = composite_brand_logo_on_image(base, logo_url)
+    return image_to_jpeg_bytes(composited)
+
+
+def persist_image_url_to_cdn(image_url, file_name=None, logo_url: str | None = None):
+    """Download a remote image, optionally composite brand logo, upload to GitHub CDN."""
     from bebcare.utils.github_uploader import github_uploader
     from datetime import datetime
 
-    if is_github_cdn_url(image_url):
+    if is_github_cdn_url(image_url) and not logo_url:
         logger.info("[CDN] skip persist, already on CDN: %s", _source_label(image_url))
         return image_url
 
@@ -155,19 +188,14 @@ def persist_image_url_to_cdn(image_url, file_name=None):
         file_name = f"{stem}.jpg"
 
     src = _source_label(image_url)
-    logger.info("[CDN] persist start source=%s file_name=%s", src, file_name)
+    logger.info("[CDN] persist start source=%s file_name=%s composite=%s", src, file_name, bool(logo_url))
     try:
-        raw = download_image_bytes(image_url)
-        logger.info("[CDN] source downloaded bytes=%s source=%s", len(raw), src)
-        image = _open_image_bytes(raw)
-        jpeg_bytes = image_to_jpeg_bytes(image)
-        logger.info(
-            "[CDN] jpeg encoded bytes=%s mode=%s size=%sx%s",
-            len(jpeg_bytes),
-            image.mode,
-            image.size[0],
-            image.size[1],
-        )
+        if logo_url:
+            jpeg_bytes = composite_brand_logo_bytes(image_url, logo_url)
+        else:
+            raw = download_image_bytes(image_url)
+            image = _open_image_bytes(raw)
+            jpeg_bytes = image_to_jpeg_bytes(image)
         cdn_url = github_uploader.upload_file(jpeg_bytes, file_name)
         logger.info("[CDN] persist ok file_name=%s cdn_url=%s", file_name, cdn_url)
         return cdn_url

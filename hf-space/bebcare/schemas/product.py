@@ -20,6 +20,7 @@ class ProductBase(BaseModel):
     brand_id: Optional[str] = None
     brand_voice: Optional[str] = None
     use_brand_voice: bool = True
+    has_on_body_branding: bool = True
 
 class ProductCreate(ProductBase):
     pass
@@ -32,6 +33,7 @@ class ProductUpdate(BaseModel):
     brand_id: Optional[str] = None
     brand_voice: Optional[str] = None
     use_brand_voice: Optional[bool] = None
+    has_on_body_branding: Optional[bool] = None
 
 class ProductImageSchema(BaseModel):
     image_id: UUID

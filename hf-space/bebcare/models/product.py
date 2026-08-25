@@ -20,6 +20,7 @@ class Product(OwnedMixin, Base):
     selling_points = Column(String(500))
     brand_voice = Column(Text)  # legacy; prefer brand.voice + optional override
     use_brand_voice = Column(Boolean, default=True, nullable=False)
+    has_on_body_branding = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

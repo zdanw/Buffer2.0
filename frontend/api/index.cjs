@@ -50,7 +50,11 @@ module.exports = (req, res) => {
   if (pathOnly === '/payments/webhook' || pathOnly === '/api/payments/webhook') {
     targetPath = '/v1/billing/webhook';
   } else if (targetPath.startsWith('/api')) {
-    targetPath = targetPath.replace(/^\/api/, '/v1');
+    // /api/v1/... must become /v1/... (not /v1/v1/...)
+    targetPath = targetPath.replace(/^\/api/, '');
+    if (!targetPath.startsWith('/v1')) {
+      targetPath = '/v1' + (targetPath.startsWith('/') ? targetPath : `/${targetPath}`);
+    }
   } else if (!targetPath.startsWith('/v1')) {
     targetPath = '/v1' + targetPath;
   }
