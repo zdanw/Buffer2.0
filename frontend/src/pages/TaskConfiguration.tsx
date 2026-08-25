@@ -11,6 +11,8 @@ import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
 import ImageModelPicker from '@/components/ImageModelPicker';
+import ImageGenerationControls from '@/components/ImageGenerationControls';
+import { DEFAULT_IMAGE_GENERATION_CONTROLS } from '@/lib/imageGenerationControls';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import TaskProductPicker, { TaskProductPickerLabel } from '@/components/TaskProductPicker';
@@ -51,13 +53,14 @@ export default function TaskConfiguration() {
     generate_image_count: 3,
     generate_copy_count: 3,
     enabled: true,
-    use_scene_reference: false,
-    use_vision_image_prompt: false,
+    use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+    use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+    realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
     image_provider_id: null,
     image_provider_mode: null as 'platform' | 'byok' | null,
     image_model: null,
     image_size: '2048x2048',
-    notify_on_publish: false,
+    notify_on_publish: true,
   });
 
   useEffect(() => {
@@ -163,13 +166,14 @@ export default function TaskConfiguration() {
       generate_image_count: 3,
       generate_copy_count: 3,
       enabled: true,
-      use_scene_reference: false,
-      use_vision_image_prompt: false,
+      use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+      use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+      realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
       image_provider_id: null,
       image_provider_mode: null,
       image_model: null,
       image_size: '2048x2048',
-      notify_on_publish: false,
+      notify_on_publish: true,
     });
     setSelectedTask(null);
     setIsEdit(false);
@@ -286,11 +290,12 @@ export default function TaskConfiguration() {
         enabled: task.enabled,
         use_scene_reference: task.use_scene_reference || false,
         use_vision_image_prompt: task.use_vision_image_prompt || false,
+        realistic_placement: task.realistic_placement ?? DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
         image_provider_id: task.image_provider_id || null,
         image_provider_mode: (task.image_provider_mode as 'platform' | 'byok' | null) || null,
         image_model: task.image_model || null,
         image_size: task.image_size || '2048x2048',
-        notify_on_publish: task.notify_on_publish || false,
+        notify_on_publish: task.notify_on_publish ?? true,
       });
     } else {
       setIsEdit(false);
@@ -307,13 +312,14 @@ export default function TaskConfiguration() {
         generate_image_count: 3,
         generate_copy_count: 3,
         enabled: true,
-        use_scene_reference: false,
-        use_vision_image_prompt: false,
+        use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+        use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+        realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
         image_provider_id: null,
         image_provider_mode: null,
         image_model: null,
         image_size: '2048x2048',
-        notify_on_publish: false,
+        notify_on_publish: true,
       });
     }
     setShowModal(true);
@@ -633,24 +639,6 @@ export default function TaskConfiguration() {
                 </div>
               )}
 
-              {formData.mode === 'auto' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.notify_on_publish || false}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notify_on_publish: e.target.checked })
-                    }
-                    className="w-4 h-4 text-forge-600 rounded"
-                    id="task-notify-email"
-                  />
-                  <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                    {t('tasks.notifyOnPublish')}
-                    <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
-                  </label>
-                </div>
-              )}
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelWithTooltip
@@ -721,49 +709,23 @@ export default function TaskConfiguration() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.enabled}
-                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-enabled"
-                />
-                <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.enableTask')}
-                  <HelpTooltip content={t('tasks.tooltips.enableTask')} />
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.use_scene_reference || false}
-                  onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-scene-ref"
-                />
-                <label htmlFor="task-scene-ref" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.enableSceneReference')}
-                  <HelpTooltip content={t('tasks.tooltips.enableSceneReference')} />
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.use_vision_image_prompt || false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, use_vision_image_prompt: e.target.checked })
-                  }
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-vision-prompt"
-                />
-                <label htmlFor="task-vision-prompt" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.visionImagePrompt')}
-                  <HelpTooltip content={t('tasks.tooltips.visionImagePrompt')} />
-                </label>
-              </div>
+              <ImageGenerationControls
+                value={{
+                  use_scene_reference: formData.use_scene_reference || false,
+                  use_vision_image_prompt: formData.use_vision_image_prompt || false,
+                  realistic_placement:
+                    formData.realistic_placement ??
+                    DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
+                }}
+                onChange={(next) =>
+                  setFormData({
+                    ...formData,
+                    use_scene_reference: next.use_scene_reference,
+                    use_vision_image_prompt: next.use_vision_image_prompt,
+                    realistic_placement: next.realistic_placement,
+                  })
+                }
+              />
 
               <div>
                 <LabelWithTooltip
@@ -789,6 +751,38 @@ export default function TaskConfiguration() {
                   }
                 />
               </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                  className="w-4 h-4 text-forge-600 rounded"
+                  id="task-enabled"
+                />
+                <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  {t('tasks.enableTask')}
+                  <HelpTooltip content={t('tasks.tooltips.enableTask')} />
+                </label>
+              </div>
+
+              {formData.mode === 'auto' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.notify_on_publish ?? true}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notify_on_publish: e.target.checked })
+                    }
+                    className="w-4 h-4 text-forge-600 rounded"
+                    id="task-notify-email"
+                  />
+                  <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                    {t('tasks.notifyOnPublish')}
+                    <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <button

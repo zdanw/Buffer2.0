@@ -15,6 +15,7 @@ export interface ScheduledTask {
   enabled: boolean;
   use_scene_reference: boolean;
   use_vision_image_prompt?: boolean;
+  realistic_placement?: boolean;
   image_provider_id?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;
@@ -137,6 +138,7 @@ export interface TaskCreate {
   enabled?: boolean;
   use_scene_reference?: boolean;
   use_vision_image_prompt?: boolean;
+  realistic_placement?: boolean;
   image_provider_id?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;

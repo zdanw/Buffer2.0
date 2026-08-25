@@ -18,6 +18,7 @@ import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import DimensionInfoDisplay, { CopyablePromptBlock } from '@/components/DimensionInfoDisplay';
 import ImageModelPicker from '@/components/ImageModelPicker';
+import ImageGenerationControls from '@/components/ImageGenerationControls';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import SocialFeedPreview from '@/components/SocialFeedPreview';
@@ -551,59 +552,19 @@ export default function Studio() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-sm font-medium text-gray-700">{t('preview.enableSceneReference')}</span>
-                <HelpTooltip content={t('studio.tooltips.sceneReference')} />
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={useSceneReference}
-                  onChange={() => setUseSceneReference(!useSceneReference)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
-              </label>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-sm font-medium text-gray-700">{t('preview.visionImagePrompt')}</span>
-                <HelpTooltip content={t('studio.tooltips.visionPrompt')} />
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={useVisionImagePrompt}
-                  onChange={() => setUseVisionImagePrompt(!useVisionImagePrompt)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
-              </label>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-sm font-medium text-gray-700">{t('studio.realisticPlacement')}</span>
-                <HelpTooltip content={t('studio.tooltips.realisticPlacement')} />
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={realisticPlacement}
-                  onChange={() => setRealisticPlacement(!realisticPlacement)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600"></div>
-              </label>
-            </div>
-          </div>
+          <ImageGenerationControls
+            value={{
+              use_scene_reference: useSceneReference,
+              use_vision_image_prompt: useVisionImagePrompt,
+              realistic_placement: realisticPlacement,
+            }}
+            onChange={(next) => {
+              setUseSceneReference(next.use_scene_reference);
+              setUseVisionImagePrompt(next.use_vision_image_prompt);
+              setRealisticPlacement(next.realistic_placement);
+            }}
+            disabled={isGenerating}
+          />
 
           <ImageModelPicker
             preferGlobalDefault
