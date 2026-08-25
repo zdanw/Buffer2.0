@@ -5,19 +5,7 @@ from __future__ import annotations
 import re
 from typing import Callable, Dict, List, Optional
 
-from bebcare.prompt_builder import dimension_i18n
-
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
-
-DEFAULT_DIM_LABELS_EN = {
-    "默认场景": "Default scene",
-    "默认光线": "Default lighting",
-    "默认风格": "Default style",
-    "默认细节": "Default details",
-    "默认视角": "Default viewpoint",
-    "默认构图": "Default composition",
-    "默认画质": "Default quality",
-}
 
 SCENE_REF_LABELS = {
     "zh": {
@@ -137,23 +125,10 @@ def dimension_display_name(
     *,
     sanitizer: Optional[Callable[[str], str]] = None,
 ) -> str:
-    """Pick a display label for dimension cards following UI locale."""
+    """Use stored dimension name as-is (no locale translation)."""
     loc = normalize_locale(locale)
     name = (item.get("name") or "").strip()
-    item_id = (item.get("id") or item.get("item_id") or "").strip()
-    if loc == "en":
-        if name in DEFAULT_DIM_LABELS_EN:
-            raw = DEFAULT_DIM_LABELS_EN[name]
-        else:
-            raw = dimension_i18n.lookup_english_name(
-                item_id,
-                name_zh=name,
-                name_en=item.get("name_en"),
-            )
-        if not raw and not _has_cjk(name):
-            raw = name or "Default"
-    else:
-        raw = name or "默认"
+    raw = name or ("默认" if loc == "zh" else "Default")
     if sanitizer:
         return sanitizer(raw)
     return raw

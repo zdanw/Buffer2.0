@@ -15,7 +15,7 @@ import { useDimensionTypeLabel } from '@/i18n/useDimensionTypeLabel';
 import { getDimensionDisplayName } from '@/i18n/dimensionDisplayName';
 import type { TranslateFn } from '@/lib/formValidation';
 
-type CompatOptions = Record<string, { id: string; name: string; name_en?: string | null }[]>;
+type CompatOptions = Record<string, { id: string; name: string }[]>;
 
 type CompatCacheEntry = {
   options: CompatOptions;
@@ -50,7 +50,7 @@ function seedCompatCacheFromList(dims: PromptDimension[]) {
     if (entry.complete) continue;
     const bucket = entry.options[dim.dimension_type] || (entry.options[dim.dimension_type] = []);
     if (!bucket.some((x) => x.id === dim.item_id)) {
-      bucket.push({ id: dim.item_id, name: dim.name, name_en: dim.name_en });
+      bucket.push({ id: dim.item_id, name: dim.name });
     }
     compatOptionsCache.set(dim.product_type, entry);
   }
@@ -81,7 +81,7 @@ async function fetchCompatOptions(productType: string): Promise<CompatOptions> {
       for (const dim of res.data) {
         if (dim.enabled === false) continue;
         const bucket = result[dim.dimension_type] || (result[dim.dimension_type] = []);
-        bucket.push({ id: dim.item_id, name: dim.name, name_en: dim.name_en });
+        bucket.push({ id: dim.item_id, name: dim.name });
       }
       pages = res.pagination.pages || 1;
       page += 1;
@@ -122,9 +122,9 @@ function upsertCompatCacheItem(dim: PromptDimension) {
   const bucket = entry.options[dim.dimension_type] || (entry.options[dim.dimension_type] = []);
   const idx = bucket.findIndex((x) => x.id === dim.item_id);
   if (idx >= 0) {
-    bucket[idx] = { id: dim.item_id, name: dim.name, name_en: dim.name_en };
+    bucket[idx] = { id: dim.item_id, name: dim.name };
   } else {
-    bucket.push({ id: dim.item_id, name: dim.name, name_en: dim.name_en });
+    bucket.push({ id: dim.item_id, name: dim.name });
   }
   compatOptionsCache.set(dim.product_type, entry);
 }
@@ -209,7 +209,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
     product_type: 'General',
     dimension_type: 'scenes',
     name: '',
-    name_en: '',
     compatibilities: createEmptyCompatibilities('scenes') as DimensionCompatibilities,
   });
 
@@ -381,7 +380,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
       product_type: 'General',
       dimension_type: 'scenes',
       name: '',
-      name_en: '',
       compatibilities: createEmptyCompatibilities('scenes'),
     });
     setSelectedDimension(null);
@@ -408,7 +406,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
       if (isEdit && selectedDimension) {
         const updatePayload: PromptDimensionUpdate = {
           name: submitData.name,
-          name_en: submitData.name_en.trim() || null,
           compatibilities: submitData.compatibilities,
         };
         const updated = await updatePromptDimension(selectedDimension.dimension_id, updatePayload);
@@ -420,7 +417,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
           product_type: submitData.product_type,
           dimension_type: submitData.dimension_type,
           name: submitData.name,
-          name_en: submitData.name_en.trim() || undefined,
           compatibilities: submitData.compatibilities,
         });
         upsertCompatCacheItem(created);
@@ -551,7 +547,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
         product_type: dimension.product_type,
         dimension_type: dimension.dimension_type,
         name: dimension.name,
-        name_en: dimension.name_en || '',
         compatibilities: dimension.compatibilities || createEmptyCompatibilities(dimension.dimension_type),
       });
       // 缓存已完整则不再请求；未完整才后台补全
@@ -566,7 +561,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
         product_type: pt,
         dimension_type: dt,
         name: '',
-        name_en: '',
         compatibilities: createEmptyCompatibilities(dt),
       });
       if (!isCompatCacheComplete(pt)) {
@@ -935,25 +929,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                   />
                   <p className="mt-1 text-xs text-gray-400 text-right">
                     {t('common.charCount', { current: (formData.name || '').length, max: LIMITS.dimensionName })}
-                  </p>
-                </div>
-                <div>
-                  <LabelWithTooltip
-                    htmlFor="dimension-name-en"
-                    label={t('dimensionsPage.nameEn')}
-                    tooltip={t('dimensionsPage.nameEnPlaceholder')}
-                  />
-                  <input
-                    id="dimension-name-en"
-                    type="text"
-                    value={formData.name_en}
-                    onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent"
-                    maxLength={LIMITS.dimensionName}
-                    placeholder={t('dimensionsPage.nameEnPlaceholder')}
-                  />
-                  <p className="mt-1 text-xs text-gray-400 text-right">
-                    {t('common.charCount', { current: (formData.name_en || '').length, max: LIMITS.dimensionName })}
                   </p>
                 </div>
                 {isEdit && (

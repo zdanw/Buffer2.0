@@ -50,8 +50,7 @@ class DimensionTypeResponse(BaseModel):
 class PromptDimensionBase(BaseModel):
     product_type: str = Field(..., description="产品类型，与素材 category 一致，如 Night Lights, Audio Monitor")
     dimension_type: str = Field(..., description="维度类型，如 scenes, viewpoints")
-    name: str = Field(..., description="维度项名称（中文或主语言）")
-    name_en: Optional[str] = Field(None, description="英文展示名称（可选）")
+    name: str = Field(..., description="维度项名称")
 
 
 class PromptDimensionCreate(PromptDimensionBase):
@@ -61,7 +60,6 @@ class PromptDimensionCreate(PromptDimensionBase):
 
 class PromptDimensionUpdate(BaseModel):
     name: Optional[str] = None
-    name_en: Optional[str] = None
     enabled: Optional[bool] = None
     compatibilities: Optional[DimensionCompatibilities] = None
 

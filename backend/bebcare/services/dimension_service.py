@@ -13,11 +13,14 @@ from bebcare.models.prompt_dimension import (
     DimensionType,
     CompatMode,
 )
-from bebcare.prompt_builder import dimension_i18n
 from bebcare.models.user import User
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 from bebcare.schemas.prompt_dimension import COMPAT_TARGET_TYPES
 from bebcare.services.ownership import stamp_owner
+
+
+def _dim_item_dict(dim: PromptDimension) -> dict:
+    return {"id": dim.item_id, "name": dim.name}
 
 
 def generate_random_item_id() -> str:
@@ -135,13 +138,7 @@ class DimensionService:
             result = {dim_type.value: [] for dim_type in DimensionType}
 
             for dim in dimensions:
-                dim_dict = dimension_i18n.enrich_dimension_item(
-                    {
-                        "id": dim.item_id,
-                        "name": dim.name,
-                        "name_en": getattr(dim, "name_en", None),
-                    }
-                )
+                dim_dict = _dim_item_dict(dim)
                 if dim.time:
                     dim_dict["time"] = dim.time
                 if dim.lighting:
@@ -184,16 +181,7 @@ class DimensionService:
             source_dim = source_q.first()
 
             if not source_dim:
-                return [
-                    dimension_i18n.enrich_dimension_item(
-                        {
-                            "id": dim.item_id,
-                            "name": dim.name,
-                            "name_en": getattr(dim, "name_en", None),
-                        }
-                    )
-                    for dim in all_target_dims
-                ]
+                return [_dim_item_dict(dim) for dim in all_target_dims]
 
             entries = _compat_entries_for_dim(source_dim)
             entry = entries.get(target_dim_type) or {"mode": "unrestricted", "items": []}
@@ -208,16 +196,7 @@ class DimensionService:
             else:
                 pool = all_target_dims
 
-            return [
-                dimension_i18n.enrich_dimension_item(
-                    {
-                        "id": dim.item_id,
-                        "name": dim.name,
-                        "name_en": getattr(dim, "name_en", None),
-                    }
-                )
-                for dim in pool
-            ]
+            return [_dim_item_dict(dim) for dim in pool]
 
         except Exception:
             return []

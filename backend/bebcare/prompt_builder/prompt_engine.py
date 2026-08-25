@@ -12,7 +12,6 @@ from bebcare.services.logo_policy import (
 )
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 from bebcare.prompt_builder import prompt_locale
-from bebcare.prompt_builder import dimension_i18n
 
 try:
     from bebcare.services.dimension_service import dimension_service
@@ -120,10 +119,7 @@ Follow these principles:
                 )
                 if any(result.get(key) for key in self._EMPTY_DIMENSIONS):
                     return {
-                        key: [
-                            dimension_i18n.enrich_dimension_item(item)
-                            for item in (result.get(key) or [])
-                        ]
+                        key: list(result.get(key) or [])
                         for key in self._EMPTY_DIMENSIONS
                     }
                 logger.info(
@@ -138,10 +134,7 @@ Follow these principles:
         if product_type in DIMENSIONS:
             raw = DIMENSIONS[product_type]
             return {
-                key: [
-                    dimension_i18n.enrich_dimension_item(item)
-                    for item in (raw.get(key) or [])
-                ]
+                key: list(raw.get(key) or [])
                 for key in self._EMPTY_DIMENSIONS
             }
 
