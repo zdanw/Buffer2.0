@@ -251,6 +251,7 @@ export const pagesEn: TranslationTree = {
     checklistBrand: 'Create a brand kit',
     checklistProduct: 'Add a product',
     checklistGenerate: 'Generate your first post',
+    rewardGranted: 'You earned {{n}} free credits for completing onboarding!',
     optionalSetup: 'Optional setup',
     linkDimensions: 'Visual style presets',
     linkAutomations: 'Automations',
@@ -569,6 +570,8 @@ export const pagesEn: TranslationTree = {
     manualDraftReady: 'Draft ready for review',
     publishedDraft: 'Published from review',
     moreItems: '+{{count}} more',
+    editAutomation: 'Edit automation',
+    viewTask: 'View automation',
   },
   users: {
     title: 'User management',
@@ -973,6 +976,7 @@ export const pagesZh: TranslationTree = {
     checklistBrand: '创建品牌套件',
     checklistProduct: '添加产品',
     checklistGenerate: '生成第一条内容',
+    rewardGranted: '恭喜完成入门指南，已获得 {{n}} 次免费额度！',
     optionalSetup: '可选设置',
     linkDimensions: '视觉风格预设',
     linkAutomations: '自动化任务',
@@ -1291,6 +1295,8 @@ export const pagesZh: TranslationTree = {
     manualDraftReady: '草稿待审核',
     publishedDraft: '已从审核发布',
     moreItems: '还有 {{count}} 项',
+    editAutomation: '编辑自动化任务',
+    viewTask: '查看自动化任务',
   },
   users: {
     title: '用户管理',

@@ -1,9 +1,8 @@
 import BrandPicker from '@/components/BrandPicker';
-import { SubscribeCreditsButton } from '@/components/SubscribeCreditsModal';
-import UserAccountMenu from '@/components/UserAccountMenu';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 
+/** Brand context strip below the global app chrome header. */
 export default function BrandSelectorBar() {
   const { t } = useI18n();
   const { brands, activeBrandId, activeBrand, setActiveBrandId, loading } = useBrandContext();
@@ -12,8 +11,8 @@ export default function BrandSelectorBar() {
   const kitComplete = Boolean(activeBrand?.voice?.trim());
 
   return (
-    <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-canvas-border bg-white/95 backdrop-blur px-4 py-2.5 lg:px-6">
-      <div className="min-w-0 flex-1 sm:flex-none sm:min-w-[200px]">
+    <div className="flex items-center gap-3 border-t border-canvas-border px-4 py-2.5 lg:px-6">
+      <div className="min-w-0 w-full sm:w-auto sm:min-w-[200px]">
         <BrandPicker
           value={activeBrandId ?? ''}
           onChange={(id) => setActiveBrandId(id || null)}
@@ -37,10 +36,6 @@ export default function BrandSelectorBar() {
         ) : (
           <span className="text-ink-400">{t('brands.selector.viewingAll')}</span>
         )}
-      </div>
-      <div className="ml-auto flex items-center gap-3 shrink-0 border-l border-canvas-border pl-4">
-        <SubscribeCreditsButton variant="inline" />
-        <UserAccountMenu />
       </div>
     </div>
   );

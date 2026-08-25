@@ -41,6 +41,12 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class OnboardingRewardResponse(BaseModel):
+    granted: int
+    already_claimed: bool
+    image_credits_remaining: int
+
+
 class UserResponse(BaseModel):
     user_id: str
     username: str
@@ -49,6 +55,8 @@ class UserResponse(BaseModel):
     is_admin: bool
     created_at: datetime
     onboarding_completed_at: Optional[datetime] = None
+    has_generated_content: bool = False
+    onboarding_reward_claimed: bool = False
     image_credits_remaining: int = 0
     has_system_image_provider: bool = False
     billing_contact: Optional[str] = None

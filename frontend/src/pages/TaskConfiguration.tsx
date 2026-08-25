@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Clock, Zap, RefreshCw } from 'lucide-react';
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
-import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
+import { getTasks, getTask, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getProducts, type Product } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -10,6 +11,8 @@ import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
 import ImageModelPicker from '@/components/ImageModelPicker';
+import ImageGenerationControls from '@/components/ImageGenerationControls';
+import { DEFAULT_IMAGE_GENERATION_CONTROLS } from '@/lib/imageGenerationControls';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import TaskProductPicker, { TaskProductPickerLabel } from '@/components/TaskProductPicker';
@@ -22,6 +25,8 @@ export default function TaskConfiguration() {
   const { t } = useI18n();
   const { activeBrandId, brands } = useBrandContext();
   const { required, maxLen, cronFormat, intInRange } = useValidators();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedTaskFromUrlRef = useRef<string | null>(null);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [pickerProducts, setPickerProducts] = useState<Product[]>([]);
   const [loadingPickerProducts, setLoadingPickerProducts] = useState(false);
@@ -48,18 +53,51 @@ export default function TaskConfiguration() {
     generate_image_count: 3,
     generate_copy_count: 3,
     enabled: true,
-    use_scene_reference: false,
-    use_vision_image_prompt: false,
+    use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+    use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+    realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
     image_provider_id: null,
     image_provider_mode: null as 'platform' | 'byok' | null,
     image_model: null,
     image_size: '2048x2048',
-    notify_on_publish: false,
+    notify_on_publish: true,
   });
 
   useEffect(() => {
     void loadTasks(1);
   }, [activeBrandId]);
+
+  useEffect(() => {
+    const taskId = searchParams.get('task');
+    if (!taskId || initialLoading || openedTaskFromUrlRef.current === taskId) return;
+
+    const openFromUrl = async () => {
+      let task = tasks.find((tk) => tk.task_id === taskId);
+      if (!task) {
+        try {
+          task = await getTask(taskId);
+        } catch (error) {
+          console.error('Failed to load task from URL:', error);
+          return;
+        }
+      }
+      openedTaskFromUrlRef.current = taskId;
+      openModal(task);
+    };
+
+    void openFromUrl();
+  }, [searchParams, tasks, initialLoading]);
+
+  const closeModal = () => {
+    setShowModal(false);
+    resetForm();
+    if (searchParams.get('task')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('task');
+      setSearchParams(next, { replace: true });
+      openedTaskFromUrlRef.current = null;
+    }
+  };
 
   const loadPickerProducts = async () => {
     setLoadingPickerProducts(true);
@@ -128,13 +166,14 @@ export default function TaskConfiguration() {
       generate_image_count: 3,
       generate_copy_count: 3,
       enabled: true,
-      use_scene_reference: false,
-      use_vision_image_prompt: false,
+      use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+      use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+      realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
       image_provider_id: null,
       image_provider_mode: null,
       image_model: null,
       image_size: '2048x2048',
-      notify_on_publish: false,
+      notify_on_publish: true,
     });
     setSelectedTask(null);
     setIsEdit(false);
@@ -203,8 +242,7 @@ export default function TaskConfiguration() {
           void loadTasks(currentPage);
         }
       }
-      setShowModal(false);
-      resetForm();
+      closeModal();
     } catch (error) {
       console.error('Failed to save task:', error);
       alert(t('tasks.saveFailed'));
@@ -252,11 +290,12 @@ export default function TaskConfiguration() {
         enabled: task.enabled,
         use_scene_reference: task.use_scene_reference || false,
         use_vision_image_prompt: task.use_vision_image_prompt || false,
+        realistic_placement: task.realistic_placement ?? DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
         image_provider_id: task.image_provider_id || null,
         image_provider_mode: (task.image_provider_mode as 'platform' | 'byok' | null) || null,
         image_model: task.image_model || null,
         image_size: task.image_size || '2048x2048',
-        notify_on_publish: task.notify_on_publish || false,
+        notify_on_publish: task.notify_on_publish ?? true,
       });
     } else {
       setIsEdit(false);
@@ -273,13 +312,14 @@ export default function TaskConfiguration() {
         generate_image_count: 3,
         generate_copy_count: 3,
         enabled: true,
-        use_scene_reference: false,
-        use_vision_image_prompt: false,
+        use_scene_reference: DEFAULT_IMAGE_GENERATION_CONTROLS.use_scene_reference,
+        use_vision_image_prompt: DEFAULT_IMAGE_GENERATION_CONTROLS.use_vision_image_prompt,
+        realistic_placement: DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
         image_provider_id: null,
         image_provider_mode: null,
         image_model: null,
         image_size: '2048x2048',
-        notify_on_publish: false,
+        notify_on_publish: true,
       });
     }
     setShowModal(true);
@@ -443,7 +483,7 @@ export default function TaskConfiguration() {
               <h3 className="text-xl font-semibold text-gray-900">
                 {isEdit ? t('tasks.editTask') : t('tasks.addTask')}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -599,24 +639,6 @@ export default function TaskConfiguration() {
                 </div>
               )}
 
-              {formData.mode === 'auto' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.notify_on_publish || false}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notify_on_publish: e.target.checked })
-                    }
-                    className="w-4 h-4 text-forge-600 rounded"
-                    id="task-notify-email"
-                  />
-                  <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                    {t('tasks.notifyOnPublish')}
-                    <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
-                  </label>
-                </div>
-              )}
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelWithTooltip
@@ -687,49 +709,23 @@ export default function TaskConfiguration() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.enabled}
-                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-enabled"
-                />
-                <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.enableTask')}
-                  <HelpTooltip content={t('tasks.tooltips.enableTask')} />
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.use_scene_reference || false}
-                  onChange={(e) => setFormData({ ...formData, use_scene_reference: e.target.checked })}
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-scene-ref"
-                />
-                <label htmlFor="task-scene-ref" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.enableSceneReference')}
-                  <HelpTooltip content={t('tasks.tooltips.enableSceneReference')} />
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.use_vision_image_prompt || false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, use_vision_image_prompt: e.target.checked })
-                  }
-                  className="w-4 h-4 text-forge-600 rounded"
-                  id="task-vision-prompt"
-                />
-                <label htmlFor="task-vision-prompt" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  {t('tasks.visionImagePrompt')}
-                  <HelpTooltip content={t('tasks.tooltips.visionImagePrompt')} />
-                </label>
-              </div>
+              <ImageGenerationControls
+                value={{
+                  use_scene_reference: formData.use_scene_reference || false,
+                  use_vision_image_prompt: formData.use_vision_image_prompt || false,
+                  realistic_placement:
+                    formData.realistic_placement ??
+                    DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
+                }}
+                onChange={(next) =>
+                  setFormData({
+                    ...formData,
+                    use_scene_reference: next.use_scene_reference,
+                    use_vision_image_prompt: next.use_vision_image_prompt,
+                    realistic_placement: next.realistic_placement,
+                  })
+                }
+              />
 
               <div>
                 <LabelWithTooltip
@@ -756,10 +752,42 @@ export default function TaskConfiguration() {
                 />
               </div>
 
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                  className="w-4 h-4 text-forge-600 rounded"
+                  id="task-enabled"
+                />
+                <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  {t('tasks.enableTask')}
+                  <HelpTooltip content={t('tasks.tooltips.enableTask')} />
+                </label>
+              </div>
+
+              {formData.mode === 'auto' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.notify_on_publish ?? true}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notify_on_publish: e.target.checked })
+                    }
+                    className="w-4 h-4 text-forge-600 rounded"
+                    id="task-notify-email"
+                  />
+                  <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                    {t('tasks.notifyOnPublish')}
+                    <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
+                  </label>
+                </div>
+              )}
+
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >

@@ -21,11 +21,12 @@ class ScheduledTask(OwnedMixin, Base):
     enabled = Column(Boolean, default=True)
     use_scene_reference = Column(Boolean, default=False)
     use_vision_image_prompt = Column(Boolean, default=False)
+    realistic_placement = Column(Boolean, default=True)
     image_provider_id = Column(String(36), nullable=True)
     image_provider_mode = Column(String(16), nullable=True)  # platform | byok
     image_model = Column(String(255), nullable=True)
     image_size = Column(String(32), nullable=True)
-    notify_on_publish = Column(Boolean, default=False)
+    notify_on_publish = Column(Boolean, default=True)
     last_run_at = Column(DateTime)
     next_run_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)

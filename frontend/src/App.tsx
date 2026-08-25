@@ -5,12 +5,13 @@ import Sidebar from './components/Sidebar';
 import BrandLogo from './components/BrandLogo';
 import ApiConnectionBanner from './components/ApiConnectionBanner';
 import BrandSelectorBar from './components/BrandSelectorBar';
+import TopBarActions from './components/TopBarActions';
 import OnboardingWizard from './components/OnboardingWizard';
 import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
 import { useOnboarding } from './hooks/useOnboarding';
 import { BrandProvider, useBrandContext } from './context/BrandContext';
-import { getCurrentUser, getToken } from './api/auth';
+import { getCurrentUser, getToken, claimOnboardingReward } from './api/auth';
 import type { UserResponse } from './api/auth';
 
 const BrandManagement = lazy(() => import('./pages/BrandManagement'));
@@ -132,19 +133,35 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [onboardingRewardToast, setOnboardingRewardToast] = useState<string | null>(null);
+
+  const refreshCurrentUser = async () => {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    } catch (err) {
+      console.error('Failed to fetch current user:', err);
+    }
+  };
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
+      setLoading(true);
       try {
-        const user = await getCurrentUser();
-        setCurrentUser(user);
-      } catch (err) {
-        console.error('Failed to fetch current user:', err);
+        await refreshCurrentUser();
       } finally {
         setLoading(false);
       }
     };
-    fetchCurrentUser();
+    void fetchCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshCurrentUser();
+    };
+    window.addEventListener('pulseforge:refresh-user', handler);
+    return () => window.removeEventListener('pulseforge:refresh-user', handler);
   }, []);
 
   useEffect(() => {
@@ -180,12 +197,35 @@ function AppContent() {
     setSidebarOpen(false);
   };
 
+  const hasBrand = brands.some((b) => !b.is_generic);
+  const hasProduct = brands.some((b) => b.product_count > 0);
+  const hasGenerated = Boolean(currentUser?.has_generated_content);
+
+  useEffect(() => {
+    if (!currentUser || !hasBrand || !hasProduct || !hasGenerated) return;
+    if (currentUser.onboarding_reward_claimed) return;
+
+    void claimOnboardingReward()
+      .then((res) => {
+        if (res.granted > 0) {
+          setOnboardingRewardToast(t('onboarding.rewardGranted', { n: res.granted }));
+        }
+        return refreshCurrentUser();
+      })
+      .catch((err) => {
+        console.error('Failed to claim onboarding reward:', err);
+      });
+  }, [currentUser, hasBrand, hasProduct, hasGenerated, t]);
+
+  useEffect(() => {
+    if (!onboardingRewardToast) return;
+    const timer = window.setTimeout(() => setOnboardingRewardToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [onboardingRewardToast]);
+
   if (loading) {
     return <AppShellFallback />;
   }
-
-  const hasBrand = brands.some((b) => !b.is_generic);
-  const hasProduct = brands.some((b) => b.product_count > 0);
 
   return (
     <div className="flex min-h-screen bg-canvas">
@@ -197,24 +237,30 @@ function AppContent() {
         onClose={() => setSidebarOpen(false)}
       />
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-canvas-border bg-canvas px-4 py-3 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-gray-600 hover:bg-gray-200"
-            aria-label={t('nav.openMenu')}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <BrandLogo size="sm" />
-            {t('brand.name')}
-          </span>
+        <div className="sticky top-0 z-30 border-b border-canvas-border bg-white">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+                aria-label={t('nav.openMenu')}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
+                <BrandLogo size="sm" />
+                {t('brand.name')}
+              </span>
+            </div>
+            <div className="hidden lg:block flex-1" aria-hidden />
+            <TopBarActions />
+          </div>
+          <BrandSelectorBar />
         </div>
         {loadError === 'connection' && (
           <ApiConnectionBanner onRetry={() => void refreshBrands()} loading={brandsLoading} />
         )}
-        <BrandSelectorBar />
         <div className="flex-1 overflow-auto">
           {lazyPanel('brand', activeTab, mountedTabs, BrandManagement)}
           {lazyPanel('products', activeTab, mountedTabs, AssetManagement)}
@@ -237,6 +283,12 @@ function AppContent() {
         </div>
       </main>
 
+      {onboardingRewardToast ? (
+        <div className="fixed bottom-20 right-4 z-50 max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg">
+          {onboardingRewardToast}
+        </div>
+      ) : null}
+
       {shouldShowOnboarding && (
         <OnboardingWizard
           onSkip={skipOnboarding}
@@ -251,7 +303,7 @@ function AppContent() {
       <OnboardingChecklist
         hasBrand={hasBrand}
         hasProduct={hasProduct}
-        hasGenerated={Boolean(currentUser?.onboarding_completed_at)}
+        hasGenerated={hasGenerated}
         onNavigate={handleTabChange}
       />
     </div>

@@ -34,16 +34,14 @@ export default function UserAccountMenu() {
   if (!user) return null;
 
   return (
-    <div className="shrink-0">
-      <button
-        type="button"
-        onClick={() => navigate('/account')}
-        title={user.username}
-        aria-label={user.username}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-forge-600 text-xs font-semibold text-white ring-1 ring-forge-700/20 hover:bg-forge-700 transition-colors"
-      >
-        {initialsFromUsername(user.username)}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => navigate('/account')}
+      title={user.username}
+      aria-label={user.username}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forge-600 text-xs font-semibold text-white hover:bg-forge-700 transition-colors"
+    >
+      {initialsFromUsername(user.username)}
+    </button>
   );
 }

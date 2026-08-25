@@ -39,6 +39,8 @@ export interface UserResponse {
   is_admin: boolean;
   created_at: string;
   onboarding_completed_at?: string | null;
+  has_generated_content?: boolean;
+  onboarding_reward_claimed?: boolean;
   image_credits_remaining?: number;
   has_system_image_provider?: boolean;
   billing_contact?: string | null;
@@ -127,6 +129,17 @@ export const updateCurrentUser = async (data: {
 
 export const completeOnboarding = async (): Promise<void> => {
   await axiosInstance.post('/auth/me/onboarding-complete');
+};
+
+export interface OnboardingRewardResponse {
+  granted: number;
+  already_claimed: boolean;
+  image_credits_remaining: number;
+}
+
+export const claimOnboardingReward = async (): Promise<OnboardingRewardResponse> => {
+  const response = await axiosInstance.post('/auth/me/onboarding-reward');
+  return response.data;
 };
 
 export const listUsers = async (): Promise<UserResponse[]> => {

@@ -460,8 +460,14 @@ export default function AccountSettings() {
                   </button>
                 </div>
               ) : (
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                  {invoices.map((inv) => {
+                <ul className="divide-y divide-canvas-border rounded-xl border border-canvas-border overflow-hidden">
+                  {[...invoices]
+                    .sort((a, b) => {
+                      const aTime = a.created ? new Date(a.created).getTime() : 0;
+                      const bTime = b.created ? new Date(b.created).getTime() : 0;
+                      return aTime - bTime;
+                    })
+                    .map((inv) => {
                     const amount = ((inv.amount_paid || 0) / 100).toFixed(2);
                     const cur = (inv.currency || 'usd').toUpperCase();
                     const refunded =
@@ -470,7 +476,7 @@ export default function AccountSettings() {
                     return (
                       <li
                         key={inv.invoice_id}
-                        className="group flex items-center gap-3 rounded-xl border border-canvas-border bg-[var(--pf-canvas)]/40 hover:bg-white hover:border-forge-200 hover:shadow-sm transition-all px-3.5 py-3"
+                        className="group flex items-center gap-3 bg-white hover:bg-[var(--pf-canvas)]/40 transition-colors px-3.5 py-3"
                       >
                         <div className="h-9 w-9 shrink-0 rounded-lg bg-white border border-canvas-border flex items-center justify-center text-forge-600 group-hover:border-forge-200">
                           <CreditCard className="h-4 w-4" />

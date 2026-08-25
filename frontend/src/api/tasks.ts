@@ -15,6 +15,7 @@ export interface ScheduledTask {
   enabled: boolean;
   use_scene_reference: boolean;
   use_vision_image_prompt?: boolean;
+  realistic_placement?: boolean;
   image_provider_id?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;
@@ -137,6 +138,7 @@ export interface TaskCreate {
   enabled?: boolean;
   use_scene_reference?: boolean;
   use_vision_image_prompt?: boolean;
+  realistic_placement?: boolean;
   image_provider_id?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
   image_model?: string | null;
@@ -170,6 +172,11 @@ export const getTasks = async (page: number = 1, pageSize: number = 10): Promise
   }
   
   return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
+};
+
+export const getTask = async (taskId: string): Promise<ScheduledTask> => {
+  const response = await axiosInstance.get(`/tasks/${taskId}`);
+  return response.data;
 };
 
 export const getCalendarMonth = async (year: number, month: number): Promise<CalendarMonthResponse> => {

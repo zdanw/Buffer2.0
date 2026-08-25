@@ -707,6 +707,9 @@ def list_user_invoices(db: Session, *, user_id: str) -> list[dict[str, Any]]:
                 ),
             }
         )
+    out.sort(
+        key=lambda row: row.get("created") or datetime.min,
+    )
     return out
 
 
