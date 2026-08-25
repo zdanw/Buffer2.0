@@ -63,11 +63,13 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "style_hint": request.style_hint,
         "use_scene_reference": selected["use_scene_reference"],
         "use_vision_image_prompt": bool(request.use_vision_image_prompt),
+        "realistic_placement": bool(request.realistic_placement),
         "image_provider_id": request.image_provider_id,
         "image_model": request.image_model,
         "image_size": request.image_size,
         "image_provider_mode": request.image_provider_mode,
         "owner_user_id": product.owner_user_id,
+        "locale": request.locale or "zh",
     }
     return enrich_product_info(db, product, base)
 

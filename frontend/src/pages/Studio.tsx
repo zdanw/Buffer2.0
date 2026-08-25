@@ -95,7 +95,7 @@ const saveStateToStorage = (userId: string | null, state: PreviewState) => {
 };
 
 export default function Studio() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { activeBrandId, activeBrand, brands } = useBrandContext();
   const userId = getAuthUserId();
   const savedState = loadStateFromStorage(userId);
@@ -343,6 +343,7 @@ export default function Studio() {
         image_model: imageModel || undefined,
         image_size: imageSize || undefined,
         image_provider_mode: type === 'copywriting' ? undefined : imageProviderMode || undefined,
+        locale,
       };
 
       let response;
