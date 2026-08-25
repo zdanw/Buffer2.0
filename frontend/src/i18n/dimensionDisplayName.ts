@@ -1,4 +1,4 @@
-import type { Locale } from '@/i18n/I18nProvider';
+import type { Locale } from '@/i18n/types';
 
 const DEFAULT_DIM_LABELS_EN: Record<string, string> = {
   默认场景: 'Default scene',
