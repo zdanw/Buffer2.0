@@ -25,6 +25,7 @@ from bebcare.schemas.prompt_dimension import (
     ProductDimensionResponse,
 )
 from bebcare.services.dimension_service import dimension_service, allocate_item_id_for_create
+from bebcare.prompt_builder import dimension_i18n
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
 from bebcare.services.ownership import get_owned_or_404, owned_query, stamp_owner
 from bebcare.models import Product
@@ -81,6 +82,14 @@ def _compat_dict_from_dim(dim: PromptDimension) -> dict:
     return result
 
 
+def _resolve_name_en(dim: PromptDimension) -> str | None:
+    stored = (getattr(dim, "name_en", None) or "").strip()
+    if stored:
+        return stored
+    resolved = dimension_i18n.lookup_english_name(dim.item_id, name_zh=dim.name)
+    return resolved or None
+
+
 def _to_dimension_response(dim: PromptDimension, compatibilities=None) -> PromptDimensionResponse:
     if compatibilities is None:
         compatibilities = DimensionCompatibilities(**_compat_dict_from_dim(dim))
@@ -92,6 +101,7 @@ def _to_dimension_response(dim: PromptDimension, compatibilities=None) -> Prompt
         dimension_type=dim.dimension_type,
         item_id=dim.item_id,
         name=dim.name,
+        name_en=_resolve_name_en(dim),
         enabled=bool(dim.enabled) if dim.enabled is not None else True,
         created_at=dim.created_at,
         updated_at=dim.updated_at,
@@ -249,7 +259,8 @@ def create_prompt_dimension(
         product_type=dimension.product_type,
         dimension_type=dimension.dimension_type,
         item_id=item_id,
-        name=dimension.name
+        name=dimension.name,
+        name_en=(dimension.name_en or "").strip() or None,
     )
     stamp_owner(new_dim, current_user)
     db.add(new_dim)
@@ -294,6 +305,9 @@ def update_prompt_dimension(
 
     if update_data.name is not None:
         dimension.name = update_data.name
+
+    if update_data.name_en is not None:
+        dimension.name_en = (update_data.name_en or "").strip() or None
 
     if update_data.enabled is not None:
         dimension.enabled = update_data.enabled

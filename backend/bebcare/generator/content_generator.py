@@ -56,7 +56,7 @@ class ContentGenerator:
         self.vision_api_url = deepseek_chat_completions_url(
             settings.vision_api_url or settings.deepseek_api_url
         )
-        self.vision_model = (settings.vision_model or "qwen-vl-max").strip()
+        self.vision_model = (settings.vision_model or "agnes-2.5-flash").strip()
 
         self.image_prompt_system_prompt = """
 你是一位专业的AI图像提示词工程师。
@@ -395,7 +395,8 @@ class ContentGenerator:
                     f"Using only the scene and product references above, write one final English "
                     f"image prompt for “{product_name}”: blend the product naturally into the scene; "
                     "product appearance follows the product reference; preserve scene structure and "
-                    "lighting from the scene reference. Do not use external dimension templates."
+                    "lighting from the scene reference. Do not use external dimension templates. "
+                    "OUTPUT LANGUAGE: English only — no Chinese characters."
                     f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
                 )
             else:
@@ -417,7 +418,8 @@ class ContentGenerator:
                     f"Using only the references above, write one final English image prompt for "
                     f"“{product_name}”. References lock product shape and material only — do not copy "
                     "reference backgrounds, studio surfaces, props, or multi-product layouts. "
-                    "Design a fresh lifestyle environment from the scene dimensions below."
+                    "Design a fresh lifestyle environment from the scene dimensions below. "
+                    "OUTPUT LANGUAGE: English only — no Chinese characters."
                     f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
                 )
             else:
@@ -439,13 +441,14 @@ class ContentGenerator:
         recent_prompts: Optional[List[str]] = None,
         dimension_hints: Optional[Dict[str, str]] = None,
     ) -> str:
-        """Multimodal: read reference images only → autonomously write final Chinese image prompt.
+        """Multimodal: read reference images → write final image prompt in product locale.
 
         Scene mode: scene + product images labeled separately (still no meta-prompt).
         """
         if not self.vision_api_key:
             raise ValueError("VISION_API_KEY / DEEPSEEK_API_KEY is required for vision image prompt")
 
+        locale = prompt_locale.locale_from_product_info(product_info)
         user_content, system_prompt = await asyncio.to_thread(
             self._build_vision_user_content,
             product_info,
@@ -464,13 +467,10 @@ class ContentGenerator:
             "Authorization": f"Bearer {self.vision_api_key}",
         }
 
-        async def request_once(token_limit: int):
+        async def request_once(messages: list, token_limit: int):
             data = {
                 "model": self.vision_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
+                "messages": messages,
                 "temperature": 0.7,
                 "max_tokens": token_limit,
             }
@@ -492,20 +492,51 @@ class ContentGenerator:
             content = (choice["message"].get("content") or "").strip()
             return content, choice.get("finish_reason")
 
-        async def make_request():
-            content, finish_reason = await request_once(max_tokens)
+        async def make_request(messages: list):
+            content, finish_reason = await request_once(messages, max_tokens)
             retry_limit = max_tokens
             if finish_reason == "length":
                 retry_limit = min(max(max_tokens * 2, 1024), 4096)
                 if retry_limit > max_tokens:
-                    content, finish_reason = await request_once(retry_limit)
+                    content, finish_reason = await request_once(messages, retry_limit)
             if finish_reason == "length":
                 raise Exception(f"Vision output truncated after max_tokens={retry_limit}")
             if not content:
                 raise Exception("Vision model returned empty image prompt")
             return content
 
-        return await self._retry_request_async(make_request, max_retries=3, initial_delay=2.0)
+        base_messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+        content = await self._retry_request_async(
+            lambda: make_request(base_messages), max_retries=3, initial_delay=2.0
+        )
+
+        # 英文界面下，历史中文 avoid 示例容易把模型拉回中文；检出 CJK 则强制再写一次英文
+        if locale == "en" and prompt_locale.has_cjk(content):
+            logger.warning(
+                "Vision prompt returned CJK for locale=en; retrying with English-only constraint"
+            )
+            retry_user = list(user_content) + [
+                {
+                    "type": "text",
+                    "text": (
+                        "REWRITE REQUIRED: Your previous draft used Chinese. "
+                        "Output exactly one final English image prompt only — "
+                        "no Chinese characters, no translation notes, no preamble."
+                    ),
+                }
+            ]
+            retry_messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": retry_user},
+            ]
+            content = await self._retry_request_async(
+                lambda: make_request(retry_messages), max_retries=2, initial_delay=1.0
+            )
+
+        return content
 
     def _db_session(self, db=None):
         """短生命周期 Session：调用方未传入时自建，用完即关。"""

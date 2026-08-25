@@ -12,6 +12,7 @@ from bebcare.services.logo_policy import (
 )
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
 from bebcare.prompt_builder import prompt_locale
+from bebcare.prompt_builder import dimension_i18n
 
 try:
     from bebcare.services.dimension_service import dimension_service
@@ -118,7 +119,13 @@ Follow these principles:
                     owner_user_id=owner_user_id,
                 )
                 if any(result.get(key) for key in self._EMPTY_DIMENSIONS):
-                    return result
+                    return {
+                        key: [
+                            dimension_i18n.enrich_dimension_item(item)
+                            for item in (result.get(key) or [])
+                        ]
+                        for key in self._EMPTY_DIMENSIONS
+                    }
                 logger.info(
                     "No enabled dimensions in DB for product_type '%s'",
                     product_type,
@@ -129,7 +136,14 @@ Follow these principles:
                 )
 
         if product_type in DIMENSIONS:
-            return DIMENSIONS[product_type]
+            raw = DIMENSIONS[product_type]
+            return {
+                key: [
+                    dimension_i18n.enrich_dimension_item(item)
+                    for item in (raw.get(key) or [])
+                ]
+                for key in self._EMPTY_DIMENSIONS
+            }
 
         logger.warning(
             "No dimensions for product_type '%s' (DB empty / not in static seed); "

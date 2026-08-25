@@ -21,10 +21,10 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-v4-pro-0813"
 
     # 图像 Prompt 多模态（可选；开关在任务/预览侧，默认走纯文本 DeepSeek）
-    # 未单独配置时复用 DEEPSEEK_* 的 key/url；模型须为支持视觉的百炼兼容模型（如 qwen-vl-max）
+    # 未单独配置 VISION_API_KEY 时复用 DEEPSEEK_API_KEY；默认走 Agnes OpenAI 兼容接口
     vision_api_key: str | None = None
-    vision_api_url: str | None = None
-    vision_model: str = "qwen3.5-omni-plus-2026-03-15"
+    vision_api_url: str | None = "https://api.agnes-ai.cn/v1"
+    vision_model: str = "agnes-2.5-flash"
 
     # Doubao API配置
     doubao_api_key: str

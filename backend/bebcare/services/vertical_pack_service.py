@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from bebcare.models.prompt_dimension import PromptDimension
 from bebcare.models.user import User
+from bebcare.prompt_builder import dimension_i18n
 from bebcare.services.ownership import stamp_owner
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,11 @@ def initialize_pack(
                     dimension_type=dim_type,
                     item_id=item["id"],
                     name=item["name"],
+                    name_en=dimension_i18n.lookup_english_name(
+                        item["id"],
+                        name_zh=item.get("name"),
+                        name_en=item.get("name_en"),
+                    ),
                     time=item.get("time"),
                     lighting=item.get("lighting"),
                 )

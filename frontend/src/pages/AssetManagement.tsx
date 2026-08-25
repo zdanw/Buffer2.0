@@ -34,11 +34,12 @@ import {
 } from '@/lib/formDraft';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
+import { getDimensionDisplayName } from '@/i18n/dimensionDisplayName';
 
 const RETURN_TO_PRODUCT_KEY = 'pulseforge:return-to-product';
 
 export default function AssetManagement() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const v = createValidators(t);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -810,9 +811,9 @@ export default function AssetManagement() {
                           <div className="text-xs font-medium text-gray-500 mb-2">{dimType.display_name}</div>
                           <div className="space-y-1">
                             {dims.map((dim) => (
-                              <div key={dim.id} className="text-sm text-gray-700 truncate" title={dim.name}>
+                              <div key={dim.id} className="text-sm text-gray-700 truncate" title={getDimensionDisplayName(dim, locale)}>
                                 {dim.is_custom && <span className="text-red-500">*</span>}
-                                {dim.name}
+                                {getDimensionDisplayName(dim, locale)}
                               </div>
                             ))}
                             {dims.length === 0 && <div className="text-xs text-gray-400">{t('assets.noDimensions')}</div>}

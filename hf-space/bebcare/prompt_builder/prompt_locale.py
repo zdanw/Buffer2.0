@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Callable, Dict, List, Optional
 
+from bebcare.prompt_builder import dimension_i18n
+
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
 DEFAULT_DIM_LABELS_EN = {
@@ -121,8 +123,12 @@ def locale_from_product_info(product_info: Optional[Dict]) -> str:
     return normalize_locale(product_info.get("locale"))
 
 
-def _has_cjk(text: str) -> bool:
+def has_cjk(text: str) -> bool:
     return bool(_CJK_RE.search(text or ""))
+
+
+def _has_cjk(text: str) -> bool:
+    return has_cjk(text)
 
 
 def dimension_display_name(
@@ -131,22 +137,20 @@ def dimension_display_name(
     *,
     sanitizer: Optional[Callable[[str], str]] = None,
 ) -> str:
-    """Pick a display label for dimension cards; English falls back to item id."""
+    """Pick a display label for dimension cards following UI locale."""
     loc = normalize_locale(locale)
     name = (item.get("name") or "").strip()
+    item_id = (item.get("id") or item.get("item_id") or "").strip()
     if loc == "en":
-        if item.get("name_en"):
-            raw = str(item["name_en"]).strip()
-        elif name in DEFAULT_DIM_LABELS_EN:
+        if name in DEFAULT_DIM_LABELS_EN:
             raw = DEFAULT_DIM_LABELS_EN[name]
-        elif _has_cjk(name):
-            item_id = (item.get("id") or "").strip()
-            raw = (
-                item_id.replace("_", " ").replace("-", " ").title()
-                if item_id and item_id != "default"
-                else name
-            )
         else:
+            raw = dimension_i18n.lookup_english_name(
+                item_id,
+                name_zh=name,
+                name_en=item.get("name_en"),
+            )
+        if not raw and not _has_cjk(name):
             raw = name or "Default"
     else:
         raw = name or "默认"
@@ -297,10 +301,12 @@ def format_recent_prompt_avoidance(recent_prompts: List[str], locale: str) -> st
     numbered = "\n".join(f"{i}. {p}" for i, p in enumerate(lines, 1))
     if normalize_locale(locale) == "en":
         return (
-            "\n\nRecent image prompts already used for this product. "
+            "\n\nRecent image prompts already used for this product (language may differ). "
+            "Use them only as scene/lighting/composition patterns to avoid — do not mirror their language. "
             "This run must differ clearly in scene space, light direction/temperature, "
-            "composition/framing, and main props; do not reuse the same space or lighting pattern. "
-            "Product appearance must still match the reference images — no recoloring or deformation.\n"
+            "composition/framing, and main props. "
+            "Product appearance must still match the reference images — no recoloring or deformation. "
+            "Your output MUST be English only (no Chinese characters).\n"
             f"{numbered}"
         )
     return (
@@ -331,17 +337,17 @@ def format_vision_dimension_hints(
         prefix = (
             "Scene creative dimensions (required; do not copy the reference background): "
         )
-    else:
-        parts = [
-            f"场景：{dimensions.get('scene') or ''}",
-            f"光线：{dimensions.get('lighting') or ''}",
-            f"构图：{dimensions.get('composition') or ''}",
-            f"视角：{dimensions.get('viewpoint') or ''}",
-            f"风格：{dimensions.get('style') or ''}",
-            f"画质：{dimensions.get('quality') or ''}",
-            f"细节/道具：{dimensions.get('details') or ''}",
-        ]
-        prefix = "场景创意维度（必须采用，不得照搬参考图背景）："
+        return prefix + "; ".join(parts) + "."
+    parts = [
+        f"场景：{dimensions.get('scene') or ''}",
+        f"光线：{dimensions.get('lighting') or ''}",
+        f"构图：{dimensions.get('composition') or ''}",
+        f"视角：{dimensions.get('viewpoint') or ''}",
+        f"风格：{dimensions.get('style') or ''}",
+        f"画质：{dimensions.get('quality') or ''}",
+        f"细节/道具：{dimensions.get('details') or ''}",
+    ]
+    prefix = "场景创意维度（必须采用，不得照搬参考图背景）："
     return prefix + "；".join(parts) + "。"
 
 

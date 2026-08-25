@@ -53,6 +53,7 @@ class PromptDimension(OwnedMixin, Base):
     dimension_type = Column(String(50), nullable=False, index=True)
     item_id = Column(String(100), nullable=False, index=True)
     name = Column(String(500), nullable=False)
+    name_en = Column(String(500))
     time = Column(String(50))
     lighting = Column(JSON)
     # False = 禁用，生成/兼容选取时不会使用
