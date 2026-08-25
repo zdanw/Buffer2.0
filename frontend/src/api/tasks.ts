@@ -36,6 +36,13 @@ export interface ExecutionDimensions {
   lighting?: string;
 }
 
+export interface PlatformPost {
+  platform: string;
+  channel?: string;
+  post_id?: string;
+  post_link?: string;
+}
+
 export interface TaskExecution {
   execution_id: string;
   task_id: string;
@@ -43,12 +50,45 @@ export interface TaskExecution {
   error_message?: string;
   generated_images?: string[];
   published_platforms?: string[];
+  platform_posts?: PlatformPost[];
   copywriting?: string;
   dimensions?: ExecutionDimensions | null;
   image_prompt?: string | null;
   reference_product_images?: string[];
   reference_scene_images?: string[];
   created_at: string;
+}
+
+export interface CalendarExecutionSummary {
+  execution_id: string;
+  task_id: string | null;
+  task_name: string;
+  product_id?: string | null;
+  status: string;
+  created_at: string;
+  thumbnail_url?: string | null;
+  published_platforms: string[];
+  platform_posts: PlatformPost[];
+}
+
+export interface CalendarDraftSummary {
+  draft_id: string;
+  task_id: string | null;
+  task_name: string;
+  product_id?: string | null;
+  status: 'pending' | 'published' | 'discarded' | string;
+  created_at: string;
+  thumbnail_url?: string | null;
+  copy_preview?: string | null;
+  published_platforms: string[];
+  platform_posts: PlatformPost[];
+}
+
+export interface CalendarMonthResponse {
+  year: number;
+  month: number;
+  executions: CalendarExecutionSummary[];
+  drafts: CalendarDraftSummary[];
 }
 
 export interface ManualTaskDraft {
@@ -67,6 +107,7 @@ export interface ManualTaskDraft {
   selected_image?: string;
   selected_copy?: string;
   published_platforms?: string[];
+  platform_posts?: PlatformPost[];
   /** 是否仍有图片未成功上传到 GitHub CDN（临时链接） */
   cdn_upload_failed?: boolean;
   created_at: string;
@@ -131,6 +172,23 @@ export const getTasks = async (page: number = 1, pageSize: number = 10): Promise
   return { data: [], pagination: { current: 1, page_size: pageSize, total: 0, pages: 0 } };
 };
 
+export const getCalendarMonth = async (year: number, month: number): Promise<CalendarMonthResponse> => {
+  const response = await axiosInstance.get('/tasks/calendar', { params: { year, month } });
+  const data = response.data;
+  return {
+    year: data.year,
+    month: data.month,
+    executions: Array.isArray(data.executions) ? data.executions : [],
+    drafts: Array.isArray(data.drafts) ? data.drafts : [],
+  };
+};
+
+export const getExecutionDetail = async (executionId: string): Promise<TaskExecution> => {
+  const response = await axiosInstance.get(`/tasks/executions/${executionId}`);
+  return response.data;
+};
+
+/** @deprecated Use getCalendarMonth for calendar views */
 export const getAllExecutions = async (): Promise<TaskExecution[]> => {
   const response = await axiosInstance.get('/tasks/executions');
   return Array.isArray(response.data) ? response.data : [];

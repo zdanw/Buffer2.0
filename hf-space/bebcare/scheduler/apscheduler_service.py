@@ -461,6 +461,7 @@ class APSchedulerService:
                         execution.status = "SUCCESS"
                         execution.generated_images = result.get("images", [])
                         execution.published_platforms = result.get("platforms", [])
+                        execution.platform_posts = result.get("platform_posts", [])
                         execution.copywriting = result.get("copywriting", "")
                         execution.dimensions = result.get("dimensions")
                         execution.image_prompt = result.get("image_prompt")

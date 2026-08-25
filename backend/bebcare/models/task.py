@@ -42,6 +42,7 @@ class TaskExecution(OwnedMixin, Base):
     error_message = Column(Text)
     generated_images = Column(JSON)
     published_platforms = Column(JSON)
+    platform_posts = Column(JSON)
     copywriting = Column(Text)
     dimensions = Column(JSON)
     image_prompt = Column(Text)
@@ -66,4 +67,5 @@ class ManualTaskDraft(OwnedMixin, Base):
     selected_image = Column(Text)
     selected_copy = Column(Text)
     published_platforms = Column(JSON)
+    platform_posts = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -20,6 +20,14 @@ from bebcare.services.ownership import (
     owned_query,
     stamp_owner,
 )
+from bebcare.services.calendar_service import (
+    build_platform_posts_from_publish_result,
+    draft_summary,
+    execution_summary,
+    month_bounds,
+    serialize_execution_detail,
+    _task_name_map,
+)
 from bebcare.utils.image_utils import (
     any_non_cdn_image,
     is_github_cdn_url,
@@ -207,6 +215,11 @@ def get_drafts(
                 published_platforms = []
 
             try:
+                platform_posts = json.loads(draft.platform_posts) if isinstance(draft.platform_posts, str) else (draft.platform_posts or [])
+            except (json.JSONDecodeError, TypeError):
+                platform_posts = []
+
+            try:
                 dimensions = json.loads(draft.dimensions) if isinstance(draft.dimensions, str) else (draft.dimensions or [])
             except (json.JSONDecodeError, TypeError):
                 dimensions = []
@@ -240,6 +253,7 @@ def get_drafts(
                 "selected_image": draft.selected_image,
                 "selected_copy": draft.selected_copy,
                 "published_platforms": published_platforms,
+                "platform_posts": platform_posts,
                 "cdn_upload_failed": any_non_cdn_image(images),
                 "created_at": draft.created_at
             })
@@ -375,15 +389,15 @@ def publish_draft(
             selected_copy, cdn_url, request.platforms, api_token=api_token
         )
 
-        success_platforms = []
-        for platform, result in publish_result.items():
-            if result.get("success"):
-                success_platforms.append(platform)
+        success_platforms, platform_posts = build_platform_posts_from_publish_result(
+            publish_result
+        )
 
         draft.status = "published"
         draft.selected_image = cdn_url
         draft.selected_copy = selected_copy
         draft.published_platforms = success_platforms
+        draft.platform_posts = platform_posts
 
         db.commit()
 
@@ -391,6 +405,7 @@ def publish_draft(
             "success": True,
             "draft_id": draft_id,
             "published_platforms": success_platforms,
+            "platform_posts": platform_posts,
             "cdn_url": cdn_url
         }
     except HTTPException:
@@ -421,12 +436,68 @@ def get_all_executions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    """Deprecated: prefer GET /tasks/calendar for month-scoped summaries."""
     executions = (
         owned_query(db, TaskExecution, current_user)
         .order_by(TaskExecution.created_at.desc())
         .all()
     )
-    return executions
+    return [serialize_execution_detail(ex) for ex in executions]
+
+
+@router.get("/calendar")
+def get_calendar_month(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="month must be between 1 and 12")
+    if year < 2000 or year > 2100:
+        raise HTTPException(status_code=400, detail="year out of range")
+
+    start, end = month_bounds(year, month)
+    tasks = owned_query(db, ScheduledTask, current_user).all()
+    task_names = _task_name_map(tasks)
+
+    executions = (
+        owned_query(db, TaskExecution, current_user)
+        .filter(TaskExecution.created_at >= start, TaskExecution.created_at < end)
+        .order_by(TaskExecution.created_at.desc())
+        .all()
+    )
+
+    drafts = (
+        owned_query(db, ManualTaskDraft, current_user)
+        .filter(
+            ManualTaskDraft.task_id.isnot(None),
+            ManualTaskDraft.created_at >= start,
+            ManualTaskDraft.created_at < end,
+            ManualTaskDraft.status.in_(["pending", "published"]),
+        )
+        .order_by(ManualTaskDraft.created_at.desc())
+        .all()
+    )
+
+    return {
+        "year": year,
+        "month": month,
+        "executions": [execution_summary(ex, task_names) for ex in executions],
+        "drafts": [draft_summary(d, task_names) for d in drafts],
+    }
+
+
+@router.get("/executions/{execution_id}")
+def get_execution_detail(
+    execution_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    execution = get_owned_or_404(
+        db, TaskExecution, execution_id, current_user, id_attr="execution_id"
+    )
+    return serialize_execution_detail(execution)
 
 @router.get("/{task_id}")
 def get_task(
@@ -581,4 +652,4 @@ def get_task_executions(
         .order_by(TaskExecution.created_at.desc())
         .all()
     )
-    return executions
+    return [serialize_execution_detail(ex) for ex in executions]

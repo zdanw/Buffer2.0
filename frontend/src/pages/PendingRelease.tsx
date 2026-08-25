@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw } from 'lucide-react';
 import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft, reuploadDraftCdn } from '@/api/tasks';
@@ -32,6 +33,7 @@ function isCdnUrl(url: string) {
 export default function PendingRelease() {
   const { t, locale } = useI18n();
   const { activeBrandId } = useBrandContext();
+  const [searchParams] = useSearchParams();
   const [drafts, setDrafts] = useState<ManualTaskDraft[]>([]);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
@@ -78,6 +80,18 @@ export default function PendingRelease() {
       return brand?.brand_id === activeBrandId;
     });
   }, [drafts, activeBrandId, productBrandMap]);
+
+  useEffect(() => {
+    const draftId = searchParams.get('draft');
+    if (!draftId) return;
+    const match = visibleDrafts.find((d) => d.draft_id === draftId);
+    if (match) {
+      setSelectedDraftId(match.draft_id);
+      setSelectedImageIndex(0);
+      setSelectedCopyIndex(0);
+      setSelectedPlatforms([]);
+    }
+  }, [searchParams, visibleDrafts]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

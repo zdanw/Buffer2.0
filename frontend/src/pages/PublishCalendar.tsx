@@ -1,8 +1,28 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, CheckCircle, Clock, AlertCircle, RefreshCw, X, Image, FileText, Zap, ZoomIn } from 'lucide-react';
-import type { ScheduledTask, TaskExecution } from '@/api/tasks';
-import { getTasks, getAllExecutions } from '@/api/tasks';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  X,
+  Image,
+  FileText,
+  Zap,
+  ZoomIn,
+  ExternalLink,
+} from 'lucide-react';
+import type {
+  ScheduledTask,
+  TaskExecution,
+  CalendarExecutionSummary,
+  CalendarDraftSummary,
+  PlatformPost,
+} from '@/api/tasks';
+import { getTasks, getCalendarMonth, getExecutionDetail } from '@/api/tasks';
 import { getProducts } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -38,7 +58,8 @@ interface CalendarEvent {
 
 interface DayDetail {
   date: Date;
-  executions: TaskExecution[];
+  executionSummaries: CalendarExecutionSummary[];
+  draftSummaries: CalendarDraftSummary[];
   tasks: ScheduledTask[];
 }
 
@@ -49,15 +70,45 @@ interface GroupedEvents {
   events: CalendarEvent[];
 }
 
+function isSameLocalDay(isoOrDate: string, year: number, month: number, day: number): boolean {
+  const d = parseServerDate(isoOrDate);
+  if (!d) return false;
+  return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+}
+
+function PlatformPostLinks({ posts, t }: { posts: PlatformPost[]; t: (key: string, vars?: Record<string, string>) => string }) {
+  const withLinks = (posts || []).filter((p) => p.post_link);
+  if (withLinks.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {withLinks.map((post) => (
+        <a
+          key={`${post.platform}-${post.post_id || post.post_link}`}
+          href={post.post_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-forge-50 text-forge-700 rounded-lg text-sm font-medium hover:bg-forge-100 transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          {t('calendar.viewPost', { platform: post.platform })}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default function PublishCalendar() {
   const location = useLocation();
   const { t, locale } = useI18n();
   const { activeBrandId } = useBrandContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
-  const [executions, setExecutions] = useState<Map<string, TaskExecution[]>>(new Map());
+  const [executionSummaries, setExecutionSummaries] = useState<CalendarExecutionSummary[]>([]);
+  const [draftSummaries, setDraftSummaries] = useState<CalendarDraftSummary[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null);
+  const [executionDetails, setExecutionDetails] = useState<Map<string, TaskExecution>>(new Map());
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,93 +139,99 @@ export default function PublishCalendar() {
     [activeBrandId, brandProductIds]
   );
 
-  const loadTasks = useCallback(async (force = false) => {
-    if (force) setRefreshing(true);
-    else setLoading(true);
-    try {
-      if (force) invalidateCache('tasks');
+  const summaryMatchesBrand = useCallback(
+    (productId?: string | null) => {
+      if (!activeBrandId) return true;
+      if (!productId) return true;
+      return brandProductIds.has(productId);
+    },
+    [activeBrandId, brandProductIds]
+  );
 
-      const taskPromise = force
-        ? getTasks(1, 100).then((r) => r.data)
-        : cachedFetch('tasks:list:100', async () => {
-            const response = await getTasks(1, 100);
-            return response.data;
-          });
+  const loadCalendarData = useCallback(
+    async (force = false) => {
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      try {
+        if (force) invalidateCache('tasks');
 
-      const [taskResult, exeResult] = await Promise.allSettled([
-        taskPromise,
-        getAllExecutions(),
-      ]);
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
 
-      if (taskResult.status === 'fulfilled') {
-        setTasks(taskResult.value);
-      } else {
-        console.error('Failed to load tasks:', taskResult.reason);
-      }
+        const taskPromise = force
+          ? getTasks(1, 100).then((r) => r.data)
+          : cachedFetch('tasks:list:100', async () => {
+              const response = await getTasks(1, 100);
+              return response.data;
+            });
 
-      if (exeResult.status === 'fulfilled') {
-        const newExecutions = new Map<string, TaskExecution[]>();
-        for (const ex of exeResult.value) {
-          if (!newExecutions.has(ex.task_id)) {
-            newExecutions.set(ex.task_id, []);
-          }
-          newExecutions.get(ex.task_id)!.push(ex);
+        const calendarPromise = getCalendarMonth(year, month);
+
+        const [taskResult, calendarResult] = await Promise.allSettled([taskPromise, calendarPromise]);
+
+        if (taskResult.status === 'fulfilled') {
+          setTasks(taskResult.value);
+        } else {
+          console.error('Failed to load tasks:', taskResult.reason);
         }
-        setExecutions(newExecutions);
-      } else {
-        console.error('Failed to load executions:', exeResult.reason);
-      }
-    } catch (error) {
-      console.error('Failed to load calendar data:', error);
-    } finally {
-      if (force) setRefreshing(false);
-      else setLoading(false);
-    }
-  }, []);
 
-  // 页面保活：切回日历时重新拉取，避免任务配置后仍显示空日历
+        if (calendarResult.status === 'fulfilled') {
+          setExecutionSummaries(calendarResult.value.executions);
+          setDraftSummaries(calendarResult.value.drafts);
+        } else {
+          console.error('Failed to load calendar month:', calendarResult.reason);
+        }
+      } catch (error) {
+        console.error('Failed to load calendar data:', error);
+      } finally {
+        if (force) setRefreshing(false);
+        else setLoading(false);
+      }
+    },
+    [currentDate]
+  );
+
   useEffect(() => {
     if (location.pathname === '/calendar') {
-      loadTasks();
+      loadCalendarData();
     }
-  }, [location.pathname, loadTasks]);
+  }, [location.pathname, loadCalendarData]);
 
-  useEffect(() => {
-    generateEvents();
-  }, [tasks, executions, currentDate, activeBrandId, brandProductIds]);
+  const filteredExecutions = useMemo(
+    () => executionSummaries.filter((ex) => summaryMatchesBrand(ex.product_id)),
+    [executionSummaries, summaryMatchesBrand]
+  );
 
-  /** 按「年月日」预索引当日执行记录，避免每个格子重复扫描 */
-  const executionsByDay = useMemo(() => {
-    const map = new Map<string, TaskExecution[]>();
-    executions.forEach((taskExes) => {
-      for (const ex of taskExes) {
-        const d = parseServerDate(ex.created_at);
-        if (!d) continue;
-        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(ex);
-      }
-    });
-    for (const list of map.values()) {
-      list.sort((a, b) => {
-        const ta = parseServerDate(a.created_at)?.getTime() ?? 0;
-        const tb = parseServerDate(b.created_at)?.getTime() ?? 0;
-        return tb - ta;
-      });
-    }
-    return map;
-  }, [executions]);
+  const filteredDrafts = useMemo(
+    () => draftSummaries.filter((d) => summaryMatchesBrand(d.product_id)),
+    [draftSummaries, summaryMatchesBrand]
+  );
 
-  const getEventStatus = (taskId: string, day: number, month: number, year: number): 'pending' | 'completed' | 'failed' | 'running' => {
-    const dayExes = executionsByDay.get(`${year}-${month}-${day}`) || [];
-    const dayExecutions = dayExes.filter((ex) => ex.task_id === taskId);
-    
-    if (dayExecutions.length === 0) {
-      return 'pending';
-    }
-    
-    const latestExecution = dayExecutions[0];
-    switch (latestExecution.status) {
+  const getDayExecutions = useCallback(
+    (day: number, month: number, year: number): CalendarExecutionSummary[] => {
+      return filteredExecutions.filter((ex) => isSameLocalDay(ex.created_at, year, month, day));
+    },
+    [filteredExecutions]
+  );
+
+  const getDayDrafts = useCallback(
+    (day: number, month: number, year: number): CalendarDraftSummary[] => {
+      return filteredDrafts.filter((d) => isSameLocalDay(d.created_at, year, month, day));
+    },
+    [filteredDrafts]
+  );
+
+  const getEventStatus = (
+    taskId: string,
+    day: number,
+    month: number,
+    year: number
+  ): 'pending' | 'completed' | 'failed' | 'running' => {
+    const dayExecutions = getDayExecutions(day, month, year).filter((ex) => ex.task_id === taskId);
+    if (dayExecutions.length === 0) return 'pending';
+
+    const latest = dayExecutions[0];
+    switch (latest.status) {
       case 'SUCCESS':
         return 'completed';
       case 'FAILED':
@@ -186,33 +243,55 @@ export default function PublishCalendar() {
     }
   };
 
-  const getDayExecutions = (day: number, month: number, year: number): TaskExecution[] => {
-    return executionsByDay.get(`${year}-${month}-${day}`) || [];
-  };
+  const loadExecutionDetails = useCallback(async (summaries: CalendarExecutionSummary[]) => {
+    if (summaries.length === 0) return;
+    setLoadingDetails(true);
+    try {
+      const results = await Promise.allSettled(
+        summaries.map((s) => getExecutionDetail(s.execution_id))
+      );
+      setExecutionDetails((prev) => {
+        const next = new Map(prev);
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            next.set(summaries[index].execution_id, result.value);
+          }
+        });
+        return next;
+      });
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, []);
 
   const handleDayClick = (day: number) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const dayExecutions = getDayExecutions(day, month, year);
-    
-    const dayTasks = calendarEvents.filter(e => e.day === day).map(e => {
-      return tasks.find(t => t.task_id === e.taskId);
-    }).filter(Boolean) as ScheduledTask[];
-    
+    const dayExecutionSummaries = getDayExecutions(day, month, year);
+    const dayDraftSummaries = getDayDrafts(day, month, year);
+
+    const dayTasks = calendarEvents
+      .filter((e) => e.day === day)
+      .map((e) => tasks.find((tk) => tk.task_id === e.taskId))
+      .filter(Boolean) as ScheduledTask[];
+
     setSelectedDay({
       date: new Date(year, month, day),
-      executions: dayExecutions,
+      executionSummaries: dayExecutionSummaries,
+      draftSummaries: dayDraftSummaries,
       tasks: dayTasks,
     });
+
+    void loadExecutionDetails(dayExecutionSummaries);
   };
 
-  const generateEvents = () => {
+  useEffect(() => {
     const events: CalendarEvent[] = [];
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const now = new Date();
-    
+
     tasks.forEach((task) => {
       if (task.enabled && taskMatchesBrand(task)) {
         const cronParts = task.cron.trim().split(/\s+/);
@@ -223,7 +302,7 @@ export default function PublishCalendar() {
         const monthField = cronParts[3];
         const weekday = cronParts[4];
         if (Number.isNaN(minute) || Number.isNaN(hour)) return;
-        
+
         for (let d = 1; d <= daysInMonth; d++) {
           const date = new Date(year, month, d);
           const isDayMatch = day === '*' || parseInt(day, 10) === d;
@@ -231,49 +310,45 @@ export default function PublishCalendar() {
           const isWeekdayMatch = weekday === '*' || parseInt(weekday, 10) === date.getDay();
           if (!isDayMatch || !isMonthMatch || !isWeekdayMatch) continue;
 
-          // 日历与「即将发布」均只展示未到点的排期；已过点只保留执行记录标记
           const eventTime = new Date(year, month, d, hour, minute, 0, 0);
           if (eventTime.getTime() < now.getTime()) continue;
-            
+
           const status = getEventStatus(task.task_id, d, month, year);
-          
+
           events.push({
             id: `${task.task_id}-${d}`,
             taskId: task.task_id,
             title: task.name,
             time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
-            status: status,
+            status,
             platforms: task.platforms || [],
             mode: task.mode || 'auto',
             day: d,
-            month: month,
-            year: year,
+            month,
+            year,
           });
         }
       }
     });
-    
+
     setCalendarEvents(events);
-  };
+  }, [tasks, filteredExecutions, currentDate, taskMatchesBrand, getDayExecutions]);
 
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const lastDay = new Date(year, month + 1, 0);
     const days = [];
-    
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(i);
     }
-    
     return days;
   };
 
   const getFirstDayOffset = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    return firstDay.getDay();
+    return new Date(year, month, 1).getDay();
   };
 
   const prevMonth = () => {
@@ -322,7 +397,6 @@ export default function PublishCalendar() {
 
   const getGroupedEvents = (): GroupedEvents[] => {
     const now = new Date();
-    // 二次过滤：页面长时间打开时 generateEvents 不会自动重跑
     const upcoming = calendarEvents
       .filter((e) => isEventUpcoming(e, now))
       .sort((a, b) => {
@@ -333,13 +407,13 @@ export default function PublishCalendar() {
       });
 
     const grouped: Record<string, GroupedEvents> = {};
-    
-    upcoming.forEach(event => {
+
+    upcoming.forEach((event) => {
       const dateKey = `${event.year}-${event.month}-${event.day}`;
       if (!grouped[dateKey]) {
         const date = new Date(event.year, event.month, event.day);
         grouped[dateKey] = {
-          date: date,
+          date,
           dateLabel: t('calendar.monthDay', { month: event.month + 1, day: event.day }),
           weekday: t(`calendar.weekdayLong.${CALENDAR_WEEKDAYS[date.getDay()]}`),
           events: [],
@@ -347,7 +421,7 @@ export default function PublishCalendar() {
       }
       grouped[dateKey].events.push(event);
     });
-    
+
     return Object.values(grouped);
   };
 
@@ -381,7 +455,27 @@ export default function PublishCalendar() {
     }
   };
 
+  const findDraftForTask = (taskId: string, day: number, month: number, year: number) => {
+    return getDayDrafts(day, month, year).find(
+      (d) => d.task_id === taskId && d.status === 'pending'
+    );
+  };
+
   const groupedEvents = getGroupedEvents();
+
+  const renderPublishedCellItem = (label: string, thumbnail?: string | null, key?: string) => (
+    <div
+      key={key || label}
+      className="flex items-center gap-1 text-xs bg-green-50 rounded px-1 py-0.5 border border-green-200"
+    >
+      {thumbnail ? (
+        <img src={thumbnail} alt="" className="w-4 h-4 rounded object-cover shrink-0" loading="lazy" />
+      ) : (
+        <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+      )}
+      <span className="truncate max-w-[72px]">{label}</span>
+    </div>
+  );
 
   return (
     <div className="p-6">
@@ -391,7 +485,7 @@ export default function PublishCalendar() {
           <p className="text-gray-500 mt-1">{t('calendar.subtitle')}</p>
         </div>
         <button
-          onClick={() => loadTasks(true)}
+          onClick={() => loadCalendarData(true)}
           disabled={refreshing || loading}
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -409,19 +503,11 @@ export default function PublishCalendar() {
               </div>
             )}
             <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={prevMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+              <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronLeft className="w-6 h-6 text-gray-600" />
               </button>
-              <h3 className="text-xl font-semibold text-gray-800">
-                {formatMonth()}
-              </h3>
-              <button
-                onClick={nextMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+              <h3 className="text-xl font-semibold text-gray-800">{formatMonth()}</h3>
+              <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronRight className="w-6 h-6 text-gray-600" />
               </button>
             </div>
@@ -439,15 +525,30 @@ export default function PublishCalendar() {
                 <div key={`empty-${i}`} className="aspect-square bg-gray-50 rounded-lg" />
               ))}
               {getDaysInMonth().map((day) => {
-                const dayEvents = calendarEvents.filter(e => e.day === day && isEventUpcoming(e));
-                const dayExecutions = getDayExecutions(day, currentDate.getMonth(), currentDate.getFullYear());
-                const hasExecutions = dayExecutions.length > 0;
-                
+                const month = currentDate.getMonth();
+                const year = currentDate.getFullYear();
+                const dayEvents = calendarEvents.filter((e) => e.day === day && isEventUpcoming(e));
+                const dayExecutions = getDayExecutions(day, month, year);
+                const dayPublishedDrafts = getDayDrafts(day, month, year).filter((d) => d.status === 'published');
+                const publishedItems = [
+                  ...dayExecutions.map((ex) => ({
+                    key: ex.execution_id,
+                    label: ex.task_name,
+                    thumbnail: ex.thumbnail_url,
+                  })),
+                  ...dayPublishedDrafts.map((d) => ({
+                    key: d.draft_id,
+                    label: d.task_name,
+                    thumbnail: d.thumbnail_url,
+                  })),
+                ];
+                const hasPublished = publishedItems.length > 0;
+
                 return (
                   <div
                     key={day}
                     onClick={() => handleDayClick(day)}
-                    className={`aspect-square bg-gray-50 rounded-lg p-2 hover:bg-gray-100 transition-colors cursor-pointer ${hasExecutions ? 'ring-2 ring-forge-400' : ''}`}
+                    className={`aspect-square bg-gray-50 rounded-lg p-2 hover:bg-gray-100 transition-colors cursor-pointer ${hasPublished ? 'ring-2 ring-forge-400' : ''}`}
                   >
                     <span className="text-sm font-medium text-gray-800">{day}</span>
                     <div className="mt-1 space-y-1">
@@ -460,10 +561,14 @@ export default function PublishCalendar() {
                           <span className="truncate max-w-[80px]">{event.title}</span>
                         </div>
                       ))}
-                      {hasExecutions && dayEvents.length === 0 && (
-                        <div className="flex items-center gap-1 text-xs bg-green-50 rounded px-1 py-0.5 border border-green-200">
-                          <CheckCircle className="w-3 h-3 text-green-500" />
-                          <span className="truncate max-w-[80px]">{t('calendar.published')}</span>
+                      {publishedItems.slice(0, dayEvents.length > 0 ? 1 : 2).map((item) =>
+                        renderPublishedCellItem(item.label, item.thumbnail, item.key)
+                      )}
+                      {publishedItems.length > (dayEvents.length > 0 ? 1 : 2) && (
+                        <div className="text-[10px] text-gray-500 px-1">
+                          {t('calendar.moreItems', {
+                            count: String(publishedItems.length - (dayEvents.length > 0 ? 1 : 2)),
+                          })}
                         </div>
                       )}
                     </div>
@@ -482,7 +587,7 @@ export default function PublishCalendar() {
                 {t('calendar.tasksCount', { count: groupedEvents.reduce((n, g) => n + g.events.length, 0) })}
               </span>
             </div>
-            
+
             {groupedEvents.length > 0 ? (
               <div className="space-y-4 max-h-[600px] overflow-y-auto">
                 {groupedEvents.map((group) => (
@@ -498,41 +603,60 @@ export default function PublishCalendar() {
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="divide-y divide-gray-50">
-                      {group.events.map((event) => (
-                        <div
-                          key={event.id}
-                          className="p-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                          onClick={() => handleDayClick(event.day)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              {getStatusBadge(event.status)}
-                              <span className="font-medium text-gray-800 text-sm">{event.title}</span>
+                      {group.events.map((event) => {
+                        const pendingDraft = findDraftForTask(
+                          event.taskId,
+                          event.day,
+                          event.month,
+                          event.year
+                        );
+                        return (
+                          <div
+                            key={event.id}
+                            className="p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => handleDayClick(event.day)}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                {getStatusBadge(event.status)}
+                                <span className="font-medium text-gray-800 text-sm">{event.title}</span>
+                              </div>
+                              {getModeBadge(event.mode)}
                             </div>
-                            {getModeBadge(event.mode)}
-                          </div>
-                          
-                          <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {event.time}
-                            </span>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-1">
-                            {event.platforms.map((platform) => (
-                              <span
-                                key={platform}
-                                className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium"
-                              >
-                                {platform}
+
+                            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {event.time}
                               </span>
-                            ))}
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {event.platforms.map((platform) => (
+                                <span
+                                  key={platform}
+                                  className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium"
+                                >
+                                  {platform}
+                                </span>
+                              ))}
+                            </div>
+
+                            {pendingDraft && (
+                              <Link
+                                to={`/review?draft=${pendingDraft.draft_id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900"
+                              >
+                                <Zap className="w-3 h-3" />
+                                {t('calendar.reviewDraft')}
+                              </Link>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -550,7 +674,10 @@ export default function PublishCalendar() {
 
       {selectedDay && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedDay(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800">
                 {selectedDay.date.toLocaleDateString(localeToIntl(locale), {
@@ -565,20 +692,27 @@ export default function PublishCalendar() {
               </button>
             </div>
 
-            {selectedDay.executions.length > 0 ? (
+            {selectedDay.executionSummaries.length > 0 ? (
               <div className="space-y-6">
-                {selectedDay.executions.map((execution) => {
-                  const task = tasks.find(t => t.task_id === execution.task_id);
+                {loadingDetails && (
+                  <p className="text-sm text-gray-500 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    {t('calendar.loadingDetails')}
+                  </p>
+                )}
+                {selectedDay.executionSummaries.map((summary) => {
+                  const execution = executionDetails.get(summary.execution_id);
+                  const task = tasks.find((tk) => tk.task_id === summary.task_id);
                   return (
-                    <div key={execution.execution_id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={summary.execution_id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center gap-3 mb-4">
-                        {getExecutionStatusIcon(execution.status)}
-                        <div>
+                        {getExecutionStatusIcon(summary.status)}
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-800">
-                            {task?.name || t('calendar.unknownTask')}
+                            {task?.name || summary.task_name || t('calendar.unknownTask')}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {formatServerDateTime(execution.created_at, locale, t('datetime.unknown'), {
+                            {formatServerDateTime(summary.created_at, locale, t('datetime.unknown'), {
                               year: 'numeric',
                               month: 'numeric',
                               day: 'numeric',
@@ -588,10 +722,26 @@ export default function PublishCalendar() {
                             })}
                           </div>
                         </div>
+                        {summary.thumbnail_url && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(summary.thumbnail_url!)}
+                            className="shrink-0 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-forge-400"
+                          >
+                            <img
+                              src={summary.thumbnail_url}
+                              alt=""
+                              className="w-14 h-14 object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        )}
                       </div>
 
-                      {execution.copywriting && (
-                        <div className="mb-4">
+                      <PlatformPostLinks posts={summary.platform_posts} t={t} />
+
+                      {execution?.copywriting && (
+                        <div className="mb-4 mt-4">
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                             <FileText className="w-4 h-4" />
                             {t('fields.copyContent')}
@@ -602,7 +752,7 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      {((execution.generated_images || []).length > 0) && (
+                      {execution && (execution.generated_images || []).length > 0 && (
                         <div>
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                             <Image className="w-4 h-4" />
@@ -618,8 +768,9 @@ export default function PublishCalendar() {
                               >
                                 <img
                                   src={img}
-                                  alt={t('calendar.generatedAlt', { n: index + 1 })}
+                                  alt={t('calendar.generatedAlt', { n: String(index + 1) })}
                                   className="w-full h-40 object-cover"
+                                  loading="lazy"
                                 />
                                 <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                                   <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -630,18 +781,20 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      <ReferenceImagesDisplay
-                        className="mt-4"
-                        productImages={execution.reference_product_images}
-                        sceneImages={execution.reference_scene_images}
-                        onPreview={setPreviewImage}
-                      />
+                      {execution && (
+                        <ReferenceImagesDisplay
+                          className="mt-4"
+                          productImages={execution.reference_product_images}
+                          sceneImages={execution.reference_scene_images}
+                          onPreview={setPreviewImage}
+                        />
+                      )}
 
-                      {((execution.published_platforms || []).length > 0) && (
+                      {((summary.published_platforms || []).length > 0) && (
                         <div className="mt-4">
                           <div className="text-sm text-gray-500 mb-2">{t('fields.publishPlatformsLabel')}</div>
                           <div className="flex flex-wrap gap-2">
-                            {(execution.published_platforms || []).map((platform) => (
+                            {(summary.published_platforms || []).map((platform) => (
                               <span
                                 key={platform}
                                 className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm"
@@ -653,7 +806,7 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      {(execution.dimensions || execution.image_prompt) && (
+                      {execution && (execution.dimensions || execution.image_prompt) && (
                         <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
                           {execution.dimensions && (
                             <>
@@ -685,7 +838,7 @@ export default function PublishCalendar() {
                         </div>
                       )}
 
-                      {execution.error_message && (
+                      {execution?.error_message && (
                         <div className="mt-4 p-3 bg-red-50 rounded-lg text-sm text-red-600">
                           {t('calendar.errorInfo', { message: execution.error_message })}
                         </div>
@@ -694,24 +847,87 @@ export default function PublishCalendar() {
                   );
                 })}
               </div>
-            ) : selectedDay.tasks.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-gray-500 mb-2">{t('calendar.scheduledNoExecution')}</p>
-                {selectedDay.tasks.map((task) => (
-                  <div key={task.task_id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="font-medium text-gray-800">{task.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {task.mode === 'manual' ? t('calendar.manualDesc') : t('calendar.autoDesc')}
+            ) : null}
+
+            {selectedDay.draftSummaries.length > 0 && (
+              <div className={`space-y-4 ${selectedDay.executionSummaries.length > 0 ? 'mt-6 pt-6 border-t border-gray-100' : ''}`}>
+                {selectedDay.draftSummaries.map((draft) => (
+                  <div key={draft.draft_id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      {draft.thumbnail_url && (
+                        <img
+                          src={draft.thumbnail_url}
+                          alt=""
+                          className="w-14 h-14 rounded-lg object-cover shrink-0"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-800">{draft.task_name}</div>
+                        <div className="text-sm text-gray-500 mt-0.5">
+                          {draft.status === 'pending'
+                            ? t('calendar.manualDraftReady')
+                            : t('calendar.publishedDraft')}
+                        </div>
+                        {draft.copy_preview && (
+                          <p className="text-sm text-gray-600 mt-2 line-clamp-3">{draft.copy_preview}</p>
+                        )}
+                        {draft.status === 'pending' && (
+                          <Link
+                            to={`/review?draft=${draft.draft_id}`}
+                            className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-forge-700 hover:text-forge-900"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            {t('calendar.openInReview')}
+                          </Link>
+                        )}
+                        <PlatformPostLinks posts={draft.platform_posts} t={t} />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-gray-500">{t('calendar.noRecordsToday')}</p>
-              </div>
             )}
+
+            {selectedDay.executionSummaries.length === 0 &&
+              selectedDay.draftSummaries.length === 0 &&
+              selectedDay.tasks.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 mb-2">{t('calendar.scheduledNoExecution')}</p>
+                  {selectedDay.tasks.map((task) => {
+                    const day = selectedDay.date.getDate();
+                    const month = selectedDay.date.getMonth();
+                    const year = selectedDay.date.getFullYear();
+                    const pendingDraft = findDraftForTask(task.task_id, day, month, year);
+                    return (
+                      <div key={task.task_id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="font-medium text-gray-800">{task.name}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {task.mode === 'manual' ? t('calendar.manualDesc') : t('calendar.autoDesc')}
+                        </div>
+                        {pendingDraft && (
+                          <Link
+                            to={`/review?draft=${pendingDraft.draft_id}`}
+                            className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-700 hover:text-amber-900"
+                          >
+                            <Zap className="w-3 h-3" />
+                            {t('calendar.reviewDraft')}
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            {selectedDay.executionSummaries.length === 0 &&
+              selectedDay.draftSummaries.length === 0 &&
+              selectedDay.tasks.length === 0 && (
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500">{t('calendar.noRecordsToday')}</p>
+                </div>
+              )}
           </div>
         </div>
       )}
