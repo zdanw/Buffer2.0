@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import LoadingIndicator from '@/components/LoadingIndicator';
 import {
   Calendar,
   ChevronLeft,
@@ -134,7 +135,16 @@ export default function PublishCalendar() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [brandProductsLoading, setBrandProductsLoading] = useState(false);
   const [brandProductIds, setBrandProductIds] = useState<Set<string>>(new Set());
+
+  useLayoutEffect(() => {
+    if (!activeBrandId) {
+      setBrandProductsLoading(false);
+      return;
+    }
+    setBrandProductsLoading(true);
+  }, [activeBrandId]);
 
   useEffect(() => {
     void (async () => {
@@ -147,6 +157,8 @@ export default function PublishCalendar() {
         setBrandProductIds(new Set(res.data.map((p) => p.product_id)));
       } catch (error) {
         console.error('Failed to load brand products for calendar:', error);
+      } finally {
+        setBrandProductsLoading(false);
       }
     })();
   }, [activeBrandId]);
@@ -215,9 +227,12 @@ export default function PublishCalendar() {
 
   useEffect(() => {
     if (location.pathname === '/calendar') {
-      loadCalendarData();
+      setLoading(true);
+      void loadCalendarData();
     }
   }, [location.pathname, loadCalendarData]);
+
+  const isCalendarBusy = loading || refreshing || brandProductsLoading;
 
   const filteredExecutions = useMemo(
     () => executionSummaries.filter((ex) => summaryMatchesBrand(ex.product_id)),
@@ -523,22 +538,25 @@ export default function PublishCalendar() {
         </div>
         <button
           onClick={() => loadCalendarData(true)}
-          disabled={refreshing || loading}
+          disabled={refreshing || isCalendarBusy}
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing || loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${refreshing || isCalendarBusy ? 'animate-spin' : ''}`} />
           {t('common.refresh')}
         </button>
       </div>
 
-      <div className={`grid grid-cols-3 gap-6 ${loading || refreshing ? 'opacity-70 pointer-events-none' : ''}`}>
+      <div className="relative">
+        {isCalendarBusy ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
+            <LoadingIndicator size="md" />
+          </div>
+        ) : null}
+        <div
+          className={`grid grid-cols-3 gap-6 transition-opacity ${isCalendarBusy ? 'opacity-50 pointer-events-none' : ''}`}
+        >
         <div className="col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
-            {(loading || refreshing) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10 rounded-xl">
-                <RefreshCw className="w-6 h-6 animate-spin text-forge-600" />
-              </div>
-            )}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ChevronLeft className="w-6 h-6 text-gray-600" />
@@ -730,6 +748,7 @@ export default function PublishCalendar() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
 

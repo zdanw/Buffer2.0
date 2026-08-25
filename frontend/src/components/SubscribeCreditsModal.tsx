@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, X } from 'lucide-react';
 import { getCurrentUser } from '@/api/auth';
+import LoadingIndicator from '@/components/LoadingIndicator';
 import { useI18n } from '@/i18n/useI18n';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { formatServerDateTime } from '@/lib/datetime';
@@ -39,14 +40,19 @@ export default function SubscribeCreditsModal({
   const [subBusyId, setSubBusyId] = useState<string | null>(null);
 
   // Modal stays mounted while closed; clear checkout UI state so reopen is clickable.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) {
       setBuyingId(null);
+      setLoading(false);
       return;
     }
+    setLoading(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     let cancelled = false;
     setBuyingId(null);
-    setLoading(true);
     setError(null);
     void Promise.all([listCreditPacks(), getSubscriptionStatus()])
       .then(([packsRes, status]) => {
@@ -221,7 +227,7 @@ export default function SubscribeCreditsModal({
             {t('subscribeCredits.unavailable')}
           </p>
         ) : loading ? (
-          <p className="text-sm text-gray-500">{t('common.loading')}</p>
+          <LoadingIndicator size="sm" className="py-6" />
         ) : (
           <div className="space-y-2">
             {packs.map((pack) => (
