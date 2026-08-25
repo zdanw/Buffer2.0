@@ -4,8 +4,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "032_prompt_dimension_name_en"
-down_revision = "031_calendar_platform_posts"
+revision = "034_prompt_dimension_name_en"
+down_revision = "033_onboarding_reward_grant"
 branch_labels = None
 depends_on = None
 
