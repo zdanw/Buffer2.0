@@ -318,7 +318,7 @@ export function SubscribeCreditsButton({
 
   const defaultClassName =
     variant === 'inline'
-      ? 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-forge-700 bg-white border border-gray-200 shadow-sm hover:bg-forge-50 hover:border-forge-300 hover:text-forge-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 whitespace-nowrap'
+      ? 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm font-medium bg-forge-600 text-white hover:bg-forge-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-600 whitespace-nowrap'
       : 'w-full px-3 py-2 rounded-lg text-sm font-medium border border-forge-200 bg-forge-50 text-forge-800 hover:bg-forge-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-forge-50';
 
   const label =
@@ -330,6 +330,7 @@ export function SubscribeCreditsButton({
         type="button"
         disabled={!billingEnabled}
         onClick={() => setOpen(true)}
+        aria-label={variant === 'inline' ? label : undefined}
         title={
           !billingEnabled
             ? t('subscribeCredits.unavailable')
@@ -339,8 +340,12 @@ export function SubscribeCreditsButton({
         }
         className={className || defaultClassName}
       >
-        {variant === 'inline' ? <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /> : null}
-        {label}
+        {variant === 'inline' ? (
+          <Sparkles className="w-3.5 h-3.5 shrink-0 opacity-90" aria-hidden />
+        ) : null}
+        <span className={variant === 'inline' ? 'hidden min-[420px]:inline' : undefined}>
+          {label}
+        </span>
       </button>
       <SubscribeCreditsModal
         open={open}
