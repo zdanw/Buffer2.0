@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, X } from 'lucide-react';
 import { getCurrentUser } from '@/api/auth';
@@ -123,12 +124,16 @@ export default function SubscribeCreditsModal({
 
   const subscriptions = sub?.subscriptions ?? [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 max-h-[min(90vh,calc(100vh-2rem))] overflow-y-auto"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -251,7 +256,8 @@ export default function SubscribeCreditsModal({
           {t('common.close')}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

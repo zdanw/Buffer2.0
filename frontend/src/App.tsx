@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import BrandLogo from './components/BrandLogo';
 import ApiConnectionBanner from './components/ApiConnectionBanner';
 import BrandSelectorBar from './components/BrandSelectorBar';
+import TopBarActions from './components/TopBarActions';
 import OnboardingWizard from './components/OnboardingWizard';
 import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
@@ -236,24 +237,30 @@ function AppContent() {
         onClose={() => setSidebarOpen(false)}
       />
       <main className="flex-1 min-w-0 flex flex-col min-h-screen">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-canvas-border bg-canvas px-4 py-3 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-gray-600 hover:bg-gray-200"
-            aria-label={t('nav.openMenu')}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <BrandLogo size="sm" />
-            {t('brand.name')}
-          </span>
+        <div className="sticky top-0 z-30 border-b border-canvas-border bg-white">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+                aria-label={t('nav.openMenu')}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
+                <BrandLogo size="sm" />
+                {t('brand.name')}
+              </span>
+            </div>
+            <div className="hidden lg:block flex-1" aria-hidden />
+            <TopBarActions />
+          </div>
+          <BrandSelectorBar />
         </div>
         {loadError === 'connection' && (
           <ApiConnectionBanner onRetry={() => void refreshBrands()} loading={brandsLoading} />
         )}
-        <BrandSelectorBar />
         <div className="flex-1 overflow-auto">
           {lazyPanel('brand', activeTab, mountedTabs, BrandManagement)}
           {lazyPanel('products', activeTab, mountedTabs, AssetManagement)}
