@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Clock, Zap, RefreshCw } from 'lucide-react';
 import type { ScheduledTask, TaskCreate, PaginatedResponse } from '@/api/tasks';
-import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
+import { getTasks, getTask, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { getProducts, type Product } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
@@ -22,6 +23,8 @@ export default function TaskConfiguration() {
   const { t } = useI18n();
   const { activeBrandId, brands } = useBrandContext();
   const { required, maxLen, cronFormat, intInRange } = useValidators();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedTaskFromUrlRef = useRef<string | null>(null);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [pickerProducts, setPickerProducts] = useState<Product[]>([]);
   const [loadingPickerProducts, setLoadingPickerProducts] = useState(false);
@@ -60,6 +63,38 @@ export default function TaskConfiguration() {
   useEffect(() => {
     void loadTasks(1);
   }, [activeBrandId]);
+
+  useEffect(() => {
+    const taskId = searchParams.get('task');
+    if (!taskId || initialLoading || openedTaskFromUrlRef.current === taskId) return;
+
+    const openFromUrl = async () => {
+      let task = tasks.find((tk) => tk.task_id === taskId);
+      if (!task) {
+        try {
+          task = await getTask(taskId);
+        } catch (error) {
+          console.error('Failed to load task from URL:', error);
+          return;
+        }
+      }
+      openedTaskFromUrlRef.current = taskId;
+      openModal(task);
+    };
+
+    void openFromUrl();
+  }, [searchParams, tasks, initialLoading]);
+
+  const closeModal = () => {
+    setShowModal(false);
+    resetForm();
+    if (searchParams.get('task')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('task');
+      setSearchParams(next, { replace: true });
+      openedTaskFromUrlRef.current = null;
+    }
+  };
 
   const loadPickerProducts = async () => {
     setLoadingPickerProducts(true);
@@ -203,8 +238,7 @@ export default function TaskConfiguration() {
           void loadTasks(currentPage);
         }
       }
-      setShowModal(false);
-      resetForm();
+      closeModal();
     } catch (error) {
       console.error('Failed to save task:', error);
       alert(t('tasks.saveFailed'));
@@ -443,7 +477,7 @@ export default function TaskConfiguration() {
               <h3 className="text-xl font-semibold text-gray-900">
                 {isEdit ? t('tasks.editTask') : t('tasks.addTask')}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -759,7 +793,7 @@ export default function TaskConfiguration() {
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >

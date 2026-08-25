@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Calendar,
@@ -74,6 +74,28 @@ function isSameLocalDay(isoOrDate: string, year: number, month: number, day: num
   const d = parseServerDate(isoOrDate);
   if (!d) return false;
   return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+}
+
+function automationsTaskHref(taskId: string) {
+  return `/automations?task=${taskId}`;
+}
+
+function TaskAutomationLink({
+  taskId,
+  children,
+  className = '',
+  onClick,
+}: {
+  taskId: string;
+  children: ReactNode;
+  className?: string;
+  onClick?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <Link to={automationsTaskHref(taskId)} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
 }
 
 function PlatformPostLinks({ posts, t }: { posts: PlatformPost[]; t: (key: string, vars?: Record<string, string>) => string }) {
@@ -463,7 +485,12 @@ export default function PublishCalendar() {
 
   const groupedEvents = getGroupedEvents();
 
-  const renderPublishedCellItem = (label: string, thumbnail?: string | null, key?: string) => (
+  const renderPublishedCellItem = (
+    label: string,
+    thumbnail?: string | null,
+    key?: string,
+    taskId?: string | null
+  ) => (
     <div
       key={key || label}
       className="flex items-center gap-1 text-xs bg-green-50 rounded px-1 py-0.5 border border-green-200"
@@ -473,7 +500,17 @@ export default function PublishCalendar() {
       ) : (
         <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
       )}
-      <span className="truncate max-w-[72px]">{label}</span>
+      {taskId ? (
+        <TaskAutomationLink
+          taskId={taskId}
+          onClick={(e) => e.stopPropagation()}
+          className="truncate max-w-[72px] hover:text-forge-800 hover:underline"
+        >
+          {label}
+        </TaskAutomationLink>
+      ) : (
+        <span className="truncate max-w-[72px]">{label}</span>
+      )}
     </div>
   );
 
@@ -535,11 +572,13 @@ export default function PublishCalendar() {
                     key: ex.execution_id,
                     label: ex.task_name,
                     thumbnail: ex.thumbnail_url,
+                    taskId: ex.task_id,
                   })),
                   ...dayPublishedDrafts.map((d) => ({
                     key: d.draft_id,
                     label: d.task_name,
                     thumbnail: d.thumbnail_url,
+                    taskId: d.task_id,
                   })),
                 ];
                 const hasPublished = publishedItems.length > 0;
@@ -558,11 +597,17 @@ export default function PublishCalendar() {
                           className="flex items-center gap-1 text-xs bg-white rounded px-1 py-0.5 border border-gray-200"
                         >
                           {getStatusIcon(event.status)}
-                          <span className="truncate max-w-[80px]">{event.title}</span>
+                          <TaskAutomationLink
+                            taskId={event.taskId}
+                            onClick={(e) => e.stopPropagation()}
+                            className="truncate max-w-[80px] hover:text-forge-700 hover:underline"
+                          >
+                            {event.title}
+                          </TaskAutomationLink>
                         </div>
                       ))}
                       {publishedItems.slice(0, dayEvents.length > 0 ? 1 : 2).map((item) =>
-                        renderPublishedCellItem(item.label, item.thumbnail, item.key)
+                        renderPublishedCellItem(item.label, item.thumbnail, item.key, item.taskId)
                       )}
                       {publishedItems.length > (dayEvents.length > 0 ? 1 : 2) && (
                         <div className="text-[10px] text-gray-500 px-1">
@@ -619,9 +664,15 @@ export default function PublishCalendar() {
                             onClick={() => handleDayClick(event.day)}
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 {getStatusBadge(event.status)}
-                                <span className="font-medium text-gray-800 text-sm">{event.title}</span>
+                                <TaskAutomationLink
+                                  taskId={event.taskId}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="font-medium text-gray-800 text-sm truncate hover:text-forge-700 hover:underline"
+                                >
+                                  {event.title}
+                                </TaskAutomationLink>
                               </div>
                               {getModeBadge(event.mode)}
                             </div>
@@ -644,16 +695,26 @@ export default function PublishCalendar() {
                               ))}
                             </div>
 
-                            {pendingDraft && (
-                              <Link
-                                to={`/review?draft=${pendingDraft.draft_id}`}
+                            <div className="flex flex-wrap gap-3 mt-1">
+                              <TaskAutomationLink
+                                taskId={event.taskId}
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-forge-700 hover:text-forge-900"
                               >
-                                <Zap className="w-3 h-3" />
-                                {t('calendar.reviewDraft')}
-                              </Link>
-                            )}
+                                <ExternalLink className="w-3 h-3" />
+                                {t('calendar.editAutomation')}
+                              </TaskAutomationLink>
+                              {pendingDraft && (
+                                <Link
+                                  to={`/review?draft=${pendingDraft.draft_id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900"
+                                >
+                                  <Zap className="w-3 h-3" />
+                                  {t('calendar.reviewDraft')}
+                                </Link>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -708,9 +769,18 @@ export default function PublishCalendar() {
                       <div className="flex items-center gap-3 mb-4">
                         {getExecutionStatusIcon(summary.status)}
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-800">
-                            {task?.name || summary.task_name || t('calendar.unknownTask')}
-                          </div>
+                          {summary.task_id ? (
+                            <TaskAutomationLink
+                              taskId={summary.task_id}
+                              className="font-medium text-gray-800 hover:text-forge-700 hover:underline"
+                            >
+                              {task?.name || summary.task_name || t('calendar.unknownTask')}
+                            </TaskAutomationLink>
+                          ) : (
+                            <div className="font-medium text-gray-800">
+                              {task?.name || summary.task_name || t('calendar.unknownTask')}
+                            </div>
+                          )}
                           <div className="text-sm text-gray-500">
                             {formatServerDateTime(summary.created_at, locale, t('datetime.unknown'), {
                               year: 'numeric',
@@ -863,7 +933,16 @@ export default function PublishCalendar() {
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800">{draft.task_name}</div>
+                        {draft.task_id ? (
+                          <TaskAutomationLink
+                            taskId={draft.task_id}
+                            className="font-medium text-gray-800 hover:text-forge-700 hover:underline"
+                          >
+                            {draft.task_name}
+                          </TaskAutomationLink>
+                        ) : (
+                          <div className="font-medium text-gray-800">{draft.task_name}</div>
+                        )}
                         <div className="text-sm text-gray-500 mt-0.5">
                           {draft.status === 'pending'
                             ? t('calendar.manualDraftReady')
@@ -901,19 +980,33 @@ export default function PublishCalendar() {
                     const pendingDraft = findDraftForTask(task.task_id, day, month, year);
                     return (
                       <div key={task.task_id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="font-medium text-gray-800">{task.name}</div>
+                        <TaskAutomationLink
+                          taskId={task.task_id}
+                          className="font-medium text-gray-800 hover:text-forge-700 hover:underline"
+                        >
+                          {task.name}
+                        </TaskAutomationLink>
                         <div className="text-sm text-gray-500 mt-1">
                           {task.mode === 'manual' ? t('calendar.manualDesc') : t('calendar.autoDesc')}
                         </div>
-                        {pendingDraft && (
-                          <Link
-                            to={`/review?draft=${pendingDraft.draft_id}`}
-                            className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-700 hover:text-amber-900"
+                        <div className="flex flex-wrap gap-3 mt-3">
+                          <TaskAutomationLink
+                            taskId={task.task_id}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-forge-700 hover:text-forge-900"
                           >
-                            <Zap className="w-3 h-3" />
-                            {t('calendar.reviewDraft')}
-                          </Link>
-                        )}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            {t('calendar.editAutomation')}
+                          </TaskAutomationLink>
+                          {pendingDraft && (
+                            <Link
+                              to={`/review?draft=${pendingDraft.draft_id}`}
+                              className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-900"
+                            >
+                              <Zap className="w-3 h-3" />
+                              {t('calendar.reviewDraft')}
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

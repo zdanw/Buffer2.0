@@ -567,6 +567,8 @@ export const pagesEn: TranslationTree = {
     manualDraftReady: 'Draft ready for review',
     publishedDraft: 'Published from review',
     moreItems: '+{{count}} more',
+    editAutomation: 'Edit automation',
+    viewTask: 'View automation',
   },
   users: {
     title: 'User management',
@@ -1287,6 +1289,8 @@ export const pagesZh: TranslationTree = {
     manualDraftReady: '草稿待审核',
     publishedDraft: '已从审核发布',
     moreItems: '还有 {{count}} 项',
+    editAutomation: '编辑自动化任务',
+    viewTask: '查看自动化任务',
   },
   users: {
     title: '用户管理',
