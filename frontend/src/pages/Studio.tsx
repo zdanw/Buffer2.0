@@ -20,7 +20,6 @@ import DimensionInfoDisplay, { CopyablePromptBlock } from '@/components/Dimensio
 import ImageModelPicker from '@/components/ImageModelPicker';
 import ImageGenerationControls from '@/components/ImageGenerationControls';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
-import HelpTooltip from '@/components/HelpTooltip';
 import SocialFeedPreview from '@/components/SocialFeedPreview';
 import GeneratedImagePanel from '@/components/GeneratedImagePanel';
 import BrandAvatar from '@/components/BrandAvatar';
@@ -231,6 +230,7 @@ export default function Studio() {
           if (status.status === 'SUCCESS') {
             setIsGenerating(false);
             if (interval) clearInterval(interval);
+            window.dispatchEvent(new Event('pulseforge:refresh-user'));
             if (status.result) {
               setGeneratedContent((prev) => ({
                 text: status.result?.text || prev?.text || '',
@@ -443,6 +443,7 @@ export default function Studio() {
       });
       invalidateCache('drafts');
       setSaveDraftStatus('success');
+      window.dispatchEvent(new Event('pulseforge:refresh-user'));
     } catch (error) {
       console.error('Failed to save draft:', error);
       setSaveDraftStatus('failed');

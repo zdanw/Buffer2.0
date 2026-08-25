@@ -10,7 +10,7 @@ import OnboardingChecklist from './components/OnboardingChecklist';
 import { useI18n } from './i18n/useI18n';
 import { useOnboarding } from './hooks/useOnboarding';
 import { BrandProvider, useBrandContext } from './context/BrandContext';
-import { getCurrentUser, getToken } from './api/auth';
+import { getCurrentUser, getToken, claimOnboardingReward } from './api/auth';
 import type { UserResponse } from './api/auth';
 
 const BrandManagement = lazy(() => import('./pages/BrandManagement'));
@@ -132,19 +132,35 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [onboardingRewardToast, setOnboardingRewardToast] = useState<string | null>(null);
+
+  const refreshCurrentUser = async () => {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    } catch (err) {
+      console.error('Failed to fetch current user:', err);
+    }
+  };
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
+      setLoading(true);
       try {
-        const user = await getCurrentUser();
-        setCurrentUser(user);
-      } catch (err) {
-        console.error('Failed to fetch current user:', err);
+        await refreshCurrentUser();
       } finally {
         setLoading(false);
       }
     };
-    fetchCurrentUser();
+    void fetchCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshCurrentUser();
+    };
+    window.addEventListener('pulseforge:refresh-user', handler);
+    return () => window.removeEventListener('pulseforge:refresh-user', handler);
   }, []);
 
   useEffect(() => {
@@ -180,12 +196,35 @@ function AppContent() {
     setSidebarOpen(false);
   };
 
+  const hasBrand = brands.some((b) => !b.is_generic);
+  const hasProduct = brands.some((b) => b.product_count > 0);
+  const hasGenerated = Boolean(currentUser?.has_generated_content);
+
+  useEffect(() => {
+    if (!currentUser || !hasBrand || !hasProduct || !hasGenerated) return;
+    if (currentUser.onboarding_reward_claimed) return;
+
+    void claimOnboardingReward()
+      .then((res) => {
+        if (res.granted > 0) {
+          setOnboardingRewardToast(t('onboarding.rewardGranted', { n: res.granted }));
+        }
+        return refreshCurrentUser();
+      })
+      .catch((err) => {
+        console.error('Failed to claim onboarding reward:', err);
+      });
+  }, [currentUser, hasBrand, hasProduct, hasGenerated, t]);
+
+  useEffect(() => {
+    if (!onboardingRewardToast) return;
+    const timer = window.setTimeout(() => setOnboardingRewardToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [onboardingRewardToast]);
+
   if (loading) {
     return <AppShellFallback />;
   }
-
-  const hasBrand = brands.some((b) => !b.is_generic);
-  const hasProduct = brands.some((b) => b.product_count > 0);
 
   return (
     <div className="flex min-h-screen bg-canvas">
@@ -237,6 +276,12 @@ function AppContent() {
         </div>
       </main>
 
+      {onboardingRewardToast ? (
+        <div className="fixed bottom-20 right-4 z-50 max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg">
+          {onboardingRewardToast}
+        </div>
+      ) : null}
+
       {shouldShowOnboarding && (
         <OnboardingWizard
           onSkip={skipOnboarding}
@@ -251,7 +296,7 @@ function AppContent() {
       <OnboardingChecklist
         hasBrand={hasBrand}
         hasProduct={hasProduct}
-        hasGenerated={Boolean(currentUser?.onboarding_completed_at)}
+        hasGenerated={hasGenerated}
         onNavigate={handleTabChange}
       />
     </div>
