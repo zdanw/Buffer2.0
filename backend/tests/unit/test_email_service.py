@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import smtplib
+
 from bebcare.services import email_service
 
 
@@ -32,33 +34,99 @@ def test_send_auto_publish_skips_without_smtp():
         )
 
 
+def _smtp_settings_ctx():
+    return patch.multiple(
+        email_service.settings,
+        smtp_host="smtp.test",
+        smtp_port=587,
+        smtp_from="noreply@test.local",
+        smtp_user=None,
+        smtp_password=None,
+        smtp_use_tls=True,
+    )
+
+
 def test_send_auto_publish_sends_when_configured():
     mock_smtp = MagicMock()
     mock_server = MagicMock()
     mock_smtp.return_value.__enter__.return_value = mock_server
 
     with patch.object(email_service, "is_email_configured", return_value=True):
-        with patch.object(email_service.settings, "smtp_host", "smtp.test"):
-            with patch.object(email_service.settings, "smtp_port", 587):
-                with patch.object(email_service.settings, "smtp_from", "noreply@test.local"):
-                    with patch.object(email_service.settings, "smtp_user", None):
-                        with patch.object(email_service.settings, "smtp_password", None):
-                            with patch.object(email_service.settings, "smtp_use_tls", True):
-                                with patch("bebcare.services.email_service.smtplib.SMTP", mock_smtp):
-                                    ok = email_service.send_auto_publish_notification(
-                                        "user@test.local",
-                                        task_name="Daily",
-                                        product_name="Product A",
-                                        copywriting="Hello world",
-                                        image_url="https://cdn.example/img.jpg",
-                                        platform_posts=[
-                                            {
-                                                "platform": "instagram",
-                                                "channel": "brand",
-                                                "post_link": "https://instagram.com/p/abc",
-                                            }
-                                        ],
-                                    )
+        with _smtp_settings_ctx():
+            with patch("bebcare.services.email_service.smtplib.SMTP", mock_smtp):
+                ok = email_service.send_auto_publish_notification(
+                    "user@test.local",
+                    task_name="Daily",
+                    product_name="Product A",
+                    copywriting="Hello world",
+                    image_url="https://cdn.example/img.jpg",
+                    platform_posts=[
+                        {
+                            "platform": "instagram",
+                            "channel": "brand",
+                            "post_link": "https://instagram.com/p/abc",
+                        }
+                    ],
+                )
     assert ok is True
     mock_server.starttls.assert_called_once()
     mock_server.sendmail.assert_called_once()
+    assert mock_smtp.call_count == 1
+
+
+def test_send_retries_then_succeeds():
+    mock_server = MagicMock()
+    ok_cm = MagicMock()
+    ok_cm.__enter__.return_value = mock_server
+    ok_cm.__exit__.return_value = None
+    mock_smtp = MagicMock(
+        side_effect=[
+            smtplib.SMTPServerDisconnected("Connection unexpectedly closed"),
+            ok_cm,
+        ]
+    )
+
+    with patch.object(email_service, "is_email_configured", return_value=True):
+        with _smtp_settings_ctx():
+            with patch("bebcare.services.email_service.smtplib.SMTP", mock_smtp):
+                with patch("bebcare.services.email_service.time.sleep") as sleep_mock:
+                    with patch.object(email_service, "SMTP_MAX_RETRIES", 3):
+                        with patch.object(email_service, "SMTP_RETRY_INITIAL_DELAY", 0.01):
+                            ok = email_service.send_auto_publish_notification(
+                                "user@test.local",
+                                task_name="Daily",
+                                product_name="Product A",
+                                copywriting="Hello",
+                                image_url=None,
+                                platform_posts=[
+                                    {"platform": "instagram", "post_link": "https://x"}
+                                ],
+                            )
+    assert ok is True
+    assert mock_smtp.call_count == 2
+    sleep_mock.assert_called_once()
+
+
+def test_send_retries_exhausted_returns_false():
+    mock_smtp = MagicMock(
+        side_effect=smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+    )
+
+    with patch.object(email_service, "is_email_configured", return_value=True):
+        with _smtp_settings_ctx():
+            with patch("bebcare.services.email_service.smtplib.SMTP", mock_smtp):
+                with patch("bebcare.services.email_service.time.sleep") as sleep_mock:
+                    with patch.object(email_service, "SMTP_MAX_RETRIES", 3):
+                        with patch.object(email_service, "SMTP_RETRY_INITIAL_DELAY", 0.01):
+                            with patch.object(email_service, "SMTP_RETRY_BACKOFF", 2.0):
+                                ok = email_service.send_auto_publish_notification(
+                                    "user@test.local",
+                                    task_name="Daily",
+                                    product_name="Product A",
+                                    copywriting="Hello",
+                                    image_url=None,
+                                    platform_posts=[],
+                                )
+    assert ok is False
+    assert mock_smtp.call_count == 3
+    assert sleep_mock.call_count == 2
