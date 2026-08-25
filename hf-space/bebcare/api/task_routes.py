@@ -89,6 +89,7 @@ def create_task(
         image_provider_mode=task.image_provider_mode,
         image_model=task.image_model,
         image_size=task.image_size,
+        notify_on_publish=task.notify_on_publish,
     )
     stamp_owner(new_task, current_user)
     db.add(new_task)
@@ -525,6 +526,8 @@ def update_task(
         task.image_model = task_update.image_model
     if "image_size" in task_update.model_fields_set:
         task.image_size = task_update.image_size
+    if task_update.notify_on_publish is not None:
+        task.notify_on_publish = task_update.notify_on_publish
     
     if task.enabled:
         scheduler_service.update_task(

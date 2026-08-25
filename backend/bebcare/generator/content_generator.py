@@ -8,14 +8,13 @@ import httpx
 
 from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
+from bebcare.prompt_builder import prompt_locale
 from bebcare.utils.image_utils import persist_image_url_to_cdn
 from bebcare.services.logo_policy import (
     resolve_effective_logo_mode,
     should_composite_logo,
-    build_vision_logo_instruction,
     sanitize_dimension_text,
 )
-from bebcare.prompt_builder.placement_rules import build_physics_placement_block
 
 logger = logging.getLogger(__name__)
 
@@ -106,21 +105,35 @@ class ContentGenerator:
 """
 
     def _copy_system_prompt(self, product_info: Dict) -> str:
-        return (product_info.get("copy_system_prompt") or "").strip() or prompt_engine.system_prompt
+        custom = (product_info.get("copy_system_prompt") or "").strip()
+        if custom:
+            return custom
+        return prompt_locale.default_copy_system_prompt(
+            prompt_locale.locale_from_product_info(product_info)
+        )
 
     def _image_system_prompt(self, product_info: Dict) -> str:
-        return (product_info.get("image_system_prompt") or "").strip() or self.image_prompt_system_prompt
+        custom = (product_info.get("image_system_prompt") or "").strip()
+        if custom:
+            return custom
+        return prompt_locale.image_prompt_system_prompt(
+            prompt_locale.locale_from_product_info(product_info)
+        )
 
     def _vision_image_system_prompt(self, product_info: Dict) -> str:
-        return (
-            (product_info.get("vision_image_system_prompt") or "").strip()
-            or self.vision_image_prompt_system_prompt
+        custom = (product_info.get("vision_image_system_prompt") or "").strip()
+        if custom:
+            return custom
+        return prompt_locale.vision_image_prompt_system_prompt(
+            prompt_locale.locale_from_product_info(product_info)
         )
 
     def _vision_scene_system_prompt(self, product_info: Dict) -> str:
-        return (
-            (product_info.get("vision_scene_system_prompt") or "").strip()
-            or self.vision_scene_image_prompt_system_prompt
+        custom = (product_info.get("vision_scene_system_prompt") or "").strip()
+        if custom:
+            return custom
+        return prompt_locale.vision_scene_image_prompt_system_prompt(
+            prompt_locale.locale_from_product_info(product_info)
         )
 
     async def _retry_request_async(
@@ -208,17 +221,10 @@ class ContentGenerator:
         return out
 
     @staticmethod
-    def _format_recent_prompt_avoidance(recent_prompts: List[str]) -> str:
-        lines = [p.strip() for p in (recent_prompts or []) if p and str(p).strip()]
-        if not lines:
-            return ""
-        numbered = "\n".join(f"{i}. {p}" for i, p in enumerate(lines, 1))
-        return (
-            "\n\n以下是该产品最近已使用的图像提示词。本次必须在场景空间、光线方向/色温、"
-            "构图景别、主要道具上明显不同；禁止复用相同空间或光影套路。"
-            "产品外观仍以参考图为准，禁止改色、变形。\n"
-            f"{numbered}"
-        )
+    def _format_recent_prompt_avoidance(
+        recent_prompts: List[str], locale: str = "zh"
+    ) -> str:
+        return prompt_locale.format_recent_prompt_avoidance(recent_prompts, locale)
 
     def _fetch_recent_image_prompts(
         self,
@@ -305,20 +311,21 @@ class ContentGenerator:
         if not dimensions:
             return ""
         logo_mode = resolve_effective_logo_mode(product_info)
-
-        def _label(key: str) -> str:
-            return sanitize_dimension_text(dimensions.get(key) or "", logo_mode)
-
-        parts = [
-            f"场景：{_label('scene')}",
-            f"光线：{_label('lighting')}",
-            f"构图：{_label('composition')}",
-            f"视角：{_label('viewpoint')}",
-            f"风格：{_label('style')}",
-            f"画质：{_label('quality')}",
-            f"细节/道具：{_label('details')}",
-        ]
-        return "场景创意维度（必须采用，不得照搬参考图背景）：" + "；".join(parts) + "。"
+        cleaned = {
+            key: sanitize_dimension_text(dimensions.get(key) or "", logo_mode)
+            for key in (
+                "scene",
+                "lighting",
+                "composition",
+                "viewpoint",
+                "style",
+                "quality",
+                "details",
+            )
+        }
+        return prompt_locale.format_vision_dimension_hints(
+            cleaned, prompt_locale.locale_from_product_info(product_info)
+        )
 
     def _build_vision_user_content(
         self,
@@ -328,15 +335,29 @@ class ContentGenerator:
         dimension_hints: Optional[Dict[str, str]] = None,
     ) -> tuple[List[dict], str]:
         """Build multimodal user content. Scene mode labels scene vs product images."""
-        product_name = (product_info.get("product_name") or "产品").strip()
+        locale = prompt_locale.locale_from_product_info(product_info)
+        product_name = (
+            (product_info.get("product_name") or "产品").strip()
+            if locale == "zh"
+            else (product_info.get("product_name") or "product").strip()
+        )
         use_scene = bool(product_info.get("use_scene_reference", False))
         scene_urls = [u for u in (product_info.get("reference_scene_images") or []) if u]
         product_urls = [u for u in (product_info.get("reference_product_images") or []) if u]
-        avoid_text = self._format_recent_prompt_avoidance(recent_prompts or [])
-        logo_instruction = build_vision_logo_instruction(product_info)
+        avoid_text = self._format_recent_prompt_avoidance(recent_prompts or [], locale)
+        logo_instruction = prompt_locale.localized_vision_logo_instruction(product_info, locale)
         logo_suffix = f" {logo_instruction}" if logo_instruction else ""
         if product_info.get("realistic_placement", True):
-            placement_suffix = f" 摆放要求：{build_physics_placement_block(product_info)}"
+            placement_body = prompt_locale.localized_physics_placement_block(product_info, locale)
+            if locale == "en":
+                placement_suffix = f" Placement requirements: {placement_body}"
+            else:
+                placement_suffix = f" 摆放要求：{placement_body}"
+        elif locale == "en":
+            placement_suffix = (
+                " Lifestyle hero composition is allowed — slight float or close-up is fine, "
+                "but product shape must match the reference."
+            )
         else:
             placement_suffix = " 可采用生活方式英雄构图，产品可轻微悬浮或特写，但外形仍须与参考图一致。"
 
@@ -361,40 +382,52 @@ class ContentGenerator:
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
             product_data = self._ref_urls_to_data_urls(product_urls, remain)
-            user_content.append({"type": "text", "text": "【场景参考图】"})
+            scene_label = "【Scene reference】" if locale == "en" else "【场景参考图】"
+            product_label = "【Product reference】" if locale == "en" else "【产品参考图】"
+            user_content.append({"type": "text", "text": scene_label})
             for u in scene_data:
                 user_content.append({"type": "image_url", "image_url": {"url": u}})
-            user_content.append({"type": "text", "text": "【产品参考图】"})
+            user_content.append({"type": "text", "text": product_label})
             for u in product_data:
                 user_content.append({"type": "image_url", "image_url": {"url": u}})
-            user_content.append(
-                {
-                    "type": "text",
-                    "text": (
-                        f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
-                        "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
-                        "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
-                        f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
-                    ),
-                }
-            )
+            if locale == "en":
+                prompt_text = (
+                    f"Using only the scene and product references above, write one final English "
+                    f"image prompt for “{product_name}”: blend the product naturally into the scene; "
+                    "product appearance follows the product reference; preserve scene structure and "
+                    "lighting from the scene reference. Do not use external dimension templates."
+                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+                )
+            else:
+                prompt_text = (
+                    f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
+                    "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
+                    "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
+                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+                )
+            user_content.append({"type": "text", "text": prompt_text})
         else:
             data_urls = self._ref_urls_to_data_urls(
                 product_urls or reference_images or [], _MAX_VISION_REF_IMAGES
             )
             for u in data_urls:
                 user_content.append({"type": "image_url", "image_url": {"url": u}})
-            user_content.append(
-                {
-                    "type": "text",
-                    "text": (
-                        f"请仅根据以上参考图，为「{product_name}」自主生成一段最终中文图像提示词。"
-                        "参考图仅用于锁定产品外形与材质；禁止复制参考图的背景、棚拍台、道具与多产品摆放。"
-                        "必须按下方场景维度设计全新生活方式环境。"
-                        f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
-                    ),
-                }
-            )
+            if locale == "en":
+                prompt_text = (
+                    f"Using only the references above, write one final English image prompt for "
+                    f"“{product_name}”. References lock product shape and material only — do not copy "
+                    "reference backgrounds, studio surfaces, props, or multi-product layouts. "
+                    "Design a fresh lifestyle environment from the scene dimensions below."
+                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+                )
+            else:
+                prompt_text = (
+                    f"请仅根据以上参考图，为「{product_name}」自主生成一段最终中文图像提示词。"
+                    "参考图仅用于锁定产品外形与材质；禁止复制参考图的背景、棚拍台、道具与多产品摆放。"
+                    "必须按下方场景维度设计全新生活方式环境。"
+                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+                )
+            user_content.append({"type": "text", "text": prompt_text})
 
         return user_content, system_prompt
 
@@ -555,10 +588,13 @@ class ContentGenerator:
                     product_info, refs, 1024, recent_prompts, dimension_hints
                 )
                 image_prompt = positive_prompt
+                labels = prompt_locale.scene_ref_labels(
+                    prompt_locale.locale_from_product_info(product_info)
+                )
                 if use_scene_reference:
-                    dim_label = "视觉模型自主(场景融合)"
+                    dim_label = labels["vision_scene_fusion"]
                     selected_dimensions = {
-                        "scene": "参考场景图+视觉模型",
+                        "scene": labels["vision_scene"],
                         "viewpoint": dim_label,
                         "composition": dim_label,
                         "style": dim_label,
@@ -567,7 +603,7 @@ class ContentGenerator:
                         "lighting": dim_label,
                     }
                 elif not selected_dimensions:
-                    dim_label = "视觉模型自主"
+                    dim_label = labels["vision_auto"]
                     selected_dimensions = {
                         "scene": dim_label,
                         "viewpoint": dim_label,
@@ -631,7 +667,9 @@ class ContentGenerator:
                 if own:
                     session.close()
 
-        negative_prompt = prompt_engine.build_negative_prompt()
+        negative_prompt = prompt_engine.build_negative_prompt(
+            prompt_locale.locale_from_product_info(product_info)
+        )
 
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")

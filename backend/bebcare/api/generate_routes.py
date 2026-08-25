@@ -69,6 +69,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_size": request.image_size,
         "image_provider_mode": request.image_provider_mode,
         "owner_user_id": product.owner_user_id,
+        "locale": request.locale or "zh",
     }
     return enrich_product_info(db, product, base)
 

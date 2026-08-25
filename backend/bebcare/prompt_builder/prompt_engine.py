@@ -7,12 +7,11 @@ import json
 import random
 
 from bebcare.services.logo_policy import (
-    build_logo_constraint_block,
     resolve_effective_logo_mode,
     sanitize_dimension_text,
 )
 from bebcare.prompt_builder.dimensions_data import DIMENSIONS
-from bebcare.prompt_builder.placement_rules import build_physics_placement_block
+from bebcare.prompt_builder import prompt_locale
 
 try:
     from bebcare.services.dimension_service import dimension_service
@@ -89,6 +88,10 @@ Follow these principles:
 
     def __init__(self):
         self.system_prompt = self.DEFAULT_SYSTEM_PROMPT.strip()
+
+    @staticmethod
+    def system_prompt_for_locale(locale: str) -> str:
+        return prompt_locale.default_copy_system_prompt(locale)
 
     _EMPTY_DIMENSIONS = {
         "scenes": [],
@@ -308,10 +311,11 @@ Follow these principles:
         }
     
     def build_copywriting_prompt(self, product_info: Dict, platform: str, db=None) -> str:
+        locale = prompt_locale.locale_from_product_info(product_info)
         platform_style = PLATFORM_STYLES.get(platform, PLATFORM_STYLES["instagram"])
 
-        perspectives = product_info.get("narrative_perspectives") or NARRATIVE_PERSPECTIVES
-        styles = product_info.get("writing_styles") or WRITING_STYLES
+        perspectives = product_info.get("narrative_perspectives") or prompt_locale.narrative_perspectives(locale)
+        styles = product_info.get("writing_styles") or prompt_locale.writing_styles(locale)
 
         selling_points = product_info.get('selling_points', [])
         if selling_points is None:
@@ -340,21 +344,55 @@ Follow these principles:
 
         brand_voice = (product_info.get('brand_voice') or '').strip()
         if not brand_voice and not product_info.get("is_generic_brand"):
-            brand_voice = "专业且温暖"
+            brand_voice = "专业且温暖" if locale == "zh" else "professional and warm"
         if not brand_voice:
-            brand_voice = "neutral and professional"
+            brand_voice = "neutral and professional" if locale == "en" else "中性、专业"
 
         emoji_hints = product_info.get("copy_emoji_hints") or "✨"
         copy_example = product_info.get("copy_example")
         example_block = ""
         if copy_example:
-            example_block = f"""
+            if locale == "en":
+                example_block = f"""
+Example format:
+{copy_example}
+"""
+            else:
+                example_block = f"""
 示例格式：
 {copy_example}
 """
 
-        prompt = f"""
-为 {platform.upper()} 创建英文社交媒体帖子，需严格遵守以下要求：
+        if locale == "en":
+            prompt = f"""
+Create an English social media post for {platform.upper()} following every rule below:
+
+Product:
+- Name: {product_info.get('product_name', '')}
+- Description: {product_info.get('description', '')}
+- Brand: {product_info.get('brand_name', '')}
+
+Key selling points (highlight 1-2):
+{selling_points_str}
+
+Style guidance:
+- Narrative perspective: {narrative_perspective['name']} - {narrative_perspective['description']}
+- Writing style: {writing_style['name']} - {writing_style['description']}
+- Brand voice: {brand_voice}
+
+Hard rules (all required):
+1. Length: 120-200 characters including hashtags
+2. Emojis: use 4-6 relevant emojis ({emoji_hints}, etc.)
+3. Format: short paragraphs (1-2 sentences each), separated by line breaks
+4. Forbidden: bold (**text**), italics (*text*), headings, lists, bullet points
+5. End with 2-5 hashtags
+6. Match the selected narrative perspective and writing style
+{example_block}
+Output only the post content — no other text.
+"""
+        else:
+            prompt = f"""
+为 {platform.upper()} 创建中文社交媒体帖子，需严格遵守以下要求：
 
 产品信息：
 - 名称：{product_info.get('product_name', '')}
@@ -382,7 +420,8 @@ Follow these principles:
         return prompt.strip()
 
     def build_image_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> Dict:
-        product_name = product_info.get('product_name', '产品')
+        locale = prompt_locale.locale_from_product_info(product_info)
+        product_name = product_info.get('product_name', '产品' if locale == 'zh' else 'product')
         product_description = product_info.get('description', '')
         category = product_info.get('category', '')
         product_type = (
@@ -411,20 +450,54 @@ Follow these principles:
             product_type, db, owner_user_id=product_info.get("owner_user_id")
         )
         
-        logo_constraint = build_logo_constraint_block(product_info)
+        logo_constraint = prompt_locale.localized_logo_constraint_block(product_info, locale)
         logo_mode = resolve_effective_logo_mode(product_info)
         realistic = product_info.get("realistic_placement", True)
         physics_block = ""
         if realistic:
-            physics_block = (
-                "\n## 摆放与物理（写入最终提示词）\n"
-                + build_physics_placement_block(product_info)
-            )
+            physics_body = prompt_locale.localized_physics_placement_block(product_info, locale)
+            if locale == "en":
+                physics_block = f"\n## Placement & physics (include in final prompt)\n{physics_body}"
+            else:
+                physics_block = f"\n## 摆放与物理（写入最终提示词）\n{physics_body}"
 
         def _dim_label(key: str) -> str:
-            return sanitize_dimension_text(selected_dimensions[key]["name"], logo_mode)
+            return prompt_locale.dimension_display_name(
+                selected_dimensions[key],
+                locale,
+                sanitizer=lambda text: sanitize_dimension_text(text, logo_mode),
+            )
 
-        prompt = f"""
+        if locale == "en":
+            prompt = f"""
+## Product
+- Name: {product_name}
+- Description: {product_description}
+- Key selling points: {selling_points_str}
+
+## Selected dimensions
+- Scene: {_dim_label('scene')}
+- Viewpoint: {_dim_label('viewpoint')}
+- Composition: {_dim_label('composition')}
+- Style: {_dim_label('style')}
+- Quality: {_dim_label('quality')}
+- Details/props: {_dim_label('details')}
+- Lighting: {_dim_label('lighting')}
+
+## Hard constraints (must appear in the final English image prompt)
+1. Downstream image models receive product reference images: shape, structure, proportions, color, material, and parts must match the references — no recoloring, deformation, missing or invented parts
+2. Product description and dimensions are mood guidance only; when they conflict with references, references win
+3. No text, watermarks, QR codes, URLs, captions, or extra brand names (except printing already on the product in references)
+4. No unrelated products; props must not block or alter the product
+{logo_constraint}
+{physics_block}
+
+## Output
+- Output only one final English image prompt
+- Start with product fidelity (aligned to references), then blend scene/lighting/composition/style/quality/details
+"""
+        else:
+            prompt = f"""
 ## 产品信息：
 - 名称：{product_name}
 - 描述：{product_description}
@@ -467,14 +540,13 @@ Follow these principles:
             "dimensions": dimensions_info
         }
 
-    def build_negative_prompt(self) -> str:
-        hard_rules = ", ".join(NEGATIVE_PROMPT["hard_rules"])
-        soft_rules = ", ".join(NEGATIVE_PROMPT["soft_suggestions"])
-        
-        return f"{hard_rules}, {soft_rules}"
+    def build_negative_prompt(self, locale: str = "zh") -> str:
+        return prompt_locale.build_negative_prompt(locale)
 
     def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> Dict:
-        product_name = product_info.get('product_name', '产品')
+        locale = prompt_locale.locale_from_product_info(product_info)
+        labels = prompt_locale.scene_ref_labels(locale)
+        product_name = product_info.get('product_name', '产品' if locale == 'zh' else 'product')
         category = product_info.get('category', '')
         product_type = (
             product_info.get('product_type')
@@ -486,19 +558,53 @@ Follow these principles:
         selected_dimensions = self._select_dimensions(
             product_type, db, owner_user_id=product_info.get("owner_user_id")
         )
+        logo_mode = resolve_effective_logo_mode(product_info)
+
+        def _style_label(key: str) -> str:
+            return prompt_locale.dimension_display_name(
+                selected_dimensions[key],
+                locale,
+                sanitizer=lambda text: sanitize_dimension_text(text, logo_mode),
+            )
+
         dimensions_info = {
-            "scene": "参考场景图",
-            "viewpoint": "沿用参考图",
-            "composition": "沿用参考图",
-            "style": selected_dimensions['style']['name'],
-            "quality": selected_dimensions['quality']['name'],
-            "details": selected_dimensions['details']['name'],
-            "lighting": selected_dimensions['lighting']['name'],
+            "scene": labels["scene"],
+            "viewpoint": labels["follow_ref"],
+            "composition": labels["follow_ref"],
+            "style": _style_label("style"),
+            "quality": _style_label("quality"),
+            "details": _style_label("details"),
+            "lighting": _style_label("lighting"),
         }
 
-        logo_constraint = build_logo_constraint_block(product_info, start_index=8)
+        logo_constraint = prompt_locale.localized_logo_constraint_block(
+            product_info, locale, start_index=8
+        )
 
-        prompt = f"""
+        if locale == "en":
+            prompt = f"""
+Blend the following {product_name} image into the scene while keeping the product subject's position, angle, size, and appearance unchanged.
+
+## Hard constraints
+1. Keep product position, angle, size, and appearance unchanged
+2. Keep product color, material, and texture unchanged
+3. Preserve the scene composition and layout
+4. Preserve light direction and overall tone
+5. Only lightly optimize the background — avoid heavy edits
+6. No text, watermarks, QR codes, URLs, or extra brand names in the image
+7. If other products appear in the scene reference, replace them with this {product_name}
+{logo_constraint}
+
+## Soft guidance (must not break hard constraints)
+- Style tendency: {dimensions_info['style']}
+- Quality tendency: {dimensions_info['quality']}
+- Optional details/props: {dimensions_info['details']} (must not block or alter the product)
+
+## Priority
+1) Product fidelity → 2) Scene structure fidelity → 3) Style/quality/detail guidance
+"""
+        else:
+            prompt = f"""
 将后面的{product_name}图片融合到场景中，保持产品主体的位置、角度、大小、外观完全不变。
 
 ## 硬约束（必须遵守）

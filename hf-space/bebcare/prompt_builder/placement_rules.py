@@ -19,6 +19,10 @@ CATEGORY_POSE_RULES = {
         "default": "地面或台面直立，底部接触，垂直于地面",
         "reflect": False,
     },
+    "Wearable Breast Pump": {
+        "default": "平放在台面或托盘中，底部完全接触承托面",
+        "reflect": False,
+    },
 }
 
 _DEFAULT_POSE = {

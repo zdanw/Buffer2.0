@@ -13,6 +13,7 @@ class GenerateRequest(BaseModel):
     image_model: Optional[str] = None
     image_size: Optional[str] = None
     image_provider_mode: Optional[Literal["platform", "byok"]] = None
+    locale: Optional[Literal["en", "zh"]] = None
 
 class GenerateResponse(BaseModel):
     task_id: str

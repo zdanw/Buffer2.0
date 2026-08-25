@@ -21,6 +21,7 @@ class TaskBase(BaseModel):
     image_provider_mode: Optional[str] = None  # platform | byok
     image_model: Optional[str] = None
     image_size: Optional[str] = None
+    notify_on_publish: bool = False
 
 class TaskCreate(TaskBase):
     pass
@@ -43,6 +44,7 @@ class TaskUpdate(BaseModel):
     image_provider_mode: Optional[str] = None
     image_model: Optional[str] = None
     image_size: Optional[str] = None
+    notify_on_publish: Optional[bool] = None
 
 class TaskResponse(TaskBase):
     task_id: UUID

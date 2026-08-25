@@ -12,6 +12,7 @@ export interface GenerateRequest {
   image_model?: string | null;
   image_size?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
+  locale?: 'en' | 'zh';
 }
 
 export interface GenerateResponse {
