@@ -214,29 +214,35 @@ export const zh: TranslationTree = {
     fields: {
       name: {
         label: '名称',
-        tooltip: '在设置和模型选择器中显示的名称，例如「通义万相」或「生产环境豆包」。',
+        tooltip:
+          '在设置与模型选择器中显示，便于识别这条 API Key。\n\n例：「通义万相」或「生产豆包」——不要用 API 域名当名称。',
       },
       type: {
         label: '类型',
-        tooltip: 'Provider 适配器。OpenAI 兼容适用于大多数 REST API；豆包 Ark、阿里云 MaaS 与 Google Gemini 会使用预设端点。',
+        tooltip:
+          '调用 API 的适配器。OpenAI 兼容适用于大多数 REST API。\n\n例：豆包 Ark 用字节端点；阿里云 MaaS 用阿里图生图；选预设会自动填 Base URL。',
       },
       baseUrl: {
         label: 'Base URL',
-        tooltip: 'API 根地址。OpenAI 兼容一般为 https://api.openai.com/v1；选择豆包/阿里云/Google 时会自动填入。',
+        tooltip:
+          'API 根地址（/images/generations 等路径之前）。\n\n例：OpenAI 兼容一般为 https://api.openai.com/v1；豆包/阿里云/Google 预设会自动填入。',
       },
       apiKey: {
         label: 'API Key',
         labelOptional: 'API Key（留空则不修改）',
-        tooltip: '在服务端加密存储。创建时必填；编辑时留空表示保留现有密钥。',
+        tooltip:
+          '服务端加密存储，保存后不再显示。\n\n例：从服务商控制台粘贴 sk-…。创建时必填；编辑留空表示保留现有密钥。',
       },
       defaultModel: {
         label: '默认 Model ID',
         placeholder: '如 qwen-image-2.0 / qwen-image-edit（图生图）',
-        tooltip: '未指定模型时使用的默认 ID。填写服务商的图像模型 ID；图生图模型常以 -edit 结尾。',
+        tooltip:
+          'Studio 或任务未指定模型时使用的默认 ID。\n\n例：qwen-image-edit 用于参考图编辑；qwen-image-2.0 用于纯文生图。\n\n提示：图生图 ID 常以 -edit 结尾。',
       },
       manualModels: {
         label: '手动模型列表',
-        tooltip: '为同一 API Key 注册更多模型 ID，例如文生图与图生图共用账号时分别填写。',
+        tooltip:
+          '同一 API Key 下的更多模型 ID，会出现在模型下拉框。\n\n例：同一豆包账号同时有文生图（seedream）和图生图（seededit）——在此分别登记。',
         hint: '同一 Provider / API Key 下可维护多个 Model ID；点击模型 ID 弹出说明文档',
         modelIdPlaceholder: 'Model ID，如 qwen-image-2.0',
         descriptionPlaceholder: '模型描述（可选）：用途、分辨率、是否支持图生图等',
@@ -248,15 +254,18 @@ export const zh: TranslationTree = {
       },
       supportsListModels: {
         label: '支持 GET /models 拉取列表',
-        tooltip: '若服务商提供 OpenAI 风格的 /models 接口请开启；豆包 Ark 等固定端点 API 请关闭。',
+        tooltip:
+          '从服务商 /models 接口自动填充模型下拉框。\n\n例：OpenAI 兼容主机可开启；豆包 Ark 固定端点请关闭（需手动填 Model ID）。',
       },
       isDefault: {
         label: '设为全局默认',
-        tooltip: '开启后，新建图像生成任务将默认使用此 Provider，除非手动选择其他模型。',
+        tooltip:
+          'Studio 或任务未选 Provider 时，新出图默认用此配置。\n\n例：把最便宜的 Key 设为默认；特定任务再覆盖用高端模型。',
       },
       isActive: {
         label: '启用',
-        tooltip: '停用的 Provider 不会出现在模型选择器中，生成时也会被跳过。',
+        tooltip:
+          '关闭后不出现在选择器中，生成时也会跳过。\n\n例：Key 过期可先停用，不必删除配置。',
       },
     },
     providerTypes: {
@@ -295,12 +304,14 @@ export const zh: TranslationTree = {
     fields: {
       name: {
         label: '名称',
-        tooltip: '管理界面中显示的友好名称，例如「代理商 Buffer」或「品牌 A 组织」。',
+        tooltip:
+          '设置页中的友好名称，便于识别此 Buffer 组织。\n\n例：「代理商 Buffer」或「Bebcare 美国站」——不要用 Token 当名称。',
       },
       token: {
         label: 'Buffer API Token',
         labelOptional: 'Buffer API Token（留空则保留原 Token）',
-        tooltip: '粘贴 Buffer 访问令牌，服务端加密存储。创建时必填；编辑时留空表示不修改。',
+        tooltip:
+          '从 Buffer → 账户 → 开发者 粘贴访问令牌，服务端加密存储。\n\n例：创建时必填；编辑留空表示不修改。\n\n提示：一个 Token 绑一个品牌——在品牌套件编辑页绑定。',
         keepPlaceholder: '留空表示不修改当前 Token',
       },
       isActive: {

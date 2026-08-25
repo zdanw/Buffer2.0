@@ -85,7 +85,7 @@ export default function CreatePanel({
         />
         <div>
           <div className="text-sm font-medium text-gray-700">{t('preview.enableSceneReference')}</div>
-          <p className="text-xs text-gray-500 mt-1">{t('preview.sceneRefHint')}</p>
+          <p className="text-xs text-gray-500 mt-1 whitespace-pre-line">{t('preview.sceneRefHint')}</p>
         </div>
       </label>
 
@@ -98,7 +98,7 @@ export default function CreatePanel({
         />
         <div>
           <div className="text-sm font-medium text-gray-700">{t('preview.visionImagePrompt')}</div>
-          <p className="text-xs text-gray-500 mt-1">{t('preview.visionHint')}</p>
+          <p className="text-xs text-gray-500 mt-1 whitespace-pre-line">{t('preview.visionHint')}</p>
         </div>
       </label>
 

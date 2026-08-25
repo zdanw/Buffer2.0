@@ -215,29 +215,35 @@ export const en: TranslationTree = {
     fields: {
       name: {
         label: 'Name',
-        tooltip: 'A friendly label shown in Settings and the model picker, e.g. "Qwen Image" or "Production Doubao".',
+        tooltip:
+          'Label shown in Settings and the model picker so you can recognize this key.\n\nExample: "Qwen Image" or "Production Doubao" — not the raw API hostname.',
       },
       type: {
         label: 'Type',
-        tooltip: 'Provider adapter. OpenAI-compatible works with most REST APIs; Doubao Ark, Aliyun MaaS, and Google Gemini use preset endpoints.',
+        tooltip:
+          'Adapter that knows how to call the API. OpenAI-compatible fits most REST APIs.\n\nExample: Pick Doubao Ark for ByteDance endpoints; Aliyun MaaS for Alibaba image-to-image; presets fill Base URL automatically.',
       },
       baseUrl: {
         label: 'Base URL',
-        tooltip: 'API root URL. For OpenAI-compatible providers this is usually https://api.openai.com/v1. Doubao/Aliyun/Google presets fill this automatically.',
+        tooltip:
+          'API root before /images/generations or similar paths.\n\nExample: https://api.openai.com/v1 for OpenAI-compatible; Doubao/Aliyun/Google presets set this for you.',
       },
       apiKey: {
         label: 'API Key',
         labelOptional: 'API Key (leave blank to keep current)',
-        tooltip: 'Stored encrypted on the server. Required when creating a provider; leave empty when editing to keep the existing key.',
+        tooltip:
+          'Encrypted on the server — never shown again after save.\n\nExample: Paste sk-… from your provider dashboard. Required when creating; leave empty when editing to keep the existing key.',
       },
       defaultModel: {
         label: 'Default Model ID',
         placeholder: 'e.g. qwen-image-2.0 / qwen-image-edit (image-to-image)',
-        tooltip: 'Model used when no specific model is selected. Use your provider\'s image model ID; image-to-image models often end with -edit.',
+        tooltip:
+          'Fallback model when no specific ID is chosen in Studio or tasks.\n\nExample: qwen-image-edit for reference-photo edits; qwen-image-2.0 for text-only generation.\n\nTip: Image-to-image IDs often end with -edit.',
       },
       manualModels: {
         label: 'Manual model list',
-        tooltip: 'Register additional model IDs that share this provider\'s API key. Useful when one account supports text-to-image and image-to-image variants.',
+        tooltip:
+          'Extra model IDs sharing this API key — shown in the model picker dropdown.\n\nExample: Same Doubao account for text-to-image (seedream) and image-to-image (seededit) — list both here.',
         hint: 'Maintain multiple model IDs under one provider/API key. Click a model ID to edit its documentation.',
         modelIdPlaceholder: 'Model ID, e.g. qwen-image-2.0',
         descriptionPlaceholder: 'Model notes (optional): use case, resolution, image-to-image support, etc.',
@@ -249,15 +255,18 @@ export const en: TranslationTree = {
       },
       supportsListModels: {
         label: 'Support GET /models to fetch list',
-        tooltip: 'Enable if the provider exposes an OpenAI-style /models endpoint. Disable for fixed-endpoint APIs like Doubao Ark.',
+        tooltip:
+          'Let PulseForge auto-fill the model dropdown from the provider\'s /models API.\n\nExample: ON for OpenAI-compatible hosts; OFF for Doubao Ark fixed endpoints (you type model IDs manually).',
       },
       isDefault: {
         label: 'Set as global default',
-        tooltip: 'When enabled, this provider is used for new image generation tasks unless another is explicitly chosen.',
+        tooltip:
+          'New generations use this provider when Studio or tasks leave provider empty.\n\nExample: Set your cheapest key as default; override per task for premium models.',
       },
       isActive: {
         label: 'Enabled',
-        tooltip: 'Disabled providers are hidden from the model picker and skipped during generation.',
+        tooltip:
+          'Hidden from pickers and skipped during generation when off.\n\nExample: Disable an expired key without deleting its configuration.',
       },
     },
     providerTypes: {
@@ -297,13 +306,14 @@ export const en: TranslationTree = {
     fields: {
       name: {
         label: 'Name',
-        tooltip: 'Friendly label shown in Settings, e.g. "Agency Buffer" or "Brand A org".',
+        tooltip:
+          'Friendly label in Settings so you recognize this Buffer org.\n\nExample: "Agency Buffer" or "Bebcare US org" — not the raw token.',
       },
       token: {
         label: 'Buffer API token',
         labelOptional: 'Buffer API token (leave blank to keep current)',
         tooltip:
-          'Paste the Buffer access token. Stored encrypted on the server. Required when creating; leave empty when editing to keep the existing token.',
+          'Paste the access token from Buffer → Account → Developers. Encrypted on the server.\n\nExample: Required when creating; leave empty when editing to keep the existing token.\n\nTip: One token per brand — bind it on the brand kit edit page.',
         keepPlaceholder: 'Leave blank to keep current token',
       },
       isActive: {

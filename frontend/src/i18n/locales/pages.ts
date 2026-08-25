@@ -70,12 +70,18 @@ export const pagesEn: TranslationTree = {
       loading: 'Loading categories…',
     },
     tooltips: {
-      productName: 'Product name used for identification and display',
-      category: 'Pick an existing category or create a new one to keep names consistent',
-      description: 'Detailed description used for copy and image prompt generation',
-      sellingPoints: 'Core selling points, comma-separated, used in copy generation',
-      brandVoice: 'Brand tone and style affecting generated copy (max {{max}} chars)',
-      brand: 'Brand kit this product inherits voice and content rules from',
+      productName:
+        'Display name for this product in lists, Studio, and automations.\n\nExample: "Bebcare Linda Night Light" — not the SKU code.',
+      category:
+        'Groups products for filtering and can scope visual style presets.\n\nExample: "Baby monitors" vs "Night lights" may get different scene options.',
+      description:
+        'Full product story fed into copy and (when vision prompt is off) image generation.\n\nExample: "Portable night light with 7 colors, USB-C, nursery-safe silicone."',
+      sellingPoints:
+        'Short bullets the copy model should highlight, comma-separated.\n\nExample: "rechargeable, dimmable, BPA-free, 300h battery".',
+      brandVoice:
+        'Overrides the brand kit tone for this product only (max {{max}} chars).\n\nExample: "Warm, reassuring parent-to-parent — never clinical."',
+      brand:
+        'Which brand kit supplies voice, hashtags, logo rules, and Buffer account.\n\nExample: Pick "Bebcare" so posts inherit that brand\'s tone and publish channel.',
     },
   },
   brands: {
@@ -143,20 +149,34 @@ export const pagesEn: TranslationTree = {
       advanced: 'Advanced',
     },
     tooltips: {
-      name: 'Display name for this brand kit',
-      voice: 'Tone and style used in generated copy',
-      audience: 'Who you are speaking to',
-      toneKeywords: 'Comma-separated tone descriptors',
-      bufferAccount: 'Buffer account used to publish this brand’s products. Exclusive: one brand per account.',
-      hashtags: 'Default hashtags appended to posts',
-      emojiStyle: 'How many emojis to use in copy',
-      wordsToAvoid: 'Words the model should not use',
-      verticalPack: 'Visual style preset pack for image generation',
-      logoFontRule: 'Fidelity rules when printed branding appears in reference photos (colors, font, no distortion)',
-      logoInImages: 'How brand logos appear in generated images',
-      logo: 'Square logo shown on brand cards and selectors',
-      copySystemPrompt: 'System prompt override for copy generation',
-      imageSystemPrompt: 'System prompt override for image generation',
+      name:
+        'Label for this brand kit in dropdowns and cards.\n\nExample: "Bebcare US" vs internal code "BC-01".',
+      voice:
+        'Default writing personality for all products under this brand.\n\nExample: "Friendly expert parent — practical tips, never fear-based."',
+      audience:
+        'Who the copy should speak to; shapes hooks and examples.\n\nExample: "First-time parents, 25–35, buying nursery essentials online."',
+      toneKeywords:
+        'Comma-separated mood tags the copy model should match.\n\nExample: "warm, playful, trustworthy, minimal jargon".',
+      bufferAccount:
+        'Buffer token used when auto-publishing this brand\'s posts. One account ↔ one brand only.\n\nExample: Bind "Bebcare Buffer" here so Bebcare products never post to another org.',
+      hashtags:
+        'Appended to every generated post for this brand.\n\nExample: "#Bebcare #NurseryEssentials #NewMom".',
+      emojiStyle:
+        'How many emojis the copy model may use.\n\nExample: Minimal = one per post; Heavy = several in hooks and CTAs.',
+      wordsToAvoid:
+        'Terms the model must not use (legal, tone, or competitor names).\n\nExample: "cheap, miracle cure, #ad without disclosure".',
+      verticalPack:
+        'Starter set of visual style dimensions (scenes, lighting) for image generation.\n\nExample: "Baby & family" adds nursery, playroom, and soft-morning presets.',
+      logoFontRule:
+        'When reference photos show printed logos, how strictly to preserve them.\n\nExample: "Keep Bebcare wordmark blue #2B5CE6, sans-serif, no warping on curved surfaces."',
+      logoInImages:
+        'Whether generated images include your logo and how.\n\nExample: Preserve = only if visible on product in refs; Composite = AI clean image + your logo on export.',
+      logo:
+        'Square mark for brand cards and export overlay when "Add on export" is selected.\n\nExample: Upload PNG with transparent background.',
+      copySystemPrompt:
+        'Advanced override of the copy model\'s system instructions for this brand.\n\nTip: Only edit if you know prompt engineering — affects every post.',
+      imageSystemPrompt:
+        'Advanced override of image-generation instructions for this brand.\n\nExample: "Always soft natural light, never harsh flash, product is hero."',
     },
     selector: {
       products: '{{count}} products',
@@ -253,14 +273,22 @@ export const pagesEn: TranslationTree = {
     realisticPlacement: 'Realistic product placement',
     previewingAs: 'Previewing as',
     tooltips: {
-      product: 'Product whose reference images, category, and brand voice drive copy and image generation.',
-      platforms: 'Choose one or more social platforms. Tone and format adapt to each selection.',
-      sceneReference: 'Uses scene reference images together with product photos so generated images match a real environment.',
-      visionPrompt: 'When on, a vision model writes the image prompt from your reference images instead of the text template.',
-      realisticPlacement: 'When on, the product rests on a surface with contact shadows. Turn off for hero/floating lifestyle shots.',
-      generateAll: 'Generate copy and image together for the selected product and platforms.',
-      generateCopy: 'Generate social post copy only — faster when you already have an image.',
-      generateImage: 'Generate a product image only — uses visual styles and reference photos.',
+      product:
+        'Source of product photos, scene photos, category, and inherited brand voice.\n\nExample: Pick "Linda Night Light" to use its uploaded refs and Bebcare tone.',
+      platforms:
+        'Each platform adjusts caption length, hashtags, and tone.\n\nExample: Instagram = visual hook + hashtags; LinkedIn = longer, professional angle.',
+      sceneReference:
+        'Pulls Scene images from Products (lifestyle shots in real rooms) and sends them with Product images to the image model.\n\nExample: You uploaded the night light on a nursery dresser — ON generates a similar cozy nursery, not a white-background packshot.\n\nOff = product photos only (usually plain or isolated backgrounds).',
+      visionPrompt:
+        'A vision AI reads your reference photos and writes a detailed image prompt instead of filling a text template from visual style names.\n\nExample: It might output "soft morning light through sheer curtains, product on oak dresser, muted sage walls" after seeing your scene refs.\n\nOff = template from selected visual styles (faster, less photo-specific).',
+      realisticPlacement:
+        'Controls whether the product sits on a surface with contact shadows vs floating hero shots.\n\nExample: ON = night light on nightstand with shadow; OFF = product centered, soft glow, no visible surface (ad hero image).',
+      generateAll:
+        'One click: caption + image for every selected platform.\n\nExample: Instagram + Facebook post with matching nursery lifestyle image.',
+      generateCopy:
+        'Caption only — skips image API calls.\n\nExample: You already have a photo and need fresh hooks for TikTok vs Instagram.',
+      generateImage:
+        'Image only — uses visual styles, reference photos, and image model settings below.\n\nExample: Test three nursery scenes before writing copy.',
     },
   },
   dimensionsPage: {
@@ -303,10 +331,14 @@ export const pagesEn: TranslationTree = {
     namePlaceholder: 'e.g. Cozy nursery corner with wooden crib',
     viewDoc: 'Click to view documentation',
     tooltips: {
-      productType: 'Product category this dimension applies to. Dimensions are scoped per product type (e.g. Night Lights vs Air Purifiers).',
-      dimensionType: 'Which prompt axis this entry controls — scene, lighting, style, composition, etc. Cannot be changed after creation.',
-      itemId: 'Stable machine ID used in prompts and APIs. Use lowercase English, numbers, underscores, or hyphens (e.g. nursery, soft_morning).',
-      name: 'Human-readable label shown in the UI and used when picking dimensions for generation.',
+      productType:
+        'Which product category can use this style row.\n\nExample: "Night lights" gets nursery scenes; "Air purifiers" gets living-room presets — they don\'t mix.',
+      dimensionType:
+        'What part of the image prompt this row controls. Locked after creation.\n\nExample: Scene = "cozy nursery"; Lighting = "soft morning window light"; Composition = "product left third".',
+      itemId:
+        'Stable ID in prompts and APIs — lowercase English, numbers, _ or -.\n\nExample: nursery_corner, soft_morning, hero_centered.',
+      name:
+        'Label shown when picking styles in Studio or automations.\n\nExample: "Cozy nursery corner with wooden crib" — this text also feeds the prompt when vision prompt is off.',
     },
   },
   tasks: {
@@ -366,20 +398,34 @@ export const pagesEn: TranslationTree = {
     deselectCategory: 'Clear',
     removeProduct: 'Remove {{name}}',
     tooltips: {
-      taskName: 'Internal name for this automation. Shown in the task list only.',
-      taskMode: 'Auto publish posts directly to platforms. Manual publish saves drafts to Pending for review.',
-      cronExpression: 'Schedule in CRON format (minute hour day month weekday). Example: 0 10 * * * runs daily at 10:00.',
-      selectProducts: 'Choose which products this task generates content for. Use search and brand filter when you have many products.',
-      publishPlatforms: 'Platforms to publish to when auto mode runs. At least one is required.',
-      referenceImageCount: 'Number of product reference images sent to the image model per generation.',
-      runCount: 'How many full rounds per scheduled run. Each round generates once per selected product, in order.',
-      generateImageCount: 'Number of image variants created per product per manual run.',
-      generateCopyCount: 'Number of copy variants created per product per manual run.',
-      enableTask: 'Disabled tasks stay saved but will not run on schedule.',
-      enableSceneReference: 'Include scene/lifestyle reference images from the product asset library.',
-      notifyOnPublish: 'Send an email to your account address after each successful auto publish, including post links.',
-      visionImagePrompt: 'Use a vision model to write the image prompt from reference photos (can combine with scene reference).',
-      imageModel: 'Override the default image provider/model for this task only.',
+      taskName:
+        'Your label in the task list — not shown on social posts.\n\nExample: "Bebcare Linda - Doubao daily IG".',
+      taskMode:
+        'Auto = generate and publish on schedule. Manual = generate drafts to Pending for your approval.\n\nExample: Manual for new products until you trust the output quality.',
+      cronExpression:
+        'When the task runs: minute hour day month weekday (5 fields).\n\nExample: 0 10 * * * = every day at 10:00. 0 9 * * 1 = Mondays at 9:00.',
+      selectProducts:
+        'Products included in each run — one generation pass per product per round.\n\nExample: Select 3 SKUs → each cron run produces 3 posts (one per product).',
+      publishPlatforms:
+        'Where auto-published posts go (Buffer channels). Required in auto mode.\n\nExample: Instagram + Facebook checked → same image/copy adapted per platform.',
+      referenceImageCount:
+        'How many Product images (from Products → Product images) sent to the image model each time.\n\nExample: 1 = single angle; 3 = front + side + detail for better color and shape match.\n\nTip: More refs improve fidelity but cost more per generation.',
+      runCount:
+        'Full passes per scheduled trigger. Each round hits every selected product once, in order.\n\nExample: 2 rounds + 3 products = 6 generations per cron run.',
+      generateImageCount:
+        'Image variants per product in manual mode (Pending lets you pick one).\n\nExample: 3 = three different nursery compositions to choose from.',
+      generateCopyCount:
+        'Caption variants per product in manual mode.\n\nExample: 2 = two hook styles (emotional vs feature-led) for the same image.',
+      enableTask:
+        'Pause without deleting configuration.\n\nExample: Uncheck during a stock outage; re-enable when inventory returns.',
+      enableSceneReference:
+        'Also sends Scene images from the product (Products → Scene images) — lifestyle photos showing the product in real rooms.\n\nExample: Scene ref shows night light on a dresser in a sage nursery → AI generates your SKU in a similar room, not on white.\n\nOff = Product images only (typically packshots or isolated backgrounds).',
+      notifyOnPublish:
+        'Email after each successful auto publish with links to live posts.\n\nExample: Daily 10am task → inbox confirmation with Instagram/Facebook URLs.',
+      visionImagePrompt:
+        'Vision AI analyzes your reference photos and writes the image prompt instead of using visual style text templates.\n\nExample: Reads nursery scene refs → prompt mentions "sheer curtains, oak furniture, warm morning light".\n\nWorks with scene reference: product + scene photos analyzed together. Off = faster template from selected visual styles.',
+      imageModel:
+        'Override global default provider/model for this task only.\n\nExample: Use your Doubao key for this brand while Studio still uses platform credits.',
     },
   },
   pending: {
@@ -429,8 +475,10 @@ export const pagesEn: TranslationTree = {
     platform: 'Platform',
     enableSceneReference: 'Enable scene image reference',
     visionImagePrompt: 'Vision model writes image prompt',
-    sceneRefHint: 'When enabled, reference images are selected from scene images combined with product images',
-    visionHint: 'Off: legacy text/template. On: vision model writes prompt from reference images only. Can combine with scene reference.',
+    sceneRefHint:
+      'Uses Scene images from the product (lifestyle photos in real rooms) plus Product images.\n\nExample: Night light on a nursery dresser → generated image matches that cozy room style.',
+    visionHint:
+      'Off = prompt built from visual style names (fast). On = vision AI describes what it sees in your refs.\n\nExample: "sheer curtains, oak dresser, warm morning light" — works with scene reference.',
     generating: 'Generating…',
     generatingAll1: 'Sprinkling magic dust… ✨',
     generatingAll2: 'Crafting your main-character energy…',
@@ -612,12 +660,16 @@ export const pagesEn: TranslationTree = {
     systemUnavailable: 'Platform image generation is not configured. Contact an admin.',
     contactAdmin: 'Contact admin for credits',
     tooltips: {
-      title: 'Choose the system default provider, or override with one of your own API keys.',
+      title:
+        'Which API generates the image. System default uses platform credits; your provider uses your own key.',
       provider:
-        'Leave empty to use the system default. Selecting a name uses your own API key for this generation.',
-      modelId: 'Model or endpoint ID for the selected provider. Pick from the list or choose Custom to type one.',
-      aspectRatio: 'Output image aspect ratio. Choose a preset or enter a custom WxH size.',
-      source: 'Platform uses shared credits; My provider uses your own API key (no credit cost).',
+        'Empty = platform default (counts against your credits). Pick a name = your saved API key.\n\nExample: "Production Doubao" for brand tasks; leave default for quick Studio tests.',
+      modelId:
+        'Exact model or endpoint ID the provider expects.\n\nExample: qwen-image-edit for image-to-image (needs reference photos); qwen-image-2.0 for text-only.\n\nTip: Image-to-image models usually end in -edit or -i2i.',
+      aspectRatio:
+        'Output dimensions. Match your publish platform.\n\nExample: 1:1 (2048×2048) for Instagram feed; 9:16 for Stories/Reels/TikTok; 16:9 for YouTube thumbnails.',
+      source:
+        'Platform = shared credits (shown as remaining count). My provider = your API key, no credit charge.\n\nExample: Credits low → switch to BYOK; testing new model → use platform once.',
     },
   },
   subscribeCredits: {
@@ -731,12 +783,18 @@ export const pagesZh: TranslationTree = {
       loading: '加载分类中…',
     },
     tooltips: {
-      productName: '产品的名称，用于识别和展示',
-      category: '从已有分类中选择或创建新分类，避免重复和拼写错误',
-      description: '产品的详细描述，用于生成文案和图像提示词',
-      sellingPoints: '产品的核心卖点，用逗号分隔多个卖点，用于生成文案',
-      brandVoice: '品牌的语言风格和调性，影响生成文案的语气（最多 {{max}} 字）',
-      brand: '产品继承语音与内容规则的品牌套件',
+      productName:
+        '产品在列表、Studio 与自动化任务中的显示名称。\n\n例：「Bebcare Linda 小夜灯」，不要用内部 SKU 编码。',
+      category:
+        '用于筛选产品，也可限定视觉风格预设的适用范围。\n\n例：「婴儿监护器」与「小夜灯」可能对应不同的场景选项。',
+      description:
+        '完整产品描述，用于生成文案；关闭视觉 Prompt 时也会影响图像提示词。\n\n例：「USB-C 充电、7 色柔光、硅胶材质、适合婴儿房」。',
+      sellingPoints:
+        '文案模型应突出的卖点，逗号分隔。\n\n例：「可充电、可调光、BPA-free、300 小时续航」。',
+      brandVoice:
+        '仅覆盖本产品调性，不影响同品牌其他 SKU（最多 {{max}} 字）。\n\n例：「像妈妈跟朋友聊天，温暖务实，不要医疗腔」。',
+      brand:
+        '继承哪个品牌套件的调性、话题标签、Logo 规则与 Buffer 账户。\n\n例：选「Bebcare」则帖子用该品牌语气并从对应 Buffer 发布。',
     },
   },
   brands: {
@@ -804,20 +862,34 @@ export const pagesZh: TranslationTree = {
       advanced: '高级',
     },
     tooltips: {
-      name: '品牌套件显示名称',
-      voice: '生成文案时使用的语气与风格',
-      audience: '目标受众描述',
-      toneKeywords: '逗号分隔的语气关键词',
-      bufferAccount: '该品牌产品发布所用的 Buffer 账户。一对一独占：一个账户只能绑一个品牌。',
-      hashtags: '发布时附加的默认话题标签',
-      emojiStyle: '文案中表情符号使用量',
-      wordsToAvoid: '模型应避免使用的词汇',
-      verticalPack: '图像生成的视觉风格预设包',
-      logoFontRule: '参考图中有印刷标识时的保真要求（颜色、字体、禁止变形等）',
-      logoInImages: '生成图像时如何处理品牌 Logo',
-      logo: '显示在品牌卡片与选择器中的方形 Logo',
-      copySystemPrompt: '文案生成的系统提示词覆盖',
-      imageSystemPrompt: '图像生成的系统提示词覆盖',
+      name:
+        '品牌套件在下拉框与卡片中的名称。\n\n例：「Bebcare 美国站」，而不是内部代码「BC-01」。',
+      voice:
+        '该品牌下所有产品的默认写作风格。\n\n例：「靠谱育儿达人——实用建议，不贩卖焦虑」。',
+      audience:
+        '文案面向谁，影响开头与举例。\n\n例：「25–35 岁新手爸妈，在线购买婴儿房用品」。',
+      toneKeywords:
+        '逗号分隔的语气关键词，模型会尽量贴合。\n\n例：「温暖、轻松、可信、少术语」。',
+      bufferAccount:
+        '自动发布时使用的 Buffer Token。一个账户只能绑一个品牌。\n\n例：绑定「Bebcare Buffer」，Bebcare 产品不会发到其他组织。',
+      hashtags:
+        '生成帖子末尾附加的默认话题标签。\n\n例：「#Bebcare #婴儿房好物 #新手妈妈」。',
+      emojiStyle:
+        '文案中表情符号用量。\n\n例：少量 = 每条最多一个；丰富 = 开头和 CTA 可用多个。',
+      wordsToAvoid:
+        '模型禁止使用的词（法律、调性或竞品）。\n\n例：「廉价、神效、未标注的 #ad」。',
+      verticalPack:
+        '图像生成用的视觉风格维度预设包（场景、光线等）。\n\n例：「母婴家庭」会加入婴儿房、游戏区、晨光等选项。',
+      logoFontRule:
+        '参考图上有印刷 Logo 时的保真要求。\n\n例：「Bebcare 字样保持 #2B5CE6 蓝色、无衬线、曲面不扭曲」。',
+      logoInImages:
+        '生成图是否含 Logo、如何含。\n\n例：保留 = 仅当参考图里已有；导出叠加 = AI 出无标图 + 导出时贴你的 Logo。',
+      logo:
+        '品牌卡片与「导出叠加」模式用的方形 Logo。\n\n例：上传透明背景 PNG。',
+      copySystemPrompt:
+        '高级：覆盖文案模型的系统指令，影响该品牌所有帖子。\n\n提示：仅在你熟悉 Prompt 时修改。',
+      imageSystemPrompt:
+        '高级：覆盖图像生成的系统指令。\n\n例：「始终柔和自然光，产品为画面主体，不要硬闪」。',
     },
     selector: {
       products: '{{count}} 个产品',
@@ -914,14 +986,22 @@ export const pagesZh: TranslationTree = {
     realisticPlacement: '真实产品摆放',
     previewingAs: '预览品牌',
     tooltips: {
-      product: '所选产品的参考图、分类与品牌语音将用于生成文案与图像。',
-      platforms: '选择一个或多个发布平台，生成内容会按平台调整语气与格式。',
-      sceneReference: '结合场景参考图与产品图生成，使画面更贴近真实使用环境。',
-      visionPrompt: '开启后由视觉模型根据参考图撰写图像 Prompt，而非使用文本模板。',
-      realisticPlacement: '开启后产品贴合承托面并带接触阴影；关闭可生成悬浮/英雄构图生活方式图。',
-      generateAll: '为所选产品与平台同时生成文案与图像。',
-      generateCopy: '仅生成社媒文案，适合已有配图时使用。',
-      generateImage: '仅生成产品图像，使用视觉风格与参考照片。',
+      product:
+        '提供产品图、场景图、分类与继承的品牌调性。\n\n例：选「Linda 小夜灯」即用其上传的参考图与 Bebcare 语气。',
+      platforms:
+        '每个平台会调整文案长度、标签与语气。\n\n例：Instagram 偏视觉开头 + 标签；LinkedIn 更长、更专业。',
+      sceneReference:
+        '从产品中读取「场景图像」（真实房间里的生活方式照），与「产品图像」一并送给图像模型。\n\n例：你上传了小夜灯放在婴儿房梳妆台上的照片——开启后会生成类似温馨婴儿房画面，而不是白底商品图。\n\n关闭 = 仅用产品图像（多为白底或抠图）。',
+      visionPrompt:
+        '视觉 AI 阅读参考图并写出详细图像 Prompt，而不是用视觉风格名称拼文本模板。\n\n例：可能生成「透过纱帘的晨光、橡木梳妆台、灰绿色墙面」等具体描述。\n\n关闭 = 用所选视觉风格名称填模板（更快，但不够贴图）。',
+      realisticPlacement:
+        '产品是否贴合承托面并带接触阴影，还是悬浮英雄构图。\n\n例：开启 = 小夜灯在床头柜上带阴影；关闭 = 产品居中发光、无明显台面（广告主图风格）。',
+      generateAll:
+        '一次生成所选平台文案 + 图像。\n\n例：Instagram + Facebook 各一条，配同风格婴儿房生活方式图。',
+      generateCopy:
+        '仅生成文案，不调用图像 API。\n\n例：已有配图，只需为 TikTok 和 Instagram 写不同开头。',
+      generateImage:
+        '仅生成图像，使用下方视觉风格、参考图与图像模型设置。\n\n例：先试三种婴儿房场景再写文案。',
     },
   },
   dimensionsPage: {
@@ -964,10 +1044,14 @@ export const pagesZh: TranslationTree = {
     namePlaceholder: '如 温馨婴儿房角落配有木质婴儿床',
     viewDoc: '点击查看说明文档',
     tooltips: {
-      productType: '该维度所属的产品类型。不同产品类型有独立的维度配置（如夜灯、空气净化器等）。',
-      dimensionType: '该条目控制的提示词维度类型（场景、光线、风格、构图等）。创建后不可修改。',
-      itemId: '用于提示词与 API 的稳定 ID。请使用小写英文、数字、下划线或连字符（如 nursery、soft_morning）。',
-      name: '在界面展示的名称，生成时选择维度也会显示此项。',
+      productType:
+        '该风格行适用的产品分类。\n\n例：「小夜灯」有婴儿房场景；「空气净化器」有客厅预设——互不混用。',
+      dimensionType:
+        '控制图像 Prompt 的哪一维，创建后不可改。\n\n例：场景 =「温馨婴儿房」；光线 =「窗边晨光」；构图 =「产品居左三分之一」。',
+      itemId:
+        '写入 Prompt 与 API 的稳定 ID：小写英文、数字、_ 或 -。\n\n例：nursery_corner、soft_morning、hero_centered。',
+      name:
+        'Studio 与自动化里选择风格时显示的名称。\n\n例：「温馨婴儿房角落配木质婴儿床」——关闭视觉 Prompt 时也会写入提示词。',
     },
   },
   tasks: {
@@ -1027,20 +1111,34 @@ export const pagesZh: TranslationTree = {
     deselectCategory: '清空',
     removeProduct: '移除 {{name}}',
     tooltips: {
-      taskName: '任务在列表中显示的名称，仅用于识别。',
-      taskMode: '自动发布：按 CRON 定时生成并直接发布。手动发布：生成草稿到待发布列表等待审核。',
-      cronExpression: 'CRON 定时格式（分 时 日 月 周）。例如 0 10 * * * 表示每天 10:00 执行。',
-      selectProducts: '选择此任务要生成内容的产品。产品较多时可用搜索和品牌筛选。',
-      publishPlatforms: '自动模式下发布到的平台，至少选择一个。',
-      referenceImageCount: '每次生成时发送给图像模型的产品参考图数量。',
-      runCount: '每次定时执行跑几轮。每轮按顺序为每个已选产品各生成一次。',
-      generateImageCount: '手动模式下每个产品每次运行生成的图片变体数量。',
-      generateCopyCount: '手动模式下每个产品每次运行生成的文案变体数量。',
-      enableTask: '关闭后任务仍保留，但不会按 CRON 执行。',
-      enableSceneReference: '使用产品素材库中的场景/生活方式参考图。',
-      notifyOnPublish: '每次自动发布成功后，向账户邮箱发送通知，包含帖子链接与配图。',
-      visionImagePrompt: '用视觉模型根据参考图撰写图像 Prompt（可与场景参考同时使用）。',
-      imageModel: '仅对此任务覆盖默认图像提供商/模型。',
+      taskName:
+        '任务列表中的名称，不会出现在社媒帖子上。\n\n例：「Bebcare Linda - 豆包每日 IG」。',
+      taskMode:
+        '自动 = 按 CRON 生成并直接发布。手动 = 生成草稿到「待发布」等你审核。\n\n例：新品先用手动模式，确认质量后再改自动。',
+      cronExpression:
+        '执行时间：分 时 日 月 周（5 个字段）。\n\n例：0 10 * * * = 每天 10:00；0 9 * * 1 = 每周一 9:00。',
+      selectProducts:
+        '每次执行包含的产品——每轮每个产品各生成一次。\n\n例：选 3 个 SKU → 每次 CRON 触发产出 3 条内容。',
+      publishPlatforms:
+        '自动发布的目标平台（Buffer 频道）。自动模式至少选一个。\n\n例：勾选 Instagram + Facebook → 同图配文按平台适配。',
+      referenceImageCount:
+        '每次生成发送几张「产品图像」（Products → 产品图像）。\n\n例：1 = 单角度；3 = 正面 + 侧面 + 细节，颜色形状更准。\n\n提示：参考图越多越准，但单次生成成本更高。',
+      runCount:
+        '每次定时触发跑几轮；每轮按顺序覆盖全部已选产品。\n\n例：2 轮 + 3 个产品 = 每次触发共 6 次生成。',
+      generateImageCount:
+        '手动模式下每个产品生成几张图变体（待发布里选一张）。\n\n例：3 = 三种不同婴儿房构图供挑选。',
+      generateCopyCount:
+        '手动模式下每个产品生成几条文案变体。\n\n例：2 = 同一配图两种开头（情感向 vs 功能向）。',
+      enableTask:
+        '暂停执行但不删除配置。\n\n例：断货期间取消勾选，补货后再开启。',
+      enableSceneReference:
+        '同时发送产品的「场景图像」（Products → 场景图像）——产品在真实房间里的生活方式照。\n\n例：场景图是小夜灯在灰绿色婴儿房梳妆台上 → AI 会生成类似房间，而不是白底。\n\n关闭 = 仅用产品图像（多为商品白底或抠图）。',
+      notifyOnPublish:
+        '每次自动发布成功后发邮件，含帖子链接。\n\n例：每天 10 点任务 → 收件箱收到 Instagram/Facebook 链接确认。',
+      visionImagePrompt:
+        '视觉 AI 分析参考图并撰写图像 Prompt，而非用视觉风格文本模板。\n\n例：读到婴儿房场景 → Prompt 含「纱帘晨光、橡木家具、暖色调」。\n\n可与场景参考同时开：产品图 + 场景图一起分析。关闭 = 用所选视觉风格拼模板（更快）。',
+      imageModel:
+        '仅本任务覆盖全局默认图像提供商/模型。\n\n例：此品牌任务用豆包 Key，Studio 仍用平台额度。',
     },
   },
   pending: {
@@ -1090,8 +1188,10 @@ export const pagesZh: TranslationTree = {
     platform: '平台',
     enableSceneReference: '启用场景图像参考',
     visionImagePrompt: '视觉模型写图像 Prompt',
-    sceneRefHint: '开启后将从场景图像中选择参考图，结合产品图像进行生成',
-    visionHint: '关闭：旧方案（文本/模板）。开启：视觉模型仅看参考图自主写 Prompt。可与「场景图像参考」同时开启——场景图+产品图会分别标注后交给视觉模型',
+    sceneRefHint:
+      '使用产品的「场景图像」（真实房间生活方式照）+「产品图像」。\n\n例：小夜灯在婴儿房梳妆台上 → 生成图会贴近该温馨房间风格。',
+    visionHint:
+      '关闭 = 用视觉风格名称拼 Prompt（快）。开启 = 视觉 AI 描述参考图内容。\n\n例：「纱帘晨光、橡木梳妆台、暖色调」——可与场景参考同时开。',
     generating: '生成中...',
     generatingAll1: '撒点魔法粉… ✨',
     generatingAll2: '调配你的主角氛围感…',
@@ -1272,11 +1372,16 @@ export const pagesZh: TranslationTree = {
     systemUnavailable: '平台图像供应商未配置，请联系管理员。',
     contactAdmin: '联系管理员开通次数',
     tooltips: {
-      title: '可使用系统默认供应商，或改选你自己的 API Key。',
-      provider: '留空使用系统默认；选择名称则使用你自己的 API Key。',
-      modelId: '所选提供商的模型或 Endpoint ID。可从列表选择，或选「自定义」手动填写。',
-      aspectRatio: '输出图片宽高比。可选手动预设，或自定义宽高（WxH）。',
-      source: '平台额度使用共享次数；我的供应商使用你自己的 API Key（不扣次数）。',
+      title:
+        '由哪个 API 出图。系统默认扣平台额度；选自己的 Provider 用你的 Key。',
+      provider:
+        '留空 = 平台默认（扣次数）。选名称 = 使用你保存的 API Key。\n\n例：品牌任务选「生产豆包」；Studio 试玩可留默认。',
+      modelId:
+        '服务商要求的模型或 Endpoint ID。\n\n例：qwen-image-edit 为图生图（需参考图）；qwen-image-2.0 为纯文生图。\n\n提示：图生图模型常以 -edit 或 -i2i 结尾。',
+      aspectRatio:
+        '输出尺寸，建议匹配发布平台。\n\n例：1:1（2048×2048）Instagram 信息流；9:16 故事/Reels/TikTok；16:9 YouTube 封面。',
+      source:
+        '平台额度 = 共享次数（显示剩余）。我的供应商 = 你的 Key，不扣次数。\n\n例：次数不足切 BYOK；试新模型可先用平台试一次。',
     },
   },
   subscribeCredits: {
