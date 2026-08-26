@@ -98,16 +98,16 @@ WRITING_STYLES = {
 
 def normalize_locale(locale: Optional[str]) -> str:
     if not locale:
-        return "zh"
-    value = str(locale).lower().strip().replace("_", "-")
-    if value.startswith("en"):
         return "en"
-    return "zh"
+    value = str(locale).lower().strip().replace("_", "-")
+    if value.startswith("zh"):
+        return "zh"
+    return "en"
 
 
 def locale_from_product_info(product_info: Optional[Dict]) -> str:
     if not product_info:
-        return "zh"
+        return "en"
     return normalize_locale(product_info.get("locale"))
 
 

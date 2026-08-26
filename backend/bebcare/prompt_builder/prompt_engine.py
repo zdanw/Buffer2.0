@@ -547,7 +547,7 @@ Output only the post content — no other text.
             "dimensions": dimensions_info
         }
 
-    def build_negative_prompt(self, locale: str = "zh") -> str:
+    def build_negative_prompt(self, locale: str = "en") -> str:
         return prompt_locale.build_negative_prompt(locale)
 
     def build_scene_reference_prompt(self, product_info: Dict, platform: str, style_hint: Optional[str] = None, db=None) -> Dict:

@@ -69,7 +69,7 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_size": request.image_size,
         "image_provider_mode": request.image_provider_mode,
         "owner_user_id": product.owner_user_id,
-        "locale": request.locale or "zh",
+        "locale": request.locale or "en",
     }
     return enrich_product_info(db, product, base)
 
@@ -285,6 +285,7 @@ def generate_copywriting_only(
         "brand_voice": product.brand_voice,
         "platform": request.platform,
         "style_hint": request.style_hint,
+        "locale": request.locale or "en",
     }
     product_info = enrich_product_info(db, product, base)
 

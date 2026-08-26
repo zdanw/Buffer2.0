@@ -222,7 +222,7 @@ class ContentGenerator:
 
     @staticmethod
     def _format_recent_prompt_avoidance(
-        recent_prompts: List[str], locale: str = "zh"
+        recent_prompts: List[str], locale: str = "en"
     ) -> str:
         return prompt_locale.format_recent_prompt_avoidance(recent_prompts, locale)
 
