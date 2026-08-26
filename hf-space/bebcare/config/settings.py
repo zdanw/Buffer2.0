@@ -100,13 +100,9 @@ class Settings(BaseSettings):
     # CORS：白名单来自 ALLOWED_ORIGINS；禁止 * + credentials
     allowed_origins: str = "http://localhost:5174,http://127.0.0.1:5174"
 
-    # 自动发布通知邮件（SMTP；未配置 SMTP_HOST/SMTP_FROM 时跳过发送）
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: str | None = None
-    smtp_from: str | None = None
-    smtp_use_tls: bool = True
+    # 自动发布通知邮件（Resend；未配置 RESEND_API_KEY/RESEND_FROM 时跳过发送）
+    resend_api_key: str | None = None
+    resend_from: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),

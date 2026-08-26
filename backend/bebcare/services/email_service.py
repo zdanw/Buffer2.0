@@ -1,67 +1,70 @@
-"""SMTP email notifications for auto-publish."""
+"""Resend email notifications for auto-publish."""
 
 from __future__ import annotations
 
 import logging
-import smtplib
 import time
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import Iterable
+
+import resend
 
 from bebcare.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# 连接/发送失败时重试：默认 3 次，间隔 2s → 4s → 8s
-SMTP_MAX_RETRIES = 3
-SMTP_RETRY_INITIAL_DELAY = 2.0
-SMTP_RETRY_BACKOFF = 2.0
+# 发送失败时重试：默认 3 次，间隔 2s → 4s → 8s
+RESEND_MAX_RETRIES = 3
+RESEND_RETRY_INITIAL_DELAY = 2.0
+RESEND_RETRY_BACKOFF = 2.0
 
 
 def is_email_configured() -> bool:
-    return bool(settings.smtp_host and settings.smtp_from)
+    return bool(settings.resend_api_key and settings.resend_from)
 
 
-def _smtp_send(msg: MIMEMultipart, to_email: str) -> None:
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
-        if settings.smtp_use_tls:
-            server.starttls()
-        if settings.smtp_user and settings.smtp_password:
-            server.login(settings.smtp_user, settings.smtp_password)
-        server.sendmail(settings.smtp_from, [to_email], msg.as_string())
+def _resend_send(*, to_email: str, subject: str, html: str, text: str) -> None:
+    resend.api_key = settings.resend_api_key
+    resend.Emails.send(
+        {
+            "from": settings.resend_from,
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        }
+    )
 
 
-def _send_with_retry(msg: MIMEMultipart, to_email: str) -> bool:
-    delay = SMTP_RETRY_INITIAL_DELAY
-    for attempt in range(1, SMTP_MAX_RETRIES + 1):
+def _send_with_retry(*, to_email: str, subject: str, html: str, text: str) -> bool:
+    delay = RESEND_RETRY_INITIAL_DELAY
+    for attempt in range(1, RESEND_MAX_RETRIES + 1):
         try:
-            _smtp_send(msg, to_email)
+            _resend_send(to_email=to_email, subject=subject, html=html, text=text)
             if attempt > 1:
                 logger.info(
                     "Auto-publish notification sent to %s on attempt %s/%s",
                     to_email,
                     attempt,
-                    SMTP_MAX_RETRIES,
+                    RESEND_MAX_RETRIES,
                 )
             return True
         except Exception as exc:
-            if attempt < SMTP_MAX_RETRIES:
+            if attempt < RESEND_MAX_RETRIES:
                 logger.warning(
-                    "SMTP send attempt %s/%s to %s failed: %s; retrying in %.1fs",
+                    "Resend send attempt %s/%s to %s failed: %s; retrying in %.1fs",
                     attempt,
-                    SMTP_MAX_RETRIES,
+                    RESEND_MAX_RETRIES,
                     to_email,
                     str(exc)[:200],
                     delay,
                 )
                 time.sleep(delay)
-                delay *= SMTP_RETRY_BACKOFF
+                delay *= RESEND_RETRY_BACKOFF
             else:
                 logger.exception(
                     "Failed to send auto-publish notification to %s after %s attempts",
                     to_email,
-                    SMTP_MAX_RETRIES,
+                    RESEND_MAX_RETRIES,
                 )
     return False
 
@@ -119,7 +122,8 @@ def send_auto_publish_notification(
         return False
     if not is_email_configured():
         logger.warning(
-            "Auto-publish email skipped: SMTP not configured (set SMTP_HOST and SMTP_FROM)"
+            "Auto-publish email skipped: Resend not configured "
+            "(set RESEND_API_KEY and RESEND_FROM)"
         )
         return False
 
@@ -158,14 +162,9 @@ def send_auto_publish_notification(
 """
 
     recipient = to_email.strip()
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
-    msg["To"] = recipient
-    msg.attach(MIMEText(text_body, "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-    if _send_with_retry(msg, recipient):
+    if _send_with_retry(
+        to_email=recipient, subject=subject, html=html_body, text=text_body
+    ):
         logger.info("Auto-publish notification sent to %s for task %s", recipient, task_name)
         return True
     return False

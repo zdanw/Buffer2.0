@@ -17,6 +17,7 @@ datasketch==1.6.3
 requests==2.31.0
 httpx==0.26.0
 stripe==11.5.0
+resend==2.40.2
 numpy<2.0
 python-multipart==0.0.9
 setuptools>=65.0.0
