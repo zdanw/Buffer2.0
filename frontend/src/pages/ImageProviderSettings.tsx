@@ -22,6 +22,10 @@ import {
   type ImageProviderType,
   type ManualModelEntry,
 } from '@/api/imageProviders';
+import {
+  getSystemImageProviderSummary,
+  type SystemProviderSummary,
+} from '@/api/systemImageProvider';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
@@ -66,6 +70,7 @@ const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean 
 export default function ImageProviderSettings() {
   const { t } = useI18n();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
+  const [platformPreset, setPlatformPreset] = useState<SystemProviderSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,8 +95,12 @@ export default function ImageProviderSettings() {
     try {
       if (opts?.silent) setRefreshing(true);
       else setLoading(true);
-      const data = await listImageProviders();
+      const [data, summary] = await Promise.all([
+        listImageProviders(),
+        getSystemImageProviderSummary().catch(() => ({ has_provider: false as const })),
+      ]);
       setProviders(data);
+      setPlatformPreset(summary.has_provider ? summary : null);
     } catch (err: any) {
       setError(err.response?.data?.detail || t('common.loadFailed'));
     } finally {
@@ -343,6 +352,29 @@ export default function ImageProviderSettings() {
       )}
 
       <div className="space-y-3">
+        {platformPreset?.has_provider && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h3 className="font-semibold text-gray-900">{platformPreset.name}</h3>
+                <span className="px-2 py-0.5 text-xs rounded-full bg-forge-100 text-forge-700">
+                  {t('imageProviders.systemDefault')}
+                </span>
+                {platformPreset.provider_type && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
+                    {providerTypeLabel(platformPreset.provider_type as ImageProviderType)}
+                  </span>
+                )}
+              </div>
+              {platformPreset.default_model ? (
+                <p className="text-xs text-gray-400 mt-1">
+                  {t('imageProviders.defaultModel')}: {platformPreset.default_model}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )}
+
         {providers.map((p) => (
           <div
             key={p.id}
@@ -439,7 +471,7 @@ export default function ImageProviderSettings() {
           </div>
         ))}
 
-        {providers.length === 0 && (
+        {providers.length === 0 && !platformPreset?.has_provider && (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
             {t('imageProviders.emptyState')}
           </div>

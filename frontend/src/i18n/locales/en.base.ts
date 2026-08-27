@@ -207,7 +207,7 @@ export const en: TranslationTree = {
     editProvider: 'Edit Provider',
     testConnection: 'Test connection',
     emptyState: 'No image providers yet. Add your own API key to generate images.',
-    systemDefault: 'System default',
+    systemDefault: 'Platform preset',
     currentDefault: 'Current global default',
     setDefaultSuccess: 'Set as global default',
     confirmDelete: 'Delete this provider?',

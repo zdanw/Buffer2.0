@@ -206,7 +206,7 @@ export const zh: TranslationTree = {
     editProvider: '编辑 Provider',
     testConnection: '测试连接',
     emptyState: '尚未添加图像 Provider。请添加你自己的 API Key 以生成图像。',
-    systemDefault: '系统默认',
+    systemDefault: '平台预设',
     currentDefault: '当前全局默认',
     setDefaultSuccess: '已设为全局默认',
     confirmDelete: '确定删除该 Provider？',
