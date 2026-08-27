@@ -1,4 +1,4 @@
-import { Calendar, Image, Settings, Clock, LogOut, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, UserRound } from 'lucide-react';
+import { Calendar, Image, Settings, Clock, LogOut, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, UserRound, Bot } from 'lucide-react';
 import { clearAuth } from '../api/auth';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -50,6 +50,10 @@ const adminItems: NavItem[] = [
   { id: 'users', labelKey: 'nav.users', icon: Users },
 ];
 
+const devItems: NavItem[] = [
+  { id: 'vision-playground', labelKey: 'nav.visionPlayground', icon: Bot },
+];
+
 export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = false, onClose }: SidebarProps) {
   const { t } = useI18n();
 
@@ -67,6 +71,10 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
 
   if (isAdmin) {
     groups.push({ labelKey: 'nav.groups.admin', items: adminItems });
+  }
+
+  if (import.meta.env.DEV) {
+    groups.push({ labelKey: 'nav.groups.dev', items: devItems });
   }
 
   const renderItem = (item: NavItem) => {

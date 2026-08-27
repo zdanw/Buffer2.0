@@ -13,6 +13,7 @@ export const en: TranslationTree = {
       insights: 'Insights',
       settings: 'Settings',
       admin: 'Admin',
+      dev: 'Dev',
     },
     brand: 'Brand',
     products: 'Products',
@@ -31,6 +32,7 @@ export const en: TranslationTree = {
     account: 'Account',
     systemImage: 'Platform Image',
     users: 'Users',
+    visionPlayground: 'Agnes Playground',
     logout: 'Log out',
     adminAccount: 'Admin account',
     openMenu: 'Open menu',
@@ -274,6 +276,7 @@ export const en: TranslationTree = {
       doubao_ark: 'Doubao Ark',
       aliyun_maas: 'Aliyun MaaS image-to-image',
       google_gemini: 'Google Gemini (Nano Banana)',
+      agnes: 'Agnes',
     },
     validation: {
       nameAndUrlRequired: 'Name and Base URL are required',

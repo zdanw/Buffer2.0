@@ -50,6 +50,43 @@ def test_openai_verify_credentials_passes():
         provider.verify_credentials()
 
 
+def test_openai_generate_omits_response_format_for_agnes():
+    provider = OpenAICompatibleImageProvider(
+        api_key="sk-agnes",
+        base_url="https://api.agnes-ai.cn/v1",
+        default_model="agnes-t2i-general-model",
+        extra_params={"response_format": "url"},
+    )
+    ok = _ok_resp()
+    ok.json.return_value = {"data": [{"url": "https://cdn.example/a.png"}]}
+    with patch(
+        "bebcare.providers.openai_compatible.requests.post",
+        return_value=ok,
+    ) as post:
+        urls = provider.generate(prompt="a product shot", size="1024x1024")
+    assert urls == ["https://cdn.example/a.png"]
+    body = post.call_args.kwargs["json"]
+    assert "response_format" not in body
+    assert body["model"] == "agnes-t2i-general-model"
+
+
+def test_openai_generate_allows_response_format_via_extra_params():
+    provider = OpenAICompatibleImageProvider(
+        api_key="sk-ok",
+        base_url="https://api.openai.com/v1",
+        default_model="dall-e-3",
+        extra_params={"response_format": "url"},
+    )
+    ok = _ok_resp()
+    ok.json.return_value = {"data": [{"url": "https://cdn.example/b.png"}]}
+    with patch(
+        "bebcare.providers.openai_compatible.requests.post",
+        return_value=ok,
+    ) as post:
+        provider.generate(prompt="hi", size="1024x1024")
+    assert post.call_args.kwargs["json"]["response_format"] == "url"
+
+
 def test_aliyun_verify_credentials_hits_compatible_models():
     provider = AliyunMaasMultimodalProvider(
         api_key="sk-ali",

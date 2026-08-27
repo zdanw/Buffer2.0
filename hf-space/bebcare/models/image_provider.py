@@ -17,7 +17,7 @@ class ImageProviderConfig(OwnedMixin, Base):
         index=True,
     )
     name = Column(String(255), nullable=False)
-    provider_type = Column(String(50), nullable=False)  # openai_compatible | doubao_ark | aliyun_maas | google_gemini
+    provider_type = Column(String(50), nullable=False)  # openai_compatible | doubao_ark | aliyun_maas | google_gemini | agnes
     base_url = Column(String(512), nullable=False)
     api_key_encrypted = Column(Text, nullable=False)
     supports_list_models = Column(Boolean, default=True)

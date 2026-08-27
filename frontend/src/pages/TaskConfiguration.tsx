@@ -716,6 +716,7 @@ export default function TaskConfiguration() {
                   realistic_placement:
                     formData.realistic_placement ??
                     DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
+                  reference_count: formData.reference_image_count ?? DEFAULT_IMAGE_GENERATION_CONTROLS.reference_count,
                 }}
                 onChange={(next) =>
                   setFormData({

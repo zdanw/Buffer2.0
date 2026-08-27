@@ -3,7 +3,13 @@ from typing import Optional, List, Literal, Any, Dict
 from datetime import datetime
 
 
-ProviderType = Literal["openai_compatible", "doubao_ark", "aliyun_maas", "google_gemini"]
+ProviderType = Literal[
+    "openai_compatible",
+    "doubao_ark",
+    "aliyun_maas",
+    "google_gemini",
+    "agnes",
+]
 
 
 class ManualModelEntry(BaseModel):

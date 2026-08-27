@@ -31,6 +31,7 @@ import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { downloadImage } from '@/lib/download';
 import { resolveEffectiveLogoMode } from '@/lib/logoPolicy';
+import { STUDIO_REFERENCE_COUNT_MAX } from '@/lib/imageGenerationControls';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
 
@@ -40,6 +41,7 @@ interface PreviewState {
   useSceneReference: boolean;
   useVisionImagePrompt: boolean;
   realisticPlacement: boolean;
+  referenceCount: number;
   imageProviderId?: string | null;
   imageModel?: string | null;
   imageSize?: string | null;
@@ -64,6 +66,7 @@ const emptyPreviewState = (): PreviewState => ({
   useSceneReference: false,
   useVisionImagePrompt: false,
   realisticPlacement: true,
+  referenceCount: 2,
   imageProviderId: null,
   imageModel: null,
   imageSize: '2048x2048',
@@ -110,6 +113,9 @@ export default function Studio() {
   );
   const [realisticPlacement, setRealisticPlacement] = useState(
     savedState.realisticPlacement ?? true
+  );
+  const [referenceCount, setReferenceCount] = useState(
+    Math.min(savedState.referenceCount ?? 2, STUDIO_REFERENCE_COUNT_MAX),
   );
   // Provider starts as platform default (empty); ImageModelPicker may switch to BYOK.
   // Do not restore last session override from localStorage.
@@ -210,6 +216,7 @@ export default function Studio() {
       useSceneReference,
       useVisionImagePrompt,
       realisticPlacement,
+      referenceCount,
       imageProviderId,
       imageModel,
       imageSize,
@@ -218,7 +225,7 @@ export default function Studio() {
       isGenerating,
       generatingType,
     });
-  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
+  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, referenceCount, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -341,6 +348,7 @@ export default function Studio() {
         use_scene_reference: useSceneReference,
         use_vision_image_prompt: useVisionImagePrompt,
         realistic_placement: realisticPlacement,
+        reference_count: referenceCount,
         image_provider_id: imageProviderId || undefined,
         image_model: imageModel || undefined,
         image_size: imageSize || undefined,
@@ -566,15 +574,18 @@ export default function Studio() {
           </div>
 
           <ImageGenerationControls
+            showReferenceCount
             value={{
               use_scene_reference: useSceneReference,
               use_vision_image_prompt: useVisionImagePrompt,
               realistic_placement: realisticPlacement,
+              reference_count: referenceCount,
             }}
             onChange={(next) => {
               setUseSceneReference(next.use_scene_reference);
               setUseVisionImagePrompt(next.use_vision_image_prompt);
               setRealisticPlacement(next.realistic_placement);
+              setReferenceCount(next.reference_count);
             }}
             disabled={isGenerating}
           />

@@ -12,6 +12,7 @@ export const zh: TranslationTree = {
       insights: '洞察',
       settings: '设置',
       admin: '管理',
+      dev: '开发',
     },
     brand: '品牌',
     products: '产品',
@@ -30,6 +31,7 @@ export const zh: TranslationTree = {
     account: '个人信息',
     systemImage: '平台图像',
     users: '用户管理',
+    visionPlayground: 'Agnes 测试',
     logout: '退出登录',
     adminAccount: '管理员账户',
     openMenu: '打开菜单',
@@ -273,6 +275,7 @@ export const zh: TranslationTree = {
       doubao_ark: '豆包 Ark',
       aliyun_maas: '阿里云 MaaS 图生图',
       google_gemini: 'Google Gemini（Nano Banana）',
+      agnes: 'Agnes',
     },
     validation: {
       nameAndUrlRequired: '名称与 Base URL 必填',

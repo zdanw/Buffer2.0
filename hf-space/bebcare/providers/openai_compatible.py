@@ -84,7 +84,6 @@ class OpenAICompatibleImageProvider:
             "prompt": prompt,
             "size": size,
             "n": 1,
-            "response_format": "url",
         }
         if negative_prompt:
             data["negative_prompt"] = negative_prompt
@@ -92,6 +91,12 @@ class OpenAICompatibleImageProvider:
             # Best-effort: many OpenAI-compatible gateways accept `image` as URL(s)
             data["image"] = reference_images if len(reference_images) > 1 else reference_images[0]
         data.update(self.extra_params)
+        # Agnes / LiteLLM rejects response_format for some models (e.g. agnes-t2i-*).
+        # Default to URL responses; opt in via extra_params only for non-Agnes gateways.
+        mid = (model_id or "").lower()
+        host = (self.base_url or "").lower()
+        if data.get("response_format") is None or "agnes" in host or mid.startswith("agnes"):
+            data.pop("response_format", None)
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=120)
         try:

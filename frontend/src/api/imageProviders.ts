@@ -1,6 +1,11 @@
 import axiosInstance from './axiosInstance';
 
-export type ImageProviderType = 'openai_compatible' | 'doubao_ark' | 'aliyun_maas' | 'google_gemini';
+export type ImageProviderType =
+  | 'openai_compatible'
+  | 'doubao_ark'
+  | 'aliyun_maas'
+  | 'google_gemini'
+  | 'agnes';
 
 export interface ManualModelEntry {
   id: string;

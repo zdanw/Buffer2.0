@@ -26,6 +26,7 @@ const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
 const SystemImageProviderSettings = lazy(() => import('./pages/SystemImageProviderSettings'));
 const BufferAccountSettings = lazy(() => import('./pages/BufferAccountSettings'));
+const VisionModelPlayground = lazy(() => import('./pages/VisionModelPlayground'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const Landing = lazy(() => import('./pages/Landing'));
@@ -43,6 +44,7 @@ const TAB_ROUTES: Record<string, string> = {
   account: '/account',
   'system-image': '/system-image',
   users: '/users',
+  ...(import.meta.env.DEV ? { 'vision-playground': '/vision-playground' } : {}),
 };
 
 const ROUTE_TABS: Record<string, string> = {
@@ -63,6 +65,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/account': 'account',
   '/system-image': 'system-image',
   '/users': 'users',
+  ...(import.meta.env.DEV ? { '/vision-playground': 'vision-playground' } : {}),
 };
 
 const LEGACY_REDIRECTS: Record<string, string> = {
@@ -279,6 +282,9 @@ function AppContent() {
             : null}
           {currentUser?.is_admin
             ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
+            : null}
+          {import.meta.env.DEV
+            ? lazyPanel('vision-playground', activeTab, mountedTabs, VisionModelPlayground)
             : null}
         </div>
       </main>

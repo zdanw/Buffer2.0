@@ -273,6 +273,8 @@ export const pagesEn: TranslationTree = {
     brandingOmit: 'no logo',
     brandingComposite: 'logo added on export',
     realisticPlacement: 'Realistic product placement',
+    referenceImageCount: 'Product reference images',
+    referenceImageCountOption: '{{count}} image(s)',
     previewingAs: 'Previewing as',
     tooltips: {
       product:
@@ -285,6 +287,8 @@ export const pagesEn: TranslationTree = {
         'A vision AI reads your reference photos and writes a detailed image prompt instead of filling a text template from visual style names.\n\nExample: It might output "soft morning light through sheer curtains, product on oak dresser, muted sage walls" after seeing your scene refs.\n\nOff = template from selected visual styles (faster, less photo-specific).',
       realisticPlacement:
         'Controls whether the product sits on a surface with contact shadows vs floating hero shots.\n\nExample: ON = night light on nightstand with shadow; OFF = product centered, soft glow, no visible surface (ad hero image).',
+      referenceImageCount:
+        'How many Product images (from Products → Product images) sent to the image model each time (max 4).\n\nExample: 1 = single angle; 3 = front + side + detail for better color and shape match.\n\nTip: More refs improve fidelity but cost more per generation.',
       generateAll:
         'One click: caption + image for every selected platform.\n\nExample: Instagram + Facebook post with matching nursery lifestyle image.',
       generateCopy:
@@ -1002,6 +1006,8 @@ export const pagesZh: TranslationTree = {
     brandingOmit: '不含 Logo',
     brandingComposite: '导出时叠加 Logo',
     realisticPlacement: '真实产品摆放',
+    referenceImageCount: '产品参考图数量',
+    referenceImageCountOption: '{{count}} 张',
     previewingAs: '预览品牌',
     tooltips: {
       product:
@@ -1014,6 +1020,8 @@ export const pagesZh: TranslationTree = {
         '视觉 AI 阅读参考图并写出详细图像 Prompt，而不是用视觉风格名称拼文本模板。\n\n例：可能生成「透过纱帘的晨光、橡木梳妆台、灰绿色墙面」等具体描述。\n\n关闭 = 用所选视觉风格名称填模板（更快，但不够贴图）。',
       realisticPlacement:
         '产品是否贴合承托面并带接触阴影，还是悬浮英雄构图。\n\n例：开启 = 小夜灯在床头柜上带阴影；关闭 = 产品居中发光、无明显台面（广告主图风格）。',
+      referenceImageCount:
+        '每次生成时从产品「产品图像」中选取几张送给图像模型（最多 4 张）。\n\n例：1 = 单一角度；3 = 正面 + 侧面 + 细节，颜色与外形更准。\n\n提示：参考图越多还原度越高，单次生成成本也更高。',
       generateAll:
         '一次生成所选平台文案 + 图像。\n\n例：Instagram + Facebook 各一条，配同风格婴儿房生活方式图。',
       generateCopy:

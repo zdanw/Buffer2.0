@@ -7,6 +7,7 @@ from bebcare.providers.openai_compatible import OpenAICompatibleImageProvider
 from bebcare.providers.doubao_ark import DoubaoArkImageProvider
 from bebcare.providers.aliyun_maas import AliyunMaasMultimodalProvider
 from bebcare.providers.google_gemini import GoogleGeminiImageProvider
+from bebcare.providers.agnes import AgnesImageProvider
 
 # Virtual provider id for legacy env Doubao (not stored in DB)
 SYSTEM_IMAGE_PROVIDER_ID = "system"
@@ -32,6 +33,8 @@ def _build_provider(config: ImageProviderConfig, api_key: str):
         return AliyunMaasMultimodalProvider(**kwargs)
     if config.provider_type == "google_gemini":
         return GoogleGeminiImageProvider(**kwargs)
+    if config.provider_type == "agnes":
+        return AgnesImageProvider(**kwargs)
     raise ValueError(f"Unsupported provider_type: {config.provider_type}")
 
 

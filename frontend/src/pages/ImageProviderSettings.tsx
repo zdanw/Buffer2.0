@@ -57,6 +57,10 @@ const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean 
     base_url: 'https://generativelanguage.googleapis.com/v1beta',
     list: true,
   },
+  agnes: {
+    base_url: 'https://api.agnes-ai.cn/v1',
+    list: true,
+  },
 };
 
 export default function ImageProviderSettings() {
@@ -493,6 +497,9 @@ export default function ImageProviderSettings() {
                       provider_type: providerType,
                       base_url: preset.base_url,
                       supports_list_models: preset.list,
+                      ...(providerType === 'agnes' && !form.default_model
+                        ? { default_model: 'agnes-image-2.1-flash' }
+                        : {}),
                     });
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"

@@ -27,6 +27,7 @@ _BY_PROVIDER: Dict[str, List[Dict[str, Any]]] = {
     "aliyun_maas": _COMMON_SIZES,
     "openai_compatible": _COMMON_SIZES,
     "google_gemini": _COMMON_SIZES,
+    "agnes": _COMMON_SIZES,
 }
 
 
