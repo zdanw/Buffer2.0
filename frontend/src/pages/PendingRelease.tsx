@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw } from 'lucide-react';
+import { Calendar, Check, X, Trash2, Send, Eye, ZoomIn, RefreshCw, Share2 } from 'lucide-react';
 import type { ManualTaskDraft, PaginatedResponse } from '@/api/tasks';
 import { getDrafts, publishDraft, discardDraft, reuploadDraftCdn } from '@/api/tasks';
 import { getTasks } from '@/api/tasks';
 import type { ScheduledTask } from '@/api/tasks';
 import { getProducts } from '@/api/products';
+import { listBufferAccounts } from '@/api/bufferAccounts';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
@@ -54,10 +55,12 @@ export default function PendingRelease() {
   const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [reuploading, setReuploading] = useState(false);
   const [productBrandMap, setProductBrandMap] = useState<Record<string, { brand_id?: string; name?: string; slug?: string }>>({});
+  /** brand_id → Buffer account display name (bound brands only) */
+  const [brandBufferMap, setBrandBufferMap] = useState<Record<string, string>>({});
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
 
   useEffect(() => {
-    void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands()]);
+    void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands(), loadBufferAccountMap()]);
   }, [activeBrandId]);
 
   const loadProductBrands = async () => {
@@ -73,6 +76,29 @@ export default function PendingRelease() {
     } catch (error) {
       console.error('Failed to load product brands:', error);
     }
+  };
+
+  const loadBufferAccountMap = async () => {
+    try {
+      const accounts = await listBufferAccounts();
+      const map: Record<string, string> = {};
+      for (const account of accounts) {
+        for (const brandId of account.brand_ids || []) {
+          map[brandId] = account.name;
+        }
+      }
+      setBrandBufferMap(map);
+    } catch (error) {
+      console.error('Failed to load buffer accounts:', error);
+      setBrandBufferMap({});
+    }
+  };
+
+  const getDraftBufferAccountName = (draft: ManualTaskDraft): string | null => {
+    if (!draft.product_id) return null;
+    const brandId = productBrandMap[draft.product_id]?.brand_id;
+    if (!brandId) return null;
+    return brandBufferMap[brandId] || null;
   };
 
   const visibleDrafts = useMemo(() => {
@@ -100,7 +126,11 @@ export default function PendingRelease() {
     setRefreshing(true);
     try {
       invalidateCache('tasks');
-      await Promise.all([loadDrafts(currentPage, undefined, { keepRows: true }), loadTasks(true)]);
+      await Promise.all([
+        loadDrafts(currentPage, undefined, { keepRows: true }),
+        loadTasks(true),
+        loadBufferAccountMap(),
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -315,7 +345,9 @@ export default function PendingRelease() {
           ) : (
             <>
               <div className={`space-y-3 max-h-[600px] overflow-y-auto ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
-                {visibleDrafts.map((draft) => (
+                {visibleDrafts.map((draft) => {
+                  const bufferName = getDraftBufferAccountName(draft);
+                  return (
                   <div
                     key={draft.draft_id}
                     className={`border rounded-lg p-4 cursor-pointer transition-all ${
@@ -330,6 +362,21 @@ export default function PendingRelease() {
                         <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
                           {getTaskName(draft.task_id)}
                         </span>
+                        {bufferName ? (
+                          <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-gray-600">
+                            <Share2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate max-w-[200px]" title={bufferName}>
+                              {bufferName}
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="mt-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-amber-50 text-amber-700 font-medium">
+                              <Share2 className="w-3 h-3 shrink-0" />
+                              {t('pending.bufferAccountUnbound')}
+                            </span>
+                          </p>
+                        )}
                         <p className="text-sm text-gray-500 mt-1">
                           {formatDate(draft.created_at)}
                         </p>
@@ -378,7 +425,8 @@ export default function PendingRelease() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               {total > 0 && (
                 <div className="mt-4">

@@ -476,6 +476,7 @@ export const pagesEn: TranslationTree = {
     unknownTask: 'Unknown task',
     contentPreview: 'Content preview',
     moreImages: '+{{count}}',
+    bufferAccountUnbound: 'Buffer unbound',
   },
   preview: {
     title: 'Content preview',
@@ -1209,6 +1210,7 @@ export const pagesZh: TranslationTree = {
     unknownTask: '未知任务',
     contentPreview: '内容预览',
     moreImages: '+{{count}}',
+    bufferAccountUnbound: '未绑定 Buffer',
   },
   preview: {
     title: '内容预览',
