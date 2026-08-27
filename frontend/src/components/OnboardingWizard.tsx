@@ -5,6 +5,7 @@ import { createProduct, uploadProductImages } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { LIMITS } from '@/lib/formValidation';
+import { toast } from '@/lib/feedback';
 
 type Step = 'welcome' | 'brand' | 'product' | 'done';
 
@@ -52,7 +53,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
       await onComplete();
     } catch (err) {
       console.error(err);
-      alert(t('common.saveFailed'));
+      toast.error(t('common.saveFailed'));
     } finally {
       setBusy(false);
     }

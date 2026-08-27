@@ -11,6 +11,7 @@ import {
 import type { ImageProviderType } from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
+import { confirmDialog } from '@/lib/feedback';
 
 const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean }> = {
   openai_compatible: {
@@ -219,7 +220,10 @@ export default function SystemImageProviderSettings() {
                   type="button"
                   className="text-xs px-2 py-1 border rounded-lg text-red-600"
                   onClick={async () => {
-                    if (!confirm(t('systemImageProviders.confirmDelete'))) return;
+                    if (!(await confirmDialog({
+                      message: t('systemImageProviders.confirmDelete'),
+                      danger: true,
+                    }))) return;
                     await deleteSystemImageProvider(row.id);
                     notifyImageProvidersChanged();
                     await load();

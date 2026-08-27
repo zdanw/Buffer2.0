@@ -7,6 +7,7 @@ import LoadingIndicator from '@/components/LoadingIndicator';
 import { useI18n } from '@/i18n/useI18n';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { formatServerDateTime } from '@/lib/datetime';
+import { confirmDialog } from '@/lib/feedback';
 import {
   cancelSubscription,
   createCheckoutSession,
@@ -102,7 +103,10 @@ export default function SubscribeCreditsModal({
 
   const handleCancel = async (item: SubscriptionItem) => {
     const label = packLabelFor(item);
-    if (!window.confirm(t('subscribeCredits.cancelConfirm', { pack: label }))) return;
+    if (!(await confirmDialog({
+      message: t('subscribeCredits.cancelConfirm', { pack: label }),
+      danger: true,
+    }))) return;
     setSubBusyId(item.stripe_subscription_id);
     setError(null);
     try {

@@ -30,6 +30,7 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
+import { confirmDialog } from '@/lib/feedback';
 
 const EMPTY_FORM: ImageProviderCreate = {
   name: '',
@@ -253,7 +254,11 @@ export default function ImageProviderSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('imageProviders.confirmDelete'))) return;
+    const ok = await confirmDialog({
+      message: t('imageProviders.confirmDelete'),
+      danger: true,
+    });
+    if (!ok) return;
     setDeletingId(id);
     try {
       await deleteImageProvider(id);

@@ -7,6 +7,7 @@ import { getProducts, type Product } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { LIMITS, alertValidationErrors } from '@/lib/formValidation';
+import { toast, confirmDialog } from '@/lib/feedback';
 import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
@@ -245,29 +246,32 @@ export default function TaskConfiguration() {
       closeModal();
     } catch (error) {
       console.error('Failed to save task:', error);
-      alert(t('tasks.saveFailed'));
+      toast.error(t('tasks.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (taskId: string) => {
-    if (confirm(t('tasks.confirmDelete'))) {
-      setDeletingId(taskId);
-      try {
-        await deleteTask(taskId);
-        invalidateCache('tasks');
-        const remaining = tasks.length - 1;
-        setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
-        setTotal((t) => Math.max(0, t - 1));
-        if (remaining <= 0 && currentPage > 1) {
-          void loadTasks(currentPage - 1);
-        }
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      } finally {
-        setDeletingId(null);
+    const ok = await confirmDialog({
+      message: t('tasks.confirmDelete'),
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingId(taskId);
+    try {
+      await deleteTask(taskId);
+      invalidateCache('tasks');
+      const remaining = tasks.length - 1;
+      setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
+      setTotal((t) => Math.max(0, t - 1));
+      if (remaining <= 0 && currentPage > 1) {
+        void loadTasks(currentPage - 1);
       }
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    } finally {
+      setDeletingId(null);
     }
   };
 

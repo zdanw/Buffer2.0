@@ -13,6 +13,7 @@ import { useOnboarding } from './hooks/useOnboarding';
 import { BrandProvider, useBrandContext } from './context/BrandContext';
 import { getCurrentUser, getToken, claimOnboardingReward } from './api/auth';
 import type { UserResponse } from './api/auth';
+import { toast } from './lib/feedback';
 
 const BrandManagement = lazy(() => import('./pages/BrandManagement'));
 const AssetManagement = lazy(() => import('./pages/AssetManagement'));
@@ -136,7 +137,6 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [onboardingRewardToast, setOnboardingRewardToast] = useState<string | null>(null);
 
   const refreshCurrentUser = async () => {
     try {
@@ -211,7 +211,7 @@ function AppContent() {
     void claimOnboardingReward()
       .then((res) => {
         if (res.granted > 0) {
-          setOnboardingRewardToast(t('onboarding.rewardGranted', { n: res.granted }));
+          toast.success(t('onboarding.rewardGranted', { n: res.granted }));
         }
         return refreshCurrentUser();
       })
@@ -219,12 +219,6 @@ function AppContent() {
         console.error('Failed to claim onboarding reward:', err);
       });
   }, [currentUser, hasBrand, hasProduct, hasGenerated, t]);
-
-  useEffect(() => {
-    if (!onboardingRewardToast) return;
-    const timer = window.setTimeout(() => setOnboardingRewardToast(null), 6000);
-    return () => window.clearTimeout(timer);
-  }, [onboardingRewardToast]);
 
   if (loading) {
     return <AppShellFallback />;
@@ -288,12 +282,6 @@ function AppContent() {
             : null}
         </div>
       </main>
-
-      {onboardingRewardToast ? (
-        <div className="fixed bottom-20 right-4 z-50 max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg">
-          {onboardingRewardToast}
-        </div>
-      ) : null}
 
       {shouldShowOnboarding && (
         <OnboardingWizard

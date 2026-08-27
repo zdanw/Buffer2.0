@@ -25,6 +25,7 @@ import {
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import BufferTokenGuide from '@/components/BufferTokenGuide';
 import { useI18n } from '@/i18n/useI18n';
+import { confirmDialog } from '@/lib/feedback';
 
 const EMPTY_FORM: BufferAccountCreate = {
   name: '',
@@ -181,7 +182,11 @@ export default function BufferAccountSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('bufferAccounts.confirmDelete'))) return;
+    const ok = await confirmDialog({
+      message: t('bufferAccounts.confirmDelete'),
+      danger: true,
+    });
+    if (!ok) return;
     setDeletingId(id);
     try {
       await deleteBufferAccount(id);

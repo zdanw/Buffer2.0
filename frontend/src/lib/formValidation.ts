@@ -1,5 +1,7 @@
 /** Field length limits aligned with backend SQLAlchemy columns */
 
+import { toast } from '@/lib/feedback';
+
 export const LIMITS = {
   productName: 255,
   category: 100,
@@ -87,6 +89,6 @@ export function createValidators(t: TranslateFn) {
 export function alertValidationErrors(errors: Array<string | null | undefined>): boolean {
   const messages = errors.filter((e): e is string => Boolean(e));
   if (messages.length === 0) return false;
-  alert(messages.join('\n'));
+  toast.error(messages.join('\n'));
   return true;
 }

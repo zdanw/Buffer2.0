@@ -25,6 +25,7 @@ import {
 } from '@/api/billing';
 import SubscribeCreditsModal from '@/components/SubscribeCreditsModal';
 import { formatServerDateTime } from '@/lib/datetime';
+import { confirmDialog } from '@/lib/feedback';
 import { useI18n } from '@/i18n/useI18n';
 
 function initialsFromUsername(username: string): string {
@@ -130,7 +131,10 @@ export default function AccountSettings() {
   const handleCancelSub = async () => {
     if (!subscription) return;
     const label = packLabel(subscription);
-    if (!window.confirm(t('subscribeCredits.cancelConfirm', { pack: label }))) return;
+    if (!(await confirmDialog({
+      message: t('subscribeCredits.cancelConfirm', { pack: label }),
+      danger: true,
+    }))) return;
     setSubBusy(true);
     setError(null);
     try {

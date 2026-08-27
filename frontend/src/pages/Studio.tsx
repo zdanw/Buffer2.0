@@ -28,6 +28,8 @@ import PlatformIcon from '@/components/icons/PlatformIcon';
 import type { PlatformId } from '@/components/icons/PlatformIcon';
 import { getAuthUserId, studioStateStorageKey } from '@/api/auth';
 import { useBrandContext } from '@/context/BrandContext';
+import { toast } from '@/lib/feedback';
+import PublishProgressOverlay, { usePublishPhaseRunner } from '@/components/PublishProgressOverlay';
 import { useI18n } from '@/i18n/useI18n';
 import { downloadImage } from '@/lib/download';
 import { resolveEffectiveLogoMode } from '@/lib/logoPolicy';
@@ -144,6 +146,7 @@ export default function Studio() {
   const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
 
   const previewBrand = useMemo((): BrandSummary | null => {
     const product = products.find((p) => p.product_id === selectedProduct);
@@ -299,11 +302,11 @@ export default function Studio() {
 
   const handleGenerate = async (type: 'all' | 'copywriting' | 'image') => {
     if (!selectedProduct) {
-      alert(t('preview.selectProductFirst'));
+      toast.info(t('preview.selectProductFirst'));
       return;
     }
     if (selectedPlatforms.length === 0) {
-      alert(t('preview.selectPlatform'));
+      toast.info(t('preview.selectPlatform'));
       return;
     }
     if (isGenerating) return;
@@ -380,28 +383,28 @@ export default function Studio() {
           ? (error as { response?: { status?: number } }).response?.status
           : undefined;
       if (status === 402) {
-        alert(detail || t('imageModelPicker.creditsExhausted'));
+        toast.error(detail || t('imageModelPicker.creditsExhausted'));
       } else if (status === 503) {
-        alert(detail || t('imageModelPicker.systemUnavailable'));
+        toast.error(detail || t('imageModelPicker.systemUnavailable'));
       } else {
-        alert(detail || t('preview.generateFailed'));
+        toast.error(detail || t('preview.generateFailed'));
       }
     }
   };
 
   const handlePublish = async () => {
     if (!generatedContent || !generatedContent.text) {
-      alert(t('preview.generateCopyFirst'));
+      toast.info(t('preview.generateCopyFirst'));
       return;
     }
     if (selectedPlatforms.length === 0) {
-      alert(t('preview.selectPlatform'));
+      toast.info(t('preview.selectPlatform'));
       return;
     }
     const boundBrand =
       brands.find((b) => b.brand_id === previewBrand?.brand_id) || previewBrand;
     if (boundBrand && 'buffer_account_id' in boundBrand && !boundBrand.buffer_account_id) {
-      alert(
+      toast.error(
         t('preview.bindBufferAccount', {
           name: boundBrand.is_generic ? t('brands.generic') : boundBrand.name,
         })
@@ -413,18 +416,23 @@ export default function Studio() {
     setPublishStatus(null);
     
     try {
-      await publishContent(
-        generatedContent.text,
-        generatedContent.image,
-        selectedPlatforms,
-        { product_id: selectedProduct || undefined, brand_id: boundBrand?.brand_id }
+      await runPublishWithProgress(
+        () =>
+          publishContent(
+            generatedContent.text,
+            generatedContent.image,
+            selectedPlatforms,
+            { product_id: selectedProduct || undefined, brand_id: boundBrand?.brand_id }
+          ),
+        selectedPlatforms
       );
       setPublishStatus('success');
+      toast.success(t('preview.publishSuccess'));
     } catch (error: any) {
       console.error('Failed to publish content:', error);
       setPublishStatus('failed');
       const detail = error?.response?.data?.detail;
-      alert(typeof detail === 'string' && detail.trim() ? detail : t('preview.publishFailed'));
+      toast.error(typeof detail === 'string' && detail.trim() ? detail : t('preview.publishFailed'));
     } finally {
       setIsPublishing(false);
     }
@@ -432,7 +440,7 @@ export default function Studio() {
 
   const handleSaveDraft = async () => {
     if (!generatedContent?.text && !generatedContent?.image) {
-      alert(t('preview.generateBeforeSave'));
+      toast.info(t('preview.generateBeforeSave'));
       return;
     }
 
@@ -456,7 +464,7 @@ export default function Studio() {
     } catch (error) {
       console.error('Failed to save draft:', error);
       setSaveDraftStatus('failed');
-      alert(t('preview.saveFailed'));
+      toast.error(t('preview.saveFailed'));
     } finally {
       setIsSavingDraft(false);
     }
@@ -919,6 +927,12 @@ export default function Studio() {
           </div>
         </div>
       )}
+
+      <PublishProgressOverlay
+        open={publishOverlay.open}
+        phase={publishOverlay.phase}
+        platforms={publishOverlay.platforms}
+      />
     </div>
   );
 }

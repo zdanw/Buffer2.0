@@ -12,6 +12,7 @@ import {
   LIMITS,
   alertValidationErrors,
 } from '@/lib/formValidation';
+import { confirmDialog } from '@/lib/feedback';
 import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import { formatServerDateTime } from '@/lib/datetime';
@@ -166,7 +167,11 @@ function UserManagement() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm(t('users.confirmDelete'))) {
+    const ok = await confirmDialog({
+      message: t('users.confirmDelete'),
+      danger: true,
+    });
+    if (!ok) {
       return;
     }
 
@@ -688,8 +693,11 @@ function UserManagement() {
                         <button
                           type="button"
                           disabled={!inv.refundable || refundingId === inv.invoice_id}
-                          onClick={() => {
-                            if (!window.confirm(t('users.refundConfirm'))) return;
+                          onClick={async () => {
+                            if (!(await confirmDialog({
+                              message: t('users.refundConfirm'),
+                              danger: true,
+                            }))) return;
                             setRefundingId(inv.invoice_id);
                             setError('');
                             void refundUserInvoice(

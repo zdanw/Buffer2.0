@@ -71,6 +71,14 @@ export const sharedEn: TranslationTree = {
     copyContent: 'Copy',
     publishPlatformsLabel: 'Publish platforms',
   },
+  publishProgress: {
+    title: 'Publishing',
+    prepare: 'Preparing post content',
+    upload: 'Syncing media',
+    publish: 'Publishing to platforms',
+    publishTo: 'Publishing to {{platforms}}',
+    done: 'Finishing up',
+  },
 };
 
 export const sharedZh: TranslationTree = {
@@ -143,6 +151,14 @@ export const sharedZh: TranslationTree = {
     noData: '暂无数据',
     copyContent: '文案内容',
     publishPlatformsLabel: '发布平台',
+  },
+  publishProgress: {
+    title: '正在发布',
+    prepare: '准备帖子内容',
+    upload: '同步媒体资源',
+    publish: '发布到各平台',
+    publishTo: '正在发布到 {{platforms}}',
+    done: '收尾完成',
   },
 };
 

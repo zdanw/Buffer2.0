@@ -35,6 +35,7 @@ import {
 import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { getDimensionDisplayName } from '@/i18n/dimensionDisplayName';
+import { toast, confirmDialog } from '@/lib/feedback';
 
 const RETURN_TO_PRODUCT_KEY = 'pulseforge:return-to-product';
 
@@ -282,29 +283,32 @@ export default function AssetManagement() {
       });
     } catch (error) {
       console.error('Failed to save product:', error);
-      alert(t('assets.saveFailed'));
+      toast.error(t('assets.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (productId: string) => {
-    if (confirm(t('assets.confirmDeleteProduct'))) {
-      setDeleting(true);
-      try {
-        await deleteProduct(productId);
-        invalidateCache('products');
-        invalidateCache('categories');
-        if (selectedProduct?.product_id === productId) {
-          setSelectedProduct(null);
-        }
-        setProducts(prev => prev.filter(p => p.product_id !== productId));
-        setTotal(t => Math.max(0, t - 1));
-      } catch (error) {
-        console.error('Failed to delete product:', error);
-      } finally {
-        setDeleting(false);
+    const ok = await confirmDialog({
+      message: t('assets.confirmDeleteProduct'),
+      danger: true,
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await deleteProduct(productId);
+      invalidateCache('products');
+      invalidateCache('categories');
+      if (selectedProduct?.product_id === productId) {
+        setSelectedProduct(null);
       }
+      setProducts(prev => prev.filter(p => p.product_id !== productId));
+      setTotal(t => Math.max(0, t - 1));
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -316,21 +320,21 @@ export default function AssetManagement() {
     const validation = validateImageFiles(files);
     if (!validation.ok) {
       if (validation.error === 'fileTooLarge' && validation.oversized) {
-        alert(
+        toast.info(
           t('assets.uploadFileTooLarge', {
             max: MAX_IMAGE_FILE_LABEL,
             names: validation.oversized.map((f) => `${f.name} (${formatFileSize(f.size)})`).join(', '),
           })
         );
       } else if (validation.error === 'batchTooLarge' && validation.totalBytes) {
-        alert(
+        toast.info(
           t('assets.uploadBatchTooLarge', {
             max: MAX_IMAGE_FILE_LABEL,
             total: formatFileSize(validation.totalBytes),
           })
         );
       } else {
-        alert(t('assets.uploadFailed'));
+        toast.info(t('assets.uploadFailed'));
       }
       return;
     }
@@ -339,7 +343,7 @@ export default function AssetManagement() {
     try {
       const response = await uploadProductImages(selectedProduct.product_id, validation.files, imageType);
       if (response.failed && response.failed.length > 0) {
-        alert(t('assets.uploadPartialFail', {
+        toast.error(t('assets.uploadPartialFail', {
           uploaded: response.uploaded.length,
           failed: response.failed.length,
           list: response.failed.join(', '),
@@ -349,9 +353,9 @@ export default function AssetManagement() {
       console.error('Failed to upload images:', error);
       const message = getUploadErrorMessage(error, t('assets.uploadFailed'));
       if ((error as { response?: { status?: number } })?.response?.status === 413) {
-        alert(t('assets.uploadTooLarge', { max: MAX_IMAGE_FILE_LABEL }));
+        toast.error(t('assets.uploadTooLarge', { max: MAX_IMAGE_FILE_LABEL }));
       } else {
-        alert(message);
+        toast.error(message);
       }
     } finally {
       try {
@@ -367,22 +371,25 @@ export default function AssetManagement() {
 
   const handleImageDelete = async (imageId: string) => {
     if (!selectedProduct || deletingImageId) return;
-    if (confirm(t('assets.confirmDeleteImage'))) {
-      setDeletingImageId(imageId);
+    const ok = await confirmDialog({
+      message: t('assets.confirmDeleteImage'),
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingImageId(imageId);
+    try {
+      await deleteProductImage(selectedProduct.product_id, imageId);
+    } catch (error) {
+      console.error('Failed to delete image:', error);
+    } finally {
       try {
-        await deleteProductImage(selectedProduct.product_id, imageId);
+        const updated = await getProduct(selectedProduct.product_id);
+        setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+        setSelectedProduct(updated);
       } catch (error) {
-        console.error('Failed to delete image:', error);
-      } finally {
-        try {
-          const updated = await getProduct(selectedProduct.product_id);
-          setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
-          setSelectedProduct(updated);
-        } catch (error) {
-          console.error('Failed to refresh product after delete:', error);
-        }
-        setDeletingImageId(null);
+        console.error('Failed to refresh product after delete:', error);
       }
+      setDeletingImageId(null);
     }
   };
 
@@ -429,7 +436,7 @@ export default function AssetManagement() {
       openModal(created);
     } catch (error) {
       console.error('Failed to duplicate product:', error);
-      alert(t('assets.duplicateFailed'));
+      toast.error(t('assets.duplicateFailed'));
     } finally {
       setDuplicating(false);
     }

@@ -15,6 +15,7 @@ import { useI18n } from '@/i18n/useI18n';
 import { useDimensionTypeLabel } from '@/i18n/useDimensionTypeLabel';
 import { getDimensionDisplayName } from '@/i18n/dimensionDisplayName';
 import type { TranslateFn } from '@/lib/formValidation';
+import { toast, confirmDialog, promptDialog } from '@/lib/feedback';
 
 type CompatOptions = Record<string, { id: string; name: string }[]>;
 
@@ -439,32 +440,35 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
         : typeof detail === 'string'
           ? detail
           : t('dimensionsPage.saveFailed');
-      alert(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (dimensionId: string) => {
-    if (confirm(t('dimensionsPage.confirmDelete'))) {
-      setDeletingId(dimensionId);
-      try {
-        const removed = dimensions.find((d) => d.dimension_id === dimensionId);
-        await deletePromptDimension(dimensionId);
-        if (removed) {
-          removeCompatCacheItem(removed.product_type, removed.dimension_type, removed.item_id);
-        }
-        setDimensions((prev) => prev.filter((d) => d.dimension_id !== dimensionId));
-        setTotal((t) => Math.max(0, t - 1));
-        // 当前页删空则回到上一页
-        if (dimensions.length <= 1 && currentPage > 1) {
-          void loadDimensions(currentPage - 1, undefined, { silent: true });
-        }
-      } catch (error) {
-        console.error('Failed to delete dimension:', error);
-      } finally {
-        setDeletingId(null);
+    const ok = await confirmDialog({
+      message: t('dimensionsPage.confirmDelete'),
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingId(dimensionId);
+    try {
+      const removed = dimensions.find((d) => d.dimension_id === dimensionId);
+      await deletePromptDimension(dimensionId);
+      if (removed) {
+        removeCompatCacheItem(removed.product_type, removed.dimension_type, removed.item_id);
       }
+      setDimensions((prev) => prev.filter((d) => d.dimension_id !== dimensionId));
+      setTotal((t) => Math.max(0, t - 1));
+      // 当前页删空则回到上一页
+      if (dimensions.length <= 1 && currentPage > 1) {
+        void loadDimensions(currentPage - 1, undefined, { silent: true });
+      }
+    } catch (error) {
+      console.error('Failed to delete dimension:', error);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -480,7 +484,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
       );
     } catch (error) {
       console.error('Failed to toggle dimension enabled:', error);
-      alert(nextEnabled ? t('dimensionsPage.toggleEnableFailed') : t('dimensionsPage.toggleDisableFailed'));
+      toast.error(nextEnabled ? t('dimensionsPage.toggleEnableFailed') : t('dimensionsPage.toggleDisableFailed'));
     } finally {
       setTogglingId(null);
     }
@@ -499,28 +503,31 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
     try {
       const result = await importVisualStylePack(importAction);
       await reloadAfterPresetChange();
-      alert(result.message || t('dimensionsPage.importSuccess'));
+      toast.success(result.message || t('dimensionsPage.importSuccess'));
       setImportAction('');
     } catch (error) {
       console.error('Failed to import visual style pack:', error);
-      alert(t('dimensionsPage.importFailed'));
+      toast.error(t('dimensionsPage.importFailed'));
     } finally {
       setInitializing(false);
     }
   };
 
   const handleResetPresets = async () => {
-    const typed = window.prompt(t('dimensionsPage.confirmReset'));
-    if (typed !== 'RESET') return;
+    const typed = await promptDialog({
+      message: t('dimensionsPage.confirmReset'),
+      expectedValue: 'RESET',
+    });
+    if (typed == null || typed !== 'RESET') return;
     setInitializing(true);
     try {
       const result = await resetVisualStyles('general');
       await reloadAfterPresetChange();
-      alert(result.message || t('dimensionsPage.resetSuccess'));
+      toast.success(result.message || t('dimensionsPage.resetSuccess'));
       setImportAction('');
     } catch (error) {
       console.error('Failed to reset visual styles:', error);
-      alert(t('dimensionsPage.resetFailed'));
+      toast.error(t('dimensionsPage.resetFailed'));
     } finally {
       setInitializing(false);
     }

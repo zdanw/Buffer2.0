@@ -24,6 +24,7 @@ import {
   type BrandFormDraft,
 } from '@/lib/formDraft';
 import { LIMITS, alertValidationErrors, createValidators } from '@/lib/formValidation';
+import { toast, confirmDialog } from '@/lib/feedback';
 import { useI18n } from '@/i18n/useI18n';
 import { useBrandContext } from '@/context/BrandContext';
 
@@ -219,7 +220,7 @@ export default function BrandManagement() {
     } catch (err) {
       if (requestId !== editRequestIdRef.current) return;
       console.error(err);
-      alert(t('common.loadFailed'));
+      toast.error(t('common.loadFailed'));
       setShowModal(false);
     } finally {
       if (requestId === editRequestIdRef.current) {
@@ -284,7 +285,7 @@ export default function BrandManagement() {
           : Array.isArray(detail) && detail[0]?.msg
             ? String(detail[0].msg)
             : t('common.saveFailed');
-      alert(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -292,14 +293,18 @@ export default function BrandManagement() {
 
   const handleDelete = async (brand: BrandSummary) => {
     if (isProtectedBrand(brand)) return;
-    if (!window.confirm(t('brands.confirmDelete', { name: brand.name }))) return;
+    const ok = await confirmDialog({
+      message: t('brands.confirmDelete', { name: brand.name }),
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteBrand(brand.brand_id);
       await loadBrands();
       await refreshBrands();
     } catch (err) {
       console.error(err);
-      alert(t('common.deleteFailed'));
+      toast.error(t('common.deleteFailed'));
     }
   };
 
@@ -318,7 +323,7 @@ export default function BrandManagement() {
         await refreshBrands();
       } catch (err) {
         console.error(err);
-        alert(t('brands.logoUploadFailed'));
+        toast.error(t('brands.logoUploadFailed'));
       } finally {
         setUploadingLogo(false);
       }

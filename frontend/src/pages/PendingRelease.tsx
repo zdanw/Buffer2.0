@@ -12,6 +12,8 @@ import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import { useI18n } from '@/i18n/useI18n';
+import { toast, confirmDialog } from '@/lib/feedback';
+import PublishProgressOverlay, { usePublishPhaseRunner } from '@/components/PublishProgressOverlay';
 
 const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 const DIMENSION_FIELD_KEYS: Record<string, string> = {
@@ -52,6 +54,7 @@ export default function PendingRelease() {
   const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [reuploading, setReuploading] = useState(false);
   const [productBrandMap, setProductBrandMap] = useState<Record<string, { brand_id?: string; name?: string; slug?: string }>>({});
+  const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
 
   useEffect(() => {
     void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands()]);
@@ -178,24 +181,28 @@ export default function PendingRelease() {
 
   const handlePublish = async () => {
     if (!selectedDraftId) {
-      alert(t('pending.selectDraftFirst'));
+      toast.info(t('pending.selectDraftFirst'));
       return;
     }
 
     if (selectedPlatforms.length === 0) {
-      alert(t('pending.selectPlatform'));
+      toast.info(t('pending.selectPlatform'));
       return;
     }
 
     const draftId = selectedDraftId;
     setLoading(true);
     try {
-      await publishDraft(draftId, {
-        selected_image_index: selectedImageIndex,
-        selected_copy_index: selectedCopyIndex,
-        platforms: selectedPlatforms
-      });
-      alert(t('pending.publishSuccess'));
+      await runPublishWithProgress(
+        () =>
+          publishDraft(draftId, {
+            selected_image_index: selectedImageIndex,
+            selected_copy_index: selectedCopyIndex,
+            platforms: selectedPlatforms,
+          }),
+        selectedPlatforms
+      );
+      toast.success(t('pending.publishSuccess'));
       const remaining = drafts.length - 1;
       removeDraftLocally(draftId);
       if (remaining <= 0 && currentPage > 1) {
@@ -204,28 +211,32 @@ export default function PendingRelease() {
     } catch (error: any) {
       console.error('Failed to publish:', error);
       const detail = error?.response?.data?.detail;
-      alert(typeof detail === 'string' && detail.trim() ? detail : t('pending.publishFailed'));
+      toast.error(typeof detail === 'string' && detail.trim() ? detail : t('pending.publishFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDiscard = async (draftId: string) => {
-    if (confirm(t('pending.confirmDiscard'))) {
-      setDiscardingId(draftId);
-      try {
-        await discardDraft(draftId);
-        const remaining = drafts.length - 1;
-        removeDraftLocally(draftId);
-        if (remaining <= 0 && currentPage > 1) {
-          void loadDrafts(currentPage - 1);
-        }
-      } catch (error) {
-        console.error('Failed to discard:', error);
-        alert(t('pending.actionFailed'));
-      } finally {
-        setDiscardingId(null);
+    const ok = await confirmDialog({
+      message: t('pending.confirmDiscard'),
+      danger: true,
+      confirmLabel: t('common.delete'),
+    });
+    if (!ok) return;
+    setDiscardingId(draftId);
+    try {
+      await discardDraft(draftId);
+      const remaining = drafts.length - 1;
+      removeDraftLocally(draftId);
+      if (remaining <= 0 && currentPage > 1) {
+        void loadDrafts(currentPage - 1);
       }
+    } catch (error) {
+      console.error('Failed to discard:', error);
+      toast.error(t('pending.actionFailed'));
+    } finally {
+      setDiscardingId(null);
     }
   };
 
@@ -246,13 +257,13 @@ export default function PendingRelease() {
         )
       );
       if (result.success) {
-        alert(t('pending.reuploadSuccess'));
+        toast.success(t('pending.reuploadSuccess'));
       } else {
-        alert(t('pending.reuploadPartialFail'));
+        toast.error(t('pending.reuploadPartialFail'));
       }
     } catch (error) {
       console.error('Failed to reupload CDN:', error);
-      alert(t('pending.reuploadFailed'));
+      toast.error(t('pending.reuploadFailed'));
     } finally {
       setReuploading(false);
     }
@@ -648,6 +659,12 @@ export default function PendingRelease() {
           </div>
         </div>
       )}
+
+      <PublishProgressOverlay
+        open={publishOverlay.open}
+        phase={publishOverlay.phase}
+        platforms={publishOverlay.platforms}
+      />
     </div>
   );
 }
