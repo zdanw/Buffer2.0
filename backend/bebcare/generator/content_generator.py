@@ -106,16 +106,17 @@ class ContentGenerator:
 """
 
         self.vision_scene_image_prompt_system_prompt = """
-你是一位专业的AI图像提示词工程师，专注于商业产品「场景融合」摄影。
-用户会分别提供场景参考图与产品参考图。你仅根据这些图片，自主撰写一段最终中文图像提示词，供下游图生图模型把产品融入场景。
+你写的是图生图指令。整段输出会原样发给下游图像模型（该模型已收到图一场景图与图二产品图），不是写给人类看的说明。
 
-遵循以下指南：
-1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
-2. 产品外形、颜色、材质、比例、角度与印刷标识必须以产品参考图为准，禁止改色、变形或编造部件
-3. 场景构图、空间布局、整体色调与光线方向应尽量沿用场景参考图，可做轻度氛围优化
-4. 明确描述：将产品自然放入场景中的位置关系、尺度与融合方式；若场景中有其他产品，用本次产品替换
-5. 道具不得遮挡或改变产品主体；禁止文字、水印、二维码、网址或额外品牌名
-6. 适合商业生活方式摄影，画面干净、有代入感
+规则：
+1. 从第一个字起就是对图像模型的指令。禁止开场白、标题、列表，禁止「以下是」「最终图像提示词」「基于图一与图二」「严格遵循指南」等套话
+2. 第一句必须是融合指令：将图二产品融合进图一场景，并以提供的参考图为唯一标准
+3. 接着命令：完全移除图一中的原产品及其阴影、反射、残影；保留图一的空间结构、家具、构图、色调与光线
+4. 接着命令：产品外观以图二为准（外形、颜色、材质、比例、角度、印刷标识），禁止改色、变形或编造部件
+5. 接着命令具体摆放：承托面、相对位置、朝向、尺度；若图一有原产品，沿用其承托面与相对位置
+6. 接着命令物理融合：接触阴影、透视一致、底部贴合承托面，禁止悬空或贴纸感
+7. 道具不得遮挡产品；禁止额外文字、水印、二维码、网址或品牌名
+8. 只输出一段连续中文。适合商业生活方式摄影。
 """
 
     def _copy_system_prompt(self, product_info: Dict) -> str:
@@ -485,30 +486,35 @@ class ContentGenerator:
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
             product_data = self._ref_urls_to_data_urls(product_urls, remain)
-            scene_label = "【Scene reference】" if locale == "en" else "【场景参考图】"
-            product_label = "【Product reference】" if locale == "en" else "【产品参考图】"
+            scene_label = (
+                "【Image 1 · Scene reference】"
+                if locale == "en"
+                else "【图一 · 场景参考图】"
+            )
+            product_label = (
+                "【Image 2 · Product reference】"
+                if locale == "en"
+                else "【图二 · 产品参考图】"
+            )
             user_content.append({"type": "text", "text": scene_label})
             for u in scene_data:
                 user_content.append({"type": "image_url", "image_url": {"url": u}})
             user_content.append({"type": "text", "text": product_label})
             for u in product_data:
                 user_content.append({"type": "image_url", "image_url": {"url": u}})
-            if locale == "en":
-                prompt_text = (
-                    f"Using only the scene and product references above, write one final English "
-                    f"image prompt for “{product_name}”: blend the product naturally into the scene; "
-                    "product appearance follows the product reference; preserve scene structure and "
-                    "lighting from the scene reference. Do not use external dimension templates. "
-                    "OUTPUT LANGUAGE: English only — no Chinese characters."
-                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
-                )
-            else:
-                prompt_text = (
-                    f"请仅根据以上场景参考图与产品参考图，为「{product_name}」自主生成一段"
-                    "最终中文图像提示词：把产品自然融入场景，产品外观以产品图为准，"
-                    "场景结构与光线尽量沿用场景图。不要使用任何外部维度或模板文案。"
-                    f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
-                )
+            category = (
+                (product_info.get("category") or product_info.get("product_type") or "")
+                .strip()
+            )
+            prompt_text = prompt_locale.vision_scene_fusion_user_prompt_text(
+                product_name,
+                category or None,
+                locale,
+                avoid_text=avoid_text,
+                logo_suffix=logo_suffix,
+                placement_suffix=placement_suffix,
+                dim_suffix=dim_suffix,
+            )
             user_content.append({"type": "text", "text": prompt_text})
         else:
             data_urls = self._ref_urls_to_data_urls(
@@ -639,7 +645,7 @@ class ContentGenerator:
                 lambda: make_request(retry_messages), max_retries=2, initial_delay=1.0
             )
 
-        return content
+        return prompt_locale.strip_vision_prompt_preamble(content)
 
     def _db_session(self, db=None):
         """短生命周期 Session：调用方未传入时自建，用完即关。"""

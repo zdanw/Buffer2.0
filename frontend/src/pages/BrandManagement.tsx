@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, RefreshCw, Lock, Upload } from 'lucide-react';
 import {
@@ -57,10 +57,12 @@ export default function BrandManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BrandCreate & { copy_system_prompt?: string; image_system_prompt?: string }>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [bufferAccounts, setBufferAccounts] = useState<BufferAccount[]>([]);
+  const editRequestIdRef = useRef(0);
 
   const isProtectedBrand = (brand: BrandSummary) =>
     brand.is_generic || brand.brand_id === BEBCARE_BRAND_ID;
@@ -100,6 +102,7 @@ export default function BrandManagement() {
       ...draft.form,
       buffer_account_id: bufferAccountId || (draft.form.buffer_account_id as string) || '',
     } as typeof form);
+    setModalLoading(false);
     setShowModal(true);
   }, []);
 
@@ -131,7 +134,7 @@ export default function BrandManagement() {
   }, [searchParams, navigate, applyBrandDraft, refreshBufferAccounts]);
 
   useEffect(() => {
-    if (!showModal) return;
+    if (!showModal || modalLoading) return;
     saveBrandFormDraft({
       form: { ...form },
       activeTab,
@@ -139,7 +142,7 @@ export default function BrandManagement() {
       editingId,
       logoPreview,
     });
-  }, [showModal, form, activeTab, isEdit, editingId, logoPreview]);
+  }, [showModal, modalLoading, form, activeTab, isEdit, editingId, logoPreview]);
 
   const goToBufferSetup = () => {
     saveBrandFormDraft({
@@ -176,32 +179,53 @@ export default function BrandManagement() {
     setLogoPreview(null);
     setLogoFile(null);
     setActiveTab('voice');
+    setModalLoading(false);
     setShowModal(true);
   };
 
+  const closeModal = () => {
+    editRequestIdRef.current += 1;
+    setShowModal(false);
+    setModalLoading(false);
+  };
+
   const openEdit = async (summary: BrandSummary) => {
+    const requestId = ++editRequestIdRef.current;
     setIsEdit(true);
     setEditingId(summary.brand_id);
     setActiveTab('voice');
-    setShowModal(true);
     setLogoFile(null);
-    const kit: BrandKit = await getBrand(summary.brand_id);
-    setLogoPreview(kit.logo_url || null);
-    setForm({
-      name: kit.name,
-      voice: kit.voice || '',
-      audience: kit.audience || '',
-      tone_keywords: kit.tone_keywords || '',
-      emoji_style: kit.emoji_style || 'moderate',
-      words_to_avoid: kit.words_to_avoid || '',
-      default_selling_points: kit.default_selling_points,
-      default_hashtags: kit.default_hashtags,
-      logo_font_rule: kit.logo_font_rule || '',
-      logo_in_images: kit.logo_in_images || 'preserve',
-      copy_system_prompt: kit.copy_system_prompt || '',
-      image_system_prompt: kit.image_system_prompt || '',
-      buffer_account_id: kit.buffer_account_id || '',
-    });
+    setModalLoading(true);
+    setShowModal(true);
+    try {
+      const kit: BrandKit = await getBrand(summary.brand_id);
+      if (requestId !== editRequestIdRef.current) return;
+      setLogoPreview(kit.logo_url || null);
+      setForm({
+        name: kit.name,
+        voice: kit.voice || '',
+        audience: kit.audience || '',
+        tone_keywords: kit.tone_keywords || '',
+        emoji_style: kit.emoji_style || 'moderate',
+        words_to_avoid: kit.words_to_avoid || '',
+        default_selling_points: kit.default_selling_points,
+        default_hashtags: kit.default_hashtags,
+        logo_font_rule: kit.logo_font_rule || '',
+        logo_in_images: kit.logo_in_images || 'preserve',
+        copy_system_prompt: kit.copy_system_prompt || '',
+        image_system_prompt: kit.image_system_prompt || '',
+        buffer_account_id: kit.buffer_account_id || '',
+      });
+    } catch (err) {
+      if (requestId !== editRequestIdRef.current) return;
+      console.error(err);
+      alert(t('common.loadFailed'));
+      setShowModal(false);
+    } finally {
+      if (requestId === editRequestIdRef.current) {
+        setModalLoading(false);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -432,7 +456,7 @@ export default function BrandManagement() {
               <h3 className="text-lg font-semibold">
                 {isEdit ? t('brands.editBrand') : t('brands.addBrand')}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={closeModal} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -443,7 +467,8 @@ export default function BrandManagement() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  disabled={modalLoading}
+                  className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors disabled:opacity-50 ${
                     activeTab === tab.id
                       ? 'border-forge-600 text-forge-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -454,6 +479,19 @@ export default function BrandManagement() {
               ))}
             </div>
 
+            {modalLoading ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 px-6">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-forge-600" />
+                <p className="text-sm text-gray-500">{t('common.loading')}</p>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="mt-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
               {activeTab === 'voice' && (
                 <>
@@ -668,7 +706,7 @@ export default function BrandManagement() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   disabled={saving}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
@@ -683,6 +721,7 @@ export default function BrandManagement() {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

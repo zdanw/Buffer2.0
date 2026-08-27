@@ -6,6 +6,18 @@ import re
 from typing import Callable, Dict, List, Optional
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_VISION_PROMPT_PREAMBLE_RE = re.compile(
+    r"^(?:"
+    r"(?:好的[，,。!\s]*)?"
+    r"(?:基于[^：:\n]{0,100})?"
+    r"(?:以下是|如下是|这是|这儿是)?"
+    r"[^：:\n]{0,40}?"
+    r"(?:最终)?(?:中文|英文)?(?:图像)?提示词[：:]\s*"
+    r"|"
+    r"(?:here(?:'s| is)|below is|the following is)[^:\n]{0,90}prompt[:：]\s*"
+    r")",
+    re.IGNORECASE,
+)
 
 SCENE_REF_LABELS = {
     "zh": {
@@ -113,6 +125,20 @@ def locale_from_product_info(product_info: Optional[Dict]) -> str:
 
 def has_cjk(text: str) -> bool:
     return bool(_CJK_RE.search(text or ""))
+
+
+def strip_vision_prompt_preamble(text: str) -> str:
+    """Drop human-facing wrappers so only the image-model prompt remains."""
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:\w+)?\s*", "", s)
+        s = re.sub(r"\s*```$", "", s).strip()
+    for _ in range(3):
+        nxt = _VISION_PROMPT_PREAMBLE_RE.sub("", s, count=1).strip()
+        if nxt == s:
+            break
+        s = nxt
+    return s
 
 
 def _has_cjk(text: str) -> bool:
@@ -244,29 +270,81 @@ Guidelines:
 def vision_scene_image_prompt_system_prompt(locale: str) -> str:
     if normalize_locale(locale) == "en":
         return """
-You are a professional AI image prompt engineer for commercial product scene fusion.
-The user provides separate scene and product reference images. Write one final English image prompt for downstream image-to-image fusion.
+You write image-to-image commands. Your entire output is sent unchanged to a downstream image model that already receives Image 1 (scene) and Image 2 (product). Do not write for a human reader.
 
-Guidelines:
-1. Output only one final English image prompt — no headings, lists, or extra explanation
-2. Product shape, color, material, proportions, angle, and printing must match the product reference
-3. Preserve scene composition, spatial layout, overall tone, and light direction; mild atmosphere tweaks only
-4. Describe where and how the product sits in the scene, scale, and fusion; replace other products in the scene with this product
-5. Props must not block or alter the product; no text, watermarks, QR codes, URLs, or extra brand names
-6. Commercial lifestyle photography — clean and immersive
+Rules:
+1. Start at the first character with a fusion command to the image model. Forbidden: preambles, titles, lists, or phrases like "here is the final prompt", "based on Image 1 and Image 2", "following the guidelines"
+2. Sentence 1 must order a fusion: fuse the Image 2 product into the Image 1 scene; the provided reference images are the only ground truth
+3. Then command: fully remove the original product in Image 1 (shadows, reflections, ghosting) and keep Image 1 spatial structure, furniture, composition, tone, and light
+4. Then command: product appearance must match Image 2 (shape, color, material, proportions, angle, printing) — no recoloring, deformation, or invented parts
+5. Then command a specific placement: support surface, relative position, orientation, scale; if Image 1 had a prior product, reuse that support surface and relative position
+6. Then command physical fusion: contact shadow, matching perspective, base flush with the support — no float or sticker look
+7. Props must not block the product; no extra text, watermarks, QR codes, URLs, or brand names
+8. One continuous English paragraph. Commercial lifestyle photography.
 """.strip()
     return """
-你是一位专业的AI图像提示词工程师，专注于商业产品「场景融合」摄影。
-用户会分别提供场景参考图与产品参考图。你仅根据这些图片，自主撰写一段最终中文图像提示词，供下游图生图模型把产品融入场景。
+你写的是图生图指令。整段输出会原样发给下游图像模型（该模型已收到图一场景图与图二产品图），不是写给人类看的说明。
 
-遵循以下指南：
-1. 仅输出一段最终中文图像提示词，不要额外说明、标题或列表前缀
-2. 产品外形、颜色、材质、比例、角度与印刷标识必须以产品参考图为准，禁止改色、变形或编造部件
-3. 场景构图、空间布局、整体色调与光线方向应尽量沿用场景参考图，可做轻度氛围优化
-4. 明确描述：将产品自然放入场景中的位置关系、尺度与融合方式；若场景中有其他产品，用本次产品替换
-5. 道具不得遮挡或改变产品主体；禁止文字、水印、二维码、网址或额外品牌名
-6. 适合商业生活方式摄影，画面干净、有代入感
+规则：
+1. 从第一个字起就是对图像模型的指令。禁止开场白、标题、列表，禁止「以下是」「最终图像提示词」「基于图一与图二」「严格遵循指南」等套话
+2. 第一句必须是融合指令：将图二产品融合进图一场景，并以提供的参考图为唯一标准
+3. 接着命令：完全移除图一中的原产品及其阴影、反射、残影；保留图一的空间结构、家具、构图、色调与光线
+4. 接着命令：产品外观以图二为准（外形、颜色、材质、比例、角度、印刷标识），禁止改色、变形或编造部件
+5. 接着命令具体摆放：承托面、相对位置、朝向、尺度；若图一有原产品，沿用其承托面与相对位置
+6. 接着命令物理融合：接触阴影、透视一致、底部贴合承托面，禁止悬空或贴纸感
+7. 道具不得遮挡产品；禁止额外文字、水印、二维码、网址或品牌名
+8. 只输出一段连续中文。适合商业生活方式摄影。
 """.strip()
+
+
+def vision_scene_fusion_user_prompt_text(
+    product_name: str,
+    category: Optional[str],
+    locale: str,
+    *,
+    avoid_text: str = "",
+    logo_suffix: str = "",
+    placement_suffix: str = "",
+    dim_suffix: str = "",
+) -> str:
+    """User message for vision scene fusion (use_scene_reference only)."""
+    name = (product_name or "").strip()
+    cat = (category or "").strip()
+    if normalize_locale(locale) == "en":
+        name = name or "product"
+        cat_line = f" Category: {cat}." if cat else ""
+        return (
+            f"Product: {name}.{cat_line}\n"
+            "Write the English command that will be sent to the image-to-image model. "
+            "Do not write a note for humans. The first sentence MUST be a fusion order, e.g. "
+            f"fuse the “{name}” from Image 2 into the Image 1 scene; treat the provided "
+            "reference images as the only ground truth. Then include:\n"
+            "1) Keep Image 1 structure/furniture/composition/tone/light; fully remove the "
+            f"original product in Image 1 (and similar items related to “{name}”) including "
+            "shadows, reflections, and occlusion\n"
+            "2) Match Image 2 for shape, color, material, proportions, angle, and printing\n"
+            "3) Specific placement: support surface + relative position + orientation + scale; "
+            "if Image 1 shows a prior product, reuse that support surface and relative position\n"
+            "4) Physical fusion: contact shadow, matching perspective, base flush with the support\n"
+            "Do not use external dimension templates. "
+            "OUTPUT LANGUAGE: English only — no Chinese characters, no preamble."
+            f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+        )
+    name = name or "产品"
+    cat_line = f" 品类：{cat}。" if cat else ""
+    return (
+        f"产品名称：{name}。{cat_line}\n"
+        "直接输出将发给图生图模型的中文指令，不要写给人类看的说明。"
+        f"第一句必须是融合指令：将图二中的「{name}」融合进图一场景，以提供的参考图为唯一标准。"
+        "随后必须包含：\n"
+        "1) 保留图一空间结构、家具布局、构图、色调与光线；"
+        f"完全移除图一中的原产品及与「{name}」相关的同类产品，包括阴影、反射与遮挡\n"
+        "2) 产品外形、颜色、材质、比例、角度与印刷标识以图二为准\n"
+        "3) 具体摆放：承托面 + 相对位置 + 朝向 + 尺度；若图一有原产品则沿用其落点\n"
+        "4) 物理融合：接触阴影、透视一致、底部贴合承托面\n"
+        "禁止开场白。不要使用任何外部维度或模板文案。"
+        f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+    )
 
 
 def format_recent_prompt_avoidance(recent_prompts: List[str], locale: str) -> str:
