@@ -34,7 +34,7 @@ export const placeholdersEn: TranslationTree = {
       generateCopyCount: 'e.g. 3',
     },
     studio: {
-      selectProduct: 'e.g. Smart Night Light Pro',
+      selectProduct: 'Choose a product',
     },
     imageModelPicker: {
       manualModel: 'e.g. qwen-image-2.0 or flux-1.1-pro',
@@ -112,7 +112,7 @@ export const placeholdersZh: TranslationTree = {
       generateCopyCount: '例如：3',
     },
     studio: {
-      selectProduct: '例如：智能小夜灯 Pro',
+      selectProduct: '选择产品',
     },
     imageModelPicker: {
       manualModel: '例如：qwen-image-2.0 或 flux-1.1-pro',

@@ -72,7 +72,7 @@ export const zh: TranslationTree = {
     bannerCommand: '.\\scripts\\backend.ps1 start',
     retry: '重试连接',
     emptyBrandsTitle: '还没有品牌套件',
-    emptyBrandsBody: '新账户从空开始，不会看到管理员的种子品牌。请创建自己的品牌套件，定义语气、受众与内容规则。',
+    emptyBrandsBody: '一次性设置语气、受众与内容规则，生成帖子时产品会自动继承这些设定。',
   },
   login: {
     title: '欢迎回来',

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, RefreshCw, Database, Filter, ChevronDown } from 'lucide-react';
 import type { PromptDimension, PromptDimensionUpdate, DimensionType, ProductType, PaginatedResponse, DimensionCompatibilities, DimensionCompatEntry } from '@/api/dimensions';
 import { getDimensionTypes, getPromptDimensions, createPromptDimension, updatePromptDimension, deletePromptDimension, importVisualStylePack, resetVisualStyles, getProductTypes, ALL_DIMENSION_TYPES, getCompatEntry, emptyCompatEntry } from '@/api/dimensions';
@@ -169,6 +170,7 @@ function compatTableLabel(entry: DimensionCompatEntry, t: TranslateFn): string {
 
 export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boolean }) {
   const { t, locale } = useI18n();
+  const navigate = useNavigate();
   const dimensionTypeLabel = useDimensionTypeLabel();
   const v = useMemo(() => createValidators(t), [t]);
   const [dimensions, setDimensions] = useState<PromptDimension[]>([]);
@@ -377,7 +379,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
 
   const resetForm = () => {
     setFormData({
-      product_type: 'General',
+      product_type: productTypes[0]?.value ?? '',
       dimension_type: 'scenes',
       name: '',
       compatibilities: createEmptyCompatibilities('scenes'),
@@ -536,7 +538,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
     setExpandedDimensions({});
     setModalOptionsLoading(false);
 
-    const pt = dimension?.product_type || selectedProductType || 'General';
+    const pt = dimension?.product_type || selectedProductType || productTypes[0]?.value || '';
     const cached = getCachedOptions(pt);
     setAllDimensions(cached || {});
 
@@ -859,6 +861,22 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
             </div>
 
             <form onSubmit={handleSubmit}>
+              {!isEdit && productTypes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-4 py-5 text-center">
+                  <p className="text-sm font-medium text-gray-900">{t('dimensionsPage.noProductTypesTitle')}</p>
+                  <p className="mt-2 text-xs text-gray-600 leading-relaxed">{t('dimensionsPage.noProductTypesBody')}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      navigate('/products');
+                    }}
+                    className="mt-4 inline-flex items-center justify-center rounded-lg bg-forge-600 px-4 py-2 text-sm font-medium text-white hover:bg-forge-700 transition-colors"
+                  >
+                    {t('dimensionsPage.goToProducts')}
+                  </button>
+                </div>
+              ) : (
               <div className="space-y-4">
                 <div>
                   <LabelWithTooltip
@@ -1038,6 +1056,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                   </>
                 )}
               </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <button
@@ -1048,6 +1067,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                 >
                   {t('common.cancel')}
                 </button>
+                {!( !isEdit && productTypes.length === 0) && (
                 <button
                   type="submit"
                   disabled={saving}
@@ -1055,6 +1075,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                 >
                   {saving ? t('common.saving') : isEdit ? t('common.save') : t('dimensionsPage.addDimension')}
                 </button>
+                )}
               </div>
             </form>
           </div>

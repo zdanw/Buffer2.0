@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus, Download } from 'lucide-react';
 import type { BrandSummary } from '@/api/brands';
 import type { Product } from '@/api/products';
@@ -498,6 +499,17 @@ export default function Studio() {
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 {t('preview.loadingProducts')}
+              </div>
+            ) : products.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center">
+                <p className="text-sm font-medium text-gray-900">{t('studio.emptyTitle')}</p>
+                <p className="mt-1 text-xs text-gray-500 leading-relaxed">{t('studio.emptyBody')}</p>
+                <Link
+                  to="/products"
+                  className="mt-3 inline-flex items-center justify-center rounded-lg bg-forge-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-forge-700 transition-colors"
+                >
+                  {t('studio.emptyCta')}
+                </Link>
               </div>
             ) : (
               <select

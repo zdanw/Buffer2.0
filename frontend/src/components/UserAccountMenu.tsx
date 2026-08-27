@@ -39,7 +39,7 @@ export default function UserAccountMenu() {
       onClick={() => navigate('/account')}
       title={user.username}
       aria-label={user.username}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forge-600 text-xs font-semibold text-white hover:bg-forge-700 transition-colors"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-100 text-xs font-semibold text-ink-700 ring-1 ring-ink-200 hover:bg-ink-200 transition-colors"
     >
       {initialsFromUsername(user.username)}
     </button>

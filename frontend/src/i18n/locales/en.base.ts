@@ -73,7 +73,7 @@ export const en: TranslationTree = {
     bannerCommand: '.\\scripts\\backend.ps1 start',
     retry: 'Retry connection',
     emptyBrandsTitle: 'No brand kits yet',
-    emptyBrandsBody: 'New accounts start empty — you will not see admin seed brands. Create your own brand kit to define voice, audience, and content rules.',
+    emptyBrandsBody: 'Set up voice, audience, and content rules once — your products will inherit them when you generate posts.',
   },
   login: {
     title: 'Welcome back',
