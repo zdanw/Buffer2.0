@@ -254,12 +254,14 @@ export function aggregateGenerateProgress(
 
 async function pollUntilTerminal(
   fetchStatus: () => Promise<GenerateStatus>,
+  options?: { onProgress?: (status: GenerateStatus) => void },
 ): Promise<GenerateStatus> {
   let consecutiveErrors = 0;
   for (;;) {
     try {
       const status = await fetchStatus();
       consecutiveErrors = 0;
+      options?.onProgress?.(status);
       if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
         return status;
       }
@@ -273,16 +275,22 @@ async function pollUntilTerminal(
 }
 
 /** Poll until SUCCESS or FAILURE; retries through transient network/proxy errors. */
-export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatus> =>
-  pollUntilTerminal(() => getGenerateStatus(taskId));
+export const waitForGenerateTask = async (
+  taskId: string,
+  options?: { onProgress?: (status: GenerateStatus) => void },
+): Promise<GenerateStatus> => pollUntilTerminal(() => getGenerateStatus(taskId), options);
 
 /** Poll multiple tasks until all reach a terminal state. */
-export const waitForGenerateTasks = async (taskIds: string[]): Promise<GenerateStatus[]> => {
+export const waitForGenerateTasks = async (
+  taskIds: string[],
+  options?: { onProgress?: (statuses: GenerateStatus[]) => void },
+): Promise<GenerateStatus[]> => {
   let consecutiveErrors = 0;
   for (;;) {
     try {
       const statuses = await Promise.all(taskIds.map(getGenerateStatus));
       consecutiveErrors = 0;
+      options?.onProgress?.(statuses);
       if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
         return statuses;
       }

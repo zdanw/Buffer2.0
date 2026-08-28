@@ -250,14 +250,10 @@ def generate_content(
             generator = ContentGenerator()
             style_hint = product_info.get("style_hint", None)
 
-            await asyncio.to_thread(
-                _report_progress, task_id, 15, "copywriting"
-            )
             copywriting_text = await generator.generate_copywriting_async(
-                product_info, platform
-            )
-            await asyncio.to_thread(
-                _report_progress, task_id, 45, "copywriting"
+                product_info,
+                platform,
+                progress_callback=_image_progress_callback(task_id, 15, 45),
             )
 
             image_result = await generator.generate_image_async(
@@ -360,14 +356,10 @@ def generate_copywriting_only(
             )
 
             generator = ContentGenerator()
-            await asyncio.to_thread(
-                _report_progress, task_id, 20, "copywriting"
-            )
             copywriting_text = await generator.generate_copywriting_async(
-                product_info, product_info.get("platform", "instagram")
-            )
-            await asyncio.to_thread(
-                _report_progress, task_id, 90, "copywriting"
+                product_info,
+                product_info.get("platform", "instagram"),
+                progress_callback=_image_progress_callback(task_id, 20, 90),
             )
 
             await asyncio.to_thread(

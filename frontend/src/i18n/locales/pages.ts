@@ -507,6 +507,8 @@ export const pagesEn: TranslationTree = {
     generatingAll3: 'Almost feed-ready — hang tight!',
     generatingAll4: 'Making it extra cute for the algorithm 💕',
     progressStage: {
+      starting: 'Starting…',
+      resolving_references: 'Selecting references…',
       queued: 'Queued…',
       copywriting: 'Writing copy…',
       image_prompt: 'Building image prompt…',
@@ -1268,6 +1270,8 @@ export const pagesZh: TranslationTree = {
     generatingAll3: '马上就能发啦，再等等！',
     generatingAll4: '给算法加点可爱滤镜 💕',
     progressStage: {
+      starting: '启动中…',
+      resolving_references: '选择参考图…',
       queued: '排队中…',
       copywriting: '撰写文案…',
       image_prompt: '构建图像提示…',
