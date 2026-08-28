@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, RefreshCw, FileText, Image, Send, CheckCircle, X, BookmarkPlus, Download } from 'lucide-react';
 import type { BrandSummary } from '@/api/brands';
@@ -55,6 +55,57 @@ interface ScenePipelineSlot {
 
 type CompareSceneResults = Record<ScenePipelineKey, ScenePipelineSlot | null>;
 
+type GenerateType = 'all' | 'copywriting' | 'image';
+
+function resolvePendingTaskIds(saved: PreviewState): string[] {
+  if (saved.taskIds?.length) return saved.taskIds;
+  if (saved.taskId) return [saved.taskId];
+  return [];
+}
+
+function slotFromStatus(status: GenerateStatus): ScenePipelineSlot {
+  const result = status.result;
+  if (status.status === 'FAILURE' || !result?.image) {
+    return {
+      image: '',
+      error: result?.error || 'Generation failed',
+    };
+  }
+  return {
+    image: result.image || '',
+    image_prompt: result.image_prompt,
+    dimensions: result.dimensions,
+    warning: result.warning,
+    reference_product_images: result.reference_product_images,
+    reference_scene_images: result.reference_scene_images,
+  };
+}
+
+function statusMap(statuses: GenerateStatus[]): Map<string, GenerateStatus> {
+  return new Map(statuses.map((s) => [s.task_id, s]));
+}
+
+function isInFlightStatus(status: string): boolean {
+  return status === 'PENDING' || status === 'PROGRESS';
+}
+
+function isTerminalStatus(status: string): boolean {
+  return status === 'SUCCESS' || status === 'FAILURE';
+}
+
+/** Compare-all: [copy, legacy, vision]; compare-image: [legacy, vision]. */
+function inferCompareTaskLayout(
+  taskIds: string[],
+  generatingType: string | null,
+  compareMode: boolean,
+): { copyId?: string; legacyId: string; visionId: string } | null {
+  if (!compareMode || taskIds.length < 2) return null;
+  if (generatingType === 'all' && taskIds.length >= 3) {
+    return { copyId: taskIds[0], legacyId: taskIds[1], visionId: taskIds[2] };
+  }
+  return { legacyId: taskIds[0], visionId: taskIds[1] };
+}
+
 interface PreviewState {
   selectedProduct: string;
   selectedPlatforms: string[];
@@ -77,6 +128,7 @@ interface PreviewState {
     logo_mode?: string;
   } | null;
   taskId: string | null;
+  taskIds?: string[];
   isGenerating: boolean;
   generatingType: string | null;
 }
@@ -94,6 +146,7 @@ const emptyPreviewState = (): PreviewState => ({
   imageSize: '2048x2048',
   generatedContent: null,
   taskId: null,
+  taskIds: [],
   isGenerating: false,
   generatingType: null,
 });
@@ -148,10 +201,14 @@ export default function Studio() {
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
   const [imageProviderMode, setImageProviderMode] = useState<'platform' | 'byok' | null>('platform');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
-  const [activeTaskIds, setActiveTaskIds] = useState<string[]>(
-    savedState.taskId ? [savedState.taskId] : [],
+  const pendingOnMount =
+    !!savedState.generatingType && resolvePendingTaskIds(savedState).length > 0;
+  const [isGenerating, setIsGenerating] = useState(pendingOnMount);
+  const [generatingType, setGeneratingType] = useState<string | null>(
+    pendingOnMount ? savedState.generatingType : null,
+  );
+  const [activeTaskIds, setActiveTaskIds] = useState<string[]>(() =>
+    pendingOnMount ? resolvePendingTaskIds(savedState) : [],
   );
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus | null>(null);
   const [generatedContent, setGeneratedContent] = useState<{
@@ -174,6 +231,181 @@ export default function Studio() {
   const [compareResults, setCompareResults] = useState<CompareSceneResults | null>(null);
   const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
+  const handleGenerateActiveRef = useRef(false);
+
+  const finishGeneration = useCallback(
+    (outcome: 'SUCCESS' | 'FAILURE', opts?: { error?: string; taskId?: string }) => {
+      handleGenerateActiveRef.current = false;
+      setIsGenerating(false);
+      setGeneratingType(null);
+      setActiveTaskIds([]);
+      if (outcome === 'SUCCESS') {
+        setGenerateStatus({
+          task_id: opts?.taskId ?? '',
+          status: 'SUCCESS',
+          progress: 100,
+          stage: 'done',
+        });
+      } else {
+        setGenerateStatus({
+          task_id: opts?.taskId ?? '',
+          status: 'FAILURE',
+          result: { error: opts?.error ?? 'Generation failed' },
+        });
+      }
+    },
+    [],
+  );
+
+  const applyPartialResults = useCallback(
+    (
+      statuses: GenerateStatus[],
+      genType: GenerateType | null,
+      compareMode: boolean,
+      taskIds: string[],
+    ) => {
+      const layout = inferCompareTaskLayout(taskIds, genType, compareMode);
+      if (layout?.copyId) {
+        const copyStatus = statusMap(statuses).get(layout.copyId);
+        if (copyStatus?.status === 'SUCCESS' && copyStatus.result?.text) {
+          setGeneratedContent((prev) => ({
+            ...(prev || { text: '', image: '' }),
+            text: copyStatus.result!.text!,
+            image: prev?.image || '',
+            dimensions: prev?.dimensions,
+            image_prompt: prev?.image_prompt,
+            reference_product_images: prev?.reference_product_images,
+            reference_scene_images: prev?.reference_scene_images,
+            warning: prev?.warning,
+            logo_mode: prev?.logo_mode,
+          }));
+        }
+      }
+
+      if (layout?.legacyId && layout?.visionId) {
+        const byId = statusMap(statuses);
+        const legacyStatus = byId.get(layout.legacyId);
+        const visionStatus = byId.get(layout.visionId);
+        const hasImageUpdate =
+          legacyStatus?.status === 'SUCCESS' ||
+          visionStatus?.status === 'SUCCESS' ||
+          legacyStatus?.status === 'FAILURE' ||
+          visionStatus?.status === 'FAILURE';
+        if (hasImageUpdate) {
+          setCompareResults({
+            legacy_scene: legacyStatus ? slotFromStatus(legacyStatus) : null,
+            vision_scene: visionStatus ? slotFromStatus(visionStatus) : null,
+          });
+        }
+      }
+
+      if (!layout && statuses.length === 1 && statuses[0].status === 'SUCCESS' && statuses[0].result) {
+        const s = statuses[0];
+        setGeneratedContent((prev) => ({
+          text: s.result?.text || prev?.text || '',
+          image: s.result?.image || prev?.image || '',
+          dimensions: s.result?.dimensions ?? prev?.dimensions,
+          image_prompt: s.result?.image_prompt ?? prev?.image_prompt,
+          reference_product_images:
+            s.result?.reference_product_images ?? prev?.reference_product_images,
+          reference_scene_images:
+            s.result?.reference_scene_images ?? prev?.reference_scene_images,
+          warning: s.result?.warning ?? prev?.warning,
+          logo_mode: s.result?.logo_mode ?? prev?.logo_mode,
+        }));
+      }
+    },
+    [],
+  );
+
+  const applyRecoveredResults = useCallback(
+    (
+      statuses: GenerateStatus[],
+      genType: GenerateType | null,
+      compareMode: boolean,
+      taskIds: string[],
+    ) => {
+      const layout = inferCompareTaskLayout(taskIds, genType, compareMode);
+      if (layout?.legacyId && layout.visionId) {
+        const byId = statusMap(statuses);
+        const legacyStatus = byId.get(layout.legacyId);
+        const visionStatus = byId.get(layout.visionId);
+        const copyStatus = layout.copyId ? byId.get(layout.copyId) : undefined;
+        const results: CompareSceneResults = {
+          legacy_scene: legacyStatus ? slotFromStatus(legacyStatus) : null,
+          vision_scene: visionStatus ? slotFromStatus(visionStatus) : null,
+        };
+        setCompareResults(results);
+
+        const copyText = copyStatus?.result?.text || '';
+        const visionSlot = results.vision_scene;
+        const legacySlot = results.legacy_scene;
+        const primary =
+          visionSlot?.image && !visionSlot.error ? visionSlot : legacySlot;
+        const primaryKey: ScenePipelineKey =
+          visionSlot?.image && !visionSlot.error ? 'vision_scene' : 'legacy_scene';
+
+        if (primary?.image) {
+          setGeneratedContent((prev) => ({
+            text: copyText || prev?.text || '',
+            image: primary.image,
+            dimensions: primary.dimensions,
+            image_prompt: primary.image_prompt,
+            reference_product_images: primary.reference_product_images,
+            reference_scene_images: primary.reference_scene_images,
+            warning: primary.warning,
+            logo_mode: undefined,
+          }));
+          setActivePipeline(primaryKey);
+        } else if (copyText) {
+          setGeneratedContent((prev) => ({
+            ...(prev || { text: '', image: '' }),
+            text: copyText,
+          }));
+        }
+
+        const anyImage = !!(legacySlot?.image || visionSlot?.image);
+        if (anyImage) {
+          finishGeneration('SUCCESS', { taskId: taskIds[0] });
+          window.dispatchEvent(new Event('pulseforge:refresh-user'));
+        } else {
+          const errors = statuses
+            .filter((s) => s.status === 'FAILURE')
+            .map((s) => s.result?.error)
+            .filter(Boolean);
+          finishGeneration('FAILURE', {
+            taskId: taskIds[0],
+            error: errors.join(' · ') || undefined,
+          });
+        }
+        return;
+      }
+
+      const status = statuses[0];
+      if (status?.status === 'SUCCESS' && status.result) {
+        setGeneratedContent((prev) => ({
+          text: status.result?.text || prev?.text || '',
+          image: status.result?.image || prev?.image || '',
+          dimensions: status.result?.dimensions ?? prev?.dimensions,
+          image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
+          reference_product_images:
+            status.result?.reference_product_images ?? prev?.reference_product_images,
+          reference_scene_images:
+            status.result?.reference_scene_images ?? prev?.reference_scene_images,
+          warning: status.result?.warning ?? prev?.warning,
+          logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
+        }));
+        finishGeneration('SUCCESS', { taskId: status.task_id });
+        window.dispatchEvent(new Event('pulseforge:refresh-user'));
+      } else if (status?.status === 'FAILURE') {
+        finishGeneration('FAILURE', {
+          taskId: status.task_id,
+          error: status.result?.error,
+        });
+      }
+    },
+    [finishGeneration],
+  );
 
   const previewBrand = useMemo((): BrandSummary | null => {
     const product = products.find((p) => p.product_id === selectedProduct);
@@ -230,55 +462,65 @@ export default function Studio() {
   const generationStage = generateStatus?.stage ?? null;
 
   useEffect(() => {
-    const pendingTaskId = savedState.taskId;
-    if (!pendingTaskId) return;
+    if (!savedState.generatingType) return;
+
+    const pendingTaskIds = resolvePendingTaskIds(savedState);
+    if (!pendingTaskIds.length) return;
 
     let cancelled = false;
-    const recoverTask = async () => {
-      try {
-        const status = await getGenerateStatus(pendingTaskId);
-        if (cancelled) return;
-        setGenerateStatus(status);
+    const compareMode =
+      (savedState.generatingType === 'image' || savedState.generatingType === 'all') &&
+      savedState.useSceneReference &&
+      savedState.compareScenePipelines;
 
-        if (status.status === 'SUCCESS') {
-          setIsGenerating(false);
-          window.dispatchEvent(new Event('pulseforge:refresh-user'));
-          if (status.result) {
-            setGeneratedContent((prev) => ({
-              text: status.result?.text || prev?.text || '',
-              image: status.result?.image || prev?.image || '',
-              dimensions: status.result?.dimensions ?? prev?.dimensions,
-              image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
-              reference_product_images:
-                status.result?.reference_product_images ?? prev?.reference_product_images,
-              reference_scene_images:
-                status.result?.reference_scene_images ?? prev?.reference_scene_images,
-              warning: status.result?.warning ?? prev?.warning,
-              logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
-            }));
-          }
-        } else if (status.status === 'FAILURE') {
-          setIsGenerating(false);
-        } else if (status.status === 'PENDING' || status.status === 'PROGRESS') {
+    const recoverTasks = async () => {
+      try {
+        const statuses = await Promise.all(pendingTaskIds.map(getGenerateStatus));
+        if (cancelled) return;
+
+        const aggregate = aggregateGenerateProgress(statuses);
+        setGenerateStatus({
+          task_id: pendingTaskIds[0],
+          status: aggregate.status ?? 'PROGRESS',
+          progress: aggregate.progress,
+          stage: aggregate.stage,
+        });
+
+        const anyInFlight = statuses.some((s) => isInFlightStatus(s.status));
+        if (anyInFlight) {
+          handleGenerateActiveRef.current = false;
           setIsGenerating(true);
-          setActiveTaskIds([pendingTaskId]);
-          if (savedState.generatingType) {
-            setGeneratingType(savedState.generatingType);
-          }
+          setActiveTaskIds(pendingTaskIds);
+          setGeneratingType(savedState.generatingType);
+          applyPartialResults(
+            statuses,
+            savedState.generatingType as GenerateType,
+            compareMode,
+            pendingTaskIds,
+          );
+          return;
         }
+
+        applyRecoveredResults(
+          statuses,
+          savedState.generatingType as GenerateType,
+          compareMode,
+          pendingTaskIds,
+        );
       } catch (error) {
         if (cancelled) return;
-        console.error('Failed to recover generate task:', error);
-        setIsGenerating(false);
-        setActiveTaskIds([]);
+        console.error('Failed to recover generate tasks:', error);
+        setIsGenerating(true);
+        setActiveTaskIds(pendingTaskIds);
+        setGeneratingType(savedState.generatingType);
       }
     };
 
-    void recoverTask();
+    void recoverTasks();
     return () => {
       cancelled = true;
     };
-    // Only reconcile persisted task id once on mount.
+    // Only reconcile persisted tasks once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -308,7 +550,8 @@ export default function Studio() {
       imageModel,
       imageSize,
       generatedContent,
-      taskId: activeTaskIds[0] ?? null,
+      taskId: isGenerating ? (activeTaskIds[0] ?? null) : null,
+      taskIds: isGenerating ? activeTaskIds : [],
       isGenerating: false,
       generatingType: isGenerating ? generatingType : null,
     });
@@ -322,6 +565,11 @@ export default function Studio() {
       };
     }
 
+    const compareMode =
+      (generatingType === 'image' || generatingType === 'all') &&
+      useSceneReference &&
+      compareScenePipelines;
+
     const checkStatus = async () => {
       try {
         const statuses = await Promise.all(activeTaskIds.map(getGenerateStatus));
@@ -333,39 +581,56 @@ export default function Studio() {
           stage: aggregate.stage,
         });
 
-        // Compare mode waits in handleGenerate; only auto-complete single-task jobs here.
-        if (activeTaskIds.length !== 1) return;
+        applyPartialResults(
+          statuses,
+          generatingType as GenerateType | null,
+          compareMode,
+          activeTaskIds,
+        );
 
-        const status = statuses[0];
-        if (status.status === 'SUCCESS') {
-          setIsGenerating(false);
-          setActiveTaskIds([]);
+        const allTerminal = statuses.every((s) => isTerminalStatus(s.status));
+
+        if (allTerminal && !handleGenerateActiveRef.current) {
+          applyRecoveredResults(
+            statuses,
+            generatingType as GenerateType | null,
+            compareMode,
+            activeTaskIds,
+          );
           if (interval) clearInterval(interval);
-          window.dispatchEvent(new Event('pulseforge:refresh-user'));
-          if (status.result) {
-            setGeneratedContent((prev) => ({
-              text: status.result?.text || prev?.text || '',
-              image: status.result?.image || prev?.image || '',
-              dimensions: status.result?.dimensions ?? prev?.dimensions,
-              image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
-              reference_product_images:
-                status.result?.reference_product_images ?? prev?.reference_product_images,
-              reference_scene_images:
-                status.result?.reference_scene_images ?? prev?.reference_scene_images,
-              warning: status.result?.warning ?? prev?.warning,
-              logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
-            }));
+          return;
+        }
+
+        if (activeTaskIds.length === 1 && !compareMode) {
+          const status = statuses[0];
+          if (status.status === 'SUCCESS') {
+            finishGeneration('SUCCESS', { taskId: status.task_id });
+            if (interval) clearInterval(interval);
+            window.dispatchEvent(new Event('pulseforge:refresh-user'));
+            if (status.result) {
+              setGeneratedContent((prev) => ({
+                text: status.result?.text || prev?.text || '',
+                image: status.result?.image || prev?.image || '',
+                dimensions: status.result?.dimensions ?? prev?.dimensions,
+                image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
+                reference_product_images:
+                  status.result?.reference_product_images ?? prev?.reference_product_images,
+                reference_scene_images:
+                  status.result?.reference_scene_images ?? prev?.reference_scene_images,
+                warning: status.result?.warning ?? prev?.warning,
+                logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
+              }));
+            }
+          } else if (status.status === 'FAILURE') {
+            finishGeneration('FAILURE', {
+              taskId: status.task_id,
+              error: status.result?.error,
+            });
+            if (interval) clearInterval(interval);
           }
-        } else if (status.status === 'FAILURE') {
-          setIsGenerating(false);
-          setActiveTaskIds([]);
-          if (interval) clearInterval(interval);
         }
       } catch (error) {
         console.error('Failed to check status:', error);
-        setIsGenerating(false);
-        setActiveTaskIds([]);
-        if (interval) clearInterval(interval);
       }
     };
 
@@ -374,7 +639,16 @@ export default function Studio() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [activeTaskIds, isGenerating]);
+  }, [
+    activeTaskIds,
+    isGenerating,
+    generatingType,
+    useSceneReference,
+    compareScenePipelines,
+    applyPartialResults,
+    applyRecoveredResults,
+    finishGeneration,
+  ]);
 
   const loadProducts = async (force = false) => {
     if (!force) setProductsLoading(true);
@@ -415,31 +689,13 @@ export default function Studio() {
     locale,
   });
 
-  const slotFromStatus = (status: GenerateStatus): ScenePipelineSlot => {
-    const result = status.result;
-    if (status.status === 'FAILURE' || !result?.image) {
-      return {
-        image: '',
-        error: result?.error || 'Generation failed',
-      };
-    }
-    return {
-      image: result.image || '',
-      image_prompt: result.image_prompt,
-      dimensions: result.dimensions,
-      warning: result.warning,
-      reference_product_images: result.reference_product_images,
-      reference_scene_images: result.reference_scene_images,
-    };
-  };
-
   const applyPipelineSlotToContent = (
     slot: ScenePipelineSlot,
     pipeline: ScenePipelineKey,
     prevText: string
   ) => {
-    setGeneratedContent({
-      text: prevText,
+    setGeneratedContent((prev) => ({
+      text: prevText || prev?.text || '',
       image: slot.image,
       dimensions: slot.dimensions,
       image_prompt: slot.image_prompt,
@@ -447,7 +703,7 @@ export default function Studio() {
       reference_scene_images: slot.reference_scene_images,
       warning: slot.warning,
       logo_mode: undefined,
-    });
+    }));
     setActivePipeline(pipeline);
   };
 
@@ -539,7 +795,8 @@ export default function Studio() {
       return;
     }
     if (isGenerating) return;
-    
+
+    handleGenerateActiveRef.current = true;
     setIsGenerating(true);
     setGeneratingType(type);
     setPublishStatus(null);
@@ -591,31 +848,39 @@ export default function Studio() {
       if (useCompare) {
         const prevText =
           type === 'image' ? generatedContent?.text || '' : '';
+        let finishedTaskId = '';
 
         if (type === 'all') {
           const copyStart = await generateCopywriting(request);
+          finishedTaskId = copyStart.task_id;
           setActiveTaskIds([copyStart.task_id]);
 
-          const [copyStatus] = await Promise.all([
-            waitForGenerateTask(copyStart.task_id),
+          const copyDonePromise = waitForGenerateTask(copyStart.task_id).then((copyStatus) => {
+            const copyText = copyStatus.result?.text || '';
+            if (copyText) {
+              setGeneratedContent((prev) => ({
+                ...(prev || { text: '', image: '' }),
+                text: copyText,
+              }));
+            }
+            return copyStatus;
+          });
+
+          await Promise.all([
+            copyDonePromise,
             runCompareImageGeneration(request, '', (imageTaskIds) => {
+              finishedTaskId = copyStart.task_id;
               setActiveTaskIds([copyStart.task_id, ...imageTaskIds]);
             }),
           ]);
-          const copyText = copyStatus.result?.text || '';
-          setGeneratedContent((prev) => ({
-            ...(prev || { text: '', image: '' }),
-            text: copyText,
-          }));
         } else {
           await runCompareImageGeneration(request, prevText, (imageTaskIds) => {
+            finishedTaskId = imageTaskIds[0];
             setActiveTaskIds(imageTaskIds);
           });
         }
 
-        setIsGenerating(false);
-        setGeneratingType(null);
-        setActiveTaskIds([]);
+        finishGeneration('SUCCESS', { taskId: finishedTaskId });
         return;
       }
 
@@ -628,26 +893,31 @@ export default function Studio() {
         response = await generateContent(request);
       }
       setActiveTaskIds([response.task_id]);
-      } catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Failed to generate content:', error);
-      setIsGenerating(false);
-      setGeneratingType(null);
-      setActiveTaskIds([]);
+      handleGenerateActiveRef.current = false;
       const detail =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
               ?.data?.detail
           : undefined;
-      const status =
+      const statusCode =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { status?: number } }).response?.status
           : undefined;
-      if (status === 402) {
+      const message =
+        typeof detail === 'string' && detail.trim()
+          ? detail
+          : error instanceof Error
+            ? error.message
+            : t('preview.generateFailed');
+      finishGeneration('FAILURE', { error: message });
+      if (statusCode === 402) {
         toast.error(detail || t('imageModelPicker.creditsExhausted'));
-      } else if (status === 503) {
+      } else if (statusCode === 503) {
         toast.error(detail || t('imageModelPicker.systemUnavailable'));
       } else {
-        toast.error(detail || t('preview.generateFailed'));
+        toast.error(message);
       }
     }
   };
