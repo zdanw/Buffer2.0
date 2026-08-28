@@ -9,6 +9,7 @@ import {
 import { useI18n } from '@/i18n/useI18n';
 import { useValidators } from '@/i18n/helpers';
 import AuthLayout from '@/components/AuthLayout';
+import FormLabel from '@/components/FormLabel';
 
 function Login() {
   const navigate = useNavigate();
@@ -73,10 +74,9 @@ function Login() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-ink-700 mb-1">
-            {t('login.username')}
-          </label>
+          <FormLabel label={t('login.username')} required htmlFor="login-username" className="block text-sm font-medium text-ink-700 mb-1" />
           <input
+            id="login-username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -88,10 +88,9 @@ function Login() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-ink-700 mb-1">
-            {t('login.password')}
-          </label>
+          <FormLabel label={t('login.password')} required htmlFor="login-password" className="block text-sm font-medium text-ink-700 mb-1" />
           <input
+            id="login-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

@@ -24,6 +24,7 @@ import {
   type SubscriptionStatus,
 } from '@/api/billing';
 import SubscribeCreditsModal from '@/components/SubscribeCreditsModal';
+import FormLabel from '@/components/FormLabel';
 import { formatServerDateTime } from '@/lib/datetime';
 import { confirmDialog } from '@/lib/feedback';
 import { useI18n } from '@/i18n/useI18n';
@@ -353,9 +354,11 @@ export default function AccountSettings() {
               className="p-5 space-y-4"
             >
               <div>
-                <label className="block text-xs font-medium text-ink-500 mb-1.5">
-                  {t('account.username')}
-                </label>
+                <FormLabel
+                  label={t('account.username')}
+                  required={false}
+                  className="block text-xs font-medium text-ink-500 mb-1.5"
+                />
                 <div className="relative">
                   <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-400" />
                   <input
@@ -368,12 +371,16 @@ export default function AccountSettings() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-ink-500 mb-1.5">
-                  {t('account.email')}
-                </label>
+                <FormLabel
+                  label={t('account.email')}
+                  required
+                  htmlFor="account-email"
+                  className="block text-xs font-medium text-ink-500 mb-1.5"
+                />
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-400" />
                   <input
+                    id="account-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -389,10 +396,14 @@ export default function AccountSettings() {
                   {t('account.passwordSection')}
                 </p>
                 <div>
-                  <label className="block text-xs text-ink-400 mb-1">
-                    {t('account.currentPassword')}
-                  </label>
+                  <FormLabel
+                    label={t('account.currentPassword')}
+                    required={false}
+                    htmlFor="account-current-password"
+                    className="block text-xs text-ink-400 mb-1"
+                  />
                   <input
+                    id="account-current-password"
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
@@ -402,10 +413,14 @@ export default function AccountSettings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-ink-400 mb-1">
-                    {t('account.newPassword')}
-                  </label>
+                  <FormLabel
+                    label={t('account.newPassword')}
+                    required={false}
+                    htmlFor="account-new-password"
+                    className="block text-xs text-ink-400 mb-1"
+                  />
                   <input
+                    id="account-new-password"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}

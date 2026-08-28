@@ -328,6 +328,7 @@ export default function ImageModelPicker({
         <LabelWithTooltip
           label={t('imageModelPicker.title')}
           tooltip={t('imageModelPicker.tooltips.title')}
+          required={false}
         />
       )}
 
@@ -391,6 +392,7 @@ export default function ImageModelPicker({
         <LabelWithTooltip
           label={`${t('imageModelPicker.aspectRatio')}${loadingSizes ? ` ${t('imageModelPicker.loading')}` : ''}`}
           tooltip={t('imageModelPicker.tooltips.aspectRatio')}
+          required={false}
         />
         <AspectRatioSelect
           sizes={sizes}

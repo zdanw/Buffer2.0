@@ -16,6 +16,9 @@ import {
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
+import FormLabel from '@/components/FormLabel';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
+import { examplesForProviderType } from '@/lib/imageProviderExamples';
 import { IMAGE_PROVIDER_PRESETS, presetForType } from '@/lib/imageProviderPresets';
 
 const EMPTY = {
@@ -306,14 +309,21 @@ export default function SystemImageProviderSettings() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder={t('systemImageProviders.name')}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
+            <div>
+              <FormLabel label={t('imageProviders.fields.name.label')} required htmlFor="system-provider-name" className="text-xs text-gray-600 mb-1" />
+              <input
+                id="system-provider-name"
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder={examplesForProviderType(form.provider_type).name}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <FormLabel label={t('imageProviders.fields.type.label')} required htmlFor="system-provider-type" className="text-xs text-gray-600 mb-1" />
             <select
+              id="system-provider-type"
               className="w-full border rounded-lg px-3 py-2 text-sm"
               value={form.provider_type}
               onChange={(e) => {
@@ -335,13 +345,18 @@ export default function SystemImageProviderSettings() {
                 </option>
               ))}
             </select>
+            </div>
+            <div>
+              <FormLabel
+                label={t('imageProviders.fields.apiKey.label')}
+                required={!editingId}
+                htmlFor="system-provider-api-key"
+                className="text-xs text-gray-600 mb-1"
+              />
             <input
+              id="system-provider-api-key"
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder={
-                editingId
-                  ? t('systemImageProviders.apiKeyKeep')
-                  : t('systemImageProviders.apiKey')
-              }
+              placeholder={examplesForProviderType(form.provider_type).apiKey}
               value={form.api_key}
               readOnly={!apiKeyEditable}
               onFocus={() => setApiKeyEditable(true)}
@@ -353,6 +368,7 @@ export default function SystemImageProviderSettings() {
               autoComplete="new-password"
               data-1p-ignore
             />
+            </div>
             {discovering ? (
               <p className="text-xs text-gray-500 flex items-center gap-1">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -362,7 +378,10 @@ export default function SystemImageProviderSettings() {
               <p className="text-xs text-amber-700">{discoverMessage}</p>
             ) : null}
             {discoveredModels.length > 0 ? (
+              <div>
+                <FormLabel label={t('imageProviders.fields.defaultModel.label')} required htmlFor="system-provider-model-select" className="text-xs text-gray-600 mb-1" />
               <select
+                id="system-provider-model-select"
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 value={form.default_model}
                 onChange={(e) => setForm({ ...form, default_model: e.target.value })}
@@ -373,10 +392,14 @@ export default function SystemImageProviderSettings() {
                   </option>
                 ))}
               </select>
+              </div>
             ) : (
+              <div>
+                <FormLabel label={t('imageProviders.fields.defaultModel.label')} required htmlFor="system-provider-model-input" className="text-xs text-gray-600 mb-1" />
               <input
+                id="system-provider-model-input"
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="Default model ID"
+                placeholder={examplesForProviderType(form.provider_type).defaultModel}
                 value={form.default_model || manualModelId}
                 onChange={(e) => {
                   setManualModelId(e.target.value);
@@ -385,6 +408,7 @@ export default function SystemImageProviderSettings() {
                 autoComplete="off"
                 data-1p-ignore
               />
+              </div>
             )}
             <button
               type="button"
@@ -395,12 +419,16 @@ export default function SystemImageProviderSettings() {
               {t('imageProviders.advancedSettings')}
             </button>
             {showAdvanced ? (
+              <div>
+                <FormLabel label={t('imageProviders.fields.baseUrl.label')} required={false} htmlFor="system-provider-base-url" className="text-xs text-gray-600 mb-1" />
               <input
+                id="system-provider-base-url"
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder={t('systemImageProviders.baseUrl')}
+                placeholder={examplesForProviderType(form.provider_type).baseUrl}
                 value={form.base_url}
                 onChange={(e) => setForm({ ...form, base_url: e.target.value })}
               />
+              </div>
             ) : null}
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -408,7 +436,10 @@ export default function SystemImageProviderSettings() {
                 checked={form.is_default}
                 onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
               />
-              {t('systemImageProviders.default')}
+              <span className="inline-flex items-center gap-1.5">
+                {t('systemImageProviders.default')}
+                <FieldRequirementBadge required={false} />
+              </span>
             </label>
             <button
               type="submit"

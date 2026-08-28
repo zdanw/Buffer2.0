@@ -23,6 +23,7 @@ import {
   type BufferAccountCreate,
 } from '@/api/bufferAccounts';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import BufferTokenGuide from '@/components/BufferTokenGuide';
 import { useI18n } from '@/i18n/useI18n';
 import { confirmDialog } from '@/lib/feedback';
@@ -429,6 +430,7 @@ export default function BufferAccountSettings() {
                   htmlFor="buffer-name"
                   label={t('bufferAccounts.fields.name.label')}
                   tooltip={t('bufferAccounts.fields.name.tooltip')}
+                  required
                 />
                 <input
                   id="buffer-name"
@@ -443,12 +445,9 @@ export default function BufferAccountSettings() {
               <div>
                 <LabelWithTooltip
                   htmlFor="buffer-token"
-                  label={
-                    editingId
-                      ? t('bufferAccounts.fields.token.labelOptional')
-                      : t('bufferAccounts.fields.token.label')
-                  }
+                  label={t('bufferAccounts.fields.token.label')}
                   tooltip={t('bufferAccounts.fields.token.tooltip')}
+                  required={!editingId}
                 />
                 <div className="relative">
                   <input
@@ -483,8 +482,9 @@ export default function BufferAccountSettings() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
                 />
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 inline-flex items-center gap-1.5">
                   {t('bufferAccounts.fields.isActive.label')}
+                  <FieldRequirementBadge required={false} />
                 </span>
               </label>
 

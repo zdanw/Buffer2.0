@@ -8,6 +8,7 @@ import {
 import { useI18n } from '@/i18n/useI18n';
 import { useValidators } from '@/i18n/helpers';
 import AuthLayout from '@/components/AuthLayout';
+import FormLabel from '@/components/FormLabel';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -77,10 +78,9 @@ export default function Signup() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-ink-700 mb-1">
-            {t('signup.username')}
-          </label>
+          <FormLabel label={t('signup.username')} required htmlFor="signup-username" className="block text-sm font-medium text-ink-700 mb-1" />
           <input
+            id="signup-username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -92,10 +92,9 @@ export default function Signup() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-ink-700 mb-1">
-            {t('signup.email')}
-          </label>
+          <FormLabel label={t('signup.email')} required htmlFor="signup-email" className="block text-sm font-medium text-ink-700 mb-1" />
           <input
+            id="signup-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -106,10 +105,9 @@ export default function Signup() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-ink-700 mb-1">
-            {t('signup.password')}
-          </label>
+          <FormLabel label={t('signup.password')} required htmlFor="signup-password" className="block text-sm font-medium text-ink-700 mb-1" />
           <input
+            id="signup-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

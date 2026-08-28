@@ -1217,6 +1217,7 @@ export default function Studio() {
               htmlFor="studio-product"
               label={t('fields.selectProduct')}
               tooltip={t('studio.tooltips.product')}
+              required
             />
             {productsLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
@@ -1261,6 +1262,7 @@ export default function Studio() {
             <LabelWithTooltip
               label={t('fields.publishPlatforms')}
               tooltip={t('studio.tooltips.platforms')}
+              required
             />
             <div className="flex flex-wrap gap-2 mt-1">
               {PLATFORMS.map((p) => {
