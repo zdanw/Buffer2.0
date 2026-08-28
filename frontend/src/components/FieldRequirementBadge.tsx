@@ -4,14 +4,24 @@ type FieldRequirementBadgeProps = {
   required: boolean;
 };
 
+/** Subtle required/optional marker shared across all forms. */
 export default function FieldRequirementBadge({ required }: FieldRequirementBadgeProps) {
   const { t } = useI18n();
+
+  if (required) {
+    return (
+      <>
+        <span className="text-gray-400 font-normal leading-none select-none" aria-hidden>
+          *
+        </span>
+        <span className="sr-only">{t('common.fieldRequired')}</span>
+      </>
+    );
+  }
+
   return (
-    <span
-      className={`text-xs font-normal ${required ? 'text-red-600' : 'text-gray-400'}`}
-      aria-hidden
-    >
-      {required ? t('common.fieldRequired') : t('common.fieldOptional')}
+    <span className="text-[11px] font-normal text-gray-400 leading-none select-none">
+      ({t('common.fieldOptional')})
     </span>
   );
 }
