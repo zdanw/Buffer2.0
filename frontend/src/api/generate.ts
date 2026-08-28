@@ -104,7 +104,30 @@ function isTransientPollError(error: unknown): boolean {
   if (e.code === 'ECONNABORTED') return true;
   if (typeof e.message === 'string' && e.message.toLowerCase().includes('timeout')) return true;
   const status = e.response?.status;
-  return status === 502 || status === 503 || status === 504;
+  // 500 often means DB pool exhaustion during parallel compare runs — keep polling.
+  return status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+/** Poll each task independently; merge with previous snapshot when individual polls fail. */
+export async function fetchGenerateStatuses(
+  taskIds: string[],
+  previousById?: Map<string, GenerateStatus>,
+): Promise<GenerateStatus[]> {
+  const results = await Promise.allSettled(taskIds.map((taskId) => getGenerateStatus(taskId)));
+  return taskIds.map((taskId, index) => {
+    const result = results[index];
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    return (
+      previousById?.get(taskId) ?? {
+        task_id: taskId,
+        status: 'PROGRESS',
+        progress: 0,
+        stage: 'queued',
+      }
+    );
+  });
 }
 
 export interface ProgressSegment {
@@ -278,18 +301,44 @@ export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatu
 
 /** Poll multiple tasks until all reach a terminal state. */
 export const waitForGenerateTasks = async (taskIds: string[]): Promise<GenerateStatus[]> => {
+  let previousById = new Map<string, GenerateStatus>();
   let consecutiveErrors = 0;
   for (;;) {
-    try {
-      const statuses = await Promise.all(taskIds.map(getGenerateStatus));
-      consecutiveErrors = 0;
-      if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
-        return statuses;
+    const results = await Promise.allSettled(taskIds.map((taskId) => getGenerateStatus(taskId)));
+    const statuses = taskIds.map((taskId, index) => {
+      const result = results[index];
+      if (result.status === 'fulfilled') {
+        return result.value;
       }
-    } catch (error) {
-      if (!isTransientPollError(error)) throw error;
+      return (
+        previousById.get(taskId) ?? {
+          task_id: taskId,
+          status: 'PROGRESS',
+          progress: 0,
+          stage: 'queued',
+        }
+      );
+    });
+    previousById = new Map(statuses.map((item) => [item.task_id, item]));
+
+    const allSucceeded = results.every((item) => item.status === 'fulfilled');
+    if (allSucceeded) {
+      consecutiveErrors = 0;
+    } else {
+      const firstFailure = results.find(
+        (item): item is PromiseRejectedResult => item.status === 'rejected',
+      );
+      if (firstFailure && !isTransientPollError(firstFailure.reason)) {
+        throw firstFailure.reason;
+      }
       consecutiveErrors += 1;
-      if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) throw error;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS && firstFailure) {
+        throw firstFailure.reason;
+      }
+    }
+
+    if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
+      return statuses;
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }

@@ -10,7 +10,7 @@ import {
   generateImage,
   aggregateGenerateProgress,
   buildGenerateProgressLayout,
-  getGenerateStatus,
+  fetchGenerateStatuses,
   resolveReferenceSelection,
   type GenerateRequest,
   type GenerateStatus,
@@ -294,6 +294,7 @@ export default function Studio() {
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
   const handleGenerateActiveRef = useRef(false);
   const monotonicProgressRef = useRef(0);
+  const taskStatusesRef = useRef<GenerateStatus[]>([]);
 
   const progressLayout = useMemo(
     () =>
@@ -335,6 +336,7 @@ export default function Studio() {
       setGeneratingType(null);
       setActiveTaskIds([]);
       setTaskStatuses([]);
+      taskStatusesRef.current = [];
       if (outcome === 'SUCCESS') {
         setGenerateStatus({
           task_id: opts?.taskId ?? '',
@@ -615,8 +617,9 @@ export default function Studio() {
 
     const recoverTasks = async () => {
       try {
-        const statuses = await Promise.all(pendingTaskIds.map(getGenerateStatus));
+        const statuses = await fetchGenerateStatuses(pendingTaskIds);
         if (cancelled) return;
+        taskStatusesRef.current = statuses;
         setTaskStatuses(statuses);
 
         const recoverLayout = buildGenerateProgressLayout(pendingTaskIds, {
@@ -711,7 +714,9 @@ export default function Studio() {
 
     const checkStatus = async () => {
       try {
-        const statuses = await Promise.all(activeTaskIds.map(getGenerateStatus));
+        const previousById = statusMap(taskStatusesRef.current);
+        const statuses = await fetchGenerateStatuses(activeTaskIds, previousById);
+        taskStatusesRef.current = statuses;
         setTaskStatuses(statuses);
         applyAggregateStatus(statuses, activeTaskIds[0]);
 
@@ -959,6 +964,7 @@ export default function Studio() {
       stage: 'queued',
     });
     setTaskStatuses([]);
+    taskStatusesRef.current = [];
     if (shouldCompareScenePipelines(type)) {
       setCompareResults({ legacy_scene: null, vision_scene: null });
     } else {

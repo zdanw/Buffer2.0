@@ -499,9 +499,10 @@ def generate_image_only(
 @router.get("/status/{task_id}")
 def get_generate_status(
     task_id: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    task = get_generate_task(task_id, owner_user_id=current_user.user_id)
+    task = get_generate_task(task_id, owner_user_id=current_user.user_id, db=db)
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

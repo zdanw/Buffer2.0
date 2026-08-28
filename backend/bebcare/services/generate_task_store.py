@@ -121,8 +121,15 @@ def update_generate_task(
         db.close()
 
 
-def get_generate_task(task_id: str, *, owner_user_id: str) -> Optional[dict]:
-    db = SessionLocal()
+def get_generate_task(
+    task_id: str,
+    *,
+    owner_user_id: str,
+    db: Session | None = None,
+) -> Optional[dict]:
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
     try:
         row = (
             db.query(GenerateTask)
@@ -143,4 +150,5 @@ def get_generate_task(task_id: str, *, owner_user_id: str) -> Optional[dict]:
             "result": row.result,
         }
     finally:
-        db.close()
+        if own_session:
+            db.close()
