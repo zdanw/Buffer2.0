@@ -671,10 +671,11 @@ export const pagesEn: TranslationTree = {
     customSize: 'Custom',
     customSizeHint: 'Enter width×height, e.g. 1920x1080 (64–8192).',
     loading: '(loading…)',
+    loadingOption: 'Loading…',
     systemDefault: 'System default',
-    systemDefaultDetail: 'System default · {{name}} · {{model}}',
-    systemDefaultNameOnly: 'System default · {{name}}',
-    systemDefaultModelOnly: 'System default · {{model}}',
+    systemDefaultDetail: '{{name}} · {{model}} (System default)',
+    systemDefaultNameOnly: '{{name}} (System default)',
+    systemDefaultModelOnly: '{{model}} (System default)',
     platformActiveDetail: '{{name}} · {{model}}',
     platformActiveName: '{{name}}',
     defaultSuffix: '(default)',
@@ -698,11 +699,11 @@ export const pagesEn: TranslationTree = {
     contactAdmin: 'Contact admin for credits',
     tooltips: {
       title:
-        'Which API generates the image. System default uses platform credits; your provider uses your own key.',
+        'Pick which configured image model to use. Platform default uses credits; your own entries use your API key.',
       provider:
         'Empty = platform default (counts against your credits). Pick a name = your saved API key.\n\nExample: "Production Doubao" for brand tasks; leave default for quick Studio tests.',
       modelId:
-        'Exact model or endpoint ID the provider expects.\n\nExample: qwen-image-edit for image-to-image (needs reference photos); qwen-image-2.0 for text-only.\n\nTip: Image-to-image models usually end in -edit or -i2i.',
+        'Each entry under Image Models binds one model ID. Choose from the list — no separate provider step.\n\nExample: "qwen3.0 · qwen-image-3.0" uses that provider and model together.',
       aspectRatio:
         'Output dimensions. Match your publish platform.\n\nExample: 1:1 (2048×2048) for Instagram feed; 9:16 for Stories/Reels/TikTok; 16:9 for YouTube thumbnails.',
       source:
@@ -1421,10 +1422,11 @@ export const pagesZh: TranslationTree = {
     customSize: '自定义',
     customSizeHint: '输入宽×高，例如 1920x1080（范围 64–8192）。',
     loading: '（加载中…）',
+    loadingOption: '加载中…',
     systemDefault: '系统默认',
-    systemDefaultDetail: '系统默认 · {{name}} · {{model}}',
-    systemDefaultNameOnly: '系统默认 · {{name}}',
-    systemDefaultModelOnly: '系统默认 · {{model}}',
+    systemDefaultDetail: '{{name}} · {{model}}（系统默认）',
+    systemDefaultNameOnly: '{{name}}（系统默认）',
+    systemDefaultModelOnly: '{{model}}（系统默认）',
     platformActiveDetail: '{{name}} · {{model}}',
     platformActiveName: '{{name}}',
     defaultSuffix: '（默认）',
@@ -1447,11 +1449,11 @@ export const pagesZh: TranslationTree = {
     contactAdmin: '联系管理员开通次数',
     tooltips: {
       title:
-        '由哪个 API 出图。系统默认扣平台额度；选自己的 Provider 用你的 Key。',
+        '选择已配置的出图模型。系统默认扣平台额度；自己的条目使用你的 API Key。',
       provider:
         '留空 = 平台默认（扣次数）。选名称 = 使用你保存的 API Key。\n\n例：品牌任务选「生产豆包」；Studio 试玩可留默认。',
       modelId:
-        '服务商要求的模型或 Endpoint ID。\n\n例：qwen-image-edit 为图生图（需参考图）；qwen-image-2.0 为纯文生图。\n\n提示：图生图模型常以 -edit 或 -i2i 结尾。',
+        '「图像模型」中每条配置已绑定一个 Model ID，在此直接选择，无需再选 Provider。\n\n例：选「qwen3.0 · qwen-image-3.0」即同时使用该供应商与模型。',
       aspectRatio:
         '输出尺寸，建议匹配发布平台。\n\n例：1:1（2048×2048）Instagram 信息流；9:16 故事/Reels/TikTok；16:9 YouTube 封面。',
       source:

@@ -2,6 +2,8 @@ import logging
 from typing import List, Optional
 import requests
 
+from bebcare.providers.image_model_filter import filter_doubao_ark_models
+
 logger = logging.getLogger(__name__)
 
 
@@ -116,8 +118,15 @@ class DoubaoArkImageProvider:
                     continue
                 mid = item.get("id") or item.get("model")
                 if mid:
-                    models.append({"id": mid, "owned_by": item.get("owned_by")})
-            return models
+                    models.append(
+                        {
+                            "id": mid,
+                            "owned_by": item.get("owned_by"),
+                            "model": item.get("model"),
+                            "name": item.get("name"),
+                        }
+                    )
+            return filter_doubao_ark_models(models)
         except Exception as e:
             logger.warning("Doubao list_models failed: %s", e)
             return []

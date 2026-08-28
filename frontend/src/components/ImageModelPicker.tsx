@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listImageProviders,
-  listProviderModels,
   getImageSizeCapabilities,
   type ImageProvider,
-  type ImageModelInfo,
   type ImageSizeOption,
 } from '@/api/imageProviders';
 import { getCurrentUser } from '@/api/auth';
@@ -17,10 +15,12 @@ import { useI18n } from '@/i18n/useI18n';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import AspectRatioSelect, { ASPECT_RATIO_CUSTOM_VALUE } from '@/components/AspectRatioSelect';
 import AspectRatioGlyph, { parseSizeString } from '@/components/AspectRatioGlyph';
-import ModelIdSelect from '@/components/ModelIdSelect';
 import { onImageProvidersChanged } from '@/lib/imageProvidersEvents';
+
 const CUSTOM_VALUE = ASPECT_RATIO_CUSTOM_VALUE;
 const SIZE_INPUT_RE = /^(\d{2,5})[xX*](\d{2,5})$/;
+const PLATFORM_KEY = '__platform__';
+const providerKey = (id: string) => `__provider__:${id}`;
 
 export type ImageProviderMode = 'platform' | 'byok';
 
@@ -46,12 +46,32 @@ function normalizeSizeInput(raw: string): string | null {
   return `${Number(m[1])}x${Number(m[2])}`;
 }
 
-function systemDefaultOptionLabel(
+function platformOptionLabel(
   summary: SystemProviderSummary | null,
   t: (key: string, vars?: Record<string, string | number>) => string
 ): string {
-  const name = summary?.has_provider ? summary.name?.trim() : '';
-  return name || t('imageModelPicker.systemDefault');
+  if (!summary?.has_provider) return t('imageModelPicker.systemDefault');
+  const name = summary.name?.trim();
+  const model = summary.default_model?.trim();
+  if (name && model) {
+    return t('imageModelPicker.systemDefaultDetail', { name, model });
+  }
+  if (name) return t('imageModelPicker.systemDefaultNameOnly', { name });
+  if (model) return t('imageModelPicker.systemDefaultModelOnly', { model });
+  return t('imageModelPicker.systemDefault');
+}
+
+function providerOptionLabel(
+  provider: ImageProvider,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
+  const model = provider.default_model?.trim();
+  const suffix = provider.is_default ? t('imageModelPicker.defaultSuffix') : '';
+  const name = `${provider.name}${suffix}`;
+  if (model) {
+    return t('imageModelPicker.platformActiveDetail', { name, model });
+  }
+  return t('imageModelPicker.platformActiveName', { name });
 }
 
 export default function ImageModelPicker({
@@ -66,16 +86,13 @@ export default function ImageModelPicker({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [providers, setProviders] = useState<ImageProvider[]>([]);
-  const [models, setModels] = useState<ImageModelInfo[]>([]);
   const [sizes, setSizes] = useState<ImageSizeOption[]>([]);
   const [defaultSize, setDefaultSize] = useState('2048x2048');
   const [allowCustom, setAllowCustom] = useState(true);
   const [customDraft, setCustomDraft] = useState('');
   const [forceCustom, setForceCustom] = useState(false);
-  const [forceCustomModel, setForceCustomModel] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-  const [loadingModels, setLoadingModels] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
+  const [loadingSystemSummary, setLoadingSystemSummary] = useState(true);
   const [loadingSizes, setLoadingSizes] = useState(false);
   const [creditsRemaining, setCreditsRemaining] = useState(0);
   const [checkoutBanner, setCheckoutBanner] = useState<string | null>(null);
@@ -94,7 +111,8 @@ export default function ImageModelPicker({
       : 'platform';
   const usingPlatformDefault = mode === 'platform';
 
-  const loadBilling = async () => {
+  const loadBilling = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingSystemSummary(true);
     try {
       const [me, summary] = await Promise.all([
         getCurrentUser(),
@@ -106,6 +124,8 @@ export default function ImageModelPicker({
       console.error('Failed to load image credits / system provider:', e);
       setCreditsRemaining(0);
       setSystemSummary({ has_provider: false });
+    } finally {
+      if (!opts?.silent) setLoadingSystemSummary(false);
     }
   };
 
@@ -136,7 +156,7 @@ export default function ImageModelPicker({
         : t('subscribeCredits.checkoutCancel')
     );
     if (checkout === 'success') {
-      void loadBilling();
+      void loadBilling({ silent: true });
     }
     const next = new URLSearchParams(searchParams);
     next.delete('checkout');
@@ -149,7 +169,7 @@ export default function ImageModelPicker({
   useEffect(() => {
     return onImageProvidersChanged(() => {
       void loadProviders({ silent: true });
-      void loadBilling();
+      void loadBilling({ silent: true });
     });
   }, []);
 
@@ -159,12 +179,11 @@ export default function ImageModelPicker({
       location.pathname === '/studio' || location.pathname === '/preview';
     if (!onStudio) return;
     void loadProviders({ silent: true });
-    void loadBilling();
+    void loadBilling({ silent: true });
   }, [preferGlobalDefault, location.pathname]);
 
-  // Default to platform provider (empty dropdown) once billing is known.
   useEffect(() => {
-    if (loadingProviders || modeInitialized) return;
+    if (loadingProviders || loadingSystemSummary || modeInitialized) return;
     if (systemSummary === null) return;
     const current = valueRef.current;
     if (current.image_provider_mode || current.image_provider_id) {
@@ -179,9 +198,8 @@ export default function ImageModelPicker({
       image_size: current.image_size || defaultSizeRef.current,
     });
     setModeInitialized(true);
-  }, [loadingProviders, systemSummary, modeInitialized]);
+  }, [loadingProviders, loadingSystemSummary, systemSummary, modeInitialized]);
 
-  // BYOK: keep selection valid if user already picked a personal provider.
   useEffect(() => {
     if (loadingProviders || mode !== 'byok') return;
     const current = valueRef.current;
@@ -209,41 +227,14 @@ export default function ImageModelPicker({
     }
   }, [loadingProviders, providers, mode]);
 
-  useEffect(() => {
-    const providerId = value.image_provider_id;
-    if (!providerId || mode === 'platform') {
-      setModels([]);
-      setHint(null);
-      setLoadingModels(false);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      setLoadingModels(true);
-      try {
-        const res = await listProviderModels(providerId);
-        if (cancelled) return;
-        setModels(res.models);
-        setHint(res.message || null);
-        setForceCustomModel(false);
-        const provider = providers.find((p) => p.id === providerId);
-        if (!value.image_model && provider?.default_model) {
-          onChange({ ...value, image_model: provider.default_model });
-        }
-      } catch {
-        if (!cancelled) {
-          setModels([]);
-          setHint(t('imageModelPicker.fetchFailed'));
-        }
-      } finally {
-        if (!cancelled) setLoadingModels(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, value.image_provider_id]);
+  const selectedProvider = providers.find((p) => p.id === value.image_provider_id);
+  const platformModelId =
+    usingPlatformDefault && systemSummary?.has_provider
+      ? systemSummary.default_model?.trim() || null
+      : null;
+  const effectiveModelId = usingPlatformDefault
+    ? platformModelId || value.image_model
+    : selectedProvider?.default_model?.trim() || value.image_model;
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +243,7 @@ export default function ImageModelPicker({
       try {
         const res = await getImageSizeCapabilities({
           provider_id: mode === 'platform' ? undefined : value.image_provider_id,
-          model: value.image_model,
+          model: effectiveModelId,
         });
         if (cancelled) return;
         setSizes(res.supported_sizes);
@@ -278,22 +269,8 @@ export default function ImageModelPicker({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, value.image_provider_id, value.image_model]);
+  }, [mode, value.image_provider_id, effectiveModelId]);
 
-  const selectedProvider = providers.find((p) => p.id === value.image_provider_id);
-  const boundModel = selectedProvider?.default_model || null;
-  const platformModelId =
-    usingPlatformDefault && systemSummary?.has_provider
-      ? systemSummary.default_model?.trim() || null
-      : null;
-  const displayModelId = boundModel || platformModelId;
-  const selected = models.find((m) => m.id === value.image_model);
-  const modelIdSet = new Set(models.map((m) => m.id));
-  const isCustomModel =
-    !displayModelId &&
-    (models.length === 0 ||
-      forceCustomModel ||
-      (value.image_model ? !modelIdSet.has(value.image_model) : false));
   const currentSize = value.image_size || defaultSize;
   const presetSet = new Set(sizes.map((s) => s.size));
   const isCustom =
@@ -301,7 +278,16 @@ export default function ImageModelPicker({
   const selectValue = isCustom ? CUSTOM_VALUE : currentSize;
   const customNormalized = normalizeSizeInput(customDraft);
   const customInvalid = isCustom && customDraft.trim().length > 0 && !customNormalized;
-  const modelDisabled = disabled || !value.image_provider_id || mode === 'platform';
+  const pickerLoading = loadingProviders || loadingSystemSummary;
+
+  const selectedKey = usingPlatformDefault
+    ? PLATFORM_KEY
+    : value.image_provider_id
+      ? providerKey(value.image_provider_id)
+      : PLATFORM_KEY;
+
+  const hasConfiguredModels =
+    systemSummary?.has_provider || providers.some((p) => p.default_model?.trim());
 
   const wrapClass = compact
     ? 'space-y-2'
@@ -311,7 +297,30 @@ export default function ImageModelPicker({
     usingPlatformDefault &&
     systemSummary?.has_provider &&
     creditsRemaining <= 0 &&
-    !loadingProviders;
+    !pickerLoading;
+
+  const handleModelSelect = (key: string) => {
+    if (key === PLATFORM_KEY) {
+      onChange({
+        ...value,
+        image_provider_mode: 'platform',
+        image_provider_id: null,
+        image_model: null,
+        image_size: value.image_size || defaultSize,
+      });
+      return;
+    }
+    const providerId = key.startsWith('__provider__:') ? key.slice('__provider__:'.length) : null;
+    const provider = providers.find((p) => p.id === providerId);
+    if (!provider) return;
+    onChange({
+      ...value,
+      image_provider_mode: 'byok',
+      image_provider_id: provider.id,
+      image_model: provider.default_model?.trim() || null,
+      image_size: value.image_size || defaultSize,
+    });
+  };
 
   return (
     <div className={wrapClass}>
@@ -323,48 +332,32 @@ export default function ImageModelPicker({
       )}
 
       <div>
-        <LabelWithTooltip
-          label={`${t('imageModelPicker.provider')}${loadingProviders ? ` ${t('imageModelPicker.loading')}` : ''}`}
-          tooltip={t('imageModelPicker.tooltips.provider')}
-        />
         <select
-          value={usingPlatformDefault ? '' : value.image_provider_id || ''}
-          disabled={disabled || loadingProviders}
-          onChange={(e) => {
-            const id = e.target.value || null;
-            if (!id) {
-              onChange({
-                ...value,
-                image_provider_mode: 'platform',
-                image_provider_id: null,
-                image_model: null,
-                image_size: value.image_size || defaultSize,
-              });
-              setForceCustomModel(false);
-              return;
-            }
-            const provider = providers.find((p) => p.id === id);
-            onChange({
-              ...value,
-              image_provider_mode: 'byok',
-              image_provider_id: id,
-              image_model: provider?.default_model || null,
-              image_size: value.image_size || defaultSize,
-            });
-            setForceCustomModel(false);
-          }}
+          value={selectedKey}
+          disabled={disabled || pickerLoading || !hasConfiguredModels}
+          onChange={(e) => handleModelSelect(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
         >
-          <option value="">{systemDefaultOptionLabel(systemSummary, t)}</option>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.is_default ? t('imageModelPicker.defaultSuffix') : ''}
-            </option>
-          ))}
+          {pickerLoading ? (
+            <option value={PLATFORM_KEY}>{t('imageModelPicker.loadingOption')}</option>
+          ) : (
+            <>
+              <option value={PLATFORM_KEY}>{platformOptionLabel(systemSummary, t)}</option>
+              {providers.map((p) => (
+                <option key={p.id} value={providerKey(p.id)}>
+                  {providerOptionLabel(p, t)}
+                </option>
+              ))}
+            </>
+          )}
         </select>
-        {usingPlatformDefault && !systemSummary?.has_provider ? (
-          <p className="text-xs text-gray-400 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
+        {!pickerLoading && !hasConfiguredModels ? (
+          <p className="text-xs text-gray-400 mt-1">
+            {t('imageModelPicker.noProviders')}{' '}
+            <Link to="/image-models" className="underline text-forge-700">
+              {t('imageModelPicker.goAddProvider')}
+            </Link>
+          </p>
         ) : null}
         {checkoutBanner ? (
           <p className="text-sm text-forge-800 bg-forge-50 border border-forge-200 rounded-lg px-3 py-2 mt-2">
@@ -379,68 +372,19 @@ export default function ImageModelPicker({
             </Link>
           </p>
         ) : null}
-        {usingPlatformDefault && systemSummary && !systemSummary.has_provider && !loadingProviders ? (
+        {usingPlatformDefault && systemSummary && !systemSummary.has_provider && !pickerLoading ? (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
             {t('imageModelPicker.systemUnavailable')}
           </p>
         ) : null}
-      </div>
-
-      <div>
-        <LabelWithTooltip
-          label={`${t('imageModelPicker.modelId')}${loadingModels ? ` ${t('imageModelPicker.loading')}` : ''}`}
-          tooltip={t('imageModelPicker.tooltips.modelId')}
-        />
-        {displayModelId ? (
-          <p className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-mono text-gray-800">
-            {displayModelId}
+        {usingPlatformDefault &&
+        systemSummary?.has_provider &&
+        !platformModelId &&
+        !pickerLoading ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            {t('imageModelPicker.systemModelNotConfigured')}
           </p>
-        ) : usingPlatformDefault ? (
-          <p className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400">
-            {systemSummary?.has_provider
-              ? t('imageModelPicker.systemModelNotConfigured')
-              : t('imageModelPicker.systemUnavailable')}
-          </p>
-        ) : (
-          <>
-            {models.length > 0 ? (
-              <ModelIdSelect
-                models={models}
-                value={value.image_model ?? null}
-                isCustom={isCustomModel}
-                disabled={modelDisabled}
-                onSelectPreset={(modelId) => {
-                  setForceCustomModel(false);
-                  onChange({ ...value, image_model: modelId });
-                }}
-                onSelectCustom={() => setForceCustomModel(true)}
-              />
-            ) : null}
-            {isCustomModel && (
-              <input
-                type="text"
-                value={value.image_model || ''}
-                disabled={modelDisabled}
-                onChange={(e) => {
-                  setForceCustomModel(true);
-                  onChange({ ...value, image_model: e.target.value || null });
-                }}
-                placeholder={
-                  value.image_provider_id
-                    ? t('placeholders.imageModelPicker.manualModel')
-                    : t('placeholders.imageModelPicker.selectProviderFirst')
-                }
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100 ${
-                  models.length > 0 ? 'mt-2' : ''
-                }`}
-              />
-            )}
-            {selected?.description && !isCustomModel && (
-              <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{selected.description}</p>
-            )}
-            {hint && <p className="text-xs text-amber-600 mt-1">{hint}</p>}
-          </>
-        )}
+        ) : null}
       </div>
 
       <div>

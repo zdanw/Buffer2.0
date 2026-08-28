@@ -276,10 +276,10 @@ export const en: TranslationTree = {
       },
     },
     providerTypes: {
-      openai_compatible: 'OpenAI compatible',
-      doubao_ark: 'Doubao Ark',
-      aliyun_maas: 'Aliyun MaaS image-to-image',
-      google_gemini: 'Google Gemini (Nano Banana)',
+      openai_compatible: 'OpenAI ',
+      doubao_ark: 'Huoshan Fangzhou(VolcanoArk)',
+      aliyun_maas: 'Alibaba Cloud Model Studio(DashScope)',
+      google_gemini: 'Google Gemini',
       agnes: 'Agnes',
     },
     validation: {

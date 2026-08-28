@@ -275,10 +275,10 @@ export const zh: TranslationTree = {
       },
     },
     providerTypes: {
-      openai_compatible: 'OpenAI 兼容',
-      doubao_ark: '豆包 Ark',
-      aliyun_maas: '阿里云 MaaS 图生图',
-      google_gemini: 'Google Gemini（Nano Banana）',
+      openai_compatible: 'OpenAI',
+      doubao_ark: '火山方舟(豆包)',
+      aliyun_maas: '阿里云百炼',
+      google_gemini: 'Google Gemini',
       agnes: 'Agnes',
     },
     validation: {

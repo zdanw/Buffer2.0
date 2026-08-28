@@ -43,6 +43,8 @@ export default function SystemImageProviderSettings() {
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
   const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
   const [manualModelId, setManualModelId] = useState('');
+  const [apiKeyTouched, setApiKeyTouched] = useState(false);
+  const [apiKeyEditable, setApiKeyEditable] = useState(false);
   const discoverSeq = useRef(0);
 
   const load = async () => {
@@ -98,10 +100,17 @@ export default function SystemImageProviderSettings() {
   };
 
   useEffect(() => {
-    if (!showModal || !form.api_key.trim()) return;
+    if (!showModal || !apiKeyTouched || !form.api_key.trim()) return;
     const timer = window.setTimeout(() => void runDiscover(), 500);
     return () => window.clearTimeout(timer);
-  }, [showModal, form.api_key, form.provider_type, form.base_url]);
+  }, [showModal, apiKeyTouched, form.api_key, form.provider_type, form.base_url]);
+
+  const closeModal = () => {
+    discoverSeq.current += 1;
+    setShowModal(false);
+    setDiscoveredModels([]);
+    setDiscoverMessage(null);
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -110,6 +119,9 @@ export default function SystemImageProviderSettings() {
     setDiscoverMessage(null);
     setManualModelId('');
     setShowAdvanced(false);
+    setApiKeyTouched(false);
+    setApiKeyEditable(false);
+    discoverSeq.current += 1;
     setShowModal(true);
   };
 
@@ -129,6 +141,9 @@ export default function SystemImageProviderSettings() {
     setDiscoverMessage(null);
     setManualModelId('');
     setShowAdvanced(false);
+    setApiKeyTouched(false);
+    setApiKeyEditable(false);
+    discoverSeq.current += 1;
     setShowModal(true);
   };
 
@@ -165,7 +180,7 @@ export default function SystemImageProviderSettings() {
         body.api_key = form.api_key.trim();
         await createSystemImageProvider(body);
       }
-      setShowModal(false);
+      closeModal();
       notifyImageProvidersChanged();
       await load();
     } catch (err: unknown) {
@@ -287,7 +302,7 @@ export default function SystemImageProviderSettings() {
               <h2 className="font-semibold">
                 {editingId ? t('common.edit') : t('common.add')}
               </h2>
-              <button type="button" onClick={() => setShowModal(false)}>
+              <button type="button" onClick={closeModal}>
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -328,8 +343,15 @@ export default function SystemImageProviderSettings() {
                   : t('systemImageProviders.apiKey')
               }
               value={form.api_key}
-              onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+              readOnly={!apiKeyEditable}
+              onFocus={() => setApiKeyEditable(true)}
+              onChange={(e) => {
+                setApiKeyTouched(true);
+                setForm({ ...form, api_key: e.target.value });
+              }}
               type="password"
+              autoComplete="new-password"
+              data-1p-ignore
             />
             {discovering ? (
               <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -360,6 +382,8 @@ export default function SystemImageProviderSettings() {
                   setManualModelId(e.target.value);
                   setForm({ ...form, default_model: e.target.value });
                 }}
+                autoComplete="off"
+                data-1p-ignore
               />
             )}
             <button

@@ -69,6 +69,8 @@ export default function ImageProviderSettings() {
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
   const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
   const [discoverFailed, setDiscoverFailed] = useState(false);
+  const [apiKeyTouched, setApiKeyTouched] = useState(false);
+  const [apiKeyEditable, setApiKeyEditable] = useState(false);
   const discoverSeq = useRef(0);
 
   const providerTypeLabel = (type: ImageProviderType) =>
@@ -167,13 +169,14 @@ export default function ImageProviderSettings() {
   );
 
   useEffect(() => {
-    if (!showModal || !form.api_key.trim()) return;
+    if (!showModal || !apiKeyTouched || !form.api_key.trim()) return;
     const timer = window.setTimeout(() => {
       void runDiscover(form.api_key, form);
     }, 500);
     return () => window.clearTimeout(timer);
   }, [
     showModal,
+    apiKeyTouched,
     form.api_key,
     form.provider_type,
     form.base_url,
@@ -181,12 +184,21 @@ export default function ImageProviderSettings() {
     runDiscover,
   ]);
 
+  const closeModal = () => {
+    discoverSeq.current += 1;
+    setShowModal(false);
+    resetDiscoverState();
+  };
+
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
     setShowKey(false);
     setShowAdvanced(false);
+    setApiKeyTouched(false);
+    setApiKeyEditable(false);
     resetDiscoverState();
+    discoverSeq.current += 1;
     setShowModal(true);
   };
 
@@ -204,7 +216,10 @@ export default function ImageProviderSettings() {
     });
     setShowKey(false);
     setShowAdvanced(false);
+    setApiKeyTouched(false);
+    setApiKeyEditable(false);
     resetDiscoverState();
+    discoverSeq.current += 1;
     setShowModal(true);
   };
 
@@ -253,7 +268,7 @@ export default function ImageProviderSettings() {
         setProviders((prev) => [created, ...prev]);
         setSuccess(t('common.created'));
       }
-      setShowModal(false);
+      closeModal();
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
       notifyImageProvidersChanged();
@@ -503,7 +518,7 @@ export default function ImageProviderSettings() {
               </h3>
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600"
                 aria-label={t('common.close')}
               >
@@ -567,9 +582,15 @@ export default function ImageProviderSettings() {
                     id="provider-api-key"
                     type={showKey ? 'text' : 'password'}
                     value={form.api_key}
-                    onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                    readOnly={!apiKeyEditable}
+                    onFocus={() => setApiKeyEditable(true)}
+                    onChange={(e) => {
+                      setApiKeyTouched(true);
+                      setForm({ ...form, api_key: e.target.value });
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg pr-10"
-                    autoComplete="off"
+                    autoComplete="new-password"
+                    data-1p-ignore
                     placeholder={t('placeholders.imageProviders.apiKey')}
                   />
                   <button
@@ -639,6 +660,8 @@ export default function ImageProviderSettings() {
                     value={form.default_model || ''}
                     onChange={(e) => setForm({ ...form, default_model: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                    autoComplete="off"
+                    data-1p-ignore
                     placeholder={t('placeholders.imageProviders.defaultModel')}
                     required
                   />
@@ -717,7 +740,7 @@ export default function ImageProviderSettings() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   disabled={saving}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                 >

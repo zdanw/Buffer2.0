@@ -96,8 +96,8 @@ def discover_models_for_credentials(
         if models:
             return True, models, None
         if callable(verify):
-            return True, [], "连接成功，未能拉取模型列表，请手动添加 Model ID"
-        return True, [], "未能拉取模型列表，请手动添加 Model ID"
+            return True, [], "连接成功，未找到图像模型，请手动填写 Model ID"
+        return True, [], "未找到图像模型，请手动填写 Model ID"
     except Exception as e:
         return False, [], str(e)
 

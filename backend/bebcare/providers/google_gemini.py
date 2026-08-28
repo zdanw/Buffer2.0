@@ -5,6 +5,8 @@ import re
 from typing import List, Optional
 import requests
 
+from bebcare.providers.image_model_filter import filter_gemini_image_models
+
 logger = logging.getLogger(__name__)
 
 _DATA_URL_RE = re.compile(
@@ -238,12 +240,8 @@ class GoogleGeminiImageProvider:
                 mid = str(name).split("/")[-1].strip()
                 if not mid:
                     continue
-                models.append({"id": mid, "owned_by": item.get("owned_by") or "google"})
-            return [
-                m
-                for m in models
-                if "image" in m["id"].lower() or "imagen" in m["id"].lower()
-            ]
+                models.append(item)
+            return filter_gemini_image_models(models)
         except Exception as e:
             logger.warning("Google list_models failed for %s: %s", self._root(), e)
             return []

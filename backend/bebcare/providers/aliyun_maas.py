@@ -4,19 +4,12 @@ from io import BytesIO
 from typing import List, Optional
 import requests
 
-logger = logging.getLogger(__name__)
-
-# 图生图模型关键字（用于列表过滤与错误提示）
-_I2I_MODEL_KEYWORDS = (
-    "qwen-image",
-    "image-edit",
-    "wan2.6-image",
-    "wan2.7-image",
-    "wanx",
-    "i2i",
-    "kling",
-    "flux",
+from bebcare.providers.image_model_filter import (
+    filter_aliyun_catalog_models,
+    filter_image_models,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _to_aliyun_size(size: str) -> str:
@@ -24,16 +17,6 @@ def _to_aliyun_size(size: str) -> str:
     if not size:
         return "2048*2048"
     return size.replace("x", "*").replace("X", "*")
-
-
-def _looks_like_i2i_model(model_id: str) -> bool:
-    low = (model_id or "").lower()
-    if any(k in low for k in _I2I_MODEL_KEYWORDS):
-        return True
-    # 排除纯文生图 t2i 命名，但仍可能支持图生图的泛化 "image" 名
-    if "t2i" in low and "i2i" not in low:
-        return False
-    return "image" in low
 
 
 def _image_url_to_data_url(url: str) -> str:
@@ -223,9 +206,36 @@ class AliyunMaasMultimodalProvider:
             detail = response.text[:500] if response.text else str(e)
             raise Exception(f"Aliyun connection test failed: {detail}") from e
 
+    def _dashscope_catalog_url(self) -> str:
+        return "https://dashscope.aliyuncs.com/api/v1/models"
+
     def list_models(self) -> List[dict]:
         if not self.supports_list_models:
             return []
+        try:
+            response = requests.get(
+                self._dashscope_catalog_url(),
+                headers=self._headers(),
+                params={"capabilities": "IG"},
+                timeout=30,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            output = payload.get("output") if isinstance(payload, dict) else {}
+            raw = []
+            if isinstance(output, dict):
+                raw = output.get("models") or []
+            if not raw and isinstance(payload, dict):
+                raw = payload.get("data") or []
+            if not isinstance(raw, list):
+                return []
+            models = filter_aliyun_catalog_models(raw)
+            if models:
+                return models
+        except Exception as e:
+            logger.warning("Aliyun catalog list_models failed: %s", e)
+
+        # Fallback: compatible-mode /models + keyword filter
         url = self._models_url()
         if not url:
             return []
@@ -241,9 +251,9 @@ class AliyunMaasMultimodalProvider:
                 if not isinstance(item, dict):
                     continue
                 mid = item.get("id") or item.get("model")
-                if mid and _looks_like_i2i_model(mid):
+                if mid:
                     models.append({"id": mid, "owned_by": item.get("owned_by")})
-            return models
+            return filter_image_models(models)
         except Exception as e:
-            logger.warning("Aliyun list_models failed: %s", e)
+            logger.warning("Aliyun compatible list_models failed: %s", e)
             return []

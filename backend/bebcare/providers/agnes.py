@@ -5,15 +5,11 @@ from typing import List, Optional
 
 import requests
 
+from bebcare.providers.image_model_filter import filter_image_models
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_BASE = "https://api.agnes-ai.cn/v1"
-_IMAGE_KEYWORDS = ("image", "t2i", "i2i", "agnes")
-
-
-def _looks_like_image_model(model_id: str) -> bool:
-    mid = (model_id or "").lower()
-    return any(k in mid for k in _IMAGE_KEYWORDS)
 
 
 class AgnesImageProvider:
@@ -152,9 +148,14 @@ class AgnesImageProvider:
                 mid = item.get("id") or item.get("model")
                 if not mid:
                     continue
-                models.append({"id": mid, "owned_by": item.get("owned_by")})
-            filtered = [m for m in models if _looks_like_image_model(m["id"])]
-            return filtered or models
+                models.append(
+                    {
+                        "id": mid,
+                        "owned_by": item.get("owned_by"),
+                        "description": item.get("description"),
+                    }
+                )
+            return filter_image_models(models)
         except Exception as e:
             logger.warning("Agnes list_models failed: %s", e)
             return []

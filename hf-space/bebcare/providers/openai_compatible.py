@@ -2,27 +2,13 @@ import logging
 from typing import List, Optional
 import requests
 
-logger = logging.getLogger(__name__)
-
-# Heuristic filter for image-capable models from GET /models
-_IMAGE_KEYWORDS = (
-    "dall-e",
-    "dalle",
-    "gpt-image",
-    "imagen",
-    "flux",
-    "seedream",
-    "seededit",
-    "stable-diffusion",
-    "sdxl",
-    "midjourney",
-    "image",
+from bebcare.providers.image_model_filter import (
+    filter_openai_compatible_models,
+    is_openrouter_base_url,
+    openrouter_models_query,
 )
 
-
-def _looks_like_image_model(model_id: str) -> bool:
-    mid = (model_id or "").lower()
-    return any(k.lower() in mid for k in _IMAGE_KEYWORDS)
+logger = logging.getLogger(__name__)
 
 
 class OpenAICompatibleImageProvider:
@@ -133,7 +119,13 @@ class OpenAICompatibleImageProvider:
         if not self.supports_list_models:
             return []
         try:
-            response = requests.get(self._models_url(), headers=self._headers(), timeout=30)
+            query = openrouter_models_query(self.base_url)
+            response = requests.get(
+                self._models_url(),
+                headers=self._headers(),
+                params=query or None,
+                timeout=30,
+            )
             response.raise_for_status()
             payload = response.json()
             raw = payload.get("data") if isinstance(payload, dict) else payload
@@ -146,9 +138,11 @@ class OpenAICompatibleImageProvider:
                 mid = item.get("id") or item.get("model")
                 if not mid:
                     continue
-                models.append({"id": mid, "owned_by": item.get("owned_by")})
-            filtered = [m for m in models if _looks_like_image_model(m["id"])]
-            return filtered or models
+                models.append(item)
+            return filter_openai_compatible_models(
+                models,
+                server_prefiltered=is_openrouter_base_url(self.base_url),
+            )
         except Exception as e:
             logger.warning("list_models failed for %s: %s", self.base_url, e)
             return []

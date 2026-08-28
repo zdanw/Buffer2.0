@@ -90,7 +90,10 @@ def test_list_models_parses_native_gemini_payload():
     )
     payload = {
         "models": [
-            {"name": "models/gemini-3.7-flash"},
+            {
+                "name": "models/gemini-3.7-flash",
+                "supportedGenerationMethods": ["generateContent"],
+            },
             {"name": "models/gemini-3-pro-image"},
             {"name": "models/gemini-3.1-flash-image"},
         ]
