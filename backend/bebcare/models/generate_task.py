@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, JSON
+from sqlalchemy import Column, String, DateTime, Integer, JSON
 from bebcare.database import Base
 from bebcare.models.ownership import OwnedMixin
 from datetime import datetime
@@ -11,6 +11,8 @@ class GenerateTask(OwnedMixin, Base):
 
     task_id = Column(String(36), primary_key=True)
     status = Column(String(20), nullable=False, default="PENDING")
+    progress = Column(Integer, nullable=False, default=0)
+    stage = Column(String(50), nullable=True)
     result = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

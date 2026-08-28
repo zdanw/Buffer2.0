@@ -38,6 +38,6 @@
   "copy_fallback_selling_points": [],
   "extra": {
     "source": "system_default",
-    "notes": "Neutral brand for products without a specific brand kit. No vertical-specific defaults."
+    "notes": "Neutral brand for products without a specific brand kit. No vertical-specific defaults. vision_scene_system_prompt is null — scene fusion uses the global default in prompt_locale (all brands)."
   }
 }

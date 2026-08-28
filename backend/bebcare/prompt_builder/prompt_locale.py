@@ -267,6 +267,7 @@ Guidelines:
 
 
 def vision_scene_image_prompt_system_prompt(locale: str) -> str:
+    """Global default for scene fusion when a brand has no custom vision_scene_system_prompt."""
     if normalize_locale(locale) == "en":
         return """
 You write image-to-image commands. Your entire output is sent unchanged to a downstream image model that already receives Image 1 (scene) and Image 2 (product). Do not write for a human reader.
@@ -276,8 +277,8 @@ Rules:
 2. Sentence 1 must order a fusion: fuse the Image 2 product into the Image 1 scene; the provided reference images are the only ground truth
 3. Then command: fully remove the original product in Image 1 (shadows, reflections, ghosting) and keep Image 1 spatial structure, furniture, composition, tone, and light
 4. Then command: product appearance must match Image 2 (shape, color, material, proportions, angle, printing) — no recoloring, deformation, or invented parts
-5. Then command a specific placement: support surface, relative position, orientation, scale; if Image 1 had a prior product, reuse that support surface and relative position
-6. Then command physical fusion: contact shadow, matching perspective, base flush with the support — no float or sticker look
+5. First classify Image 1. If it is a hand-held product promo (a person facing camera showing a product to attract the target audience), use hand-held replacement: swap the product in their hand for the Image 2 product; keep grip, arm pose, relative position, orientation, and scale; fingers must contact the product naturally; preserve the person, expression, background, and promo mood — do not move the product to a table or float it. Otherwise command surface placement: support surface, relative position, orientation, scale; if Image 1 had a prior product, reuse that support surface and relative position
+6. Then command physical fusion: for hand-held shots, natural hand contact and lighting consistent with the arm; otherwise contact shadow, matching perspective, base flush with the support — no float or sticker look
 7. Props must not block the product; no extra text, watermarks, QR codes, URLs, or brand names
 8. One continuous English paragraph. Commercial lifestyle photography.
 """.strip()
@@ -289,8 +290,8 @@ Rules:
 2. 第一句必须是融合指令：将图二产品融合进图一场景，并以提供的参考图为唯一标准
 3. 接着命令：完全移除图一中的原产品及其阴影、反射、残影；保留图一的空间结构、家具、构图、色调与光线
 4. 接着命令：产品外观以图二为准（外形、颜色、材质、比例、角度、印刷标识），禁止改色、变形或编造部件
-5. 接着命令具体摆放：承托面、相对位置、朝向、尺度；若图一有原产品，沿用其承托面与相对位置
-6. 接着命令物理融合：接触阴影、透视一致、底部贴合承托面，禁止悬空或贴纸感
+5. 先判断图一场景类型。若图一为人物手持产品的宣传/种草构图（人物或博主面向镜头展示产品以吸引目标用户关注），则进入「手持展示替换」：将人物手中的原产品替换为图二产品，沿用原握持位置、手势、朝向与尺度，手指与产品接触自然，保留人物姿态、表情、背景与宣传氛围；禁止改为桌面/台面摆放或悬浮。否则命令具体摆放：承托面、相对位置、朝向、尺度；若图一有原产品则沿用其落点
+6. 接着命令物理融合：若为手持展示，产品与手掌/手指接触自然、光影与手臂一致；否则接触阴影、透视一致、底部贴合承托面，禁止悬空或贴纸感
 7. 道具不得遮挡产品；禁止额外文字、水印、二维码、网址或品牌名
 8. 只输出一段连续中文。适合商业生活方式摄影。
 """.strip()
@@ -322,9 +323,14 @@ def vision_scene_fusion_user_prompt_text(
             f"original product in Image 1 (and similar items related to “{name}”) including "
             "shadows, reflections, and occlusion\n"
             "2) Match Image 2 for shape, color, material, proportions, angle, and printing\n"
-            "3) Specific placement: support surface + relative position + orientation + scale; "
+            "3) Classify Image 1 first. If it is a hand-held product promo (person showing a product "
+            "to the target audience), command: replace the product in their hand with Image 2 "
+            f"“{name}”; keep grip, arm pose, relative position, orientation, and scale natural; "
+            "preserve person, expression, background, and promo mood — do not place on a table "
+            "or float. Otherwise: support surface + relative position + orientation + scale; "
             "if Image 1 shows a prior product, reuse that support surface and relative position\n"
-            "4) Physical fusion: contact shadow, matching perspective, base flush with the support\n"
+            "4) Physical fusion: hand-held — natural finger contact and arm-consistent light; "
+            "otherwise contact shadow, matching perspective, base flush with the support\n"
             "Do not use external dimension templates. "
             "OUTPUT LANGUAGE: English only — no Chinese characters, no preamble."
             f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
@@ -339,8 +345,12 @@ def vision_scene_fusion_user_prompt_text(
         "1) 保留图一空间结构、家具布局、构图、色调与光线；"
         f"完全移除图一中的原产品及与「{name}」相关的同类产品，包括阴影、反射与遮挡\n"
         "2) 产品外形、颜色、材质、比例、角度与印刷标识以图二为准\n"
-        "3) 具体摆放：承托面 + 相对位置 + 朝向 + 尺度；若图一有原产品则沿用其落点\n"
-        "4) 物理融合：接触阴影、透视一致、底部贴合承托面\n"
+        "3) 先判断图一场景类型。若图一为人物手持产品的宣传/种草画面（人物面向镜头展示产品以吸引目标用户），"
+        f"须命令：将人物手中的原产品替换为图二「{name}」，沿用原握持位置、手势、朝向与尺度，"
+        "手指与产品接触自然，保留人物姿态、表情、背景与宣传氛围；禁止改为桌面摆放或悬浮。"
+        "否则：承托面 + 相对位置 + 朝向 + 尺度；若图一有原产品则沿用其落点\n"
+        "4) 物理融合：手持展示时产品与手掌/手指接触自然、光影与手臂一致；"
+        "否则接触阴影、透视一致、底部贴合承托面\n"
         "禁止开场白。不要使用任何外部维度或模板文案。"
         f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
     )

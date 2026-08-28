@@ -2,10 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, Wand2, PenLine, ImageIcon } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 
+type ProgressStage = 'queued' | 'copywriting' | 'image_prompt' | 'image_generation' | 'finalizing' | 'done';
+
+const PROGRESS_STAGES = new Set<string>([
+  'queued',
+  'copywriting',
+  'image_prompt',
+  'image_generation',
+  'finalizing',
+  'done',
+]);
+
 type GeneratingType = 'all' | 'copywriting' | 'image' | string | null;
 
 interface PreviewGeneratingAnimationProps {
   generatingType?: GeneratingType;
+  progress?: number;
+  stage?: string | null;
 }
 
 const FLOATING_EMOJI = ['✨', '💫', '🔥', '📸', '💕', '⭐', '🌸', '🎨'];
@@ -89,9 +102,19 @@ function TypeIcon({ generatingType }: { generatingType?: GeneratingType }) {
   return <Wand2 className="w-3.5 h-3.5" />;
 }
 
-export default function PreviewGeneratingAnimation({ generatingType }: PreviewGeneratingAnimationProps) {
+export default function PreviewGeneratingAnimation({
+  generatingType,
+  progress = 0,
+  stage = null,
+}: PreviewGeneratingAnimationProps) {
   const { t } = useI18n();
   const [messageIndex, setMessageIndex] = useState(0);
+
+  const displayProgress = Math.max(0, Math.min(100, Math.round(progress)));
+  const stageLabel =
+    stage && PROGRESS_STAGES.has(stage)
+      ? t(`preview.progressStage.${stage}` as `preview.progressStage.${ProgressStage}`)
+      : null;
 
   const messageKeys = useMemo(() => {
     if (generatingType === 'copywriting') {
@@ -178,8 +201,24 @@ export default function PreviewGeneratingAnimation({ generatingType }: PreviewGe
           ))}
         </div>
 
-        <div className="mt-5 w-36 h-1 rounded-full bg-white/20 overflow-hidden">
-          <div className="h-full w-1/3 rounded-full bg-white/90 preview-gen-progress" />
+        <div className="mt-5 w-44">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-white/90 mb-1.5">
+            <span>{stageLabel ?? t('preview.generating')}</span>
+            <span aria-hidden>{displayProgress}%</span>
+          </div>
+          <div
+            className="h-1.5 rounded-full bg-white/20 overflow-hidden"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={displayProgress}
+            aria-label={stageLabel ?? t('preview.generating')}
+          >
+            <div
+              className="h-full rounded-full bg-white/90 transition-[width] duration-500 ease-out"
+              style={{ width: `${Math.max(displayProgress, 4)}%` }}
+            />
+          </div>
         </div>
       </div>
     </div>

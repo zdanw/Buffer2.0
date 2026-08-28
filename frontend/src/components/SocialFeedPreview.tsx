@@ -26,6 +26,8 @@ interface SocialFeedPreviewProps {
   onImageClick?: (url: string) => void;
   isGenerating?: boolean;
   generatingType?: string | null;
+  generationProgress?: number;
+  generationStage?: string | null;
 }
 
 function toUsername(name: string): string {
@@ -504,6 +506,8 @@ export default function SocialFeedPreview({
   onImageClick,
   isGenerating = false,
   generatingType = null,
+  generationProgress = 0,
+  generationStage = null,
 }: SocialFeedPreviewProps) {
   const { t } = useI18n();
 
@@ -583,7 +587,13 @@ export default function SocialFeedPreview({
 
       <IPhoneFrame {...frameProps}>
         {renderFeed()}
-        {isGenerating && <PreviewGeneratingAnimation generatingType={generatingType} />}
+        {isGenerating && (
+          <PreviewGeneratingAnimation
+            generatingType={generatingType}
+            progress={generationProgress}
+            stage={generationStage}
+          />
+        )}
       </IPhoneFrame>
 
       {!showTabs && availablePlatforms.length === 1 && (

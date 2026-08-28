@@ -117,9 +117,13 @@ async def startup_event():
             expire_due_grants,
             reclaim_stale_reservations,
         )
+        from bebcare.services.generate_task_store import fail_orphaned_generate_tasks
 
         db = SessionLocal()
         try:
+            orphaned = fail_orphaned_generate_tasks()
+            if orphaned:
+                logger.info("Failed %s orphaned generate task(s) after startup", orphaned)
             n = reclaim_stale_reservations(db)
             expired = expire_due_grants(db)
             db.commit()

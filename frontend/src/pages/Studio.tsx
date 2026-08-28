@@ -8,6 +8,7 @@ import {
   generateContent,
   generateCopywriting,
   generateImage,
+  aggregateGenerateProgress,
   getGenerateStatus,
   waitForGenerateTask,
   resolveReferenceSelection,
@@ -147,9 +148,11 @@ export default function Studio() {
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<string | null>(savedState.imageSize ?? '2048x2048');
   const [imageProviderMode, setImageProviderMode] = useState<'platform' | 'byok' | null>('platform');
-  const [isGenerating, setIsGenerating] = useState(savedState.isGenerating);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [generatingType, setGeneratingType] = useState<string | null>(savedState.generatingType);
-  const [taskId, setTaskId] = useState<string | null>(savedState.taskId);
+  const [activeTaskIds, setActiveTaskIds] = useState<string[]>(
+    savedState.taskId ? [savedState.taskId] : [],
+  );
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus | null>(null);
   const [generatedContent, setGeneratedContent] = useState<{
     text: string;
@@ -223,6 +226,62 @@ export default function Studio() {
   const generateActionsDisabled =
     isGenerating || !selectedProduct || selectedPlatforms.length === 0;
 
+  const generationProgress = generateStatus?.progress ?? 0;
+  const generationStage = generateStatus?.stage ?? null;
+
+  useEffect(() => {
+    const pendingTaskId = savedState.taskId;
+    if (!pendingTaskId) return;
+
+    let cancelled = false;
+    const recoverTask = async () => {
+      try {
+        const status = await getGenerateStatus(pendingTaskId);
+        if (cancelled) return;
+        setGenerateStatus(status);
+
+        if (status.status === 'SUCCESS') {
+          setIsGenerating(false);
+          window.dispatchEvent(new Event('pulseforge:refresh-user'));
+          if (status.result) {
+            setGeneratedContent((prev) => ({
+              text: status.result?.text || prev?.text || '',
+              image: status.result?.image || prev?.image || '',
+              dimensions: status.result?.dimensions ?? prev?.dimensions,
+              image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
+              reference_product_images:
+                status.result?.reference_product_images ?? prev?.reference_product_images,
+              reference_scene_images:
+                status.result?.reference_scene_images ?? prev?.reference_scene_images,
+              warning: status.result?.warning ?? prev?.warning,
+              logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
+            }));
+          }
+        } else if (status.status === 'FAILURE') {
+          setIsGenerating(false);
+        } else if (status.status === 'PENDING' || status.status === 'PROGRESS') {
+          setIsGenerating(true);
+          setActiveTaskIds([pendingTaskId]);
+          if (savedState.generatingType) {
+            setGeneratingType(savedState.generatingType);
+          }
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to recover generate task:', error);
+        setIsGenerating(false);
+        setActiveTaskIds([]);
+      }
+    };
+
+    void recoverTask();
+    return () => {
+      cancelled = true;
+    };
+    // Only reconcile persisted task id once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     void loadProducts();
   }, [activeBrandId]);
@@ -249,57 +308,73 @@ export default function Studio() {
       imageModel,
       imageSize,
       generatedContent,
-      taskId,
-      isGenerating,
-      generatingType,
+      taskId: activeTaskIds[0] ?? null,
+      isGenerating: false,
+      generatingType: isGenerating ? generatingType : null,
     });
-  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, compareScenePipelines, referenceCount, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
+  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, compareScenePipelines, referenceCount, imageProviderId, imageModel, imageSize, generatedContent, activeTaskIds, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
-    if (taskId && isGenerating) {
-      const checkStatus = async () => {
-        try {
-          const status = await getGenerateStatus(taskId);
-          setGenerateStatus(status);
-          
-          if (status.status === 'SUCCESS') {
-            setIsGenerating(false);
-            if (interval) clearInterval(interval);
-            window.dispatchEvent(new Event('pulseforge:refresh-user'));
-            if (status.result) {
-              setGeneratedContent((prev) => ({
-                text: status.result?.text || prev?.text || '',
-                image: status.result?.image || prev?.image || '',
-                // 仅文案接口不返回维度/提示词，需保留上一次图片生成的结果
-                dimensions: status.result?.dimensions ?? prev?.dimensions,
-                image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
-                reference_product_images:
-                  status.result?.reference_product_images ?? prev?.reference_product_images,
-                reference_scene_images:
-                  status.result?.reference_scene_images ?? prev?.reference_scene_images,
-                warning: status.result?.warning ?? prev?.warning,
-                logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
-              }));
-            }
-          } else if (status.status === 'FAILURE') {
-            setIsGenerating(false);
-            if (interval) clearInterval(interval);
-          }
-        } catch (error) {
-          console.error('Failed to check status:', error);
+    if (!isGenerating || activeTaskIds.length === 0) {
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }
+
+    const checkStatus = async () => {
+      try {
+        const statuses = await Promise.all(activeTaskIds.map(getGenerateStatus));
+        const aggregate = aggregateGenerateProgress(statuses);
+        setGenerateStatus({
+          task_id: activeTaskIds[0],
+          status: aggregate.status ?? 'PROGRESS',
+          progress: aggregate.progress,
+          stage: aggregate.stage,
+        });
+
+        // Compare mode waits in handleGenerate; only auto-complete single-task jobs here.
+        if (activeTaskIds.length !== 1) return;
+
+        const status = statuses[0];
+        if (status.status === 'SUCCESS') {
           setIsGenerating(false);
+          setActiveTaskIds([]);
+          if (interval) clearInterval(interval);
+          window.dispatchEvent(new Event('pulseforge:refresh-user'));
+          if (status.result) {
+            setGeneratedContent((prev) => ({
+              text: status.result?.text || prev?.text || '',
+              image: status.result?.image || prev?.image || '',
+              dimensions: status.result?.dimensions ?? prev?.dimensions,
+              image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
+              reference_product_images:
+                status.result?.reference_product_images ?? prev?.reference_product_images,
+              reference_scene_images:
+                status.result?.reference_scene_images ?? prev?.reference_scene_images,
+              warning: status.result?.warning ?? prev?.warning,
+              logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
+            }));
+          }
+        } else if (status.status === 'FAILURE') {
+          setIsGenerating(false);
+          setActiveTaskIds([]);
           if (interval) clearInterval(interval);
         }
-      };
-      
-      checkStatus();
-      interval = setInterval(checkStatus, 1000);
-    }
+      } catch (error) {
+        console.error('Failed to check status:', error);
+        setIsGenerating(false);
+        setActiveTaskIds([]);
+        if (interval) clearInterval(interval);
+      }
+    };
+
+    void checkStatus();
+    interval = setInterval(checkStatus, 1000);
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [taskId, isGenerating]);
+  }, [activeTaskIds, isGenerating]);
 
   const loadProducts = async (force = false) => {
     if (!force) setProductsLoading(true);
@@ -378,7 +453,8 @@ export default function Studio() {
 
   const runCompareImageGeneration = async (
     baseRequest: GenerateRequest,
-    prevText: string
+    prevText: string,
+    onImageTasksStarted?: (taskIds: [string, string]) => void,
   ): Promise<CompareSceneResults> => {
     const refs = await resolveReferenceSelection({
       product_id: baseRequest.product_id,
@@ -417,6 +493,7 @@ export default function Studio() {
       generateImage(legacyReq),
       generateImage(visionReq),
     ]);
+    onImageTasksStarted?.([legacyStart.task_id, visionStart.task_id]);
 
     const [legacyStatus, visionStatus] = await Promise.all([
       waitForGenerateTask(legacyStart.task_id),
@@ -467,7 +544,7 @@ export default function Studio() {
     setGeneratingType(type);
     setPublishStatus(null);
     setSaveDraftStatus(null);
-    setTaskId(null);
+    setActiveTaskIds([]);
     
     if (type === 'copywriting') {
       setGeneratedContent(prev => ({
@@ -516,9 +593,14 @@ export default function Studio() {
           type === 'image' ? generatedContent?.text || '' : '';
 
         if (type === 'all') {
+          const copyStart = await generateCopywriting(request);
+          setActiveTaskIds([copyStart.task_id]);
+
           const [copyStatus] = await Promise.all([
-            generateCopywriting(request).then((r) => waitForGenerateTask(r.task_id)),
-            runCompareImageGeneration(request, ''),
+            waitForGenerateTask(copyStart.task_id),
+            runCompareImageGeneration(request, '', (imageTaskIds) => {
+              setActiveTaskIds([copyStart.task_id, ...imageTaskIds]);
+            }),
           ]);
           const copyText = copyStatus.result?.text || '';
           setGeneratedContent((prev) => ({
@@ -526,12 +608,14 @@ export default function Studio() {
             text: copyText,
           }));
         } else {
-          await runCompareImageGeneration(request, prevText);
+          await runCompareImageGeneration(request, prevText, (imageTaskIds) => {
+            setActiveTaskIds(imageTaskIds);
+          });
         }
 
         setIsGenerating(false);
         setGeneratingType(null);
-        setTaskId(null);
+        setActiveTaskIds([]);
         return;
       }
 
@@ -543,12 +627,12 @@ export default function Studio() {
       } else {
         response = await generateContent(request);
       }
-      setTaskId(response.task_id);
+      setActiveTaskIds([response.task_id]);
       } catch (error: unknown) {
       console.error('Failed to generate content:', error);
       setIsGenerating(false);
       setGeneratingType(null);
-      setTaskId(null);
+      setActiveTaskIds([]);
       const detail =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
@@ -705,6 +789,8 @@ export default function Studio() {
                 onImageClick={setPreviewImage}
                 isGenerating={isGenerating}
                 generatingType={generatingType}
+                generationProgress={generationProgress}
+                generationStage={generationStage}
               />
             </div>
             <GeneratedImagePanel
@@ -1159,6 +1245,8 @@ export default function Studio() {
                     onImageClick={setPreviewImage}
                     isGenerating={isGenerating}
                     generatingType={generatingType}
+                    generationProgress={generationProgress}
+                    generationStage={generationStage}
                   />
                 </div>
                 {generatedContent.image && (
@@ -1193,6 +1281,8 @@ export default function Studio() {
                     imageAlt={t('preview.generatedAlt')}
                     isGenerating={isGenerating}
                     generatingType={generatingType}
+                    generationProgress={generationProgress}
+                    generationStage={generationStage}
                   />
                 </div>
                 {!isGenerating && (

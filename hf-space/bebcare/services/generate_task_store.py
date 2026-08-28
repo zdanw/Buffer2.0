@@ -7,6 +7,9 @@ from bebcare.database import SessionLocal
 from bebcare.models.generate_task import GenerateTask
 
 TASK_TTL = timedelta(hours=48)
+STALE_IN_FLIGHT = timedelta(minutes=15)
+_IN_FLIGHT = frozenset({"PENDING", "PROGRESS"})
+ORPHANED_TASK_ERROR = "任务因服务中断已取消，请重新生成"
 
 
 def _purge_expired(db: Session) -> None:
@@ -36,10 +39,55 @@ def create_generate_task(
         db.close()
 
 
+def fail_orphaned_generate_tasks() -> int:
+    """Mark in-flight tasks as failed after process restart (BackgroundTasks do not resume)."""
+    from bebcare.services.credit_grant_service import refund_reservation
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(GenerateTask)
+            .filter(GenerateTask.status.in_(_IN_FLIGHT))
+            .all()
+        )
+        if not rows:
+            return 0
+        for row in rows:
+            row.status = "FAILURE"
+            row.progress = 0
+            row.stage = None
+            row.result = {"error": ORPHANED_TASK_ERROR}
+            row.updated_at = datetime.utcnow()
+            refund_reservation(db, row.task_id)
+        db.commit()
+        return len(rows)
+    finally:
+        db.close()
+
+
+def _maybe_fail_stale_task(db: Session, row: GenerateTask) -> None:
+    if row.status not in _IN_FLIGHT:
+        return
+    ref = row.updated_at or row.created_at
+    if not ref or ref >= datetime.utcnow() - STALE_IN_FLIGHT:
+        return
+    from bebcare.services.credit_grant_service import refund_reservation
+
+    row.status = "FAILURE"
+    row.progress = 0
+    row.stage = None
+    row.result = {"error": ORPHANED_TASK_ERROR}
+    row.updated_at = datetime.utcnow()
+    refund_reservation(db, row.task_id)
+    db.commit()
+
+
 def update_generate_task(
     task_id: str,
     *,
     status: Optional[str] = None,
+    progress: Optional[int] = None,
+    stage: Optional[str] = None,
     result: Any = None,
     set_result: bool = False,
 ) -> None:
@@ -55,6 +103,10 @@ def update_generate_task(
             return
         if status is not None:
             row.status = status
+        if progress is not None:
+            row.progress = max(0, min(100, int(progress)))
+        if stage is not None:
+            row.stage = stage
         if set_result:
             row.result = result
         row.updated_at = datetime.utcnow()
@@ -82,9 +134,12 @@ def get_generate_task(task_id: str, *, owner_user_id: str) -> Optional[dict]:
         )
         if not row:
             return None
+        _maybe_fail_stale_task(db, row)
         return {
             "task_id": row.task_id,
             "status": row.status,
+            "progress": row.progress,
+            "stage": row.stage,
             "result": row.result,
         }
     finally:

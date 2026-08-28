@@ -29,6 +29,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate", tags=["generate"])
 
 
+def _report_progress(task_id: str, progress: int, stage: str, *, status: str | None = None) -> None:
+    kwargs: dict = {"progress": progress, "stage": stage}
+    if status is not None:
+        kwargs["status"] = status
+    update_generate_task(task_id, **kwargs)
+
+
+def _image_progress_callback(task_id: str, start: int, end: int):
+    span = max(end - start, 1)
+
+    def callback(stage: str, fraction: float) -> None:
+        clamped = max(0.0, min(1.0, fraction))
+        progress = start + int(span * clamped)
+        update_generate_task(task_id, progress=progress, stage=stage)
+
+    return callback
+
+
 def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
     try:
         selected = resolve_reference_images(
@@ -222,7 +240,9 @@ def generate_content(
     async def run_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting generation task", task_id)
-            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
+            await asyncio.to_thread(
+                _report_progress, task_id, 5, "queued", status="PROGRESS"
+            )
 
             platform = product_info.get("platform", "instagram")
             reference_images = product_info.get("reference_images", [])
@@ -230,8 +250,14 @@ def generate_content(
             generator = ContentGenerator()
             style_hint = product_info.get("style_hint", None)
 
+            await asyncio.to_thread(
+                _report_progress, task_id, 15, "copywriting"
+            )
             copywriting_text = await generator.generate_copywriting_async(
                 product_info, platform
+            )
+            await asyncio.to_thread(
+                _report_progress, task_id, 45, "copywriting"
             )
 
             image_result = await generator.generate_image_async(
@@ -243,6 +269,7 @@ def generate_content(
                 image_provider_id=product_info.get("image_provider_id"),
                 image_model=product_info.get("image_model"),
                 image_size=product_info.get("image_size"),
+                progress_callback=_image_progress_callback(task_id, 45, 95),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:
@@ -252,6 +279,8 @@ def generate_content(
                 update_generate_task,
                 task_id,
                 status="SUCCESS",
+                progress=100,
+                stage="done",
                 set_result=True,
                 result={
                     "text": copywriting_text,
@@ -326,17 +355,27 @@ def generate_copywriting_only(
     async def run_copywriting_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting copywriting generation", task_id)
-            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
+            await asyncio.to_thread(
+                _report_progress, task_id, 5, "queued", status="PROGRESS"
+            )
 
             generator = ContentGenerator()
+            await asyncio.to_thread(
+                _report_progress, task_id, 20, "copywriting"
+            )
             copywriting_text = await generator.generate_copywriting_async(
                 product_info, product_info.get("platform", "instagram")
+            )
+            await asyncio.to_thread(
+                _report_progress, task_id, 90, "copywriting"
             )
 
             await asyncio.to_thread(
                 update_generate_task,
                 task_id,
                 status="SUCCESS",
+                progress=100,
+                stage="done",
                 set_result=True,
                 result={
                     "text": copywriting_text,
@@ -380,7 +419,9 @@ def generate_image_only(
     async def run_image_generation(task_id: str, product_info: dict):
         try:
             logger.info("[%s] Starting image generation", task_id)
-            await asyncio.to_thread(update_generate_task, task_id, status="PROGRESS")
+            await asyncio.to_thread(
+                _report_progress, task_id, 5, "queued", status="PROGRESS"
+            )
 
             platform = product_info.get("platform", "instagram")
             reference_images = product_info.get("reference_images", [])
@@ -397,6 +438,7 @@ def generate_image_only(
                 image_provider_id=product_info.get("image_provider_id"),
                 image_model=product_info.get("image_model"),
                 image_size=product_info.get("image_size"),
+                progress_callback=_image_progress_callback(task_id, 10, 95),
             )
             image_urls = image_result.get("image_urls", [])
             if not image_urls:
@@ -406,6 +448,8 @@ def generate_image_only(
                 update_generate_task,
                 task_id,
                 status="SUCCESS",
+                progress=100,
+                stage="done",
                 set_result=True,
                 result={
                     "text": None,
@@ -465,5 +509,7 @@ def get_generate_status(
     return {
         "task_id": task_id,
         "status": task["status"],
+        "progress": task.get("progress", 0),
+        "stage": task.get("stage"),
         "result": task.get("result"),
     }

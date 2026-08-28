@@ -62,6 +62,8 @@ export interface GenerateResult {
 export interface GenerateStatus {
   task_id: string;
   status: string;
+  progress?: number;
+  stage?: string | null;
   result?: GenerateResult;
 }
 
@@ -92,12 +94,57 @@ export const getGenerateStatus = async (taskId: string): Promise<GenerateStatus>
   return response.data;
 };
 
+/** Average progress across tasks; stage follows the slowest in-flight task. */
+export function aggregateGenerateProgress(
+  statuses: GenerateStatus[],
+): Pick<GenerateStatus, 'progress' | 'stage' | 'status'> {
+  if (statuses.length === 0) {
+    return { progress: 0, stage: 'queued', status: 'PENDING' };
+  }
+
+  const progress = Math.round(
+    statuses.reduce((sum, item) => sum + (item.progress ?? 0), 0) / statuses.length,
+  );
+
+  if (statuses.every((item) => item.status === 'SUCCESS')) {
+    return { progress: 100, stage: 'done', status: 'SUCCESS' };
+  }
+  if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
+    return { progress, stage: 'done', status: 'FAILURE' };
+  }
+
+  const inFlight = statuses.filter(
+    (item) => item.status === 'PENDING' || item.status === 'PROGRESS',
+  );
+  const lagging = inFlight.reduce(
+    (min, item) => ((item.progress ?? 0) < (min.progress ?? 0) ? item : min),
+    inFlight[0],
+  );
+
+  return {
+    progress,
+    stage: lagging?.stage ?? 'queued',
+    status: 'PROGRESS',
+  };
+}
+
 /** Poll until SUCCESS or FAILURE. */
 export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatus> => {
   for (;;) {
     const status = await getGenerateStatus(taskId);
     if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
       return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+};
+
+/** Poll multiple tasks until all reach a terminal state. */
+export const waitForGenerateTasks = async (taskIds: string[]): Promise<GenerateStatus[]> => {
+  for (;;) {
+    const statuses = await Promise.all(taskIds.map(getGenerateStatus));
+    if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
+      return statuses;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }

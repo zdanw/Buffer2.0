@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import httpx
 
@@ -103,20 +103,6 @@ class ContentGenerator:
 7. 使用丰富细腻的描述性语言，包含光影、材质与情感氛围
 8. 画面中禁止生成文字、水印、二维码、网址、字幕或额外品牌名（产品自带印刷除外）
 9. 适合高端商业生活方式产品摄影，画面干净、有代入感
-"""
-
-        self.vision_scene_image_prompt_system_prompt = """
-你写的是图生图指令。整段输出会原样发给下游图像模型（该模型已收到图一场景图与图二产品图），不是写给人类看的说明。
-
-规则：
-1. 从第一个字起就是对图像模型的指令。禁止开场白、标题、列表，禁止「以下是」「最终图像提示词」「基于图一与图二」「严格遵循指南」等套话
-2. 第一句必须是融合指令：将图二产品融合进图一场景，并以提供的参考图为唯一标准
-3. 接着命令：完全移除图一中的原产品及其阴影、反射、残影；保留图一的空间结构、家具、构图、色调与光线
-4. 接着命令：产品外观以图二为准（外形、颜色、材质、比例、角度、印刷标识），禁止改色、变形或编造部件
-5. 接着命令具体摆放：承托面、相对位置、朝向、尺度；若图一有原产品，沿用其承托面与相对位置
-6. 接着命令物理融合：接触阴影、透视一致、底部贴合承托面，禁止悬空或贴纸感
-7. 道具不得遮挡产品；禁止额外文字、水印、二维码、网址或品牌名
-8. 只输出一段连续中文。适合商业生活方式摄影。
 """
 
     def _copy_system_prompt(self, product_info: Dict) -> str:
@@ -682,6 +668,7 @@ class ContentGenerator:
         image_provider_id: Optional[str] = None,
         image_model: Optional[str] = None,
         image_size: Optional[str] = None,
+        progress_callback: Optional[Callable[[str, float], None]] = None,
     ) -> Dict:
         from bebcare.providers.registry import (
             resolve_image_provider,
@@ -699,6 +686,9 @@ class ContentGenerator:
         else:
             use_vision = bool(product_info.get("use_vision_image_prompt", False))
         refs = [u for u in (reference_images or []) if u]
+
+        if progress_callback:
+            progress_callback("image_prompt", 0.0)
 
         selected_dimensions = None
         image_prompt = None
@@ -809,6 +799,9 @@ class ContentGenerator:
             prompt_locale.locale_from_product_info(product_info)
         )
 
+        if progress_callback:
+            progress_callback("image_generation", 0.35)
+
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
         size = resolve_size(image_size or product_info.get("image_size"))
@@ -837,6 +830,9 @@ class ContentGenerator:
             if own:
                 session.close()
 
+        if progress_callback:
+            progress_callback("image_generation", 0.45)
+
         async def make_image_request():
             return await asyncio.to_thread(
                 lambda: provider.generate(
@@ -857,6 +853,9 @@ class ContentGenerator:
 
         if not image_urls:
             raise Exception("No images generated")
+
+        if progress_callback:
+            progress_callback("finalizing", 0.75)
 
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
@@ -927,6 +926,8 @@ class ContentGenerator:
                 product_id,
                 len(cdn_urls),
             )
+        if progress_callback:
+            progress_callback("finalizing", 0.95)
         return result
 
     def generate_image(
