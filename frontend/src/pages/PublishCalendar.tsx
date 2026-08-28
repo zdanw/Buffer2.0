@@ -28,6 +28,7 @@ import { getProducts } from '@/api/products';
 import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime, parseServerDate } from '@/lib/datetime';
+import { formatDimensionDisplayValue, NULL_DIMENSION_LABEL } from '@/lib/dimensionDisplay';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import { useI18n } from '@/i18n/useI18n';
 import { localeToIntl } from '@/i18n/localeUtils';
@@ -902,14 +903,18 @@ export default function PublishCalendar() {
                               <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('fields.dimensionInfo')}</h4>
                               <div className="grid grid-cols-2 gap-2">
                                 {DIMENSION_FIELDS.map((field) => {
-                                  const value = execution.dimensions![field];
-                                  if (!value) return null;
+                                  const value = formatDimensionDisplayValue(execution.dimensions![field]);
+                                  const isNull = value === NULL_DIMENSION_LABEL;
                                   return (
                                     <div key={field} className="flex items-start gap-2">
                                       <span className="text-xs text-gray-500 w-12 shrink-0">
                                         {t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}
                                       </span>
-                                      <span className="text-xs text-gray-800">{value}</span>
+                                      <span
+                                        className={`text-xs ${isNull ? 'text-gray-400 italic' : 'text-gray-800'}`}
+                                      >
+                                        {value}
+                                      </span>
                                     </div>
                                   );
                                 })}

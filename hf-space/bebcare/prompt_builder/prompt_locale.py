@@ -152,9 +152,8 @@ def dimension_display_name(
     sanitizer: Optional[Callable[[str], str]] = None,
 ) -> str:
     """Use stored dimension name as-is (no locale translation)."""
-    loc = normalize_locale(locale)
     name = (item.get("name") or "").strip()
-    raw = name or ("默认" if loc == "zh" else "Default")
+    raw = name or "NULL"
     if sanitizer:
         return sanitizer(raw)
     return raw
@@ -370,11 +369,34 @@ def format_recent_prompt_avoidance(recent_prompts: List[str], locale: str) -> st
     )
 
 
+NULL_DIMENSION_LABEL = "NULL"
+
+
+def is_null_dimension_label(value: Optional[str]) -> bool:
+    text = (value or "").strip()
+    if not text:
+        return True
+    if text.upper() == NULL_DIMENSION_LABEL:
+        return True
+    return text.startswith("默认")
+
+
 def format_vision_dimension_hints(
     dimensions: Optional[Dict[str, str]],
     locale: str,
 ) -> str:
     if not dimensions:
+        return ""
+    keys = (
+        "scene",
+        "lighting",
+        "composition",
+        "viewpoint",
+        "style",
+        "quality",
+        "details",
+    )
+    if all(is_null_dimension_label(dimensions.get(key)) for key in keys):
         return ""
     loc = normalize_locale(locale)
     if loc == "en":

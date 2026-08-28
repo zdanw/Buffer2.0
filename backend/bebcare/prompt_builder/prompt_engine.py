@@ -72,6 +72,8 @@ WRITING_STYLES = [
 
 
 class PromptEngine:
+    _NULL_DIMENSION = {"id": "null", "name": "NULL"}
+
     DEFAULT_SYSTEM_PROMPT = """
 You are a professional social media marketing expert.
 You create high-quality English social posts and image prompts.
@@ -107,7 +109,7 @@ Follow these principles:
         """获取指定产品类型的维度配置。
 
         新类目在 DB 无维度时不得跨类目回退到 Night Lights，否则会污染提示词。
-        无数据时返回空池，由 _select_* 使用「默认*」占位。
+        无数据时返回空池，由 _select_* 使用 NULL 占位。
         无 owner 时不查询 DB，避免返回全部用户的维度。
         """
         if db is not None and dimension_service is not None and owner_user_id:
@@ -174,7 +176,7 @@ Follow these principles:
         dimensions = self._get_dimensions(product_type, db, owner_user_id=owner_user_id)
         scenes = dimensions.get("scenes") or []
         if not scenes:
-            return {"id": "default", "name": "默认场景"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(scenes)
     
     def _select_lighting(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -195,7 +197,7 @@ Follow these principles:
 
         compatible_lighting = self._pool_by_compat(scene, "lighting", lighting, unrestricted)
         if not compatible_lighting:
-            return {"id": "default", "name": "默认光线"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_lighting)
     
     def _select_style(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -215,7 +217,7 @@ Follow these principles:
 
         compatible_styles = self._pool_by_compat(scene, "styles", styles, unrestricted)
         if not compatible_styles:
-            return {"id": "default", "name": "默认风格"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_styles)
     
     def _select_details(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -235,7 +237,7 @@ Follow these principles:
 
         compatible_details = self._pool_by_compat(scene, "details", details, unrestricted)
         if not compatible_details:
-            return {"id": "default", "name": "默认细节"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_details)
     
     def _select_viewpoint(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -251,7 +253,7 @@ Follow these principles:
 
         compatible_viewpoints = self._pool_by_compat(scene, "viewpoints", viewpoints, unrestricted)
         if not compatible_viewpoints:
-            return {"id": "default", "name": "默认视角"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_viewpoints)
     
     def _select_composition(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -269,7 +271,7 @@ Follow these principles:
             scene, "compositions", compositions, unrestricted
         )
         if not compatible_compositions:
-            return {"id": "default", "name": "默认构图"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_compositions)
     
     def _select_quality(self, scene: dict, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:
@@ -285,7 +287,7 @@ Follow these principles:
 
         compatible_qualities = self._pool_by_compat(scene, "quality", qualities, unrestricted)
         if not compatible_qualities:
-            return {"id": "default", "name": "默认画质"}
+            return dict(self._NULL_DIMENSION)
         return random.choice(compatible_qualities)
     
     def _select_dimensions(self, product_type: str = "Night Lights", db=None, owner_user_id=None) -> dict:

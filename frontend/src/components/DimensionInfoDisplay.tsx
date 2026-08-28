@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { DimensionInfo } from '@/api/generate';
+import { formatDimensionDisplayValue, NULL_DIMENSION_LABEL } from '@/lib/dimensionDisplay';
 import { useI18n } from '@/i18n/useI18n';
 
 const DIMENSION_FIELD_KEYS: Record<string, string> = {
@@ -49,20 +50,13 @@ export default function DimensionInfoDisplay({ dimensions, className = '' }: Dim
   const handleCopyAll = async () => {
     const lines = DIMENSION_FIELDS
       .map((field) => {
-        const value = dimensions[field];
-        if (!value) return '';
+        const value = formatDimensionDisplayValue(dimensions[field]);
         return `${t(`dimensionTypes.${DIMENSION_FIELD_KEYS[field]}`)}: ${value}`;
       })
-      .filter(Boolean)
       .join('\n\n');
-    if (!lines) return;
     await copyToClipboard(lines);
     markCopied('all');
   };
-
-  const visibleFields = DIMENSION_FIELDS.filter((field) => dimensions[field]);
-
-  if (visibleFields.length === 0) return null;
 
   return (
     <div className={className}>
@@ -86,8 +80,9 @@ export default function DimensionInfoDisplay({ dimensions, className = '' }: Dim
       </div>
 
       <div className="space-y-1.5">
-        {visibleFields.map((field) => {
-          const value = dimensions[field];
+        {DIMENSION_FIELDS.map((field) => {
+          const value = formatDimensionDisplayValue(dimensions[field]);
+          const isNull = value === NULL_DIMENSION_LABEL;
           return (
             <div
               key={field}
@@ -110,7 +105,11 @@ export default function DimensionInfoDisplay({ dimensions, className = '' }: Dim
                   )}
                 </button>
               </div>
-              <p className="text-[11px] leading-snug text-gray-800 break-words select-text">
+              <p
+                className={`text-[11px] leading-snug break-words select-text ${
+                  isNull ? 'text-gray-400 italic' : 'text-gray-800'
+                }`}
+              >
                 {value}
               </p>
             </div>
