@@ -13,6 +13,22 @@ export interface GenerateRequest {
   image_size?: string | null;
   image_provider_mode?: 'platform' | 'byok' | null;
   locale?: 'en' | 'zh';
+  image_prompt_pipeline?: 'legacy_scene' | 'vision_scene';
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
+}
+
+export interface ReferenceSelectionRequest {
+  product_id: string;
+  reference_count?: number;
+  use_scene_reference?: boolean;
+}
+
+export interface ReferenceSelectionResponse {
+  reference_images: string[];
+  reference_product_images: string[];
+  reference_scene_images: string[];
+  use_scene_reference: boolean;
 }
 
 export interface GenerateResponse {
@@ -64,7 +80,25 @@ export const generateImage = async (data: GenerateRequest): Promise<GenerateResp
   return response.data;
 };
 
+export const resolveReferenceSelection = async (
+  data: ReferenceSelectionRequest
+): Promise<ReferenceSelectionResponse> => {
+  const response = await axiosInstance.post('/generate/reference-selection/', data);
+  return response.data;
+};
+
 export const getGenerateStatus = async (taskId: string): Promise<GenerateStatus> => {
   const response = await axiosInstance.get(`/generate/status/${taskId}`);
   return response.data;
+};
+
+/** Poll until SUCCESS or FAILURE. */
+export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatus> => {
+  for (;;) {
+    const status = await getGenerateStatus(taskId);
+    if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
+      return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 };

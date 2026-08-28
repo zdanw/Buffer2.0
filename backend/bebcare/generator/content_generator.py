@@ -690,7 +690,14 @@ class ContentGenerator:
         from bebcare.providers.size_catalog import resolve_size
 
         use_scene_reference = product_info.get("use_scene_reference", False)
-        use_vision = bool(product_info.get("use_vision_image_prompt", False))
+        pipeline = (product_info.get("image_prompt_pipeline") or "").strip()
+        if pipeline == "legacy_scene":
+            use_vision = False
+        elif pipeline == "vision_scene":
+            use_vision = True
+            use_scene_reference = True
+        else:
+            use_vision = bool(product_info.get("use_vision_image_prompt", False))
         refs = [u for u in (reference_images or []) if u]
 
         selected_dimensions = None
@@ -728,21 +735,12 @@ class ContentGenerator:
                     product_info, refs, 1024, recent_prompts, dimension_hints
                 )
                 image_prompt = positive_prompt
-                labels = prompt_locale.scene_ref_labels(
-                    prompt_locale.locale_from_product_info(product_info)
-                )
                 if use_scene_reference:
-                    dim_label = labels["vision_scene_fusion"]
-                    selected_dimensions = {
-                        "scene": labels["vision_scene"],
-                        "viewpoint": dim_label,
-                        "composition": dim_label,
-                        "style": dim_label,
-                        "quality": dim_label,
-                        "details": dim_label,
-                        "lighting": dim_label,
-                    }
+                    selected_dimensions = prompt_locale.vision_scene_fusion_dimensions()
                 elif not selected_dimensions:
+                    labels = prompt_locale.scene_ref_labels(
+                        prompt_locale.locale_from_product_info(product_info)
+                    )
                     dim_label = labels["vision_auto"]
                     selected_dimensions = {
                         "scene": dim_label,

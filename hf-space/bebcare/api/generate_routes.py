@@ -5,9 +5,14 @@ from bebcare.database import get_db
 from bebcare.models import Product
 from bebcare.models.image_provider import ImageProviderConfig
 from bebcare.models.user import User
-from bebcare.schemas.generate import GenerateRequest, GenerateResponse
+from bebcare.schemas.generate import (
+    GenerateRequest,
+    GenerateResponse,
+    ReferenceSelectionRequest,
+    ReferenceSelectionResponse,
+)
 from bebcare.generator.content_generator import ContentGenerator
-from bebcare.utils.reference_selector import select_reference_images
+from bebcare.utils.reference_selector import resolve_reference_images, select_reference_images
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.generate_task_store import (
@@ -25,12 +30,17 @@ router = APIRouter(prefix="/generate", tags=["generate"])
 
 
 def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
-    selected = select_reference_images(
-        db,
-        request.product_id,
-        request.reference_count,
-        request.use_scene_reference,
-    )
+    try:
+        selected = resolve_reference_images(
+            db,
+            request.product_id,
+            request.reference_count,
+            request.use_scene_reference,
+            pinned_product_images=request.reference_product_images,
+            pinned_scene_images=request.reference_scene_images,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if request.use_scene_reference and not selected["use_scene_reference"]:
         logger.warning(
             "No scene images for product %s, falling back to regular mode",
@@ -70,8 +80,27 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "image_provider_mode": request.image_provider_mode,
         "owner_user_id": product.owner_user_id,
         "locale": request.locale or "en",
+        "image_prompt_pipeline": request.image_prompt_pipeline,
     }
     return enrich_product_info(db, product, base)
+
+
+@router.post("/reference-selection/", response_model=ReferenceSelectionResponse)
+def resolve_reference_selection(
+    request: ReferenceSelectionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(
+        db, Product, request.product_id, current_user, id_attr="product_id"
+    )
+    selected = select_reference_images(
+        db,
+        request.product_id,
+        request.reference_count,
+        request.use_scene_reference,
+    )
+    return ReferenceSelectionResponse(**selected)
 
 
 def _owned_generate_product(

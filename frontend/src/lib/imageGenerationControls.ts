@@ -7,6 +7,7 @@ export interface ImageGenerationControlValues {
   use_vision_image_prompt: boolean;
   realistic_placement: boolean;
   reference_count: number;
+  compare_scene_pipelines?: boolean;
 }
 
 export const DEFAULT_IMAGE_GENERATION_CONTROLS: ImageGenerationControlValues = {
@@ -14,4 +15,5 @@ export const DEFAULT_IMAGE_GENERATION_CONTROLS: ImageGenerationControlValues = {
   use_vision_image_prompt: false,
   realistic_placement: true,
   reference_count: 2,
+  compare_scene_pipelines: true,
 };

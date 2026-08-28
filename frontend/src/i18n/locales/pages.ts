@@ -275,6 +275,14 @@ export const pagesEn: TranslationTree = {
     realisticPlacement: 'Realistic product placement',
     referenceImageCount: 'Product reference images',
     referenceImageCountOption: '{{count}} image(s)',
+    compareScenePipelines: 'Compare scene fusion pipelines',
+    compareSceneTitle: 'Scene fusion comparison',
+    pipelineLegacy: 'Legacy (text template)',
+    pipelineVision: 'New (vision fusion)',
+    pipelineActive: 'Used for publish',
+    pipelineUseForPublish: 'Use for publish',
+    pipelineNoImage: 'No image',
+    compareSharedCaption: 'Same caption shown in both previews; pick which image to publish.',
     previewingAs: 'Previewing as',
     tooltips: {
       product:
@@ -295,6 +303,8 @@ export const pagesEn: TranslationTree = {
         'Caption only — skips image API calls.\n\nExample: You already have a photo and need fresh hooks for TikTok vs Instagram.',
       generateImage:
         'Image only — uses visual styles, reference photos, and image model settings below.\n\nExample: Test three nursery scenes before writing copy.',
+      compareScenePipelines:
+        'When scene reference is on, run both pipelines in parallel and show results side by side.\n\nLegacy = text template + DeepSeek meta-prompt; New = vision model scene fusion prompt.\n\nUses 2 image generations per click.',
     },
   },
   dimensionsPage: {
@@ -1009,6 +1019,14 @@ export const pagesZh: TranslationTree = {
     realisticPlacement: '真实产品摆放',
     referenceImageCount: '产品参考图数量',
     referenceImageCountOption: '{{count}} 张',
+    compareScenePipelines: '对比两条场景融合链路',
+    compareSceneTitle: '场景融合效果对比',
+    pipelineLegacy: '旧方案（文本模板）',
+    pipelineVision: '新方案（视觉融合）',
+    pipelineActive: '用于发布',
+    pipelineUseForPublish: '用于发布',
+    pipelineNoImage: '暂无图像',
+    compareSharedCaption: '两条预览共用同一段文案，请选择用于发布的图像。',
     previewingAs: '预览品牌',
     tooltips: {
       product:
@@ -1029,6 +1047,8 @@ export const pagesZh: TranslationTree = {
         '仅生成文案，不调用图像 API。\n\n例：已有配图，只需为 TikTok 和 Instagram 写不同开头。',
       generateImage:
         '仅生成图像，使用下方视觉风格、参考图与图像模型设置。\n\n例：先试三种婴儿房场景再写文案。',
+      compareScenePipelines:
+        '开启场景参考后，并行跑两条链路并在右侧并排展示。\n\n旧方案 = 文本模板 + DeepSeek 扩写；新方案 = 视觉模型场景融合 Prompt。\n\n每次点击消耗 2 次图像生成额度。',
     },
   },
   dimensionsPage: {

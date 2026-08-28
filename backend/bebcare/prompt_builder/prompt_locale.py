@@ -371,6 +371,21 @@ def format_recent_prompt_avoidance(recent_prompts: List[str], locale: str) -> st
 
 NULL_DIMENSION_LABEL = "NULL"
 
+VISION_SCENE_FUSION_DIMENSION_KEYS = (
+    "scene",
+    "viewpoint",
+    "composition",
+    "style",
+    "quality",
+    "details",
+    "lighting",
+)
+
+
+def vision_scene_fusion_dimensions() -> Dict[str, str]:
+    """Vision scene fusion does not use visual-style dimensions."""
+    return {key: NULL_DIMENSION_LABEL for key in VISION_SCENE_FUSION_DIMENSION_KEYS}
+
 
 def is_null_dimension_label(value: Optional[str]) -> bool:
     text = (value or "").strip()

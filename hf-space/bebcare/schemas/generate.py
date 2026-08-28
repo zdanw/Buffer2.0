@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Literal
+from typing import Optional, Dict, Literal, List
 
 class GenerateRequest(BaseModel):
     product_id: str
@@ -14,6 +14,22 @@ class GenerateRequest(BaseModel):
     image_size: Optional[str] = None
     image_provider_mode: Optional[Literal["platform", "byok"]] = None
     locale: Optional[Literal["en", "zh"]] = None
+    image_prompt_pipeline: Optional[Literal["legacy_scene", "vision_scene"]] = None
+    reference_product_images: Optional[List[str]] = None
+    reference_scene_images: Optional[List[str]] = None
+
+
+class ReferenceSelectionRequest(BaseModel):
+    product_id: str
+    reference_count: int = 2
+    use_scene_reference: bool = False
+
+
+class ReferenceSelectionResponse(BaseModel):
+    reference_images: List[str]
+    reference_product_images: List[str]
+    reference_scene_images: List[str]
+    use_scene_reference: bool
 
 class GenerateResponse(BaseModel):
     task_id: str

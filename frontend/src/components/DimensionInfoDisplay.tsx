@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { DimensionInfo } from '@/api/generate';
-import { formatDimensionDisplayValue, NULL_DIMENSION_LABEL } from '@/lib/dimensionDisplay';
+import { formatDimensionDisplayValue, NULL_DIMENSION_LABEL, areDimensionsAllNull } from '@/lib/dimensionDisplay';
 import { useI18n } from '@/i18n/useI18n';
 
 const DIMENSION_FIELD_KEYS: Record<string, string> = {
@@ -36,6 +36,10 @@ async function copyToClipboard(text: string): Promise<void> {
 export default function DimensionInfoDisplay({ dimensions, className = '' }: DimensionInfoDisplayProps) {
   const { t } = useI18n();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  if (areDimensionsAllNull(dimensions)) {
+    return null;
+  }
 
   const markCopied = (key: string) => {
     setCopiedKey(key);

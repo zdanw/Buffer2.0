@@ -9,6 +9,8 @@ import {
   generateCopywriting,
   generateImage,
   getGenerateStatus,
+  waitForGenerateTask,
+  resolveReferenceSelection,
   type GenerateRequest,
   type GenerateStatus,
   type DimensionInfo,
@@ -33,9 +35,24 @@ import PublishProgressOverlay, { usePublishPhaseRunner } from '@/components/Publ
 import { useI18n } from '@/i18n/useI18n';
 import { downloadImage } from '@/lib/download';
 import { resolveEffectiveLogoMode } from '@/lib/logoPolicy';
+import { areDimensionsAllNull } from '@/lib/dimensionDisplay';
 import { STUDIO_REFERENCE_COUNT_MAX } from '@/lib/imageGenerationControls';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
+
+type ScenePipelineKey = 'legacy_scene' | 'vision_scene';
+
+interface ScenePipelineSlot {
+  image: string;
+  image_prompt?: string;
+  dimensions?: DimensionInfo;
+  warning?: string;
+  reference_product_images?: string[];
+  reference_scene_images?: string[];
+  error?: string;
+}
+
+type CompareSceneResults = Record<ScenePipelineKey, ScenePipelineSlot | null>;
 
 interface PreviewState {
   selectedProduct: string;
@@ -43,6 +60,7 @@ interface PreviewState {
   useSceneReference: boolean;
   useVisionImagePrompt: boolean;
   realisticPlacement: boolean;
+  compareScenePipelines: boolean;
   referenceCount: number;
   imageProviderId?: string | null;
   imageModel?: string | null;
@@ -68,6 +86,7 @@ const emptyPreviewState = (): PreviewState => ({
   useSceneReference: false,
   useVisionImagePrompt: false,
   realisticPlacement: true,
+  compareScenePipelines: true,
   referenceCount: 2,
   imageProviderId: null,
   imageModel: null,
@@ -116,6 +135,9 @@ export default function Studio() {
   const [realisticPlacement, setRealisticPlacement] = useState(
     savedState.realisticPlacement ?? true
   );
+  const [compareScenePipelines, setCompareScenePipelines] = useState(
+    savedState.compareScenePipelines ?? true
+  );
   const [referenceCount, setReferenceCount] = useState(
     Math.min(savedState.referenceCount ?? 2, STUDIO_REFERENCE_COUNT_MAX),
   );
@@ -146,6 +168,8 @@ export default function Studio() {
   const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [compareResults, setCompareResults] = useState<CompareSceneResults | null>(null);
+  const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
 
   const previewBrand = useMemo((): BrandSummary | null => {
@@ -219,6 +243,7 @@ export default function Studio() {
       useSceneReference,
       useVisionImagePrompt,
       realisticPlacement,
+      compareScenePipelines,
       referenceCount,
       imageProviderId,
       imageModel,
@@ -228,7 +253,7 @@ export default function Studio() {
       isGenerating,
       generatingType,
     });
-  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, referenceCount, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
+  }, [userId, selectedProduct, selectedPlatforms, useSceneReference, useVisionImagePrompt, realisticPlacement, compareScenePipelines, referenceCount, imageProviderId, imageModel, imageSize, generatedContent, taskId, isGenerating, generatingType]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -300,6 +325,133 @@ export default function Studio() {
     }
   };
 
+  const buildGenerateRequest = (type: 'all' | 'copywriting' | 'image'): GenerateRequest => ({
+    product_id: selectedProduct,
+    platform: selectedPlatforms[0],
+    style_hint: 'storytelling',
+    use_scene_reference: useSceneReference,
+    use_vision_image_prompt: useVisionImagePrompt,
+    realistic_placement: realisticPlacement,
+    reference_count: referenceCount,
+    image_provider_id: imageProviderId || undefined,
+    image_model: imageModel || undefined,
+    image_size: imageSize || undefined,
+    image_provider_mode: type === 'copywriting' ? undefined : imageProviderMode || undefined,
+    locale,
+  });
+
+  const slotFromStatus = (status: GenerateStatus): ScenePipelineSlot => {
+    const result = status.result;
+    if (status.status === 'FAILURE' || !result?.image) {
+      return {
+        image: '',
+        error: result?.error || 'Generation failed',
+      };
+    }
+    return {
+      image: result.image || '',
+      image_prompt: result.image_prompt,
+      dimensions: result.dimensions,
+      warning: result.warning,
+      reference_product_images: result.reference_product_images,
+      reference_scene_images: result.reference_scene_images,
+    };
+  };
+
+  const applyPipelineSlotToContent = (
+    slot: ScenePipelineSlot,
+    pipeline: ScenePipelineKey,
+    prevText: string
+  ) => {
+    setGeneratedContent({
+      text: prevText,
+      image: slot.image,
+      dimensions: slot.dimensions,
+      image_prompt: slot.image_prompt,
+      reference_product_images: slot.reference_product_images,
+      reference_scene_images: slot.reference_scene_images,
+      warning: slot.warning,
+      logo_mode: undefined,
+    });
+    setActivePipeline(pipeline);
+  };
+
+  const runCompareImageGeneration = async (
+    baseRequest: GenerateRequest,
+    prevText: string
+  ): Promise<CompareSceneResults> => {
+    const refs = await resolveReferenceSelection({
+      product_id: baseRequest.product_id,
+      reference_count: baseRequest.reference_count,
+      use_scene_reference: true,
+    });
+
+    setGeneratedContent((prev) => ({
+      text: prev?.text || prevText,
+      image: prev?.image || '',
+      reference_product_images: refs.reference_product_images,
+      reference_scene_images: refs.reference_scene_images,
+    }));
+
+    const pinned = {
+      reference_product_images: refs.reference_product_images,
+      reference_scene_images: refs.reference_scene_images,
+    };
+
+    const legacyReq: GenerateRequest = {
+      ...baseRequest,
+      ...pinned,
+      use_scene_reference: true,
+      use_vision_image_prompt: false,
+      image_prompt_pipeline: 'legacy_scene',
+    };
+    const visionReq: GenerateRequest = {
+      ...baseRequest,
+      ...pinned,
+      use_scene_reference: true,
+      use_vision_image_prompt: true,
+      image_prompt_pipeline: 'vision_scene',
+    };
+
+    const [legacyStart, visionStart] = await Promise.all([
+      generateImage(legacyReq),
+      generateImage(visionReq),
+    ]);
+
+    const [legacyStatus, visionStatus] = await Promise.all([
+      waitForGenerateTask(legacyStart.task_id),
+      waitForGenerateTask(visionStart.task_id),
+    ]);
+
+    const legacySlot = slotFromStatus(legacyStatus);
+    const visionSlot = slotFromStatus(visionStatus);
+    const results: CompareSceneResults = {
+      legacy_scene: legacySlot,
+      vision_scene: visionSlot,
+    };
+    setCompareResults(results);
+
+    const primary =
+      visionSlot.image && !visionSlot.error ? visionSlot : legacySlot;
+    const primaryKey: ScenePipelineKey =
+      visionSlot.image && !visionSlot.error ? 'vision_scene' : 'legacy_scene';
+    applyPipelineSlotToContent(primary, primaryKey, prevText);
+
+    if (!legacySlot.image && !visionSlot.image) {
+      throw new Error(
+        [legacySlot.error, visionSlot.error].filter(Boolean).join(' · ') ||
+          'Both pipelines failed'
+      );
+    }
+    window.dispatchEvent(new Event('pulseforge:refresh-user'));
+    return results;
+  };
+
+  const shouldCompareScenePipelines = (type: 'all' | 'copywriting' | 'image') =>
+    (type === 'image' || type === 'all') &&
+    useSceneReference &&
+    compareScenePipelines;
+
   const handleGenerate = async (type: 'all' | 'copywriting' | 'image') => {
     if (!selectedProduct) {
       toast.info(t('preview.selectProductFirst'));
@@ -337,27 +489,51 @@ export default function Studio() {
         reference_scene_images: undefined,
         warning: undefined,
       }));
+    } else if (shouldCompareScenePipelines(type)) {
+      setGeneratedContent(prev => ({
+        text: '',
+        image: '',
+        dimensions: undefined,
+        image_prompt: undefined,
+        reference_product_images: undefined,
+        reference_scene_images: undefined,
+        warning: undefined,
+      }));
     } else {
       setGeneratedContent(null);
     }
     
     setGenerateStatus(null);
+    setCompareResults(null);
 
     try {
-      const request: GenerateRequest = {
-        product_id: selectedProduct,
-        platform: selectedPlatforms[0],
-        style_hint: 'storytelling',
-        use_scene_reference: useSceneReference,
-        use_vision_image_prompt: useVisionImagePrompt,
-        realistic_placement: realisticPlacement,
-        reference_count: referenceCount,
-        image_provider_id: imageProviderId || undefined,
-        image_model: imageModel || undefined,
-        image_size: imageSize || undefined,
-        image_provider_mode: type === 'copywriting' ? undefined : imageProviderMode || undefined,
-        locale,
-      };
+      const request = buildGenerateRequest(type);
+
+      const useCompare = shouldCompareScenePipelines(type);
+
+      if (useCompare) {
+        const prevText =
+          type === 'image' ? generatedContent?.text || '' : '';
+
+        if (type === 'all') {
+          const [copyStatus] = await Promise.all([
+            generateCopywriting(request).then((r) => waitForGenerateTask(r.task_id)),
+            runCompareImageGeneration(request, ''),
+          ]);
+          const copyText = copyStatus.result?.text || '';
+          setGeneratedContent((prev) => ({
+            ...(prev || { text: '', image: '' }),
+            text: copyText,
+          }));
+        } else {
+          await runCompareImageGeneration(request, prevText);
+        }
+
+        setIsGenerating(false);
+        setGeneratingType(null);
+        setTaskId(null);
+        return;
+      }
 
       let response;
       if (type === 'copywriting') {
@@ -480,6 +656,78 @@ export default function Studio() {
     });
   };
 
+  const pipelineLabel = (key: ScenePipelineKey) =>
+    key === 'legacy_scene' ? t('studio.pipelineLegacy') : t('studio.pipelineVision');
+
+  const selectPipelineForPublish = (key: ScenePipelineKey, slot: ScenePipelineSlot) => {
+    applyPipelineSlotToContent(slot, key, generatedContent?.text || '');
+  };
+
+  const renderComparePipelineCard = (key: ScenePipelineKey, slot: ScenePipelineSlot | null) => {
+    const selected = activePipeline === key;
+    const caption = generatedContent?.text || undefined;
+    return (
+      <div
+        key={key}
+        className={`rounded-xl border p-4 flex flex-col gap-3 ${
+          selected ? 'border-forge-500 ring-2 ring-forge-100 bg-forge-50/30' : 'border-gray-200 bg-white'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-gray-900">{pipelineLabel(key)}</h3>
+          {slot?.image && (
+            <button
+              type="button"
+              onClick={() => selectPipelineForPublish(key, slot)}
+              className={`text-xs px-2 py-1 rounded-md shrink-0 ${
+                selected
+                  ? 'bg-forge-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {selected ? t('studio.pipelineActive') : t('studio.pipelineUseForPublish')}
+            </button>
+          )}
+        </div>
+        {slot?.error && !slot.image && (
+          <p className="text-sm text-red-600">{slot.error}</p>
+        )}
+        {slot?.image ? (
+          <>
+            <div className="w-full max-w-[220px] mx-auto">
+              <SocialFeedPreview
+                platforms={selectedPlatforms}
+                image={slot.image}
+                caption={caption}
+                brandName={previewBrandName}
+                brandLogo={previewBrandLogo}
+                imageAlt={pipelineLabel(key)}
+                onImageClick={setPreviewImage}
+                isGenerating={isGenerating}
+                generatingType={generatingType}
+              />
+            </div>
+            <GeneratedImagePanel
+              imageUrl={slot.image}
+              imageAlt={pipelineLabel(key)}
+              onViewFullSize={setPreviewImage}
+              filename={`${key}-${previewBrandName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'brand'}.jpg`}
+            />
+          </>
+        ) : (
+          !slot?.error && (
+            <div className="aspect-[9/16] max-w-[220px] mx-auto w-full rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">
+              {isGenerating ? t('preview.processing') : t('studio.pipelineNoImage')}
+            </div>
+          )
+        )}
+        {slot?.warning && (
+          <p className="text-xs text-amber-700">{slot.warning}</p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -588,12 +836,17 @@ export default function Studio() {
               use_vision_image_prompt: useVisionImagePrompt,
               realistic_placement: realisticPlacement,
               reference_count: referenceCount,
+              compare_scene_pipelines: compareScenePipelines,
             }}
             onChange={(next) => {
               setUseSceneReference(next.use_scene_reference);
               setUseVisionImagePrompt(next.use_vision_image_prompt);
               setRealisticPlacement(next.realistic_placement);
               setReferenceCount(next.reference_count);
+              setCompareScenePipelines(next.compare_scene_pipelines ?? true);
+              if (!next.use_scene_reference) {
+                setCompareResults(null);
+              }
             }}
             disabled={isGenerating}
           />
@@ -800,26 +1053,88 @@ export default function Studio() {
             />
           )}
 
-          {generatedContent && (generatedContent.dimensions || generatedContent.image_prompt) && (
-            <div className="border-2 border-red-400 rounded-xl p-4 bg-white">
-              {generatedContent.dimensions && (
-                <DimensionInfoDisplay dimensions={generatedContent.dimensions} />
-              )}
-
-              {generatedContent.image_prompt && (
-                <CopyablePromptBlock
-                  label={t('fields.imagePrompt')}
-                  text={generatedContent.image_prompt}
-                  className={generatedContent.dimensions ? 'mt-3' : ''}
-                />
-              )}
+          {compareResults ? (
+            <div className="space-y-4">
+              {(['legacy_scene', 'vision_scene'] as ScenePipelineKey[]).map((key) => {
+                const slot = compareResults[key];
+                if (!slot?.dimensions && !slot?.image_prompt) return null;
+                return (
+                  <div
+                    key={key}
+                    className={`border rounded-xl p-4 bg-white ${
+                      activePipeline === key ? 'border-forge-400' : 'border-gray-200'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      {pipelineLabel(key)}
+                    </p>
+                    {slot.dimensions && !areDimensionsAllNull(slot.dimensions) && (
+                      <DimensionInfoDisplay dimensions={slot.dimensions} />
+                    )}
+                    {slot.image_prompt && (
+                      <CopyablePromptBlock
+                        label={t('fields.imagePrompt')}
+                        text={slot.image_prompt}
+                        className={
+                          slot.dimensions && !areDimensionsAllNull(slot.dimensions)
+                            ? 'mt-3'
+                            : ''
+                        }
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            generatedContent &&
+            (generatedContent.dimensions || generatedContent.image_prompt) && (
+              <div className="border-2 border-red-400 rounded-xl p-4 bg-white">
+                {generatedContent.dimensions && (
+                  <DimensionInfoDisplay dimensions={generatedContent.dimensions} />
+                )}
+
+                {generatedContent.image_prompt && (
+                  <CopyablePromptBlock
+                    label={t('fields.imagePrompt')}
+                    text={generatedContent.image_prompt}
+                    className={generatedContent.dimensions ? 'mt-3' : ''}
+                  />
+                )}
+              </div>
+            )
           )}
         </div>
 
         <div className="col-span-2">
           <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 min-h-[500px]">
-            {generatedContent && (generatedContent.image || generatedContent.text) ? (
+            {compareResults ? (
+              <div className="space-y-4">
+                <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <BrandAvatar
+                    name={previewBrandName}
+                    logoUrl={previewBrandLogo}
+                    size="sm"
+                    className="!rounded-full"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+                      {t('studio.compareSceneTitle')}
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{previewBrandName}</p>
+                  </div>
+                </div>
+                {generatedContent?.text && (
+                  <p className="text-xs text-gray-500 text-center px-2">
+                    {t('studio.compareSharedCaption')}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderComparePipelineCard('legacy_scene', compareResults.legacy_scene)}
+                  {renderComparePipelineCard('vision_scene', compareResults.vision_scene)}
+                </div>
+              </div>
+            ) : generatedContent && (generatedContent.image || generatedContent.text) ? (
               <div className="flex flex-col items-center">
                 <div className="w-full max-w-sm mb-2 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
                   <BrandAvatar
