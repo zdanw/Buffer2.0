@@ -9,8 +9,8 @@ import {
   generateCopywriting,
   generateImage,
   aggregateGenerateProgress,
+  buildGenerateProgressLayout,
   getGenerateStatus,
-  waitForGenerateTask,
   resolveReferenceSelection,
   type GenerateRequest,
   type GenerateStatus,
@@ -232,10 +232,44 @@ export default function Studio() {
   const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
   const handleGenerateActiveRef = useRef(false);
+  const monotonicProgressRef = useRef(0);
+
+  const progressLayout = useMemo(
+    () =>
+      buildGenerateProgressLayout(activeTaskIds, {
+        generatingType: generatingType as GenerateType | null,
+        compareMode:
+          (generatingType === 'image' || generatingType === 'all') &&
+          useSceneReference &&
+          compareScenePipelines,
+      }),
+    [activeTaskIds, generatingType, useSceneReference, compareScenePipelines],
+  );
+
+  const applyAggregateStatus = useCallback(
+    (
+      statuses: GenerateStatus[],
+      taskId: string,
+      layoutOverride?: ReturnType<typeof buildGenerateProgressLayout>,
+    ) => {
+      const layout = layoutOverride ?? progressLayout;
+      const aggregate = aggregateGenerateProgress(statuses, layout);
+      const nextProgress = Math.max(monotonicProgressRef.current, aggregate.progress ?? 0);
+      monotonicProgressRef.current = nextProgress;
+      setGenerateStatus({
+        task_id: taskId,
+        status: aggregate.status ?? 'PROGRESS',
+        progress: nextProgress,
+        stage: aggregate.stage,
+      });
+    },
+    [progressLayout],
+  );
 
   const finishGeneration = useCallback(
     (outcome: 'SUCCESS' | 'FAILURE', opts?: { error?: string; taskId?: string }) => {
       handleGenerateActiveRef.current = false;
+      monotonicProgressRef.current = 0;
       setIsGenerating(false);
       setGeneratingType(null);
       setActiveTaskIds([]);
@@ -478,13 +512,11 @@ export default function Studio() {
         const statuses = await Promise.all(pendingTaskIds.map(getGenerateStatus));
         if (cancelled) return;
 
-        const aggregate = aggregateGenerateProgress(statuses);
-        setGenerateStatus({
-          task_id: pendingTaskIds[0],
-          status: aggregate.status ?? 'PROGRESS',
-          progress: aggregate.progress,
-          stage: aggregate.stage,
+        const recoverLayout = buildGenerateProgressLayout(pendingTaskIds, {
+          generatingType: savedState.generatingType as GenerateType,
+          compareMode,
         });
+        applyAggregateStatus(statuses, pendingTaskIds[0], recoverLayout);
 
         const anyInFlight = statuses.some((s) => isInFlightStatus(s.status));
         if (anyInFlight) {
@@ -573,13 +605,7 @@ export default function Studio() {
     const checkStatus = async () => {
       try {
         const statuses = await Promise.all(activeTaskIds.map(getGenerateStatus));
-        const aggregate = aggregateGenerateProgress(statuses);
-        setGenerateStatus({
-          task_id: activeTaskIds[0],
-          status: aggregate.status ?? 'PROGRESS',
-          progress: aggregate.progress,
-          stage: aggregate.stage,
-        });
+        applyAggregateStatus(statuses, activeTaskIds[0]);
 
         applyPartialResults(
           statuses,
@@ -647,6 +673,7 @@ export default function Studio() {
     compareScenePipelines,
     applyPartialResults,
     applyRecoveredResults,
+    applyAggregateStatus,
     finishGeneration,
   ]);
 
@@ -707,11 +734,11 @@ export default function Studio() {
     setActivePipeline(pipeline);
   };
 
-  const runCompareImageGeneration = async (
+  const startCompareImageGeneration = async (
     baseRequest: GenerateRequest,
     prevText: string,
     onImageTasksStarted?: (taskIds: [string, string]) => void,
-  ): Promise<CompareSceneResults> => {
+  ): Promise<[string, string]> => {
     const refs = await resolveReferenceSelection({
       product_id: baseRequest.product_id,
       reference_count: baseRequest.reference_count,
@@ -749,35 +776,9 @@ export default function Studio() {
       generateImage(legacyReq),
       generateImage(visionReq),
     ]);
-    onImageTasksStarted?.([legacyStart.task_id, visionStart.task_id]);
-
-    const [legacyStatus, visionStatus] = await Promise.all([
-      waitForGenerateTask(legacyStart.task_id),
-      waitForGenerateTask(visionStart.task_id),
-    ]);
-
-    const legacySlot = slotFromStatus(legacyStatus);
-    const visionSlot = slotFromStatus(visionStatus);
-    const results: CompareSceneResults = {
-      legacy_scene: legacySlot,
-      vision_scene: visionSlot,
-    };
-    setCompareResults(results);
-
-    const primary =
-      visionSlot.image && !visionSlot.error ? visionSlot : legacySlot;
-    const primaryKey: ScenePipelineKey =
-      visionSlot.image && !visionSlot.error ? 'vision_scene' : 'legacy_scene';
-    applyPipelineSlotToContent(primary, primaryKey, prevText);
-
-    if (!legacySlot.image && !visionSlot.image) {
-      throw new Error(
-        [legacySlot.error, visionSlot.error].filter(Boolean).join(' · ') ||
-          'Both pipelines failed'
-      );
-    }
-    window.dispatchEvent(new Event('pulseforge:refresh-user'));
-    return results;
+    const taskIds: [string, string] = [legacyStart.task_id, visionStart.task_id];
+    onImageTasksStarted?.(taskIds);
+    return taskIds;
   };
 
   const shouldCompareScenePipelines = (type: 'all' | 'copywriting' | 'image') =>
@@ -797,6 +798,7 @@ export default function Studio() {
     if (isGenerating) return;
 
     handleGenerateActiveRef.current = true;
+    monotonicProgressRef.current = 0;
     setIsGenerating(true);
     setGeneratingType(type);
     setPublishStatus(null);
@@ -840,6 +842,8 @@ export default function Studio() {
     setGenerateStatus(null);
     setCompareResults(null);
 
+    let startedTaskIds: string[] = [];
+
     try {
       const request = buildGenerateRequest(type);
 
@@ -848,39 +852,28 @@ export default function Studio() {
       if (useCompare) {
         const prevText =
           type === 'image' ? generatedContent?.text || '' : '';
-        let finishedTaskId = '';
 
         if (type === 'all') {
           const copyStart = await generateCopywriting(request);
-          finishedTaskId = copyStart.task_id;
-          setActiveTaskIds([copyStart.task_id]);
+          startedTaskIds = [copyStart.task_id];
+          setActiveTaskIds(startedTaskIds);
 
-          const copyDonePromise = waitForGenerateTask(copyStart.task_id).then((copyStatus) => {
-            const copyText = copyStatus.result?.text || '';
-            if (copyText) {
-              setGeneratedContent((prev) => ({
-                ...(prev || { text: '', image: '' }),
-                text: copyText,
-              }));
-            }
-            return copyStatus;
+          const imageTaskIds = await startCompareImageGeneration(request, '', (ids) => {
+            startedTaskIds = [copyStart.task_id, ...ids];
+            setActiveTaskIds(startedTaskIds);
           });
-
-          await Promise.all([
-            copyDonePromise,
-            runCompareImageGeneration(request, '', (imageTaskIds) => {
-              finishedTaskId = copyStart.task_id;
-              setActiveTaskIds([copyStart.task_id, ...imageTaskIds]);
-            }),
-          ]);
+          startedTaskIds = [copyStart.task_id, ...imageTaskIds];
+          setActiveTaskIds(startedTaskIds);
         } else {
-          await runCompareImageGeneration(request, prevText, (imageTaskIds) => {
-            finishedTaskId = imageTaskIds[0];
-            setActiveTaskIds(imageTaskIds);
+          const imageTaskIds = await startCompareImageGeneration(request, prevText, (ids) => {
+            startedTaskIds = ids;
+            setActiveTaskIds(ids);
           });
+          startedTaskIds = imageTaskIds;
+          setActiveTaskIds(startedTaskIds);
         }
 
-        finishGeneration('SUCCESS', { taskId: finishedTaskId });
+        handleGenerateActiveRef.current = false;
         return;
       }
 
@@ -892,10 +885,13 @@ export default function Studio() {
       } else {
         response = await generateContent(request);
       }
-      setActiveTaskIds([response.task_id]);
+      startedTaskIds = [response.task_id];
+      setActiveTaskIds(startedTaskIds);
+      handleGenerateActiveRef.current = false;
     } catch (error: unknown) {
       console.error('Failed to generate content:', error);
       handleGenerateActiveRef.current = false;
+
       const detail =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
@@ -905,6 +901,16 @@ export default function Studio() {
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { status?: number } }).response?.status
           : undefined;
+      const isTimeout =
+        error instanceof Error && error.message.toLowerCase().includes('timeout');
+
+      if (startedTaskIds.length > 0) {
+        setIsGenerating(true);
+        setActiveTaskIds(startedTaskIds);
+        toast.info(t('preview.connectionRetry'));
+        return;
+      }
+
       const message =
         typeof detail === 'string' && detail.trim()
           ? detail
@@ -916,6 +922,8 @@ export default function Studio() {
         toast.error(detail || t('imageModelPicker.creditsExhausted'));
       } else if (statusCode === 503) {
         toast.error(detail || t('imageModelPicker.systemUnavailable'));
+      } else if (isTimeout) {
+        toast.error(t('preview.connectionRetry'));
       } else {
         toast.error(message);
       }

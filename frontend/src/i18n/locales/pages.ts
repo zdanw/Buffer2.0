@@ -537,6 +537,8 @@ export const pagesEn: TranslationTree = {
     bindBufferAccount:
       'Brand "{{name}}" has no Buffer account bound. Open Brand Management and bind a Buffer account before publishing.',
     generateFailed: 'Generation request failed. Please try again.',
+    connectionRetry:
+      'Connection timed out, but your task may still be running. Continuing to poll…',
     generateCopyFirst: 'Generate copy before publishing',
     generateBeforeSave: 'Generate copy or images before saving',
     saveFailed: 'Failed to save to pending. Please try again.',
@@ -1296,6 +1298,7 @@ export const pagesZh: TranslationTree = {
     bindBufferAccount:
       '品牌「{{name}}」尚未绑定 Buffer 账户，请到「品牌管理」中绑定后再发布。',
     generateFailed: '生成请求失败，请稍后重试',
+    connectionRetry: '连接超时，任务可能仍在后台运行，正在继续等待…',
     generateCopyFirst: '请先生成文案后再发布',
     generateBeforeSave: '请先生成文案或图片后再保存',
     saveFailed: '保存到待发布失败，请重试',

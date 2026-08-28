@@ -94,58 +94,182 @@ export const getGenerateStatus = async (taskId: string): Promise<GenerateStatus>
   return response.data;
 };
 
-/** Average progress across tasks; stage follows the slowest in-flight task. */
+const POLL_INTERVAL_MS = 1000;
+/** Keep polling through ~2 minutes of consecutive transient errors. */
+const MAX_CONSECUTIVE_POLL_ERRORS = 120;
+
+function isTransientPollError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return true;
+  const e = error as { code?: string; message?: string; response?: { status?: number } };
+  if (e.code === 'ECONNABORTED') return true;
+  if (typeof e.message === 'string' && e.message.toLowerCase().includes('timeout')) return true;
+  const status = e.response?.status;
+  return status === 502 || status === 503 || status === 504;
+}
+
+export interface ProgressSegment {
+  taskIds: string[];
+  weight: number;
+}
+
+export interface GenerateProgressLayout {
+  segments: ProgressSegment[];
+}
+
+/** Weighted layout so copy + image phases do not jump 100% → 50% when tasks merge. */
+export function buildGenerateProgressLayout(
+  taskIds: string[],
+  options?: {
+    generatingType?: 'all' | 'copywriting' | 'image' | null;
+    compareMode?: boolean;
+  },
+): GenerateProgressLayout {
+  const { generatingType = null, compareMode = false } = options ?? {};
+
+  if (compareMode && generatingType === 'all' && taskIds.length >= 1) {
+    return {
+      segments: [
+        { taskIds: [taskIds[0]], weight: 25 },
+        {
+          taskIds: taskIds.length >= 3 ? taskIds.slice(1, 3) : [],
+          weight: 75,
+        },
+      ],
+    };
+  }
+
+  if (compareMode && generatingType === 'image' && taskIds.length >= 2) {
+    return {
+      segments: [{ taskIds: taskIds.slice(0, 2), weight: 100 }],
+    };
+  }
+
+  return { segments: [{ taskIds: [...taskIds], weight: 100 }] };
+}
+
+function segmentAverageProgress(statuses: GenerateStatus[], taskIds: string[]): number {
+  if (taskIds.length === 0) return 0;
+  const matched = statuses.filter((s) => taskIds.includes(s.task_id));
+  if (matched.length === 0) return 0;
+  const sum = matched.reduce((acc, s) => {
+    if (s.status === 'SUCCESS') return acc + 100;
+    if (s.status === 'FAILURE') return acc + 0;
+    return acc + Math.max(0, Math.min(100, s.progress ?? 0));
+  }, 0);
+  return sum / matched.length;
+}
+
+function resolveAggregateStage(
+  statuses: GenerateStatus[],
+  layout: GenerateProgressLayout,
+): string {
+  for (const segment of layout.segments) {
+    if (segment.taskIds.length === 0) continue;
+    const matched = statuses.filter((s) => segment.taskIds.includes(s.task_id));
+    if (matched.length === 0) continue;
+    if (matched.every((s) => s.status === 'SUCCESS' || s.status === 'FAILURE')) {
+      continue;
+    }
+    const inFlight = matched.filter(
+      (s) => s.status === 'PENDING' || s.status === 'PROGRESS',
+    );
+    if (inFlight.length === 0) continue;
+    const lagging = inFlight.reduce(
+      (min, s) => ((s.progress ?? 0) < (min.progress ?? 0) ? s : min),
+      inFlight[0],
+    );
+    const stage = lagging.stage ?? 'queued';
+    return stage === 'done' ? 'finalizing' : stage;
+  }
+  return 'finalizing';
+}
+
+function weightedProgress(
+  statuses: GenerateStatus[],
+  layout: GenerateProgressLayout,
+): number {
+  let total = 0;
+  for (const segment of layout.segments) {
+    total += (segmentAverageProgress(statuses, segment.taskIds) / 100) * segment.weight;
+  }
+  return total;
+}
+
+/** Weighted progress across tasks; stage follows the earliest incomplete segment. */
 export function aggregateGenerateProgress(
   statuses: GenerateStatus[],
+  layout?: GenerateProgressLayout,
 ): Pick<GenerateStatus, 'progress' | 'stage' | 'status'> {
   if (statuses.length === 0) {
     return { progress: 0, stage: 'queued', status: 'PENDING' };
   }
 
-  const progress = Math.round(
-    statuses.reduce((sum, item) => sum + (item.progress ?? 0), 0) / statuses.length,
-  );
+  const effectiveLayout =
+    layout ??
+    buildGenerateProgressLayout(
+      statuses.map((s) => s.task_id),
+    );
 
   if (statuses.every((item) => item.status === 'SUCCESS')) {
     return { progress: 100, stage: 'done', status: 'SUCCESS' };
   }
   if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
-    return { progress, stage: 'done', status: 'FAILURE' };
+    return {
+      progress: Math.round(weightedProgress(statuses, effectiveLayout)),
+      stage: 'done',
+      status: 'FAILURE',
+    };
   }
 
-  const inFlight = statuses.filter(
-    (item) => item.status === 'PENDING' || item.status === 'PROGRESS',
-  );
-  const lagging = inFlight.reduce(
-    (min, item) => ((item.progress ?? 0) < (min.progress ?? 0) ? item : min),
-    inFlight[0],
-  );
+  const progress = Math.min(99, Math.round(weightedProgress(statuses, effectiveLayout)));
+  const stage = resolveAggregateStage(statuses, effectiveLayout);
 
   return {
     progress,
-    stage: lagging?.stage ?? 'queued',
+    stage,
     status: 'PROGRESS',
   };
 }
 
-/** Poll until SUCCESS or FAILURE. */
-export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatus> => {
+async function pollUntilTerminal(
+  fetchStatus: () => Promise<GenerateStatus>,
+): Promise<GenerateStatus> {
+  let consecutiveErrors = 0;
   for (;;) {
-    const status = await getGenerateStatus(taskId);
-    if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
-      return status;
+    try {
+      const status = await fetchStatus();
+      consecutiveErrors = 0;
+      if (status.status === 'SUCCESS' || status.status === 'FAILURE') {
+        return status;
+      }
+    } catch (error) {
+      if (!isTransientPollError(error)) throw error;
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) throw error;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
-};
+}
+
+/** Poll until SUCCESS or FAILURE; retries through transient network/proxy errors. */
+export const waitForGenerateTask = async (taskId: string): Promise<GenerateStatus> =>
+  pollUntilTerminal(() => getGenerateStatus(taskId));
 
 /** Poll multiple tasks until all reach a terminal state. */
 export const waitForGenerateTasks = async (taskIds: string[]): Promise<GenerateStatus[]> => {
+  let consecutiveErrors = 0;
   for (;;) {
-    const statuses = await Promise.all(taskIds.map(getGenerateStatus));
-    if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
-      return statuses;
+    try {
+      const statuses = await Promise.all(taskIds.map(getGenerateStatus));
+      consecutiveErrors = 0;
+      if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
+        return statuses;
+      }
+    } catch (error) {
+      if (!isTransientPollError(error)) throw error;
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) throw error;
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 };

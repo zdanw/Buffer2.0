@@ -46,8 +46,17 @@ axiosInstance.interceptors.response.use(
     console.error('Error response:', error.response?.status, error.response?.data);
     console.error('Error message:', error.message);
     
-    if (error.response?.status === 504 && (config.retry ?? 0) < 2) {
-      console.log(`Retry attempt ${config.retry ?? 0 + 1} for ${config.url}`);
+    const isTimeout =
+      error.code === 'ECONNABORTED' ||
+      (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'));
+    const isRetryableStatus =
+      error.response?.status === 502 ||
+      error.response?.status === 503 ||
+      error.response?.status === 504;
+    const maxRetries = config.url?.includes('/generate/status/') ? 5 : 2;
+
+    if ((isRetryableStatus || isTimeout) && (config.retry ?? 0) < maxRetries) {
+      console.log(`Retry attempt ${(config.retry ?? 0) + 1} for ${config.url}`);
       config.retry = (config.retry ?? 0) + 1;
       await new Promise(resolve => setTimeout(resolve, config.retryDelay ?? 3000));
       return axiosInstance(config);
