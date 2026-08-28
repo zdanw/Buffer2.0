@@ -30,10 +30,12 @@ import {
   type SystemProviderSummary,
 } from '@/api/systemImageProvider';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
+import { examplesForProviderType } from '@/lib/imageProviderExamples';
 import { IMAGE_PROVIDER_PRESETS, presetForType } from '@/lib/imageProviderPresets';
 
 const EMPTY_FORM: ImageProviderCreate = {
@@ -338,6 +340,7 @@ export default function ImageProviderSettings() {
   };
 
   const showModelInput = discoveredModels.length === 0;
+  const providerExamples = examplesForProviderType(form.provider_type);
 
   if (loading) {
     return (
@@ -532,6 +535,7 @@ export default function ImageProviderSettings() {
                   htmlFor="provider-name"
                   label={t('imageProviders.fields.name.label')}
                   tooltip={t('imageProviders.fields.name.tooltip')}
+                  required
                 />
                 <input
                   id="provider-name"
@@ -539,7 +543,7 @@ export default function ImageProviderSettings() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   required
-                  placeholder={t('placeholders.imageProviders.name')}
+                  placeholder={providerExamples.name}
                 />
               </div>
 
@@ -548,6 +552,7 @@ export default function ImageProviderSettings() {
                   htmlFor="provider-type"
                   label={t('imageProviders.fields.type.label')}
                   tooltip={t('imageProviders.fields.type.tooltip')}
+                  required
                 />
                 <select
                   id="provider-type"
@@ -574,8 +579,9 @@ export default function ImageProviderSettings() {
               <div>
                 <LabelWithTooltip
                   htmlFor="provider-api-key"
-                  label={editingId ? t('imageProviders.fields.apiKey.labelOptional') : t('imageProviders.fields.apiKey.label')}
+                  label={t('imageProviders.fields.apiKey.label')}
                   tooltip={t('imageProviders.fields.apiKey.tooltip')}
+                  required={!editingId}
                 />
                 <div className="relative">
                   <input
@@ -591,7 +597,7 @@ export default function ImageProviderSettings() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg pr-10"
                     autoComplete="new-password"
                     data-1p-ignore
-                    placeholder={t('placeholders.imageProviders.apiKey')}
+                    placeholder={providerExamples.apiKey}
                   />
                   <button
                     type="button"
@@ -623,6 +629,7 @@ export default function ImageProviderSettings() {
                   <LabelWithTooltip
                     label={t('imageProviders.fields.availableModels.label')}
                     tooltip={t('imageProviders.fields.availableModels.tooltip')}
+                    required
                   />
                   <ul className="space-y-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
                     {discoveredModels.map((m) => (
@@ -654,6 +661,7 @@ export default function ImageProviderSettings() {
                     htmlFor="provider-default-model"
                     label={t('imageProviders.fields.defaultModel.label')}
                     tooltip={t('imageProviders.fields.defaultModel.tooltip')}
+                    required
                   />
                   <input
                     id="provider-default-model"
@@ -662,7 +670,7 @@ export default function ImageProviderSettings() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm"
                     autoComplete="off"
                     data-1p-ignore
-                    placeholder={t('placeholders.imageProviders.defaultModel')}
+                    placeholder={providerExamples.defaultModel}
                     required
                   />
                 </div>
@@ -684,13 +692,14 @@ export default function ImageProviderSettings() {
                         htmlFor="provider-base-url"
                         label={t('imageProviders.fields.baseUrl.label')}
                         tooltip={t('imageProviders.fields.baseUrl.tooltip')}
+                        required={false}
                       />
                       <input
                         id="provider-base-url"
                         value={form.base_url}
                         onChange={(e) => setForm({ ...form, base_url: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                        placeholder={t('placeholders.imageProviders.baseUrl')}
+                        placeholder={providerExamples.baseUrl}
                       />
                     </div>
                     <label className="flex items-start gap-2 text-sm text-gray-700">
@@ -704,6 +713,7 @@ export default function ImageProviderSettings() {
                       />
                       <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                         {t('imageProviders.fields.supportsListModels.label')}
+                        <FieldRequirementBadge required={false} />
                         <HelpTooltip content={t('imageProviders.fields.supportsListModels.tooltip')} />
                       </span>
                     </label>
@@ -720,6 +730,7 @@ export default function ImageProviderSettings() {
                 />
                 <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                   {t('imageProviders.fields.isDefault.label')}
+                  <FieldRequirementBadge required={false} />
                   <HelpTooltip content={t('imageProviders.fields.isDefault.tooltip')} />
                 </span>
               </label>
@@ -733,6 +744,7 @@ export default function ImageProviderSettings() {
                 />
                 <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
                   {t('imageProviders.fields.isActive.label')}
+                  <FieldRequirementBadge required={false} />
                   <HelpTooltip content={t('imageProviders.fields.isActive.tooltip')} />
                 </span>
               </label>

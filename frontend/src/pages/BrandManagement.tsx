@@ -503,7 +503,7 @@ export default function BrandManagement() {
                   <div className="flex items-center gap-4">
                     <BrandAvatar name={form.name || t('brands.addBrand')} logoUrl={logoPreview} size="lg" />
                     <div>
-                      <LabelWithTooltip label={t('brands.logo')} tooltip={t('brands.tooltips.logo')} />
+                      <LabelWithTooltip label={t('brands.logo')} tooltip={t('brands.tooltips.logo')} required={false} />
                       <label className="mt-1 inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
                         <Upload className="w-4 h-4" />
                         {uploadingLogo ? t('brands.logoUploading') : t('brands.uploadLogo')}
@@ -521,7 +521,7 @@ export default function BrandManagement() {
                     </div>
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.name')} tooltip={t('brands.tooltips.name')} />
+                    <LabelWithTooltip label={t('brands.name')} tooltip={t('brands.tooltips.name')} required />
                     <input
                       type="text"
                       value={form.name}
@@ -533,7 +533,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.voice')} tooltip={t('brands.tooltips.voice')} />
+                    <LabelWithTooltip label={t('brands.voice')} tooltip={t('brands.tooltips.voice')} required={false} />
                     <textarea
                       value={form.voice || ''}
                       onChange={(e) => setForm({ ...form, voice: e.target.value })}
@@ -544,7 +544,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.audience')} tooltip={t('brands.tooltips.audience')} />
+                    <LabelWithTooltip label={t('brands.audience')} tooltip={t('brands.tooltips.audience')} required={false} />
                     <input
                       type="text"
                       value={form.audience || ''}
@@ -554,7 +554,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.toneKeywords')} tooltip={t('brands.tooltips.toneKeywords')} />
+                    <LabelWithTooltip label={t('brands.toneKeywords')} tooltip={t('brands.tooltips.toneKeywords')} required={false} />
                     <input
                       type="text"
                       value={form.tone_keywords || ''}
@@ -567,6 +567,7 @@ export default function BrandManagement() {
                     <LabelWithTooltip
                       label={t('brands.bufferAccount')}
                       tooltip={t('brands.tooltips.bufferAccount')}
+                      required={false}
                     />
                     <select
                       value={form.buffer_account_id || ''}
@@ -603,7 +604,7 @@ export default function BrandManagement() {
               {activeTab === 'content' && (
                 <>
                   <div>
-                    <LabelWithTooltip label={t('brands.defaultHashtags')} tooltip={t('brands.tooltips.hashtags')} />
+                    <LabelWithTooltip label={t('brands.defaultHashtags')} tooltip={t('brands.tooltips.hashtags')} required={false} />
                     <input
                       type="text"
                       value={(form.default_hashtags || []).join(', ')}
@@ -618,7 +619,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.emojiStyle')} tooltip={t('brands.tooltips.emojiStyle')} />
+                    <LabelWithTooltip label={t('brands.emojiStyle')} tooltip={t('brands.tooltips.emojiStyle')} required={false} />
                     <select
                       value={form.emoji_style || 'moderate'}
                       onChange={(e) => setForm({ ...form, emoji_style: e.target.value })}
@@ -631,7 +632,7 @@ export default function BrandManagement() {
                     </select>
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.wordsToAvoid')} tooltip={t('brands.tooltips.wordsToAvoid')} />
+                    <LabelWithTooltip label={t('brands.wordsToAvoid')} tooltip={t('brands.tooltips.wordsToAvoid')} required={false} />
                     <input
                       type="text"
                       value={form.words_to_avoid || ''}
@@ -641,7 +642,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.logoInImages')} tooltip={t('brands.tooltips.logoInImages')} />
+                    <LabelWithTooltip label={t('brands.logoInImages')} tooltip={t('brands.tooltips.logoInImages')} required={false} />
                     <select
                       value={form.logo_in_images || 'preserve'}
                       onChange={(e) =>
@@ -669,7 +670,7 @@ export default function BrandManagement() {
                   </div>
                   {(form.logo_in_images || 'preserve') === 'preserve' && (
                   <div>
-                    <LabelWithTooltip label={t('brands.logoFontRule')} tooltip={t('brands.tooltips.logoFontRule')} />
+                    <LabelWithTooltip label={t('brands.logoFontRule')} tooltip={t('brands.tooltips.logoFontRule')} required={false} />
                     <input
                       type="text"
                       value={form.logo_font_rule || ''}
@@ -686,7 +687,7 @@ export default function BrandManagement() {
                 <>
                   <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">{t('brands.advancedWarning')}</p>
                   <div>
-                    <LabelWithTooltip label={t('brands.copySystemPrompt')} tooltip={t('brands.tooltips.copySystemPrompt')} />
+                    <LabelWithTooltip label={t('brands.copySystemPrompt')} tooltip={t('brands.tooltips.copySystemPrompt')} required={false} />
                     <textarea
                       value={form.copy_system_prompt || ''}
                       onChange={(e) => setForm({ ...form, copy_system_prompt: e.target.value })}
@@ -696,7 +697,7 @@ export default function BrandManagement() {
                     />
                   </div>
                   <div>
-                    <LabelWithTooltip label={t('brands.imageSystemPrompt')} tooltip={t('brands.tooltips.imageSystemPrompt')} />
+                    <LabelWithTooltip label={t('brands.imageSystemPrompt')} tooltip={t('brands.tooltips.imageSystemPrompt')} required={false} />
                     <textarea
                       value={form.image_system_prompt || ''}
                       onChange={(e) => setForm({ ...form, image_system_prompt: e.target.value })}

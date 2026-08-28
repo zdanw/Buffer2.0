@@ -1,4 +1,5 @@
 import HelpTooltip from '@/components/HelpTooltip';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import { useI18n } from '@/i18n/useI18n';
 import type { ImageGenerationControlValues } from '@/lib/imageGenerationControls';
 import { STUDIO_REFERENCE_COUNT_MAX } from '@/lib/imageGenerationControls';
@@ -57,6 +58,7 @@ export default function ImageGenerationControls({
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-2">
             <span className="text-sm font-medium text-gray-700">{t('studio.referenceImageCount')}</span>
+            <FieldRequirementBadge required={false} />
             <HelpTooltip content={t('studio.tooltips.referenceImageCount')} />
           </div>
           <select
@@ -88,6 +90,7 @@ export default function ImageGenerationControls({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <span className="text-sm font-medium text-gray-700">{t(labelKey)}</span>
+              <FieldRequirementBadge required={false} />
               <HelpTooltip content={t(tooltipKey)} />
             </div>
             <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -111,6 +114,7 @@ export default function ImageGenerationControls({
               <span className="text-sm font-medium text-gray-700">
                 {t('studio.compareScenePipelines')}
               </span>
+              <FieldRequirementBadge required={false} />
               <HelpTooltip content={t('studio.tooltips.compareScenePipelines')} />
             </div>
             <label className="relative inline-flex items-center cursor-pointer shrink-0">

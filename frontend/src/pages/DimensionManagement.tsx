@@ -670,6 +670,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
               <LabelWithTooltip
                 label={t('dimensionsPage.productType')}
                 tooltip={t('dimensionsPage.tooltips.productType')}
+                required={false}
               />
               <select
                 value={selectedProductType}
@@ -686,6 +687,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
               <LabelWithTooltip
                 label={t('dimensionsPage.dimensionType')}
                 tooltip={t('dimensionsPage.tooltips.dimensionType')}
+                required={false}
               />
               <select
                 value={selectedDimensionType}
@@ -890,6 +892,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     htmlFor="dimension-product-type"
                     label={t('dimensionsPage.productType')}
                     tooltip={t('dimensionsPage.tooltips.productType')}
+                    required
                   />
                   <select
                     id="dimension-product-type"
@@ -917,6 +920,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     htmlFor="dimension-type"
                     label={t('dimensionsPage.dimensionType')}
                     tooltip={t('dimensionsPage.tooltips.dimensionType')}
+                    required
                   />
                   <select
                     id="dimension-type"
@@ -941,6 +945,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
                     htmlFor="dimension-name"
                     label={t('dimensionsPage.name')}
                     tooltip={t('dimensionsPage.tooltips.name')}
+                    required
                   />
                   <input
                     id="dimension-name"

@@ -85,7 +85,7 @@ function IPhoneFrame({
 
       <div className="rounded-[44px] bg-gradient-to-b from-[#3a3a3c] to-[#1c1c1e] p-[9px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/30">
         <div
-          className={`relative rounded-[36px] overflow-hidden ${screenClassName}`}
+          className={`relative isolate rounded-[36px] overflow-hidden ${screenClassName}`}
           style={{ height: 620 }}
         >
           <div className="absolute top-[11px] left-1/2 -translate-x-1/2 z-30 w-[96px] h-[27px] bg-black rounded-full shadow-inner" />

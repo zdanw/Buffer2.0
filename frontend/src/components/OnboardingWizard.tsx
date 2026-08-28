@@ -6,6 +6,8 @@ import { useBrandContext } from '@/context/BrandContext';
 import { useI18n } from '@/i18n/useI18n';
 import { LIMITS } from '@/lib/formValidation';
 import { toast } from '@/lib/feedback';
+import FormLabel from '@/components/FormLabel';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 
 type Step = 'welcome' | 'brand' | 'product' | 'done';
 
@@ -100,25 +102,36 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
                 onChange={(e) => setUseGeneric(e.target.checked)}
                 className="rounded border-gray-300 text-forge-600"
               />
-              {t('onboarding.noSpecificBrand')}
+              <span className="inline-flex items-center gap-1.5">
+                {t('onboarding.noSpecificBrand')}
+                <FieldRequirementBadge required={false} />
+              </span>
             </label>
             {!useGeneric && (
               <div className="mt-4 space-y-3">
-                <input
-                  type="text"
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  placeholder={t('placeholders.onboarding.brandName')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-                <textarea
-                  value={brandVoice}
-                  onChange={(e) => setBrandVoice(e.target.value)}
-                  placeholder={t('placeholders.onboarding.brandVoice')}
-                  rows={2}
-                  maxLength={LIMITS.brandVoice}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+                <div>
+                  <FormLabel label={t('brands.name')} required htmlFor="onboarding-brand-name" />
+                  <input
+                    id="onboarding-brand-name"
+                    type="text"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    placeholder={t('placeholders.onboarding.brandName')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <FormLabel label={t('brands.voice')} required={false} htmlFor="onboarding-brand-voice" />
+                  <textarea
+                    id="onboarding-brand-voice"
+                    value={brandVoice}
+                    onChange={(e) => setBrandVoice(e.target.value)}
+                    placeholder={t('placeholders.onboarding.brandVoice')}
+                    rows={2}
+                    maxLength={LIMITS.brandVoice}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
               </div>
             )}
             <button
@@ -136,19 +149,27 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
             <h2 className="text-xl font-bold text-gray-900">{t('onboarding.stepProduct')}</h2>
             <p className="text-sm text-gray-500 mt-1">{t('onboarding.stepProductHint')}</p>
             <div className="mt-4 space-y-3">
-              <input
-                type="text"
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder={t('placeholders.onboarding.productName')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="w-full text-sm"
-              />
+              <div>
+                <FormLabel label={t('assets.productName')} required htmlFor="onboarding-product-name" />
+                <input
+                  id="onboarding-product-name"
+                  type="text"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder={t('placeholders.onboarding.productName')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <FormLabel label={t('onboarding.productImage')} required={false} htmlFor="onboarding-product-image" />
+                <input
+                  id="onboarding-product-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm"
+                />
+              </div>
             </div>
             <button
               type="button"

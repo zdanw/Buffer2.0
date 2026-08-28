@@ -16,6 +16,8 @@ import { confirmDialog } from '@/lib/feedback';
 import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import { formatServerDateTime } from '@/lib/datetime';
+import FormLabel from '@/components/FormLabel';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 
 const generateRandomPassword = (): string => {
  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -464,10 +466,9 @@ function UserManagement() {
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('users.username')}
-                </label>
+                <FormLabel label={t('users.username')} required htmlFor="create-user-username" />
                 <input
+                  id="create-user-username"
                   type="text"
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
@@ -480,10 +481,9 @@ function UserManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('users.emailOptional')}
-                </label>
+                <FormLabel label={t('users.email')} required={false} htmlFor="create-user-email" />
                 <input
+                  id="create-user-email"
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
@@ -494,11 +494,10 @@ function UserManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('users.password')}
-                </label>
+                <FormLabel label={t('users.password')} required htmlFor="create-user-password" />
                 <div className="relative">
                   <input
+                    id="create-user-password"
                     type={showPassword ? 'text' : 'password'}
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
@@ -536,8 +535,9 @@ function UserManagement() {
                   onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked })}
                   className="w-4 h-4 text-forge-600 border-gray-300 rounded focus:ring-forge-500"
                 />
-                <label htmlFor="is_admin" className="text-sm text-gray-700">
+                <label htmlFor="is_admin" className="text-sm text-gray-700 inline-flex items-center gap-1.5">
                   {t('users.setAdmin')}
+                  <FieldRequirementBadge required={false} />
                 </label>
               </div>
 
@@ -593,9 +593,10 @@ function UserManagement() {
                 <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
-            <label className="block text-sm text-gray-700">
-              {t('users.grantQuantity')}
+            <div>
+              <FormLabel label={t('users.grantQuantity')} required htmlFor="grant-qty" className="block text-sm text-gray-700" />
               <input
+                id="grant-qty"
                 type="number"
                 min={1}
                 value={grantQty}
@@ -603,16 +604,17 @@ function UserManagement() {
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
                 required
               />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t('users.grantNote')}
+            </div>
+            <div>
+              <FormLabel label={t('users.grantNote')} required={false} htmlFor="grant-note" className="block text-sm text-gray-700" />
               <input
+                id="grant-note"
                 type="text"
                 value={grantNote}
                 onChange={(e) => setGrantNote(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
               />
-            </label>
+            </div>
             <div className="flex gap-3 pt-2">
               <button
                 type="button"

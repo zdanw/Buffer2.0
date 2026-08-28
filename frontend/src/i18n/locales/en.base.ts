@@ -68,6 +68,8 @@ export const en: TranslationTree = {
     hasNotes: 'Has notes',
     noNotes: 'No notes yet',
     charCount: '{{current}}/{{max}}',
+    fieldRequired: 'Required',
+    fieldOptional: 'Optional',
   },
   api: {
     bannerTitle: 'Cannot reach PulseForge API',

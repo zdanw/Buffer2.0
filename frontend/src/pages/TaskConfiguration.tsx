@@ -15,6 +15,7 @@ import ImageModelPicker from '@/components/ImageModelPicker';
 import ImageGenerationControls from '@/components/ImageGenerationControls';
 import { DEFAULT_IMAGE_GENERATION_CONTROLS } from '@/lib/imageGenerationControls';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import HelpTooltip from '@/components/HelpTooltip';
 import TaskProductPicker, { TaskProductPickerLabel } from '@/components/TaskProductPicker';
 import PlatformIcon from '@/components/icons/PlatformIcon';
@@ -497,6 +498,7 @@ export default function TaskConfiguration() {
                 <LabelWithTooltip
                   label={t('tasks.taskName')}
                   tooltip={t('tasks.tooltips.taskName')}
+                  required
                 />
                 <input
                   type="text"
@@ -513,6 +515,7 @@ export default function TaskConfiguration() {
                 <LabelWithTooltip
                   label={t('tasks.taskMode')}
                   tooltip={t('tasks.tooltips.taskMode')}
+                  required
                 />
                 <div className="flex gap-4">
                   <label
@@ -561,6 +564,7 @@ export default function TaskConfiguration() {
                 <LabelWithTooltip
                   label={t('tasks.cronExpression')}
                   tooltip={t('tasks.tooltips.cronExpression')}
+                  required
                 />
                 <p className="mb-1 text-xs text-gray-400">{t('tasks.cronHint')}</p>
                 <input
@@ -606,6 +610,7 @@ export default function TaskConfiguration() {
                   <LabelWithTooltip
                     label={t('fields.publishPlatformsLabel')}
                     tooltip={t('tasks.tooltips.publishPlatforms')}
+                    required
                   />
                   <div className="flex flex-wrap gap-2">
                     {PLATFORMS.map((platform) => {
@@ -648,6 +653,7 @@ export default function TaskConfiguration() {
                   <LabelWithTooltip
                     label={t('tasks.referenceImageCount')}
                     tooltip={t('tasks.tooltips.referenceImageCount')}
+                    required
                   />
                   <input
                     type="number"
@@ -664,6 +670,7 @@ export default function TaskConfiguration() {
                     <LabelWithTooltip
                       label={t('tasks.runCount')}
                       tooltip={t('tasks.tooltips.runCount')}
+                      required
                     />
                     <input
                       type="number"
@@ -681,6 +688,7 @@ export default function TaskConfiguration() {
                     <LabelWithTooltip
                       label={t('tasks.generateImageCount')}
                       tooltip={t('tasks.tooltips.generateImageCount')}
+                      required
                     />
                     <input
                       type="number"
@@ -700,6 +708,7 @@ export default function TaskConfiguration() {
                   <LabelWithTooltip
                     label={t('tasks.generateCopyCount')}
                     tooltip={t('tasks.tooltips.generateCopyCount')}
+                    required
                   />
                   <input
                     type="number"
@@ -736,6 +745,7 @@ export default function TaskConfiguration() {
                 <LabelWithTooltip
                   label={t('fields.imageModel')}
                   tooltip={t('tasks.tooltips.imageModel')}
+                  required={false}
                 />
                 <ImageModelPicker
                   compact
@@ -767,6 +777,7 @@ export default function TaskConfiguration() {
                 />
                 <label htmlFor="task-enabled" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                   {t('tasks.enableTask')}
+                  <FieldRequirementBadge required={false} />
                   <HelpTooltip content={t('tasks.tooltips.enableTask')} />
                 </label>
               </div>
@@ -784,6 +795,7 @@ export default function TaskConfiguration() {
                   />
                   <label htmlFor="task-notify-email" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                     {t('tasks.notifyOnPublish')}
+                    <FieldRequirementBadge required={false} />
                     <HelpTooltip content={t('tasks.tooltips.notifyOnPublish')} />
                   </label>
                 </div>

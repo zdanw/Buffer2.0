@@ -21,6 +21,7 @@ import {
 import { isProductIncomplete } from '@/lib/productCompleteness';
 import Pagination from '@/components/Pagination';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import BrandPicker from '@/components/BrandPicker';
 import BrandBadge from '@/components/BrandBadge';
 import BrandInheritanceHint from '@/components/BrandInheritanceHint';
@@ -856,7 +857,7 @@ export default function AssetManagement() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <LabelWithTooltip label={t('assets.brand')} tooltip={t('assets.tooltips.brand')} />
+                  <LabelWithTooltip label={t('assets.brand')} tooltip={t('assets.tooltips.brand')} required={false} />
                   <BrandPicker
                     value={formData.brand_id || defaultProductBrandId(brands, activeBrandId)}
                     onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
@@ -886,6 +887,7 @@ export default function AssetManagement() {
                   <LabelWithTooltip
                     label={t('assets.productName')}
                     tooltip={t('assets.tooltips.productName')}
+                    required
                   />
                   <input
                     ref={nameInputRef}
@@ -902,6 +904,7 @@ export default function AssetManagement() {
                   <LabelWithTooltip
                     label={t('assets.category')}
                     tooltip={t('assets.tooltips.category')}
+                    required
                   />
                   <CategoryCombobox
                     value={formData.category}
@@ -914,6 +917,7 @@ export default function AssetManagement() {
                   <LabelWithTooltip
                     label={t('assets.description')}
                     tooltip={t('assets.tooltips.description')}
+                    required={false}
                   />
                   <textarea
                     value={formData.description}
@@ -931,6 +935,7 @@ export default function AssetManagement() {
                   <LabelWithTooltip
                     label={t('assets.sellingPoints')}
                     tooltip={t('assets.tooltips.sellingPoints')}
+                    required={false}
                   />
                   <input
                     type="text"
@@ -952,7 +957,10 @@ export default function AssetManagement() {
                       onChange={(e) => setFormData({ ...formData, has_on_body_branding: e.target.checked })}
                       className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
                     />
-                    {t('assets.hasOnBodyBranding')}
+                    <span className="inline-flex items-center gap-1.5">
+                      {t('assets.hasOnBodyBranding')}
+                      <FieldRequirementBadge required={false} />
+                    </span>
                   </label>
                   <p className="mt-1 text-xs text-gray-500">{t('assets.hasOnBodyBrandingHint')}</p>
                 </div>
@@ -964,7 +972,10 @@ export default function AssetManagement() {
                       onChange={(e) => setFormData({ ...formData, use_brand_voice: e.target.checked })}
                       className="rounded border-gray-300 text-forge-600 focus:ring-forge-500"
                     />
-                    {t('assets.overrideBrandVoice')}
+                    <span className="inline-flex items-center gap-1.5">
+                      {t('assets.overrideBrandVoice')}
+                      <FieldRequirementBadge required={false} />
+                    </span>
                   </label>
                 </div>
                 {formData.use_brand_voice && (
@@ -972,6 +983,7 @@ export default function AssetManagement() {
                   <LabelWithTooltip
                     label={t('assets.brandVoice')}
                     tooltip={t('assets.tooltips.brandVoice', { max: LIMITS.brandVoice })}
+                    required={false}
                   />
                   <textarea
                     value={formData.brand_voice}

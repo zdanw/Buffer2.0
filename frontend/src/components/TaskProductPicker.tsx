@@ -290,6 +290,7 @@ export function TaskProductPickerLabel() {
     <LabelWithTooltip
       label={t('tasks.selectProducts')}
       tooltip={t('tasks.tooltips.selectProducts')}
+      required
     />
   );
 }

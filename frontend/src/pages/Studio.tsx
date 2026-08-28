@@ -57,6 +57,26 @@ type CompareSceneResults = Record<ScenePipelineKey, ScenePipelineSlot | null>;
 
 type GenerateType = 'all' | 'copywriting' | 'image';
 
+const OPTIMISTIC_GENERATE_STATUS: GenerateStatus = {
+  task_id: '',
+  status: 'PROGRESS',
+  progress: 2,
+  stage: 'starting',
+};
+
+function optimisticStatusForStage(
+  stage: string,
+  progress: number,
+  prev?: GenerateStatus | null,
+): GenerateStatus {
+  return {
+    task_id: prev?.task_id ?? '',
+    status: 'PROGRESS',
+    progress: Math.max(prev?.progress ?? 0, progress),
+    stage,
+  };
+}
+
 function resolvePendingTaskIds(saved: PreviewState): string[] {
   if (saved.taskIds?.length) return saved.taskIds;
   if (saved.taskId) return [saved.taskId];
@@ -292,7 +312,6 @@ export default function Studio() {
   const [taskStatuses, setTaskStatuses] = useState<GenerateStatus[]>([]);
   const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
-  const handleGenerateActiveRef = useRef(false);
   const monotonicProgressRef = useRef(0);
   const taskStatusesRef = useRef<GenerateStatus[]>([]);
 
@@ -330,7 +349,6 @@ export default function Studio() {
 
   const finishGeneration = useCallback(
     (outcome: 'SUCCESS' | 'FAILURE', opts?: { error?: string; taskId?: string }) => {
-      handleGenerateActiveRef.current = false;
       monotonicProgressRef.current = 0;
       setIsGenerating(false);
       setGeneratingType(null);
@@ -552,8 +570,8 @@ export default function Studio() {
   const generateActionsDisabled =
     isGenerating || !selectedProduct || selectedPlatforms.length === 0;
 
-  const generationProgress = generateStatus?.progress ?? 0;
-  const generationStage = generateStatus?.stage ?? null;
+  const generationProgress = generateStatus?.progress ?? (isGenerating ? 2 : 0);
+  const generationStage = generateStatus?.stage ?? (isGenerating ? 'starting' : null);
 
   const comparePreviewActive = useMemo(() => {
     if (!useSceneReference || !compareScenePipelines) return false;
@@ -630,7 +648,6 @@ export default function Studio() {
 
         const anyInFlight = statuses.some((s) => isInFlightStatus(s.status));
         if (anyInFlight) {
-          handleGenerateActiveRef.current = false;
           setIsGenerating(true);
           setActiveTaskIds(pendingTaskIds);
           setGeneratingType(savedState.generatingType);
@@ -734,7 +751,7 @@ export default function Studio() {
           compareMode,
         );
 
-        if (allTerminal && !handleGenerateActiveRef.current && compareAllReady) {
+        if (allTerminal && compareAllReady) {
           applyRecoveredResults(
             statuses,
             generatingType as GenerateType | null,
@@ -743,35 +760,6 @@ export default function Studio() {
           );
           if (interval) clearInterval(interval);
           return;
-        }
-
-        if (activeTaskIds.length === 1 && !compareMode) {
-          const status = statuses[0];
-          if (status.status === 'SUCCESS') {
-            finishGeneration('SUCCESS', { taskId: status.task_id });
-            if (interval) clearInterval(interval);
-            window.dispatchEvent(new Event('pulseforge:refresh-user'));
-            if (status.result) {
-              setGeneratedContent((prev) => ({
-                text: status.result?.text || prev?.text || '',
-                image: status.result?.image || prev?.image || '',
-                dimensions: status.result?.dimensions ?? prev?.dimensions,
-                image_prompt: status.result?.image_prompt ?? prev?.image_prompt,
-                reference_product_images:
-                  status.result?.reference_product_images ?? prev?.reference_product_images,
-                reference_scene_images:
-                  status.result?.reference_scene_images ?? prev?.reference_scene_images,
-                warning: status.result?.warning ?? prev?.warning,
-                logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
-              }));
-            }
-          } else if (status.status === 'FAILURE') {
-            finishGeneration('FAILURE', {
-              taskId: status.task_id,
-              error: status.result?.error,
-            });
-            if (interval) clearInterval(interval);
-          }
         }
       } catch (error) {
         console.error('Failed to check status:', error);
@@ -857,6 +845,10 @@ export default function Studio() {
     prevText: string,
     onImageTasksStarted?: (taskIds: [string, string]) => void,
   ): Promise<[string, string]> => {
+    setGenerateStatus((prev) =>
+      optimisticStatusForStage('resolving_references', 3, prev),
+    );
+
     const refs = await resolveReferenceSelection({
       product_id: baseRequest.product_id,
       reference_count: baseRequest.reference_count,
@@ -869,6 +861,8 @@ export default function Studio() {
       reference_product_images: refs.reference_product_images,
       reference_scene_images: refs.reference_scene_images,
     }));
+
+    setGenerateStatus((prev) => optimisticStatusForStage('starting', 5, prev));
 
     const pinned = {
       reference_product_images: refs.reference_product_images,
@@ -915,13 +909,13 @@ export default function Studio() {
     }
     if (isGenerating) return;
 
-    handleGenerateActiveRef.current = true;
-    monotonicProgressRef.current = 0;
+    monotonicProgressRef.current = OPTIMISTIC_GENERATE_STATUS.progress ?? 2;
     setIsGenerating(true);
     setGeneratingType(type);
     setPublishStatus(null);
     setSaveDraftStatus(null);
     setActiveTaskIds([]);
+    setGenerateStatus(OPTIMISTIC_GENERATE_STATUS);
     
     if (type === 'copywriting') {
       setGeneratedContent(prev => ({
@@ -956,13 +950,6 @@ export default function Studio() {
     } else {
       setGeneratedContent(null);
     }
-    
-    setGenerateStatus({
-      task_id: '',
-      status: 'PROGRESS',
-      progress: 0,
-      stage: 'queued',
-    });
     setTaskStatuses([]);
     taskStatusesRef.current = [];
     if (shouldCompareScenePipelines(type)) {
@@ -996,7 +983,6 @@ export default function Studio() {
           setActiveTaskIds(startedTaskIds);
         }
 
-        handleGenerateActiveRef.current = false;
         return;
       }
 
@@ -1010,11 +996,8 @@ export default function Studio() {
       }
       startedTaskIds = [response.task_id];
       setActiveTaskIds(startedTaskIds);
-      handleGenerateActiveRef.current = false;
     } catch (error: unknown) {
       console.error('Failed to generate content:', error);
-      handleGenerateActiveRef.current = false;
-
       const detail =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
@@ -1240,6 +1223,7 @@ export default function Studio() {
               htmlFor="studio-product"
               label={t('fields.selectProduct')}
               tooltip={t('studio.tooltips.product')}
+              required
             />
             {productsLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
@@ -1284,6 +1268,7 @@ export default function Studio() {
             <LabelWithTooltip
               label={t('fields.publishPlatforms')}
               tooltip={t('studio.tooltips.platforms')}
+              required
             />
             <div className="flex flex-wrap gap-2 mt-1">
               {PLATFORMS.map((p) => {

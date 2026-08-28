@@ -67,6 +67,8 @@ export const zh: TranslationTree = {
     hasNotes: '有说明',
     noNotes: '暂无说明',
     charCount: '{{current}}/{{max}}',
+    fieldRequired: '必填',
+    fieldOptional: '选填',
   },
   api: {
     bannerTitle: '无法连接 PulseForge API',

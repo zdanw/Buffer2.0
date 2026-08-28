@@ -2,9 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, Wand2, PenLine, ImageIcon } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 
-type ProgressStage = 'queued' | 'copywriting' | 'image_prompt' | 'image_generation' | 'finalizing' | 'done';
+type ProgressStage =
+  | 'starting'
+  | 'resolving_references'
+  | 'queued'
+  | 'copywriting'
+  | 'image_prompt'
+  | 'image_generation'
+  | 'finalizing'
+  | 'done';
 
 const PROGRESS_STAGES = new Set<string>([
+  'starting',
+  'resolving_references',
   'queued',
   'copywriting',
   'image_prompt',

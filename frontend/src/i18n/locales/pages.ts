@@ -244,6 +244,7 @@ export const pagesEn: TranslationTree = {
     stepProduct: 'Quick product',
     stepProductHint: 'Add one product with at least one image',
     brandName: 'Brand name',
+    productImage: 'Product image',
     noSpecificBrand: 'No specific brand (Generic)',
     goToStudio: 'Go to Studio',
     checklistTitle: 'Getting started',
@@ -507,6 +508,8 @@ export const pagesEn: TranslationTree = {
     generatingAll3: 'Almost feed-ready — hang tight!',
     generatingAll4: 'Making it extra cute for the algorithm 💕',
     progressStage: {
+      starting: 'Starting…',
+      resolving_references: 'Selecting references…',
       queued: 'Queued…',
       copywriting: 'Writing copy…',
       image_prompt: 'Building image prompt…',
@@ -1005,6 +1008,7 @@ export const pagesZh: TranslationTree = {
     stepProduct: '快速产品',
     stepProductHint: '添加一个产品并上传至少一张图片',
     brandName: '品牌名称',
+    productImage: '产品图片',
     noSpecificBrand: '无特定品牌（通用）',
     goToStudio: '前往 Studio',
     checklistTitle: '入门指南',
@@ -1268,6 +1272,8 @@ export const pagesZh: TranslationTree = {
     generatingAll3: '马上就能发啦，再等等！',
     generatingAll4: '给算法加点可爱滤镜 💕',
     progressStage: {
+      starting: '启动中…',
+      resolving_references: '选择参考图…',
       queued: '排队中…',
       copywriting: '撰写文案…',
       image_prompt: '构建图像提示…',

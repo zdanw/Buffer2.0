@@ -10,6 +10,7 @@ from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
 from bebcare.prompt_builder import prompt_locale
 from bebcare.utils.image_utils import persist_image_url_to_cdn
+from bebcare.utils.progress_heartbeat import ProgressHeartbeat
 from bebcare.services.logo_policy import (
     resolve_effective_logo_mode,
     should_composite_logo,
@@ -653,7 +654,16 @@ class ContentGenerator:
             return db, False
         return SessionLocal(), True
 
-    async def generate_copywriting_async(self, product_info: Dict, platform: str, db=None) -> str:
+    async def generate_copywriting_async(
+        self,
+        product_info: Dict,
+        platform: str,
+        db=None,
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+    ) -> str:
+        if progress_callback:
+            progress_callback("copywriting", 0.05)
+
         session, own = self._db_session(db)
         try:
             prompt = await asyncio.to_thread(
@@ -662,9 +672,23 @@ class ContentGenerator:
         finally:
             if own:
                 session.close()
-        return await self._call_deepseek_async(
-            prompt, self._copy_system_prompt(product_info), 500
-        )
+
+        if progress_callback:
+            progress_callback("copywriting", 0.15)
+
+        if progress_callback:
+            async with ProgressHeartbeat(progress_callback, "copywriting", 0.2, 0.9):
+                text = await self._call_deepseek_async(
+                    prompt, self._copy_system_prompt(product_info), 500
+                )
+        else:
+            text = await self._call_deepseek_async(
+                prompt, self._copy_system_prompt(product_info), 500
+            )
+
+        if progress_callback:
+            progress_callback("copywriting", 1.0)
+        return text
 
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
         return _run_sync(self.generate_copywriting_async(product_info, platform, db))
@@ -702,6 +726,9 @@ class ContentGenerator:
         if progress_callback:
             progress_callback("image_prompt", 0.0)
 
+        if progress_callback:
+            progress_callback("image_prompt", 0.08)
+
         selected_dimensions = None
         image_prompt = None
         positive_prompt = None
@@ -709,6 +736,8 @@ class ContentGenerator:
 
         if use_vision and refs:
             try:
+                if progress_callback:
+                    progress_callback("image_prompt", 0.15)
                 recent_prompts = await asyncio.to_thread(
                     self._fetch_recent_image_prompts,
                     str(product_info.get("product_id") or ""),
@@ -733,9 +762,18 @@ class ContentGenerator:
                     finally:
                         if own_dims:
                             session.close()
-                positive_prompt = await self._call_vision_image_prompt_async(
-                    product_info, refs, 1024, recent_prompts, dimension_hints
-                )
+                if progress_callback:
+                    progress_callback("image_prompt", 0.25)
+                    async with ProgressHeartbeat(
+                        progress_callback, "image_prompt", 0.3, 0.88
+                    ):
+                        positive_prompt = await self._call_vision_image_prompt_async(
+                            product_info, refs, 1024, recent_prompts, dimension_hints
+                        )
+                else:
+                    positive_prompt = await self._call_vision_image_prompt_async(
+                        product_info, refs, 1024, recent_prompts, dimension_hints
+                    )
                 image_prompt = positive_prompt
                 if use_scene_reference:
                     selected_dimensions = prompt_locale.vision_scene_fusion_dimensions()
@@ -778,6 +816,8 @@ class ContentGenerator:
             session, own = self._db_session(db)
             try:
                 if use_scene_reference:
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.2)
                     scene_prompt_result = await asyncio.to_thread(
                         prompt_engine.build_scene_reference_prompt,
                         product_info,
@@ -789,7 +829,11 @@ class ContentGenerator:
                     positive_prompt = meta_prompt
                     image_prompt = positive_prompt
                     selected_dimensions = scene_prompt_result.get("dimensions")
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.9)
                 else:
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.2)
                     image_prompt_result = await asyncio.to_thread(
                         prompt_engine.build_image_prompt,
                         product_info,
@@ -799,20 +843,32 @@ class ContentGenerator:
                     )
                     meta_prompt = image_prompt_result["prompt"]
                     selected_dimensions = image_prompt_result.get("dimensions", None)
-                    positive_prompt = await self._call_deepseek_async(
-                        meta_prompt, self._image_system_prompt(product_info), 1024
-                    )
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.35)
+                        async with ProgressHeartbeat(
+                            progress_callback, "image_prompt", 0.4, 0.88
+                        ):
+                            positive_prompt = await self._call_deepseek_async(
+                                meta_prompt, self._image_system_prompt(product_info), 1024
+                            )
+                    else:
+                        positive_prompt = await self._call_deepseek_async(
+                            meta_prompt, self._image_system_prompt(product_info), 1024
+                        )
                     image_prompt = positive_prompt
             finally:
                 if own:
                     session.close()
+
+        if progress_callback:
+            progress_callback("image_prompt", 1.0)
 
         negative_prompt = prompt_engine.build_negative_prompt(
             prompt_locale.locale_from_product_info(product_info)
         )
 
         if progress_callback:
-            progress_callback("image_generation", 0.35)
+            progress_callback("image_generation", 0.1)
 
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
@@ -843,7 +899,7 @@ class ContentGenerator:
                 session.close()
 
         if progress_callback:
-            progress_callback("image_generation", 0.45)
+            progress_callback("image_generation", 0.2)
 
         async def make_image_request():
             return await asyncio.to_thread(
@@ -857,9 +913,17 @@ class ContentGenerator:
             )
 
         try:
-            image_urls = await self._retry_request_async(
-                make_image_request, max_retries=3, initial_delay=5.0
-            )
+            if progress_callback:
+                async with ProgressHeartbeat(
+                    progress_callback, "image_generation", 0.25, 0.72
+                ):
+                    image_urls = await self._retry_request_async(
+                        make_image_request, max_retries=3, initial_delay=5.0
+                    )
+            else:
+                image_urls = await self._retry_request_async(
+                    make_image_request, max_retries=3, initial_delay=5.0
+                )
         except Exception as e:
             raise Exception(f"Image generation failed after retries: {e}") from e
 
@@ -867,7 +931,10 @@ class ContentGenerator:
             raise Exception("No images generated")
 
         if progress_callback:
-            progress_callback("finalizing", 0.75)
+            progress_callback("image_generation", 0.75)
+
+        if progress_callback:
+            progress_callback("finalizing", 0.78)
 
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
@@ -893,6 +960,11 @@ class ContentGenerator:
             bool(composite_logo_url),
         )
         for i, url in enumerate(image_urls):
+            if progress_callback and len(image_urls) > 0:
+                progress_callback(
+                    "finalizing",
+                    0.78 + 0.17 * (i / len(image_urls)),
+                )
             file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
             try:
                 cdn_urls.append(
