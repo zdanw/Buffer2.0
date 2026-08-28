@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Plus,
   Edit2,
@@ -10,6 +10,8 @@ import {
   Star,
   Eye,
   EyeOff,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   listImageProviders,
@@ -17,10 +19,11 @@ import {
   updateImageProvider,
   deleteImageProvider,
   testImageProvider,
+  discoverImageProviderModels,
   type ImageProvider,
   type ImageProviderCreate,
   type ImageProviderType,
-  type ManualModelEntry,
+  type ImageModelInfo,
 } from '@/api/imageProviders';
 import {
   getSystemImageProviderSummary,
@@ -31,41 +34,18 @@ import HelpTooltip from '@/components/HelpTooltip';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
+import { IMAGE_PROVIDER_PRESETS, presetForType } from '@/lib/imageProviderPresets';
 
 const EMPTY_FORM: ImageProviderCreate = {
   name: '',
   provider_type: 'openai_compatible',
-  base_url: 'https://api.openai.com/v1',
+  base_url: IMAGE_PROVIDER_PRESETS.openai_compatible.base_url,
   api_key: '',
-  supports_list_models: true,
+  supports_list_models: IMAGE_PROVIDER_PRESETS.openai_compatible.supports_list_models,
   default_model: '',
   manual_models: [],
   is_active: true,
   is_default: false,
-};
-
-const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean }> = {
-  openai_compatible: {
-    base_url: 'https://api.openai.com/v1',
-    list: true,
-  },
-  doubao_ark: {
-    base_url: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-    list: false,
-  },
-  aliyun_maas: {
-    base_url:
-      'https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-    list: true,
-  },
-  google_gemini: {
-    base_url: 'https://generativelanguage.googleapis.com/v1beta',
-    list: true,
-  },
-  agnes: {
-    base_url: 'https://api.agnes-ai.cn/v1',
-    list: true,
-  },
 };
 
 export default function ImageProviderSettings() {
@@ -76,11 +56,8 @@ export default function ImageProviderSettings() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ImageProviderCreate>({ ...EMPTY_FORM });
-  const [newModelId, setNewModelId] = useState('');
-  const [newModelDesc, setNewModelDesc] = useState('');
-  const [docModelId, setDocModelId] = useState<string | null>(null);
-  const [docDraft, setDocDraft] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -88,9 +65,24 @@ export default function ImageProviderSettings() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
+  const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
+  const [discoverFailed, setDiscoverFailed] = useState(false);
+  const discoverSeq = useRef(0);
 
   const providerTypeLabel = (type: ImageProviderType) =>
     t(`imageProviders.providerTypes.${type}`);
+
+  const applyTypePreset = (providerType: ImageProviderType) => {
+    const preset = presetForType(providerType);
+    return {
+      provider_type: providerType,
+      base_url: preset.base_url,
+      supports_list_models: preset.supports_list_models,
+      ...(providerType === 'agnes' ? { default_model: 'agnes-image-2.1-flash' } : {}),
+    };
+  };
 
   const load = async (opts?: { silent?: boolean }) => {
     try {
@@ -114,24 +106,92 @@ export default function ImageProviderSettings() {
     void load();
   }, []);
 
+  const resetDiscoverState = () => {
+    setDiscoverMessage(null);
+    setDiscoveredModels([]);
+    setDiscoverFailed(false);
+  };
+
+  const runDiscover = useCallback(
+    async (apiKey: string, snapshot: ImageProviderCreate) => {
+      const trimmed = apiKey.trim();
+      if (!trimmed || trimmed.length < 8) {
+        resetDiscoverState();
+        return;
+      }
+      const seq = ++discoverSeq.current;
+      setDiscovering(true);
+      setDiscoverMessage(null);
+      try {
+        const res = await discoverImageProviderModels({
+          provider_type: snapshot.provider_type,
+          api_key: trimmed,
+          base_url: snapshot.base_url || presetForType(snapshot.provider_type).base_url,
+          supports_list_models: snapshot.supports_list_models,
+        });
+        if (seq !== discoverSeq.current) return;
+
+        if (res.ok) {
+          setDiscoveredModels(res.models);
+          setDiscoverFailed(res.models.length === 0);
+          setDiscoverMessage(res.message || null);
+          setForm((prev) => {
+            const next = { ...prev };
+            if (res.base_url) next.base_url = res.base_url;
+            if (res.supports_list_models != null) {
+              next.supports_list_models = res.supports_list_models;
+            }
+            if (res.models.length > 0 && !next.default_model) {
+              next.default_model = res.models[0].id;
+            }
+            return next;
+          });
+        } else {
+          setDiscoveredModels([]);
+          setDiscoverFailed(true);
+          setDiscoverMessage(res.message || t('imageProviders.discover.failed'));
+        }
+      } catch (err: any) {
+        if (seq !== discoverSeq.current) return;
+        setDiscoveredModels([]);
+        setDiscoverFailed(true);
+        const detail = err.response?.data?.detail;
+        setDiscoverMessage(
+          typeof detail === 'string' ? detail : t('imageProviders.discover.failed')
+        );
+      } finally {
+        if (seq === discoverSeq.current) setDiscovering(false);
+      }
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    if (!showModal || !form.api_key.trim()) return;
+    const timer = window.setTimeout(() => {
+      void runDiscover(form.api_key, form);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    showModal,
+    form.api_key,
+    form.provider_type,
+    form.base_url,
+    form.supports_list_models,
+    runDiscover,
+  ]);
+
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, manual_models: [] });
-    setNewModelId('');
-    setNewModelDesc('');
-    setDocModelId(null);
-    setDocDraft('');
+    setForm({ ...EMPTY_FORM });
     setShowKey(false);
+    setShowAdvanced(false);
+    resetDiscoverState();
     setShowModal(true);
   };
 
   const openEdit = (p: ImageProvider) => {
     setEditingId(p.id);
-    const models: ManualModelEntry[] = (p.manual_models || []).map((m) =>
-      typeof m === 'string'
-        ? { id: m, description: '' }
-        : { id: m.id, description: m.description || '' }
-    );
     setForm({
       name: p.name,
       provider_type: p.provider_type,
@@ -139,75 +199,20 @@ export default function ImageProviderSettings() {
       api_key: '',
       supports_list_models: p.supports_list_models,
       default_model: p.default_model || '',
-      manual_models: models,
       is_active: p.is_active,
       is_default: p.is_default,
     });
-    setNewModelId('');
-    setNewModelDesc('');
-    setDocModelId(null);
-    setDocDraft('');
     setShowKey(false);
+    setShowAdvanced(false);
+    resetDiscoverState();
     setShowModal(true);
-  };
-
-  const addManualModel = () => {
-    const mid = newModelId.trim();
-    if (!mid) return;
-    const current = form.manual_models || [];
-    if (current.some((m) => m.id === mid)) {
-      setNewModelId('');
-      setNewModelDesc('');
-      return;
-    }
-    setForm({
-      ...form,
-      manual_models: [
-        ...current,
-        { id: mid, description: newModelDesc.trim() || null },
-      ],
-    });
-    setNewModelId('');
-    setNewModelDesc('');
-  };
-
-  const openModelDoc = (m: ManualModelEntry) => {
-    setDocModelId(m.id);
-    setDocDraft(m.description || '');
-  };
-
-  const closeModelDoc = () => {
-    setDocModelId(null);
-    setDocDraft('');
-  };
-
-  const saveModelDoc = () => {
-    if (!docModelId) return;
-    updateManualModelDesc(docModelId, docDraft);
-    closeModelDoc();
-  };
-
-  const updateManualModelDesc = (mid: string, description: string) => {
-    setForm({
-      ...form,
-      manual_models: (form.manual_models || []).map((m) =>
-        m.id === mid ? { ...m, description } : m
-      ),
-    });
-  };
-
-  const removeManualModel = (mid: string) => {
-    setForm({
-      ...form,
-      manual_models: (form.manual_models || []).filter((m) => m.id !== mid),
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.base_url.trim()) {
-      setError(t('imageProviders.validation.nameAndUrlRequired'));
+    if (!form.name.trim()) {
+      setError(t('imageProviders.validation.nameRequired'));
       return;
     }
     if (!editingId && !form.api_key.trim()) {
@@ -215,28 +220,35 @@ export default function ImageProviderSettings() {
       return;
     }
 
+    const preset = presetForType(form.provider_type);
+    const defaultModel = form.default_model?.trim() || discoveredModels[0]?.id || null;
+    if (!defaultModel) {
+      setError(t('imageProviders.validation.modelRequired'));
+      return;
+    }
+
     try {
       setSaving(true);
+      const shared = {
+        name: form.name.trim(),
+        provider_type: form.provider_type,
+        base_url: form.base_url?.trim() || preset.base_url,
+        supports_list_models: form.supports_list_models ?? preset.supports_list_models,
+        default_model: defaultModel,
+        is_active: form.is_active,
+        is_default: form.is_default,
+      };
+
       if (editingId) {
-        const payload: Record<string, unknown> = {
-          name: form.name,
-          provider_type: form.provider_type,
-          base_url: form.base_url,
-          supports_list_models: form.supports_list_models,
-          default_model: form.default_model || null,
-          manual_models: form.manual_models || [],
-          is_active: form.is_active,
-          is_default: form.is_default,
-        };
+        const payload: Record<string, unknown> = { ...shared };
         if (form.api_key.trim()) payload.api_key = form.api_key.trim();
         const updated = await updateImageProvider(editingId, payload);
         setProviders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
         setSuccess(t('common.updated'));
       } else {
         const created = await createImageProvider({
-          ...form,
-          default_model: form.default_model || null,
-          manual_models: form.manual_models || [],
+          ...shared,
+          api_key: form.api_key.trim(),
         });
         setProviders((prev) => [created, ...prev]);
         setSuccess(t('common.created'));
@@ -309,6 +321,8 @@ export default function ImageProviderSettings() {
       setSettingDefaultId(null);
     }
   };
+
+  const showModelInput = discoveredModels.length === 0;
 
   if (loading) {
     return (
@@ -407,9 +421,6 @@ export default function ImageProviderSettings() {
               <p className="text-xs text-gray-400 mt-1">
                 {t('imageProviders.keyLabel')}: {p.api_key_masked}
                 {p.default_model ? ` · ${t('imageProviders.defaultModel')}: ${p.default_model}` : ''}
-                {(p.manual_models?.length || 0) > 0
-                  ? ` · ${t('imageProviders.manualModelsCount').replace('{{count}}', String(p.manual_models!.length))}`
-                  : ''}
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -528,41 +539,21 @@ export default function ImageProviderSettings() {
                   value={form.provider_type}
                   onChange={(e) => {
                     const providerType = e.target.value as ImageProviderType;
-                    const preset = TYPE_PRESETS[providerType];
                     setForm({
                       ...form,
-                      provider_type: providerType,
-                      base_url: preset.base_url,
-                      supports_list_models: preset.list,
-                      ...(providerType === 'agnes' && !form.default_model
-                        ? { default_model: 'agnes-image-2.1-flash' }
-                        : {}),
+                      ...applyTypePreset(providerType),
+                      default_model: providerType === 'agnes' ? 'agnes-image-2.1-flash' : '',
                     });
+                    resetDiscoverState();
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
-                  {(Object.keys(TYPE_PRESETS) as ImageProviderType[]).map((k) => (
+                  {(Object.keys(IMAGE_PROVIDER_PRESETS) as ImageProviderType[]).map((k) => (
                     <option key={k} value={k}>
                       {providerTypeLabel(k)}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <LabelWithTooltip
-                  htmlFor="provider-base-url"
-                  label={t('imageProviders.fields.baseUrl.label')}
-                  tooltip={t('imageProviders.fields.baseUrl.tooltip')}
-                />
-                <input
-                  id="provider-base-url"
-                  value={form.base_url}
-                  onChange={(e) => setForm({ ...form, base_url: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  required
-                  placeholder={t('placeholders.imageProviders.baseUrl')}
-                />
               </div>
 
               <div>
@@ -589,107 +580,113 @@ export default function ImageProviderSettings() {
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <LabelWithTooltip
-                  htmlFor="provider-default-model"
-                  label={t('imageProviders.fields.defaultModel.label')}
-                  tooltip={t('imageProviders.fields.defaultModel.tooltip')}
-                />
-                <input
-                  id="provider-default-model"
-                  value={form.default_model || ''}
-                  onChange={(e) => setForm({ ...form, default_model: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder={t('placeholders.imageProviders.defaultModel')}
-                />
-              </div>
-
-              <div>
-                <LabelWithTooltip
-                  label={t('imageProviders.fields.manualModels.label')}
-                  tooltip={t('imageProviders.fields.manualModels.tooltip')}
-                />
-                <p className="text-xs text-gray-500 mb-2">
-                  {t('imageProviders.fields.manualModels.hint')}
-                </p>
-                <div className="space-y-2 mb-2">
-                  <input
-                    value={newModelId}
-                    onChange={(e) => setNewModelId(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addManualModel();
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder={t('placeholders.imageProviders.modelId')}
-                  />
-                  <textarea
-                    value={newModelDesc}
-                    onChange={(e) => setNewModelDesc(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    placeholder={t('placeholders.imageProviders.modelNotes')}
-                  />
-                  <button
-                    type="button"
-                    onClick={addManualModel}
-                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+                {discovering ? (
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    {t('imageProviders.discover.loading')}
+                  </p>
+                ) : null}
+                {!discovering && discoverMessage ? (
+                  <p
+                    className={`text-xs mt-2 ${
+                      discoverFailed ? 'text-amber-700' : 'text-green-700'
+                    }`}
                   >
-                    {t('imageProviders.fields.manualModels.addToList')}
-                  </button>
-                </div>
-                {(form.manual_models || []).length > 0 ? (
-                  <ul className="space-y-1 max-h-56 overflow-y-auto border border-gray-100 rounded-lg p-2">
-                    {(form.manual_models || []).map((m) => (
-                      <li
-                        key={m.id}
-                        className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-gray-50"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openModelDoc(m)}
-                          className="text-left flex-1 font-mono text-sm text-forge-700 hover:text-ink-900 hover:underline break-all"
-                          title={t('imageProviders.fields.manualModels.viewDoc')}
-                        >
-                          {m.id}
-                          {m.description ? (
-                            <span className="ml-2 text-xs text-gray-400 font-sans">
-                              {t('imageProviders.fields.manualModels.hasDoc')}
-                            </span>
-                          ) : null}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeManualModel(m.id)}
-                          className="text-gray-400 hover:text-red-600 shrink-0"
-                          title={t('imageProviders.fields.manualModels.remove')}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    {discoverMessage}
+                  </p>
+                ) : null}
+              </div>
+
+              {discoveredModels.length > 0 ? (
+                <div>
+                  <LabelWithTooltip
+                    label={t('imageProviders.fields.availableModels.label')}
+                    tooltip={t('imageProviders.fields.availableModels.tooltip')}
+                  />
+                  <ul className="space-y-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    {discoveredModels.map((m) => (
+                      <li key={m.id}>
+                        <label className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="default-model"
+                            checked={form.default_model === m.id}
+                            onChange={() => setForm({ ...form, default_model: m.id })}
+                            className="mt-1"
+                          />
+                          <span className="min-w-0">
+                            <span className="font-mono text-sm text-gray-900 break-all">{m.id}</span>
+                            {m.owned_by ? (
+                              <span className="block text-xs text-gray-400">{m.owned_by}</span>
+                            ) : null}
+                          </span>
+                        </label>
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="text-xs text-gray-400">{t('imageProviders.fields.manualModels.empty')}</p>
-                )}
-              </div>
+                </div>
+              ) : null}
 
-              <label className="flex items-start gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={!!form.supports_list_models}
-                  onChange={(e) => setForm({ ...form, supports_list_models: e.target.checked })}
-                  className="mt-0.5"
-                />
-                <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
-                  {t('imageProviders.fields.supportsListModels.label')}
-                  <HelpTooltip content={t('imageProviders.fields.supportsListModels.tooltip')} />
-                </span>
-              </label>
+              {showModelInput ? (
+                <div>
+                  <LabelWithTooltip
+                    htmlFor="provider-default-model"
+                    label={t('imageProviders.fields.defaultModel.label')}
+                    tooltip={t('imageProviders.fields.defaultModel.tooltip')}
+                  />
+                  <input
+                    id="provider-default-model"
+                    value={form.default_model || ''}
+                    onChange={(e) => setForm({ ...form, default_model: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+                    placeholder={t('placeholders.imageProviders.defaultModel')}
+                    required
+                  />
+                </div>
+              ) : null}
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {t('imageProviders.advancedSettings')}
+                </button>
+                {showAdvanced ? (
+                  <div className="mt-3 space-y-3 border border-gray-100 rounded-lg p-3 bg-gray-50">
+                    <div>
+                      <LabelWithTooltip
+                        htmlFor="provider-base-url"
+                        label={t('imageProviders.fields.baseUrl.label')}
+                        tooltip={t('imageProviders.fields.baseUrl.tooltip')}
+                      />
+                      <input
+                        id="provider-base-url"
+                        value={form.base_url}
+                        onChange={(e) => setForm({ ...form, base_url: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                        placeholder={t('placeholders.imageProviders.baseUrl')}
+                      />
+                    </div>
+                    <label className="flex items-start gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={!!form.supports_list_models}
+                        onChange={(e) =>
+                          setForm({ ...form, supports_list_models: e.target.checked })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span className="flex-1 inline-flex items-center gap-1.5 flex-wrap">
+                        {t('imageProviders.fields.supportsListModels.label')}
+                        <HelpTooltip content={t('imageProviders.fields.supportsListModels.tooltip')} />
+                      </span>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
 
               <label className="flex items-start gap-2 text-sm text-gray-700">
                 <input
@@ -728,7 +725,7 @@ export default function ImageProviderSettings() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || discovering}
                   className="px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('common.saving') : t('common.save')}
@@ -739,49 +736,6 @@ export default function ImageProviderSettings() {
         </div>
       )}
 
-      {docModelId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl p-5 w-full max-w-md shadow-xl mx-4">
-            <div className="flex justify-between items-start gap-3 mb-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">{t('imageProviders.modelDoc.title')}</h4>
-                <p className="font-mono text-sm text-forge-700 break-all mt-1">{docModelId}</p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModelDoc}
-                className="text-gray-400 hover:text-gray-600 shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <textarea
-              value={docDraft}
-              onChange={(e) => setDocDraft(e.target.value)}
-              rows={8}
-              autoFocus
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              placeholder={t('placeholders.imageProviders.modelDoc')}
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                type="button"
-                onClick={closeModelDoc}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={saveModelDoc}
-                className="px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700"
-              >
-                {t('common.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

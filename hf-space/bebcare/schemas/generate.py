@@ -14,7 +14,9 @@ class GenerateRequest(BaseModel):
     image_size: Optional[str] = None
     image_provider_mode: Optional[Literal["platform", "byok"]] = None
     locale: Optional[Literal["en", "zh"]] = None
+    # Studio compare: force scene-fusion pipeline (legacy=text template, vision=multimodal)
     image_prompt_pipeline: Optional[Literal["legacy_scene", "vision_scene"]] = None
+    # Pin the same reference URLs across parallel generations (Studio compare)
     reference_product_images: Optional[List[str]] = None
     reference_scene_images: Optional[List[str]] = None
 

@@ -10,6 +10,8 @@ const DIMENSION_FIELD_NAMES = [
   'viewpoint',
 ] as const;
 
+type DimensionFieldName = (typeof DIMENSION_FIELD_NAMES)[number];
+
 const VISION_SCENE_FUSION_PLACEHOLDERS = new Set([
   '参考场景图+视觉模型',
   '视觉模型自主(场景融合)',
@@ -33,7 +35,9 @@ export function formatDimensionDisplayValue(value?: string | null): string {
 }
 
 /** True when every dimension is empty / NULL (e.g. vision scene fusion). */
-export function areDimensionsAllNull(dimensions?: Partial<Record<string, string>> | null): boolean {
+export function areDimensionsAllNull(
+  dimensions?: Partial<Record<DimensionFieldName, string | null | undefined>> | null,
+): boolean {
   if (!dimensions) return true;
   return DIMENSION_FIELD_NAMES.every(
     (field) => formatDimensionDisplayValue(dimensions[field]) === NULL_DIMENSION_LABEL

@@ -15,10 +15,14 @@ from bebcare.schemas.image_provider import (
     ImageModelsResponse,
     ImageModelInfo,
     ImageProviderTestResponse,
-    _normalize_manual_models,
+    resolve_configured_model_id,
 )
 from bebcare.utils.crypto import encrypt_secret, decrypt_secret, mask_secret
-from bebcare.providers.registry import list_models_for_config, build_provider_from_config
+from bebcare.providers.registry import (
+    list_models_for_config,
+    build_provider_from_config,
+    resolve_provider_preset,
+)
 from bebcare.services.auth_dependency import get_current_admin_user
 
 router = APIRouter(
@@ -32,9 +36,7 @@ def _to_response(config: ImageProviderConfig) -> ImageProviderResponse:
         masked = mask_secret(plain)
     except Exception:
         masked = "****"
-    manual = _normalize_manual_models(
-        config.manual_models if isinstance(config.manual_models, list) else []
-    )
+    manual = []
     return ImageProviderResponse(
         id=config.id,
         name=config.name,
@@ -92,16 +94,24 @@ def create_system_provider(
 ):
     if body.is_default:
         _clear_other_system_defaults(db)
+    try:
+        base_url, supports_list_models = resolve_provider_preset(
+            body.provider_type,
+            body.base_url,
+            body.supports_list_models,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     row = ImageProviderConfig(
         id=str(uuid.uuid4()),
         owner_user_id=None,
         name=body.name,
         provider_type=body.provider_type,
-        base_url=body.base_url.rstrip("/"),
+        base_url=base_url,
         api_key_encrypted=encrypt_secret(body.api_key),
-        supports_list_models=body.supports_list_models,
+        supports_list_models=supports_list_models,
         default_model=body.default_model,
-        manual_models=[m.model_dump() for m in (body.manual_models or [])],
+        manual_models=[],
         extra_headers=body.extra_headers,
         extra_params=body.extra_params,
         is_active=body.is_active,
@@ -123,20 +133,31 @@ def update_system_provider(
 ):
     row = _get_system_or_404(db, provider_id)
     data = body.model_dump(exclude_unset=True)
+    data.pop("manual_models", None)
     api_key = data.pop("api_key", None)
     if api_key:
         row.api_key_encrypted = encrypt_secret(api_key)
     if data.get("is_default") is True:
         _clear_other_system_defaults(db, keep_id=provider_id)
+    provider_type = data.get("provider_type", row.provider_type)
+    if "base_url" in data or "provider_type" in data or "supports_list_models" in data:
+        try:
+            base_url, supports_list_models = resolve_provider_preset(
+                provider_type,
+                data.get("base_url", row.base_url),
+                data.get("supports_list_models", row.supports_list_models),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        data["base_url"] = base_url
+        data["supports_list_models"] = supports_list_models
     for key, value in data.items():
         if key == "base_url" and isinstance(value, str):
             value = value.rstrip("/")
-        if key == "manual_models" and isinstance(value, list):
-            value = [
-                m if isinstance(m, dict) else {"id": str(m), "description": None}
-                for m in value
-            ]
+        if key == "manual_models":
+            continue
         setattr(row, key, value)
+    row.manual_models = []
     db.commit()
     db.refresh(row)
     return _to_response(row)
@@ -175,34 +196,14 @@ def get_system_provider_models(
     _admin: User = Depends(get_current_admin_user),
 ):
     row = _get_system_or_404(db, provider_id)
-    merged: list[ImageModelInfo] = []
-    seen: set[str] = set()
-    for entry in _normalize_manual_models(
-        row.manual_models if isinstance(row.manual_models, list) else []
-    ):
-        if entry.id in seen:
-            continue
-        seen.add(entry.id)
-        merged.append(
-            ImageModelInfo(id=entry.id, description=entry.description, source="manual")
-        )
-    remote_msg = None
-    if row.supports_list_models:
-        try:
-            remote = list_models_for_config(row)
-            for m in remote:
-                mid = m.get("id")
-                if not mid or mid in seen:
-                    continue
-                seen.add(mid)
-                merged.append(
-                    ImageModelInfo(id=mid, owned_by=m.get("owned_by"), source="remote")
-                )
-        except Exception:
-            if not merged:
-                remote_msg = "拉取远程模型失败，请使用手动模型列表"
+    model_id = resolve_configured_model_id(row.default_model, row.manual_models)
+    models: list[ImageModelInfo] = []
+    if model_id:
+        models.append(ImageModelInfo(id=model_id, source="configured"))
     return ImageModelsResponse(
-        models=merged, message=remote_msg, allow_manual_input=True
+        models=models,
+        message=None if models else "未配置模型",
+        allow_manual_input=False,
     )
 
 

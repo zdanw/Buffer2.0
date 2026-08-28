@@ -46,6 +46,14 @@ function normalizeSizeInput(raw: string): string | null {
   return `${Number(m[1])}x${Number(m[2])}`;
 }
 
+function systemDefaultOptionLabel(
+  summary: SystemProviderSummary | null,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
+  const name = summary?.has_provider ? summary.name?.trim() : '';
+  return name || t('imageModelPicker.systemDefault');
+}
+
 export default function ImageModelPicker({
   value,
   onChange,
@@ -272,12 +280,20 @@ export default function ImageModelPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, value.image_provider_id, value.image_model]);
 
+  const selectedProvider = providers.find((p) => p.id === value.image_provider_id);
+  const boundModel = selectedProvider?.default_model || null;
+  const platformModelId =
+    usingPlatformDefault && systemSummary?.has_provider
+      ? systemSummary.default_model?.trim() || null
+      : null;
+  const displayModelId = boundModel || platformModelId;
   const selected = models.find((m) => m.id === value.image_model);
   const modelIdSet = new Set(models.map((m) => m.id));
   const isCustomModel =
-    models.length === 0 ||
-    forceCustomModel ||
-    (value.image_model ? !modelIdSet.has(value.image_model) : false);
+    !displayModelId &&
+    (models.length === 0 ||
+      forceCustomModel ||
+      (value.image_model ? !modelIdSet.has(value.image_model) : false));
   const currentSize = value.image_size || defaultSize;
   const presetSet = new Set(sizes.map((s) => s.size));
   const isCustom =
@@ -339,7 +355,7 @@ export default function ImageModelPicker({
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
         >
-          <option value="">{t('imageModelPicker.systemDefault')}</option>
+          <option value="">{systemDefaultOptionLabel(systemSummary, t)}</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -347,7 +363,7 @@ export default function ImageModelPicker({
             </option>
           ))}
         </select>
-        {usingPlatformDefault ? (
+        {usingPlatformDefault && !systemSummary?.has_provider ? (
           <p className="text-xs text-gray-400 mt-1">{t('imageModelPicker.emptyUsesDefault')}</p>
         ) : null}
         {checkoutBanner ? (
@@ -375,42 +391,56 @@ export default function ImageModelPicker({
           label={`${t('imageModelPicker.modelId')}${loadingModels ? ` ${t('imageModelPicker.loading')}` : ''}`}
           tooltip={t('imageModelPicker.tooltips.modelId')}
         />
-        {models.length > 0 ? (
-          <ModelIdSelect
-            models={models}
-            value={value.image_model ?? null}
-            isCustom={isCustomModel}
-            disabled={modelDisabled}
-            onSelectPreset={(modelId) => {
-              setForceCustomModel(false);
-              onChange({ ...value, image_model: modelId });
-            }}
-            onSelectCustom={() => setForceCustomModel(true)}
-          />
-        ) : null}
-        {isCustomModel && (
-          <input
-            type="text"
-            value={value.image_model || ''}
-            disabled={modelDisabled}
-            onChange={(e) => {
-              setForceCustomModel(true);
-              onChange({ ...value, image_model: e.target.value || null });
-            }}
-            placeholder={
-              value.image_provider_id
-                ? t('placeholders.imageModelPicker.manualModel')
-                : t('placeholders.imageModelPicker.selectProviderFirst')
-            }
-            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100 ${
-              models.length > 0 ? 'mt-2' : ''
-            }`}
-          />
+        {displayModelId ? (
+          <p className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-mono text-gray-800">
+            {displayModelId}
+          </p>
+        ) : usingPlatformDefault ? (
+          <p className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400">
+            {systemSummary?.has_provider
+              ? t('imageModelPicker.systemModelNotConfigured')
+              : t('imageModelPicker.systemUnavailable')}
+          </p>
+        ) : (
+          <>
+            {models.length > 0 ? (
+              <ModelIdSelect
+                models={models}
+                value={value.image_model ?? null}
+                isCustom={isCustomModel}
+                disabled={modelDisabled}
+                onSelectPreset={(modelId) => {
+                  setForceCustomModel(false);
+                  onChange({ ...value, image_model: modelId });
+                }}
+                onSelectCustom={() => setForceCustomModel(true)}
+              />
+            ) : null}
+            {isCustomModel && (
+              <input
+                type="text"
+                value={value.image_model || ''}
+                disabled={modelDisabled}
+                onChange={(e) => {
+                  setForceCustomModel(true);
+                  onChange({ ...value, image_model: e.target.value || null });
+                }}
+                placeholder={
+                  value.image_provider_id
+                    ? t('placeholders.imageModelPicker.manualModel')
+                    : t('placeholders.imageModelPicker.selectProviderFirst')
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100 ${
+                  models.length > 0 ? 'mt-2' : ''
+                }`}
+              />
+            )}
+            {selected?.description && !isCustomModel && (
+              <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{selected.description}</p>
+            )}
+            {hint && <p className="text-xs text-amber-600 mt-1">{hint}</p>}
+          </>
         )}
-        {selected?.description && !isCustomModel && (
-          <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{selected.description}</p>
-        )}
-        {hint && <p className="text-xs text-amber-600 mt-1">{hint}</p>}
       </div>
 
       <div>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Plus, Trash2, RefreshCw, Star, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2, RefreshCw, Star, X, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   listSystemImageProviders,
   createSystemImageProvider,
@@ -8,41 +8,22 @@ import {
   setSystemImageProviderDefault,
   type SystemImageProvider,
 } from '@/api/systemImageProvider';
-import type { ImageProviderType } from '@/api/imageProviders';
+import {
+  discoverImageProviderModels,
+  type ImageProviderType,
+  type ImageModelInfo,
+} from '@/api/imageProviders';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
-
-const TYPE_PRESETS: Record<ImageProviderType, { base_url: string; list: boolean }> = {
-  openai_compatible: {
-    base_url: 'https://api.openai.com/v1',
-    list: true,
-  },
-  doubao_ark: {
-    base_url: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-    list: false,
-  },
-  aliyun_maas: {
-    base_url:
-      'https://ws-lxvmitlmy9ln8pda.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-    list: true,
-  },
-  google_gemini: {
-    base_url: 'https://generativelanguage.googleapis.com/v1beta',
-    list: true,
-  },
-  agnes: {
-    base_url: 'https://api.agnes-ai.cn/v1',
-    list: true,
-  },
-};
+import { IMAGE_PROVIDER_PRESETS, presetForType } from '@/lib/imageProviderPresets';
 
 const EMPTY = {
   name: '',
   provider_type: 'openai_compatible' as ImageProviderType,
-  base_url: TYPE_PRESETS.openai_compatible.base_url,
+  base_url: IMAGE_PROVIDER_PRESETS.openai_compatible.base_url,
   api_key: '',
-  supports_list_models: TYPE_PRESETS.openai_compatible.list,
+  supports_list_models: IMAGE_PROVIDER_PRESETS.openai_compatible.supports_list_models,
   default_model: '',
   is_active: true,
   is_default: true,
@@ -57,6 +38,12 @@ export default function SystemImageProviderSettings() {
   const [form, setForm] = useState({ ...EMPTY });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
+  const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
+  const [manualModelId, setManualModelId] = useState('');
+  const discoverSeq = useRef(0);
 
   const load = async () => {
     setLoading(true);
@@ -78,9 +65,51 @@ export default function SystemImageProviderSettings() {
     void load();
   }, []);
 
+  const runDiscover = async () => {
+    const trimmed = form.api_key.trim();
+    if (!trimmed || trimmed.length < 8) {
+      setDiscoveredModels([]);
+      setDiscoverMessage(null);
+      return;
+    }
+    const seq = ++discoverSeq.current;
+    setDiscovering(true);
+    try {
+      const res = await discoverImageProviderModels({
+        provider_type: form.provider_type,
+        api_key: trimmed,
+        base_url: form.base_url,
+        supports_list_models: form.supports_list_models,
+      });
+      if (seq !== discoverSeq.current) return;
+      setDiscoveredModels(res.models);
+      setDiscoverMessage(res.message || null);
+      if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
+      if (res.models.length > 0 && !form.default_model) {
+        setForm((f) => ({ ...f, default_model: res.models[0].id }));
+      }
+    } catch {
+      if (seq !== discoverSeq.current) return;
+      setDiscoveredModels([]);
+      setDiscoverMessage(t('imageProviders.discover.failed'));
+    } finally {
+      if (seq === discoverSeq.current) setDiscovering(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showModal || !form.api_key.trim()) return;
+    const timer = window.setTimeout(() => void runDiscover(), 500);
+    return () => window.clearTimeout(timer);
+  }, [showModal, form.api_key, form.provider_type, form.base_url]);
+
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY });
+    setDiscoveredModels([]);
+    setDiscoverMessage(null);
+    setManualModelId('');
+    setShowAdvanced(false);
     setShowModal(true);
   };
 
@@ -96,6 +125,10 @@ export default function SystemImageProviderSettings() {
       is_active: row.is_active,
       is_default: row.is_default,
     });
+    setDiscoveredModels([]);
+    setDiscoverMessage(null);
+    setManualModelId('');
+    setShowAdvanced(false);
     setShowModal(true);
   };
 
@@ -104,12 +137,19 @@ export default function SystemImageProviderSettings() {
     setSaving(true);
     setError('');
     try {
+      const preset = presetForType(form.provider_type);
+      const defaultModel = form.default_model?.trim() || discoveredModels[0]?.id || manualModelId.trim() || null;
+      if (!defaultModel) {
+        setError(t('imageProviders.validation.modelRequired'));
+        setSaving(false);
+        return;
+      }
       const body: Record<string, unknown> = {
         name: form.name,
         provider_type: form.provider_type,
-        base_url: form.base_url,
-        supports_list_models: form.supports_list_models,
-        default_model: form.default_model || null,
+        base_url: form.base_url || preset.base_url,
+        supports_list_models: form.supports_list_models ?? preset.supports_list_models,
+        default_model: defaultModel,
         is_active: form.is_active,
         is_default: form.is_default,
       };
@@ -241,7 +281,7 @@ export default function SystemImageProviderSettings() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form
             onSubmit={handleSave}
-            className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-3"
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-3 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h2 className="font-semibold">
@@ -263,31 +303,23 @@ export default function SystemImageProviderSettings() {
               value={form.provider_type}
               onChange={(e) => {
                 const providerType = e.target.value as ImageProviderType;
-                const preset = TYPE_PRESETS[providerType];
+                const preset = presetForType(providerType);
                 setForm({
                   ...form,
                   provider_type: providerType,
                   base_url: preset.base_url,
-                  supports_list_models: preset.list,
-                  ...(providerType === 'agnes' && !form.default_model
-                    ? { default_model: 'agnes-image-2.1-flash' }
-                    : {}),
+                  supports_list_models: preset.supports_list_models,
+                  default_model: providerType === 'agnes' ? 'agnes-image-2.1-flash' : '',
                 });
+                setDiscoveredModels([]);
               }}
             >
-              {(Object.keys(TYPE_PRESETS) as ImageProviderType[]).map((k) => (
+              {(Object.keys(IMAGE_PROVIDER_PRESETS) as ImageProviderType[]).map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>
               ))}
             </select>
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder={t('systemImageProviders.baseUrl')}
-              value={form.base_url}
-              onChange={(e) => setForm({ ...form, base_url: e.target.value })}
-              required
-            />
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm"
               placeholder={
@@ -299,12 +331,53 @@ export default function SystemImageProviderSettings() {
               onChange={(e) => setForm({ ...form, api_key: e.target.value })}
               type="password"
             />
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Default model"
-              value={form.default_model}
-              onChange={(e) => setForm({ ...form, default_model: e.target.value })}
-            />
+            {discovering ? (
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                {t('imageProviders.discover.loading')}
+              </p>
+            ) : discoverMessage ? (
+              <p className="text-xs text-amber-700">{discoverMessage}</p>
+            ) : null}
+            {discoveredModels.length > 0 ? (
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={form.default_model}
+                onChange={(e) => setForm({ ...form, default_model: e.target.value })}
+              >
+                {discoveredModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.id}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="Default model ID"
+                value={form.default_model || manualModelId}
+                onChange={(e) => {
+                  setManualModelId(e.target.value);
+                  setForm({ ...form, default_model: e.target.value });
+                }}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="flex items-center gap-1 text-xs text-gray-600"
+            >
+              {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {t('imageProviders.advancedSettings')}
+            </button>
+            {showAdvanced ? (
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder={t('systemImageProviders.baseUrl')}
+                value={form.base_url}
+                onChange={(e) => setForm({ ...form, base_url: e.target.value })}
+              />
+            ) : null}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -315,7 +388,7 @@ export default function SystemImageProviderSettings() {
             </label>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || discovering}
               className="w-full py-2 bg-forge-600 text-white rounded-lg text-sm disabled:opacity-50"
             >
               {t('common.save')}

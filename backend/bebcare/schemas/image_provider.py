@@ -42,7 +42,7 @@ def _normalize_manual_models(value: Optional[List[Any]]) -> List[ManualModelEntr
 class ImageProviderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     provider_type: ProviderType
-    base_url: str = Field(min_length=1, max_length=512)
+    base_url: Optional[str] = Field(default=None, max_length=512)
     api_key: str = Field(min_length=1)
     supports_list_models: bool = True
     default_model: Optional[str] = None
@@ -113,9 +113,34 @@ class ImageModelsResponse(BaseModel):
     allow_manual_input: bool = True
 
 
+def resolve_configured_model_id(
+    default_model: Optional[str],
+    manual_models: Optional[List[Any]],
+) -> Optional[str]:
+    if default_model and str(default_model).strip():
+        return str(default_model).strip()
+    manual = _normalize_manual_models(manual_models)
+    return manual[0].id if manual else None
+
+
 class ImageProviderTestResponse(BaseModel):
     ok: bool
     message: str
+
+
+class ImageProviderDiscoverRequest(BaseModel):
+    provider_type: ProviderType
+    api_key: str = Field(min_length=1)
+    base_url: Optional[str] = Field(default=None, max_length=512)
+    supports_list_models: Optional[bool] = None
+
+
+class ImageProviderDiscoverResponse(BaseModel):
+    ok: bool
+    models: List[ImageModelInfo] = []
+    message: Optional[str] = None
+    base_url: Optional[str] = None
+    supports_list_models: Optional[bool] = None
 
 
 class ImageSizeOption(BaseModel):

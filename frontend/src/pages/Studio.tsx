@@ -490,7 +490,7 @@ export default function Studio() {
         warning: undefined,
       }));
     } else if (shouldCompareScenePipelines(type)) {
-      setGeneratedContent(prev => ({
+      setGeneratedContent(() => ({
         text: '',
         image: '',
         dimensions: undefined,

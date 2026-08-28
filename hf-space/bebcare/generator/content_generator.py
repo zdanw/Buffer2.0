@@ -30,6 +30,14 @@ def deepseek_chat_completions_url(base_url: str) -> str:
     return f"{url}/chat/completions"
 
 
+def agnes_images_generations_url(base_url: str) -> str:
+    """Accept base (…/v1) or full …/images/generations; always return the image endpoint."""
+    url = (base_url or "").strip().rstrip("/")
+    if url.endswith("/images/generations"):
+        return url
+    return f"{url}/images/generations"
+
+
 def _run_sync(coro):
     """Run async API from sync callers (APScheduler threads, tests)."""
     try:
@@ -57,6 +65,12 @@ class ContentGenerator:
             settings.vision_api_url or settings.deepseek_api_url
         )
         self.vision_model = (settings.vision_model or "agnes-2.5-flash").strip()
+        self.vision_image_model = (settings.vision_image_model or "agnes-image-2.1-flash").strip()
+        self.vision_image_api_url = agnes_images_generations_url(
+            settings.vision_image_api_url
+            or settings.vision_api_url
+            or settings.deepseek_api_url
+        )
 
         self.image_prompt_system_prompt = """
 你是一位专业的AI图像提示词工程师。
@@ -205,6 +219,95 @@ class ContentGenerator:
 
     def _call_deepseek(self, prompt: str, system_prompt: str = None, max_tokens: int = 300) -> str:
         return _run_sync(self._call_deepseek_async(prompt, system_prompt, max_tokens))
+
+    async def call_vision_chat_async(
+        self,
+        messages: list,
+        *,
+        max_tokens: int = 2048,
+        temperature: float = 0.7,
+    ) -> tuple[str, str | None]:
+        """OpenAI-compatible chat completion via vision model (e.g. agnes-2.5-flash)."""
+        if not self.vision_api_key:
+            raise ValueError("VISION_API_KEY / DEEPSEEK_API_KEY is required for vision chat")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.vision_api_key}",
+        }
+
+        async def request_once(token_limit: int):
+            data = {
+                "model": self.vision_model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": token_limit,
+            }
+            if "deepseek" in (self.vision_model or "").lower():
+                data["thinking"] = {"type": "disabled"}
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(self.vision_api_url, headers=headers, json=data)
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError:
+                logger.error(
+                    "Vision chat API %s: %s",
+                    response.status_code,
+                    (response.text or "")[:2000],
+                )
+                raise
+            choice = response.json()["choices"][0]
+            content = (choice["message"].get("content") or "").strip()
+            return content, choice.get("finish_reason")
+
+        async def make_request():
+            content, finish_reason = await request_once(max_tokens)
+            retry_limit = max_tokens
+            if finish_reason == "length":
+                retry_limit = min(max(max_tokens * 2, 1024), 8192)
+                if retry_limit > max_tokens:
+                    content, finish_reason = await request_once(retry_limit)
+            if finish_reason == "length":
+                raise Exception(f"Vision chat output truncated after max_tokens={retry_limit}")
+            if not content:
+                raise Exception("Vision model returned empty response")
+            return content, finish_reason
+
+        return await self._retry_request_async(make_request, max_retries=3, initial_delay=2.0)
+
+    async def call_agnes_image_async(
+        self,
+        prompt: str,
+        *,
+        size: str = "1024x1024",
+        image_urls: list[str] | None = None,
+        model: str | None = None,
+    ) -> list[str]:
+        """Agnes Image 2.x via AgnesImageProvider (extra_body.image for refs)."""
+        if not self.vision_api_key:
+            raise ValueError("VISION_API_KEY / DEEPSEEK_API_KEY is required for Agnes image generation")
+
+        from bebcare.providers.agnes import AgnesImageProvider
+
+        # vision_image_api_url is the full …/images/generations endpoint
+        provider = AgnesImageProvider(
+            api_key=self.vision_api_key,
+            base_url=self.vision_image_api_url,
+            default_model=self.vision_image_model,
+            supports_list_models=False,
+        )
+
+        async def make_request():
+            return await asyncio.to_thread(
+                lambda: provider.generate(
+                    prompt=prompt,
+                    reference_images=image_urls or [],
+                    size=size,
+                    model=model,
+                )
+            )
+
+        return await self._retry_request_async(make_request, max_retries=2, initial_delay=2.0)
 
     @staticmethod
     def _ref_urls_to_data_urls(

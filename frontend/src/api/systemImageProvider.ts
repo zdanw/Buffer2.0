@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { ImageProviderType } from './imageProviders';
+import type { ImageModelsResponse, ImageProviderType } from './imageProviders';
 
 export interface SystemProviderSummary {
   has_provider: boolean;
@@ -55,5 +55,10 @@ export const setSystemImageProviderDefault = async (id: string) => {
   const response = await axiosInstance.post(
     `/admin/system-image-providers/${id}/set-default`
   );
+  return response.data;
+};
+
+export const listSystemProviderModels = async (id: string): Promise<ImageModelsResponse> => {
+  const response = await axiosInstance.get(`/admin/system-image-providers/${id}/models`);
   return response.data;
 };

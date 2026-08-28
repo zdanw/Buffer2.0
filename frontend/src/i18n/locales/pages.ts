@@ -672,6 +672,11 @@ export const pagesEn: TranslationTree = {
     customSizeHint: 'Enter width×height, e.g. 1920x1080 (64–8192).',
     loading: '(loading…)',
     systemDefault: 'System default',
+    systemDefaultDetail: 'System default · {{name}} · {{model}}',
+    systemDefaultNameOnly: 'System default · {{name}}',
+    systemDefaultModelOnly: 'System default · {{model}}',
+    platformActiveDetail: '{{name}} · {{model}}',
+    platformActiveName: '{{name}}',
     defaultSuffix: '(default)',
     selectOrManual: 'Select or enter manually below',
     selectModel: 'Choose a model',
@@ -689,6 +694,7 @@ export const pagesEn: TranslationTree = {
     creditsExhausted:
       'Platform credits used up. Buy a credit pack or add your own API key.',
     systemUnavailable: 'Platform image generation is not configured. Contact an admin.',
+    systemModelNotConfigured: 'Platform default has no model ID configured.',
     contactAdmin: 'Contact admin for credits',
     tooltips: {
       title:
@@ -1416,6 +1422,11 @@ export const pagesZh: TranslationTree = {
     customSizeHint: '输入宽×高，例如 1920x1080（范围 64–8192）。',
     loading: '（加载中…）',
     systemDefault: '系统默认',
+    systemDefaultDetail: '系统默认 · {{name}} · {{model}}',
+    systemDefaultNameOnly: '系统默认 · {{name}}',
+    systemDefaultModelOnly: '系统默认 · {{model}}',
+    platformActiveDetail: '{{name}} · {{model}}',
+    platformActiveName: '{{name}}',
     defaultSuffix: '（默认）',
     selectOrManual: '请选择或下方手填',
     selectModel: '选择模型',
@@ -1432,6 +1443,7 @@ export const pagesZh: TranslationTree = {
     willConsumeOne: '本次将消耗 1 次平台额度。',
     creditsExhausted: '平台出图次数已用完。请购买次数包，或自行配置 API Key。',
     systemUnavailable: '平台图像供应商未配置，请联系管理员。',
+    systemModelNotConfigured: '平台默认未配置模型 ID',
     contactAdmin: '联系管理员开通次数',
     tooltips: {
       title:

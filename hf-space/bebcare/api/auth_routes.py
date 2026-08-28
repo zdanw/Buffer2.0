@@ -24,13 +24,20 @@ from bebcare.schemas.auth import (
     UserUpdate,
     MeUpdate,
     UserResponse,
+    OnboardingRewardResponse,
     RefreshTokenRequest,
 )
-from bebcare.config.settings import settings
+from bebcare.services.onboarding_service import (
+    claim_onboarding_reward,
+    has_generated_content,
+    onboarding_reward_claimed,
+)
 from bebcare.services.credit_grant_service import (
+    CreditError,
     ensure_signup_trial,
     remaining_credits,
 )
+from bebcare.config.settings import settings
 from bebcare.billing.packs import is_billing_enabled
 from bebcare.models.image_provider import ImageProviderConfig
 
@@ -58,6 +65,8 @@ def _to_user_response(db: Session, user: User) -> UserResponse:
         is_admin=user.is_admin,
         created_at=user.created_at,
         onboarding_completed_at=user.onboarding_completed_at,
+        has_generated_content=has_generated_content(db, user.user_id),
+        onboarding_reward_claimed=onboarding_reward_claimed(db, user.user_id),
         image_credits_remaining=remaining_credits(db, user.user_id),
         has_system_image_provider=_has_system_image_provider(db),
         billing_contact=settings.billing_contact or settings.admin_email,
@@ -211,6 +220,25 @@ def complete_onboarding(
     db.commit()
     db.refresh(current_user)
     return {"status": "ok", "onboarding_completed_at": current_user.onboarding_completed_at}
+
+
+@router.post("/me/onboarding-reward", response_model=OnboardingRewardResponse)
+def claim_onboarding_reward_route(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        granted, remaining = claim_onboarding_reward(db, current_user.user_id)
+    except CreditError as exc:
+        if exc.code == "incomplete":
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return OnboardingRewardResponse(
+        granted=granted,
+        already_claimed=granted == 0,
+        image_credits_remaining=remaining,
+    )
 
 @router.get("/users", response_model=List[UserResponse])
 def list_users(

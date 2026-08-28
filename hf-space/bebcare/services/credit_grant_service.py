@@ -16,6 +16,9 @@ from bebcare.models.image_credit import ImageCreditGrant, ImageCreditReservation
 SOURCE_SIGNUP_TRIAL = "signup_trial"
 SOURCE_ADMIN_GRANT = "admin_grant"
 SOURCE_STRIPE = "stripe"
+SOURCE_ONBOARDING_REWARD = "onboarding_reward"
+
+ONBOARDING_REWARD_CREDITS = 15
 
 STATUS_ACTIVE = "active"
 STATUS_EXHAUSTED = "exhausted"

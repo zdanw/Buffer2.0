@@ -372,6 +372,11 @@ class APSchedulerService:
             )
             if task_cfg
             else False,
+            "realistic_placement": bool(
+                getattr(task_cfg, "realistic_placement", True)
+            )
+            if task_cfg
+            else True,
         }
         product_info = enrich_product_info(session, product, base_info)
         owner_user_id = (

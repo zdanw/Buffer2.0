@@ -93,6 +93,7 @@ def create_task(
         enabled=task.enabled,
         use_scene_reference=task.use_scene_reference,
         use_vision_image_prompt=task.use_vision_image_prompt,
+        realistic_placement=task.realistic_placement,
         image_provider_id=task.image_provider_id,
         image_provider_mode=task.image_provider_mode,
         image_model=task.image_model,
@@ -523,10 +524,12 @@ def get_task(
         "enabled": task.enabled,
         "use_scene_reference": task.use_scene_reference,
         "use_vision_image_prompt": bool(task.use_vision_image_prompt),
+        "realistic_placement": bool(getattr(task, "realistic_placement", True)),
         "image_provider_id": task.image_provider_id,
         "image_provider_mode": task.image_provider_mode,
         "image_model": task.image_model,
         "image_size": task.image_size,
+        "notify_on_publish": bool(task.notify_on_publish),
         "created_at": task.created_at,
         "updated_at": task.updated_at,
         "last_run_at": task.last_run_at,
@@ -589,6 +592,8 @@ def update_task(
         task.use_scene_reference = task_update.use_scene_reference
     if task_update.use_vision_image_prompt is not None:
         task.use_vision_image_prompt = task_update.use_vision_image_prompt
+    if task_update.realistic_placement is not None:
+        task.realistic_placement = task_update.realistic_placement
     if "image_provider_id" in task_update.model_fields_set:
         task.image_provider_id = task_update.image_provider_id
     if "image_provider_mode" in task_update.model_fields_set:

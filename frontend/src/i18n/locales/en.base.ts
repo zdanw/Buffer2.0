@@ -242,6 +242,10 @@ export const en: TranslationTree = {
         tooltip:
           'Fallback model when no specific ID is chosen in Studio or tasks.\n\nExample: qwen-image-edit for reference-photo edits; qwen-image-2.0 for text-only generation.\n\nTip: Image-to-image IDs often end with -edit.',
       },
+      availableModels: {
+        label: 'Select model',
+        tooltip: 'Each provider entry binds exactly one model. Pick from the list fetched via your API key.',
+      },
       manualModels: {
         label: 'Manual model list',
         tooltip:
@@ -279,8 +283,15 @@ export const en: TranslationTree = {
       agnes: 'Agnes',
     },
     validation: {
+      nameRequired: 'Name is required',
       nameAndUrlRequired: 'Name and Base URL are required',
       apiKeyRequired: 'API Key is required when creating a provider',
+      modelRequired: 'Select or enter a model ID',
+    },
+    advancedSettings: 'Advanced settings',
+    discover: {
+      loading: 'Validating key and fetching models…',
+      failed: 'Could not fetch models. Check your API key or add model IDs manually.',
     },
     modelDoc: {
       title: 'Model documentation',

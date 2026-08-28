@@ -241,6 +241,10 @@ export const zh: TranslationTree = {
         tooltip:
           'Studio 或任务未指定模型时使用的默认 ID。\n\n例：qwen-image-edit 用于参考图编辑；qwen-image-2.0 用于纯文生图。\n\n提示：图生图 ID 常以 -edit 结尾。',
       },
+      availableModels: {
+        label: '选择模型',
+        tooltip: '每条配置仅绑定一个模型。根据 API Key 自动拉取后选择。',
+      },
       manualModels: {
         label: '手动模型列表',
         tooltip:
@@ -278,8 +282,15 @@ export const zh: TranslationTree = {
       agnes: 'Agnes',
     },
     validation: {
+      nameRequired: '请填写名称',
       nameAndUrlRequired: '名称与 Base URL 必填',
       apiKeyRequired: '创建时必须填写 API Key',
+      modelRequired: '请选择或填写模型 ID',
+    },
+    advancedSettings: '高级设置',
+    discover: {
+      loading: '正在验证 Key 并拉取可用模型…',
+      failed: '无法拉取模型列表，请检查 API Key 或手动添加 Model ID',
     },
     modelDoc: {
       title: '模型说明',

@@ -34,7 +34,7 @@ export interface ImageProvider {
 export interface ImageProviderCreate {
   name: string;
   provider_type: ImageProviderType;
-  base_url: string;
+  base_url?: string;
   api_key: string;
   supports_list_models?: boolean;
   default_model?: string | null;
@@ -66,6 +66,21 @@ export interface ImageModelsResponse {
   models: ImageModelInfo[];
   message?: string | null;
   allow_manual_input: boolean;
+}
+
+export interface ImageProviderDiscoverRequest {
+  provider_type: ImageProviderType;
+  api_key: string;
+  base_url?: string | null;
+  supports_list_models?: boolean;
+}
+
+export interface ImageProviderDiscoverResponse {
+  ok: boolean;
+  models: ImageModelInfo[];
+  message?: string | null;
+  base_url?: string | null;
+  supports_list_models?: boolean | null;
 }
 
 export interface ImageProviderTestResponse {
@@ -125,6 +140,13 @@ export const getImageSizeCapabilities = async (params?: {
       model: params?.model || undefined,
     },
   });
+  return response.data;
+};
+
+export const discoverImageProviderModels = async (
+  data: ImageProviderDiscoverRequest
+): Promise<ImageProviderDiscoverResponse> => {
+  const response = await axiosInstance.post('/image-providers/discover', data);
   return response.data;
 };
 

@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     vision_api_key: str | None = None
     vision_api_url: str | None = "https://api.agnes-ai.cn/v1"
     vision_model: str = "agnes-2.5-flash"
+    # Agnes 图像生成（默认同 VISION_API_KEY / VISION_API_URL）
+    vision_image_api_url: str | None = None
+    vision_image_model: str = "agnes-image-2.1-flash"
 
     # Doubao API配置
     doubao_api_key: str
