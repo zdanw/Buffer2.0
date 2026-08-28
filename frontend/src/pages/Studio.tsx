@@ -63,8 +63,11 @@ function resolvePendingTaskIds(saved: PreviewState): string[] {
   return [];
 }
 
-function slotFromStatus(status: GenerateStatus): ScenePipelineSlot {
+function slotFromStatus(status: GenerateStatus): ScenePipelineSlot | null {
   const result = status.result;
+  if (status.status === 'PENDING' || status.status === 'PROGRESS') {
+    return null;
+  }
   if (status.status === 'FAILURE' || !result?.image) {
     return {
       image: '',
@@ -79,6 +82,51 @@ function slotFromStatus(status: GenerateStatus): ScenePipelineSlot {
     reference_product_images: result.reference_product_images,
     reference_scene_images: result.reference_scene_images,
   };
+}
+
+type PipelineDisplayState = {
+  isGenerating: boolean;
+  progress: number;
+  stage: string | null;
+};
+
+function resolvePipelineDisplay(
+  taskStatus: GenerateStatus | undefined,
+  batchGenerating: boolean,
+  copyStatus: GenerateStatus | undefined,
+  generatingType: GenerateType | null,
+): PipelineDisplayState {
+  if (!batchGenerating) {
+    return {
+      isGenerating: false,
+      progress: taskStatus?.status === 'SUCCESS' ? 100 : (taskStatus?.progress ?? 0),
+      stage: taskStatus?.stage ?? null,
+    };
+  }
+
+  if (!taskStatus) {
+    if (generatingType === 'all' && copyStatus && isInFlightStatus(copyStatus.status)) {
+      return {
+        isGenerating: true,
+        progress: copyStatus.progress ?? 0,
+        stage: copyStatus.stage ?? 'copywriting',
+      };
+    }
+    if (generatingType === 'all' && copyStatus?.status === 'SUCCESS') {
+      return { isGenerating: true, progress: 0, stage: 'image_prompt' };
+    }
+    return { isGenerating: true, progress: 0, stage: 'queued' };
+  }
+
+  if (isInFlightStatus(taskStatus.status)) {
+    return {
+      isGenerating: true,
+      progress: taskStatus.progress ?? 0,
+      stage: taskStatus.stage ?? 'image_generation',
+    };
+  }
+
+  return { isGenerating: false, progress: 100, stage: 'done' };
 }
 
 function statusMap(statuses: GenerateStatus[]): Map<string, GenerateStatus> {
@@ -100,10 +148,22 @@ function inferCompareTaskLayout(
   compareMode: boolean,
 ): { copyId?: string; legacyId: string; visionId: string } | null {
   if (!compareMode || taskIds.length < 2) return null;
-  if (generatingType === 'all' && taskIds.length >= 3) {
+  if (generatingType === 'all') {
+    if (taskIds.length < 3) return null;
     return { copyId: taskIds[0], legacyId: taskIds[1], visionId: taskIds[2] };
   }
-  return { legacyId: taskIds[0], visionId: taskIds[1] };
+  if (generatingType === 'image') {
+    return { legacyId: taskIds[0], visionId: taskIds[1] };
+  }
+  return null;
+}
+
+function isCompareAllBatchReady(
+  taskIds: string[],
+  generatingType: string | null,
+  compareMode: boolean,
+): boolean {
+  return !compareMode || generatingType !== 'all' || taskIds.length >= 3;
 }
 
 interface PreviewState {
@@ -229,6 +289,7 @@ export default function Studio() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [compareResults, setCompareResults] = useState<CompareSceneResults | null>(null);
+  const [taskStatuses, setTaskStatuses] = useState<GenerateStatus[]>([]);
   const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
   const handleGenerateActiveRef = useRef(false);
@@ -273,6 +334,7 @@ export default function Studio() {
       setIsGenerating(false);
       setGeneratingType(null);
       setActiveTaskIds([]);
+      setTaskStatuses([]);
       if (outcome === 'SUCCESS') {
         setGenerateStatus({
           task_id: opts?.taskId ?? '',
@@ -320,17 +382,10 @@ export default function Studio() {
         const byId = statusMap(statuses);
         const legacyStatus = byId.get(layout.legacyId);
         const visionStatus = byId.get(layout.visionId);
-        const hasImageUpdate =
-          legacyStatus?.status === 'SUCCESS' ||
-          visionStatus?.status === 'SUCCESS' ||
-          legacyStatus?.status === 'FAILURE' ||
-          visionStatus?.status === 'FAILURE';
-        if (hasImageUpdate) {
-          setCompareResults({
-            legacy_scene: legacyStatus ? slotFromStatus(legacyStatus) : null,
-            vision_scene: visionStatus ? slotFromStatus(visionStatus) : null,
-          });
-        }
+        setCompareResults({
+          legacy_scene: legacyStatus ? slotFromStatus(legacyStatus) : null,
+          vision_scene: visionStatus ? slotFromStatus(visionStatus) : null,
+        });
       }
 
       if (!layout && statuses.length === 1 && statuses[0].status === 'SUCCESS' && statuses[0].result) {
@@ -416,6 +471,9 @@ export default function Studio() {
       }
 
       const status = statuses[0];
+      if (compareMode && genType === 'all') {
+        return;
+      }
       if (status?.status === 'SUCCESS' && status.result) {
         setGeneratedContent((prev) => ({
           text: status.result?.text || prev?.text || '',
@@ -495,6 +553,54 @@ export default function Studio() {
   const generationProgress = generateStatus?.progress ?? 0;
   const generationStage = generateStatus?.stage ?? null;
 
+  const comparePreviewActive = useMemo(() => {
+    if (!useSceneReference || !compareScenePipelines) return false;
+    if (compareResults !== null) return true;
+    return isGenerating && (generatingType === 'all' || generatingType === 'image');
+  }, [
+    useSceneReference,
+    compareScenePipelines,
+    compareResults,
+    isGenerating,
+    generatingType,
+  ]);
+
+  const comparePipelineDisplay = useMemo((): Record<
+    ScenePipelineKey,
+    PipelineDisplayState
+  > | null => {
+    if (!comparePreviewActive) return null;
+
+    const compareMode =
+      generatingType === 'image' || generatingType === 'all';
+    const layout = inferCompareTaskLayout(activeTaskIds, generatingType, compareMode);
+    const byId = statusMap(taskStatuses);
+    const copyStatus = layout?.copyId ? byId.get(layout.copyId) : undefined;
+    const legacyStatus = layout?.legacyId ? byId.get(layout.legacyId) : undefined;
+    const visionStatus = layout?.visionId ? byId.get(layout.visionId) : undefined;
+
+    return {
+      legacy_scene: resolvePipelineDisplay(
+        legacyStatus,
+        isGenerating,
+        copyStatus,
+        generatingType as GenerateType | null,
+      ),
+      vision_scene: resolvePipelineDisplay(
+        visionStatus,
+        isGenerating,
+        copyStatus,
+        generatingType as GenerateType | null,
+      ),
+    };
+  }, [
+    comparePreviewActive,
+    activeTaskIds,
+    generatingType,
+    taskStatuses,
+    isGenerating,
+  ]);
+
   useEffect(() => {
     if (!savedState.generatingType) return;
 
@@ -511,6 +617,7 @@ export default function Studio() {
       try {
         const statuses = await Promise.all(pendingTaskIds.map(getGenerateStatus));
         if (cancelled) return;
+        setTaskStatuses(statuses);
 
         const recoverLayout = buildGenerateProgressLayout(pendingTaskIds, {
           generatingType: savedState.generatingType as GenerateType,
@@ -605,6 +712,7 @@ export default function Studio() {
     const checkStatus = async () => {
       try {
         const statuses = await Promise.all(activeTaskIds.map(getGenerateStatus));
+        setTaskStatuses(statuses);
         applyAggregateStatus(statuses, activeTaskIds[0]);
 
         applyPartialResults(
@@ -615,8 +723,13 @@ export default function Studio() {
         );
 
         const allTerminal = statuses.every((s) => isTerminalStatus(s.status));
+        const compareAllReady = isCompareAllBatchReady(
+          activeTaskIds,
+          generatingType,
+          compareMode,
+        );
 
-        if (allTerminal && !handleGenerateActiveRef.current) {
+        if (allTerminal && !handleGenerateActiveRef.current && compareAllReady) {
           applyRecoveredResults(
             statuses,
             generatingType as GenerateType | null,
@@ -839,8 +952,18 @@ export default function Studio() {
       setGeneratedContent(null);
     }
     
-    setGenerateStatus(null);
-    setCompareResults(null);
+    setGenerateStatus({
+      task_id: '',
+      status: 'PROGRESS',
+      progress: 0,
+      stage: 'queued',
+    });
+    setTaskStatuses([]);
+    if (shouldCompareScenePipelines(type)) {
+      setCompareResults({ legacy_scene: null, vision_scene: null });
+    } else {
+      setCompareResults(null);
+    }
 
     let startedTaskIds: string[] = [];
 
@@ -855,13 +978,7 @@ export default function Studio() {
 
         if (type === 'all') {
           const copyStart = await generateCopywriting(request);
-          startedTaskIds = [copyStart.task_id];
-          setActiveTaskIds(startedTaskIds);
-
-          const imageTaskIds = await startCompareImageGeneration(request, '', (ids) => {
-            startedTaskIds = [copyStart.task_id, ...ids];
-            setActiveTaskIds(startedTaskIds);
-          });
+          const imageTaskIds = await startCompareImageGeneration(request, '');
           startedTaskIds = [copyStart.task_id, ...imageTaskIds];
           setActiveTaskIds(startedTaskIds);
         } else {
@@ -1028,6 +1145,9 @@ export default function Studio() {
   const renderComparePipelineCard = (key: ScenePipelineKey, slot: ScenePipelineSlot | null) => {
     const selected = activePipeline === key;
     const caption = generatedContent?.text || undefined;
+    const pipelineDisplay = comparePipelineDisplay?.[key];
+    const showGenerating = pipelineDisplay?.isGenerating ?? isGenerating;
+
     return (
       <div
         key={key}
@@ -1054,36 +1174,28 @@ export default function Studio() {
         {slot?.error && !slot.image && (
           <p className="text-sm text-red-600">{slot.error}</p>
         )}
-        {slot?.image ? (
-          <>
-            <div className="w-full max-w-[220px] mx-auto">
-              <SocialFeedPreview
-                platforms={selectedPlatforms}
-                image={slot.image}
-                caption={caption}
-                brandName={previewBrandName}
-                brandLogo={previewBrandLogo}
-                imageAlt={pipelineLabel(key)}
-                onImageClick={setPreviewImage}
-                isGenerating={isGenerating}
-                generatingType={generatingType}
-                generationProgress={generationProgress}
-                generationStage={generationStage}
-              />
-            </div>
-            <GeneratedImagePanel
-              imageUrl={slot.image}
-              imageAlt={pipelineLabel(key)}
-              onViewFullSize={setPreviewImage}
-              filename={`${key}-${previewBrandName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'brand'}.jpg`}
-            />
-          </>
-        ) : (
-          !slot?.error && (
-            <div className="aspect-[9/16] max-w-[220px] mx-auto w-full rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center text-sm text-gray-400">
-              {isGenerating ? t('preview.processing') : t('studio.pipelineNoImage')}
-            </div>
-          )
+        <div className="w-full max-w-[220px] mx-auto">
+          <SocialFeedPreview
+            platforms={selectedPlatforms}
+            image={slot?.image || undefined}
+            caption={caption}
+            brandName={previewBrandName}
+            brandLogo={previewBrandLogo}
+            imageAlt={pipelineLabel(key)}
+            onImageClick={slot?.image ? setPreviewImage : undefined}
+            isGenerating={showGenerating}
+            generatingType={generatingType}
+            generationProgress={pipelineDisplay?.progress ?? generationProgress}
+            generationStage={pipelineDisplay?.stage ?? generationStage}
+          />
+        </div>
+        {slot?.image && (
+          <GeneratedImagePanel
+            imageUrl={slot.image}
+            imageAlt={pipelineLabel(key)}
+            onViewFullSize={setPreviewImage}
+            filename={`${key}-${previewBrandName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'brand'}.jpg`}
+          />
         )}
         {slot?.warning && (
           <p className="text-xs text-amber-700">{slot.warning}</p>
@@ -1417,10 +1529,10 @@ export default function Studio() {
             />
           )}
 
-          {compareResults ? (
+          {comparePreviewActive ? (
             <div className="space-y-4">
               {(['legacy_scene', 'vision_scene'] as ScenePipelineKey[]).map((key) => {
-                const slot = compareResults[key];
+                const slot = compareResults?.[key];
                 if (!slot?.dimensions && !slot?.image_prompt) return null;
                 return (
                   <div
@@ -1472,7 +1584,7 @@ export default function Studio() {
 
         <div className="col-span-2">
           <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 min-h-[500px]">
-            {compareResults ? (
+            {comparePreviewActive ? (
               <div className="space-y-4">
                 <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
                   <BrandAvatar
@@ -1494,8 +1606,14 @@ export default function Studio() {
                   </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderComparePipelineCard('legacy_scene', compareResults.legacy_scene)}
-                  {renderComparePipelineCard('vision_scene', compareResults.vision_scene)}
+                  {renderComparePipelineCard(
+                    'legacy_scene',
+                    compareResults?.legacy_scene ?? null,
+                  )}
+                  {renderComparePipelineCard(
+                    'vision_scene',
+                    compareResults?.vision_scene ?? null,
+                  )}
                 </div>
               </div>
             ) : generatedContent && (generatedContent.image || generatedContent.text) ? (

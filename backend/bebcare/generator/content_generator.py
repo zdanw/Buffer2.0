@@ -148,10 +148,22 @@ class ContentGenerator:
                 return await func()
             except Exception as e:
                 last_exception = e
+                logger.warning(
+                    "Attempt %s/%s failed: %s...",
+                    attempt + 1,
+                    max_retries,
+                    str(e)[:100],
+                )
                 if attempt < max_retries - 1:
+                    logger.info("Retrying in %.2f seconds...", delay)
                     await asyncio.sleep(delay)
                     delay *= backoff_factor
 
+        logger.error(
+            "All %s attempts failed. Last error: %s",
+            max_retries,
+            str(last_exception)[:200],
+        )
         raise last_exception
 
     async def _call_deepseek_async(

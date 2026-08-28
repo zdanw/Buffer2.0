@@ -114,6 +114,8 @@ export interface ProgressSegment {
 
 export interface GenerateProgressLayout {
   segments: ProgressSegment[];
+  /** Compare-all needs 3 tasks before the batch can read as complete. */
+  minTaskCount?: number;
 }
 
 /** Weighted layout so copy + image phases do not jump 100% → 50% when tasks merge. */
@@ -126,14 +128,17 @@ export function buildGenerateProgressLayout(
 ): GenerateProgressLayout {
   const { generatingType = null, compareMode = false } = options ?? {};
 
-  if (compareMode && generatingType === 'all' && taskIds.length >= 1) {
+  if (compareMode && generatingType === 'all') {
+    if (taskIds.length < 3) {
+      return {
+        segments: [{ taskIds: [...taskIds], weight: 100 }],
+        minTaskCount: 3,
+      };
+    }
     return {
       segments: [
         { taskIds: [taskIds[0]], weight: 25 },
-        {
-          taskIds: taskIds.length >= 3 ? taskIds.slice(1, 3) : [],
-          weight: 75,
-        },
+        { taskIds: taskIds.slice(1, 3), weight: 75 },
       ],
     };
   }
@@ -210,10 +215,26 @@ export function aggregateGenerateProgress(
       statuses.map((s) => s.task_id),
     );
 
-  if (statuses.every((item) => item.status === 'SUCCESS')) {
+  const layoutTaskIds = effectiveLayout.segments.flatMap((segment) => segment.taskIds);
+  const statusById = new Map(statuses.map((item) => [item.task_id, item]));
+  const batchRegistered =
+    !effectiveLayout.minTaskCount || statuses.length >= effectiveLayout.minTaskCount;
+  const allLayoutTasksSuccess =
+    batchRegistered &&
+    layoutTaskIds.length > 0 &&
+    layoutTaskIds.every((id) => statusById.get(id)?.status === 'SUCCESS');
+
+  if (allLayoutTasksSuccess) {
     return { progress: 100, stage: 'done', status: 'SUCCESS' };
   }
-  if (statuses.every((item) => item.status === 'SUCCESS' || item.status === 'FAILURE')) {
+  if (
+    batchRegistered &&
+    layoutTaskIds.length > 0 &&
+    layoutTaskIds.every((id) => {
+      const status = statusById.get(id)?.status;
+      return status === 'SUCCESS' || status === 'FAILURE';
+    })
+  ) {
     return {
       progress: Math.round(weightedProgress(statuses, effectiveLayout)),
       stage: 'done',
