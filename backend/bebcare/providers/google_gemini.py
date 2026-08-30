@@ -5,6 +5,8 @@ import re
 from typing import List, Optional
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
+
 from bebcare.providers.image_model_filter import filter_gemini_image_models
 
 logger = logging.getLogger(__name__)
@@ -141,24 +143,33 @@ class GoogleGeminiImageProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "2048x2048",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = model or self.default_model
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = req.model or self.default_model
         if not model_id:
             raise ValueError("image model is required")
 
-        text = (prompt or "").strip()
+        text = (req.prompt_with_role_labels() or "").strip()
         if not text:
             raise ValueError("image prompt is required")
-        if (negative_prompt or "").strip():
-            text = f"{text}\n\nAvoid: {negative_prompt.strip()}"
+        if (req.negative_prompt or "").strip():
+            text = f"{text}\n\nAvoid: {req.negative_prompt.strip()}"
 
         input_parts: List[dict] = [{"type": "text", "text": text}]
-        for url in reference_images or []:
+        for url in req.ordered_urls():
             if not url:
                 continue
             try:
@@ -170,7 +181,7 @@ class GoogleGeminiImageProvider:
             "model": model_id,
             "input": input_parts,
             "generation_config": {
-                "image_config": {"aspect_ratio": size_to_aspect(size)},
+                "image_config": {"aspect_ratio": size_to_aspect(req.size)},
             },
         }
         payload.update(self.extra_params)

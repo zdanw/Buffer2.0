@@ -22,6 +22,7 @@ from bebcare.services.grounded_rollout import (
     EXECUTED_LEGACY_RANDOM,
     EXPERIMENT_DETERMINISTIC,
     FALLBACK_PATH_LEGACY_RANDOM,
+    GROUNDED_EXECUTED_VERSIONS,
     PIPELINE_GROUNDED_V1,
 )
 from bebcare.utils.reference_selector import select_reference_images
@@ -53,6 +54,7 @@ class GroundedSelection:
     fallback_path: Optional[str]
     experiment_variant: str
     grounded: bool
+    requested_experiment_variant: Optional[str] = None
 
 
 def _legacy_manifest_from_urls(
@@ -63,7 +65,7 @@ def _legacy_manifest_from_urls(
 ) -> ReferenceManifest:
     """Scene-first URL list matching current provider order on the baseline path."""
     items: list[ManifestItem] = []
-    order = 1
+    order = 0
     lookup = image_id_by_url or {}
     for url in scene_urls:
         items.append(
@@ -77,11 +79,11 @@ def _legacy_manifest_from_urls(
             )
         )
         order += 1
-    for index, url in enumerate(product_urls):
+    for url in product_urls:
         items.append(
             ManifestItem(
                 order=order,
-                role="primary_subject" if index == 0 else "supporting_subject",
+                role="legacy_reference",
                 image_id=lookup.get(url),
                 cdn_url=url,
                 image_type="product",
@@ -101,7 +103,7 @@ def recent_primary_counts(session: Session, product_id: str) -> dict[str, int]:
         session.query(GenerationRun.reference_manifest)
         .filter(
             GenerationRun.product_id == product_id,
-            GenerationRun.executed_pipeline_version == EXECUTED_DETERMINISTIC,
+            GenerationRun.executed_pipeline_version.in_(GROUNDED_EXECUTED_VERSIONS),
         )
         .order_by(GenerationRun.created_at.desc())
         .limit(DIVERSITY_LOOKBACK)

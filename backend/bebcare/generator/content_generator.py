@@ -123,20 +123,42 @@ class ContentGenerator:
         )
 
     def _vision_image_system_prompt(self, product_info: Dict) -> str:
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
         custom = (product_info.get("vision_image_system_prompt") or "").strip()
+        locale = prompt_locale.locale_from_product_info(product_info)
         if custom:
-            return custom
-        return prompt_locale.vision_image_prompt_system_prompt(
-            prompt_locale.locale_from_product_info(product_info)
-        )
+            base = custom
+        else:
+            base = prompt_locale.vision_image_prompt_system_prompt(locale)
+        if grounded_prompt_contract_enabled(product_info):
+            from bebcare.services.generation_plan import executed_plan_contract
+
+            contract = executed_plan_contract(product_info, locale)
+            extra = contract or prompt_locale.grounded_re_render_contract(locale)
+            return f"{base}\n{extra}"
+        return base
 
     def _vision_scene_system_prompt(self, product_info: Dict) -> str:
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
         custom = (product_info.get("vision_scene_system_prompt") or "").strip()
+        locale = prompt_locale.locale_from_product_info(product_info)
+        if grounded_prompt_contract_enabled(product_info) and not custom:
+            return prompt_locale.vision_scene_image_prompt_system_prompt_grounded(
+                locale, product_info
+            )
         if custom:
-            return custom
-        return prompt_locale.vision_scene_image_prompt_system_prompt(
-            prompt_locale.locale_from_product_info(product_info)
-        )
+            base = custom
+        else:
+            base = prompt_locale.vision_scene_image_prompt_system_prompt(locale)
+        if grounded_prompt_contract_enabled(product_info):
+            from bebcare.services.generation_plan import executed_plan_contract
+
+            contract = executed_plan_contract(product_info, locale)
+            extra = contract or prompt_locale.grounded_re_render_contract(locale)
+            return f"{base}\n{extra}"
+        return base
 
     async def _retry_request_async(
         self, func, max_retries=3, initial_delay=2.0, backoff_factor=2.0
@@ -481,6 +503,65 @@ class ContentGenerator:
 
         if use_scene and scene_urls and product_urls:
             system_prompt = self._vision_scene_system_prompt(product_info)
+            from bebcare.schemas.reference_manifest import ReferenceManifest
+            from bebcare.services.generation_plan import plan_from_product_info
+            from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
+            plan = plan_from_product_info(product_info)
+            raw_manifest = None
+            if plan and plan.reference_manifest:
+                raw_manifest = plan.reference_manifest
+            if not raw_manifest:
+                raw_manifest = (product_info.get("generation_provenance") or {}).get(
+                    "reference_manifest"
+                )
+            if grounded_prompt_contract_enabled(product_info) and raw_manifest:
+                try:
+                    manifest = ReferenceManifest.model_validate(raw_manifest)
+                    ordered = [
+                        item
+                        for item in sorted(manifest.items, key=lambda i: i.order)
+                        if item.cdn_url
+                    ][:_MAX_VISION_REF_IMAGES]
+                    for item in ordered:
+                        role_en = {
+                            "primary_subject": "Primary subject",
+                            "supporting_subject": "Supporting subject",
+                            "scene": "Scene context",
+                        }.get(item.role, item.role)
+                        role_zh = {
+                            "primary_subject": "主产品",
+                            "supporting_subject": "辅助参考",
+                            "scene": "场景",
+                        }.get(item.role, item.role)
+                        label = (
+                            f"【Image {item.order + 1} · {role_en}】"
+                            if locale == "en"
+                            else f"【图{item.order + 1} · {role_zh}】"
+                        )
+                        user_content.append({"type": "text", "text": label})
+                        for u in self._ref_urls_to_data_urls([item.cdn_url], 1):
+                            user_content.append(
+                                {"type": "image_url", "image_url": {"url": u}}
+                            )
+                    category = (
+                        (product_info.get("category") or product_info.get("product_type") or "")
+                        .strip()
+                    )
+                    prompt_text = prompt_locale.vision_scene_fusion_user_prompt_text_grounded(
+                        product_name,
+                        category or None,
+                        locale,
+                        avoid_text=avoid_text,
+                        logo_suffix=logo_suffix,
+                        placement_suffix=placement_suffix,
+                        dim_suffix=dim_suffix,
+                        product_info=product_info,
+                    )
+                    user_content.append({"type": "text", "text": prompt_text})
+                    return user_content, system_prompt
+                except Exception:
+                    logger.exception("Grounded vision manifest labeling failed; using legacy labels")
             # 1 张场景 + 最多 2 张产品，总计不超过上限
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
@@ -902,14 +983,41 @@ class ContentGenerator:
             progress_callback("image_generation", 0.2)
 
         async def make_image_request():
-            return await asyncio.to_thread(
-                lambda: provider.generate(
-                    prompt=positive_prompt,
-                    negative_prompt=negative_prompt,
-                    reference_images=reference_images if reference_images else None,
-                    size=size,
-                    model=resolved_model,
+            from bebcare.providers.generate_request import GenerateImageRequest
+            from bebcare.schemas.reference_manifest import ReferenceManifest
+            from bebcare.services.grounded_rollout import grounded_role_transport_enabled
+
+            annotate = grounded_role_transport_enabled(product_info)
+            from bebcare.services.generation_plan import plan_from_product_info
+
+            plan = plan_from_product_info(product_info)
+            raw_manifest = (plan.reference_manifest if plan else None) or (
+                product_info.get("generation_provenance") or {}
+            ).get("reference_manifest")
+            request_obj = None
+            if raw_manifest:
+                try:
+                    request_obj = GenerateImageRequest(
+                        prompt=positive_prompt,
+                        negative_prompt=negative_prompt,
+                        size=size,
+                        model=resolved_model,
+                        references=ReferenceManifest.model_validate(raw_manifest),
+                        annotate_roles=annotate,
+                    )
+                except Exception:
+                    request_obj = None
+            if request_obj is None:
+                request_obj = GenerateImageRequest.from_legacy(
+                    positive_prompt,
+                    negative_prompt,
+                    size,
+                    resolved_model,
+                    reference_images if reference_images else None,
+                    annotate_roles=annotate,
                 )
+            return await asyncio.to_thread(
+                lambda: provider.generate(request=request_obj)
             )
 
         try:

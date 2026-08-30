@@ -43,6 +43,11 @@ class ReferenceSelectionResponse(BaseModel):
     reference_scene_image_ids: List[str] = []
     reference_manifest: Optional[Dict] = None
 
+class CompareSelectionRequest(BaseModel):
+    compare_group_id: str
+    image_prompt_pipeline: Literal["legacy_scene", "vision_scene"]
+
+
 class GenerateResponse(BaseModel):
     task_id: str
     status: str = "queued"

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from bebcare.database import SessionLocal
 from bebcare.models.generation_run import GenerationArtifact, GenerationRun
@@ -25,7 +25,8 @@ def create_generation_run(
     fallback_path: Optional[str],
     image_prompt_pipeline: Optional[str],
     compare_group_id: Optional[str],
-    reference_manifest: Optional[dict],
+    generation_plan: Optional[dict] = None,
+    reference_manifest: Optional[dict] = None,
     provider_id: Optional[str],
     model: Optional[str],
     image_size: Optional[str],
@@ -45,6 +46,7 @@ def create_generation_run(
         fallback_path=fallback_path,
         image_prompt_pipeline=image_prompt_pipeline,
         compare_group_id=compare_group_id,
+        generation_plan=generation_plan,
         reference_manifest=reference_manifest,
         provider_type=provider_type,
         provider_id=provider_id,
@@ -183,6 +185,38 @@ def fail_runs_for_generate_task(db: Session, generate_task_id: str, error_catego
     )
     for run in rows:
         finish_generation_run(db, run, status="failed", error_category=error_category)
+
+
+def persist_compare_selection(
+    db: Session,
+    *,
+    owner_user_id: str,
+    compare_group_id: str,
+    image_prompt_pipeline: str,
+) -> Optional[int]:
+    """Mark the chosen compare slot's artifacts as selected; clear siblings.
+
+    Returns None when the owner has no runs in this group (safe 404).
+    Returns 0 when the group exists but artifacts are not written yet (race).
+    """
+    rows = (
+        db.query(GenerationRun)
+        .options(selectinload(GenerationRun.artifacts))
+        .filter(
+            GenerationRun.compare_group_id == compare_group_id,
+            GenerationRun.owner_user_id == owner_user_id,
+        )
+        .all()
+    )
+    if not rows:
+        return None
+    updated = 0
+    for run in rows:
+        chosen = (run.image_prompt_pipeline or "") == image_prompt_pipeline
+        for artifact in run.artifacts or []:
+            artifact.selected = chosen
+            updated += 1
+    return updated
 
 
 def create_run_in_own_session(**kwargs) -> str:

@@ -297,6 +297,96 @@ Rules:
 """.strip()
 
 
+def vision_scene_image_prompt_system_prompt_grounded(
+    locale: str, product_info: dict | None = None
+) -> str:
+    """Phase 1B scene fusion: canonical image order, no handheld product swap."""
+    from bebcare.services.generation_plan import executed_plan_contract
+
+    contract = executed_plan_contract(product_info, locale) if product_info else ""
+    if not contract:
+        contract = grounded_re_render_contract(locale)
+    if normalize_locale(locale) == "en":
+        base = """
+You write image-to-image commands. Your entire output is sent unchanged to a downstream image model. Reference images follow the stored GenerationPlan order: Image 1 is the primary subject, then supporting references (same offering, not extra visible subjects), then at most one scene last as environment only.
+
+Rules:
+1. Start at the first character with a fusion command. Forbidden: preambles, titles, or lists
+2. Re-render the primary subject from Image 1 using controlled re-render. Supporting images are alternate detail or viewpoint evidence for the same primary offering and must not produce duplicate primary subjects
+3. If a scene image is present, it is environmental evidence only. An existing unrelated object must not be interpreted as an additional target subject
+4. Handheld physical-product replacement is prohibited. If the scene is a person holding a product, do not swap the object in the hand
+5. Allow scene-consistent perspective, supported orientation, scale, lighting, reflection, shadow, focus, environmental color, and credible occlusion. Preserve identity-defining structure, proportions, branding, and visible relationships
+6. Prohibit invented packaging, mounts, accessories, unsupported faces/views, and small generated text. Multiple visible subjects require explicit structured group evidence — never infer a group from reference count
+7. One continuous English paragraph. Commercial lifestyle photography.
+""".strip()
+        return f"{base}\n{contract}"
+    base = """
+你写的是图生图指令。整段输出会原样发给下游图像模型。参考图按已存储 GenerationPlan 编号：图一为主产品，随后为同一商品的辅助参考（不得变成额外可见主体），最后至多一张场景图且只作环境。
+
+规则：
+1. 从第一个字起就是对图像模型的指令。禁止开场白、标题或列表
+2. 按图一受控重绘主产品。辅助图是同一主商品的细节或视角证据，不得生成重复主产品
+3. 若有场景图，只是环境证据。场景中已有的无关物体不得当成额外目标主体
+4. 禁止手持实物替换。若场景是人物手持产品，不得把手里的物体换成主产品
+5. 允许与场景一致的透视、承托朝向、尺度、光线、反射、阴影、焦点、环境色与可信遮挡。保留身份结构、比例、品牌与可见关系
+6. 禁止编造包装、支架、配件、未提供的面/视角以及生成小字。多个可见主体必须有明确结构化组合证据，不得按参考图数量推断组合
+7. 只输出一段连续中文。适合商业生活方式摄影。
+""".strip()
+    return f"{base}\n{contract}"
+
+
+def grounded_re_render_contract(locale: str) -> str:
+    if normalize_locale(locale) == "en":
+        return (
+            "Controlled re-render: keep one primary subject; no duplicate hero units; "
+            "no invented packaging, mounts, or unsupported views; no generated small text; "
+            "handheld physical-product replacement is prohibited."
+        )
+    return (
+        "受控重绘：只保留一个主产品；禁止重复英雄主体；禁止编造包装、支架或未提供视角；"
+        "禁止生成小字；禁止手持实物替换。"
+    )
+
+
+def vision_scene_fusion_user_prompt_text_grounded(
+    product_name: str,
+    category: Optional[str],
+    locale: str,
+    *,
+    avoid_text: str = "",
+    logo_suffix: str = "",
+    placement_suffix: str = "",
+    dim_suffix: str = "",
+    product_info: Optional[Dict] = None,
+) -> str:
+    name = (product_name or "").strip()
+    cat = (category or "").strip()
+    from bebcare.services.generation_plan import executed_plan_contract
+
+    contract = executed_plan_contract(product_info, locale) if product_info else ""
+    if not contract:
+        contract = grounded_re_render_contract(locale)
+    if normalize_locale(locale) == "en":
+        name = name or "product"
+        cat_line = f" Category: {cat}." if cat else ""
+        return (
+            f"Product: {name}.{cat_line}\n"
+            "Write the English command for the image model. Image 1 is the primary subject; "
+            "later images are supporting views then optional scene. "
+            f"{contract} "
+            "OUTPUT LANGUAGE: English only — no Chinese characters, no preamble."
+            f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+        )
+    name = name or "产品"
+    cat_line = f" 品类：{cat}。" if cat else ""
+    return (
+        f"产品名称：{name}。{cat_line}\n"
+        "直接输出图生图指令。图一为主产品，其后为辅助参考，最后为可选场景。"
+        f"{contract}"
+        f"{avoid_text}{logo_suffix}{placement_suffix}{dim_suffix}"
+    )
+
+
 def vision_scene_fusion_user_prompt_text(
     product_name: str,
     category: Optional[str],

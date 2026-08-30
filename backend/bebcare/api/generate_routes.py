@@ -6,6 +6,7 @@ from bebcare.models import Product
 from bebcare.models.image_provider import ImageProviderConfig
 from bebcare.models.user import User
 from bebcare.schemas.generate import (
+    CompareSelectionRequest,
     GenerateRequest,
     GenerateResponse,
     ReferenceSelectionRequest,
@@ -16,6 +17,7 @@ from bebcare.utils.reference_selector import resolve_generate_references
 from bebcare.services.grounded_rollout import (
     SOURCE_STUDIO,
     grounded_rollout_mode,
+    selection_provenance,
 )
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.brand_context import enrich_product_info
@@ -67,6 +69,7 @@ def _build_product_info(
             pinned_scene_images=request.reference_scene_images,
             pinned_product_image_ids=request.reference_product_image_ids,
             pinned_scene_image_ids=request.reference_scene_image_ids,
+            requested_experiment=request.experiment_variant,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -111,19 +114,16 @@ def _build_product_info(
         "locale": request.locale or "en",
         "image_prompt_pipeline": request.image_prompt_pipeline,
         "compare_group_id": request.compare_group_id,
-        "experiment_variant": request.experiment_variant or selected.experiment_variant,
-        "generation_provenance": {
-            "source": source,
-            "rollout_mode_at_start": grounded_rollout_mode(),
-            "experiment_variant": request.experiment_variant or selected.experiment_variant,
-            "requested_pipeline_version": selected.requested_pipeline_version,
-            "executed_pipeline_version": selected.executed_pipeline_version,
-            "fallback_reason": selected.fallback_reason,
-            "fallback_path": selected.fallback_path,
-            "reference_manifest": selected.manifest,
-        },
+        "experiment_variant": selected.experiment_variant,
+        "executed_pipeline_version": selected.executed_pipeline_version,
+        "grounded_phase1b_enabled": bool(selected.grounded),
+        "generation_provenance": selection_provenance(selected, source=source),
     }
-    return enrich_product_info(db, product, base)
+    from bebcare.services.generation_plan import attach_generation_plan
+
+    enriched = enrich_product_info(db, product, base)
+    attach_generation_plan(enriched)
+    return enriched
 
 
 @router.post("/reference-selection/", response_model=ReferenceSelectionResponse)
@@ -289,6 +289,7 @@ def _record_studio_generation_run(
         fallback_path=provenance.get("fallback_path"),
         image_prompt_pipeline=request.image_prompt_pipeline,
         compare_group_id=request.compare_group_id or product_info.get("compare_group_id"),
+        generation_plan=product_info.get("generation_plan"),
         reference_manifest=provenance.get("reference_manifest"),
         provider_id=request.image_provider_id,
         model=request.image_model,
@@ -572,6 +573,30 @@ def generate_image_only(
 
     background_tasks.add_task(run_image_generation, task_id, product_info)
     return {"task_id": task_id, "status": "queued"}
+
+
+@router.post("/compare-selection/")
+def persist_studio_compare_selection(
+    request: CompareSelectionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    from bebcare.services.generation_run_store import persist_compare_selection
+
+    updated = persist_compare_selection(
+        db,
+        owner_user_id=current_user.user_id,
+        compare_group_id=request.compare_group_id,
+        image_prompt_pipeline=request.image_prompt_pipeline,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    db.commit()
+    return {
+        "compare_group_id": request.compare_group_id,
+        "image_prompt_pipeline": request.image_prompt_pipeline,
+        "updated": updated,
+    }
 
 
 @router.get("/status/{task_id}")

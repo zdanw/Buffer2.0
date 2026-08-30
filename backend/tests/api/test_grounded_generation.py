@@ -125,13 +125,18 @@ def test_studio_grounded_run_writes_manifest_and_artifact(full_client, auth_head
             assert run.source == "studio"
             assert run.rollout_mode_at_start == "studio"
             assert run.requested_pipeline_version == "grounded_refs_v1"
-            assert run.executed_pipeline_version == "deterministic_refs_only"
+            assert run.executed_pipeline_version == "grounded_prompt_role_transport_v1"
+            assert run.generation_plan
             items = (run.reference_manifest or {}).get("items") or []
             assert items
             assert items[0]["role"] == "primary_subject"
             assert items[0]["image_id"] == image_ids[0]
             assert items[0]["authority"] == "preferred"
             assert items[-1]["role"] == "scene"
+            assert run.generation_plan["display_configuration"] == run.generation_plan["display_config"]
+            assert run.generation_plan["subject"]["physical_instance_limit"] is None
+            assert run.generation_plan["subject_spec"]["primary_subject_count"] == 1
+            assert run.generation_plan["reference_manifest"]["items"][0]["role"] == items[0]["role"]
             artifacts = (
                 db.query(GenerationArtifact)
                 .filter(GenerationArtifact.run_id == run.run_id)
@@ -206,6 +211,27 @@ def test_compare_jobs_share_group_and_manifest(full_client, auth_headers):
                 "legacy_scene",
                 "vision_scene",
             }
+            select = full_client.post(
+                "/v1/generate/compare-selection/",
+                headers=headers,
+                json={
+                    "compare_group_id": group_id,
+                    "image_prompt_pipeline": "vision_scene",
+                },
+            )
+            assert select.status_code == 200, select.text
+            db.expire_all()
+            runs = (
+                db.query(GenerationRun)
+                .filter(GenerationRun.compare_group_id == group_id)
+                .all()
+            )
+            selected_pipelines = {
+                run.image_prompt_pipeline
+                for run in runs
+                if any(art.selected for art in run.artifacts)
+            }
+            assert selected_pipelines == {"vision_scene"}
         finally:
             db.close()
     finally:
@@ -303,6 +329,213 @@ def test_rollout_off_uses_legacy_pipeline_version(full_client, auth_headers):
             assert run.requested_pipeline_version == "baseline_current"
             assert run.executed_pipeline_version == "legacy_random_refs"
             assert run.fallback_reason is None
+            assert run.generation_plan is None
+        finally:
+            db.close()
+    finally:
+        settings.grounded_rollout_mode = original
+
+
+def _post_generate_capturing(full_client, headers, payload):
+    captured = {}
+
+    async def _fake(self, product_info, *args, **kwargs):
+        captured["product_info"] = product_info
+        return {"image_urls": ["https://cdn.test/out.jpg"]}
+
+    with patch(
+        "bebcare.api.generate_routes.ContentGenerator.generate_image_async",
+        new=_fake,
+    ):
+        resp = full_client.post(
+            "/v1/generate/image/",
+            headers=headers,
+            json=payload,
+        )
+    return resp, captured
+
+
+def test_rollout_off_ignores_grounded_transport_experiment(full_client, auth_headers):
+    original = settings.grounded_rollout_mode
+    settings.grounded_rollout_mode = "off"
+    try:
+        headers = register_or_create_user(
+            full_client, auth_headers, "g1b_off_t", "g1b_off_t@test.local", "PassG1bOffT123!"
+        )
+        product_id = _create_product(full_client, headers, "Off Transport SKU")
+        _add_images(
+            product_id,
+            [
+                {"url": "https://cdn.test/p.jpg"},
+                {"url": "https://cdn.test/s.jpg", "image_type": "scene"},
+            ],
+        )
+        provider_id = _create_provider(full_client, headers)
+        resp, captured = _post_generate_capturing(
+            full_client,
+            headers,
+            {
+                "product_id": product_id,
+                "platform": "instagram",
+                "image_provider_mode": "byok",
+                "image_provider_id": provider_id,
+                "use_scene_reference": True,
+                "experiment_variant": "grounded_prompt_role_transport_v1",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        info = captured["product_info"]
+        from bebcare.services.grounded_rollout import (
+            grounded_prompt_contract_enabled,
+            grounded_role_transport_enabled,
+        )
+
+        assert info["grounded_phase1b_enabled"] is False
+        assert grounded_prompt_contract_enabled(info) is False
+        assert grounded_role_transport_enabled(info) is False
+        assert info["experiment_variant"] == "baseline_current"
+        roles = [
+            item["role"]
+            for item in (info["generation_provenance"]["reference_manifest"]["items"])
+        ]
+        assert roles[0] == "scene"
+        db = SessionLocal()
+        try:
+            run = (
+                db.query(GenerationRun)
+                .filter(GenerationRun.generate_task_id == resp.json()["task_id"])
+                .one()
+            )
+            assert run.requested_pipeline_version == "baseline_current"
+            assert run.executed_pipeline_version == "legacy_random_refs"
+            assert run.experiment_variant == "baseline_current"
+            assert run.generation_plan is None
+            assert (
+                info["generation_provenance"].get("requested_experiment_variant")
+                == "grounded_prompt_role_transport_v1"
+            )
+        finally:
+            db.close()
+    finally:
+        settings.grounded_rollout_mode = original
+
+
+def test_rollout_off_ignores_grounded_prompt_v1_experiment(full_client, auth_headers):
+    original = settings.grounded_rollout_mode
+    settings.grounded_rollout_mode = "off"
+    try:
+        headers = register_or_create_user(
+            full_client, auth_headers, "g1b_off_v1", "g1b_off_v1@test.local", "PassG1bOffV1123!"
+        )
+        product_id = _create_product(full_client, headers, "Off V1 SKU")
+        _add_images(product_id, [{"url": "https://cdn.test/p.jpg"}])
+        provider_id = _create_provider(full_client, headers)
+        resp, captured = _post_generate_capturing(
+            full_client,
+            headers,
+            {
+                "product_id": product_id,
+                "platform": "instagram",
+                "image_provider_mode": "byok",
+                "image_provider_id": provider_id,
+                "experiment_variant": "grounded_prompt_v1",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
+        assert grounded_prompt_contract_enabled(captured["product_info"]) is False
+        db = SessionLocal()
+        try:
+            run = (
+                db.query(GenerationRun)
+                .filter(GenerationRun.generate_task_id == resp.json()["task_id"])
+                .one()
+            )
+            assert run.executed_pipeline_version == "legacy_random_refs"
+            assert run.experiment_variant == "baseline_current"
+            assert run.generation_plan is None
+        finally:
+            db.close()
+    finally:
+        settings.grounded_rollout_mode = original
+
+
+def test_studio_mode_pins_allowed_grounded_variant(full_client, auth_headers):
+    original = settings.grounded_rollout_mode
+    settings.grounded_rollout_mode = "studio"
+    try:
+        headers = register_or_create_user(
+            full_client, auth_headers, "g1b_pin", "g1b_pin@test.local", "PassG1bPin123!"
+        )
+        product_id = _create_product(full_client, headers, "Pin SKU")
+        _add_images(
+            product_id,
+            [
+                {
+                    "url": "https://cdn.test/p.jpg",
+                    "phash": "aaaaaaaaaaaaaaaa",
+                    "is_preferred": True,
+                },
+                {
+                    "url": "https://cdn.test/s.jpg",
+                    "image_type": "scene",
+                    "phash": "bbbbbbbbbbbbbbbb",
+                },
+            ],
+        )
+        provider_id = _create_provider(full_client, headers)
+        payload = {
+            "product_id": product_id,
+            "platform": "instagram",
+            "image_provider_mode": "byok",
+            "image_provider_id": provider_id,
+            "use_scene_reference": True,
+            "reference_count": 1,
+        }
+        transport, captured_t = _post_generate_capturing(
+            full_client,
+            headers,
+            {**payload, "experiment_variant": "grounded_prompt_role_transport_v1"},
+        )
+        v1, captured_v = _post_generate_capturing(
+            full_client,
+            headers,
+            {**payload, "experiment_variant": "grounded_prompt_v1"},
+        )
+        assert transport.status_code == 200, transport.text
+        assert v1.status_code == 200, v1.text
+        from bebcare.services.grounded_rollout import (
+            grounded_prompt_contract_enabled,
+            grounded_role_transport_enabled,
+        )
+
+        assert captured_t["product_info"]["grounded_phase1b_enabled"] is True
+        assert grounded_prompt_contract_enabled(captured_t["product_info"]) is True
+        assert grounded_role_transport_enabled(captured_t["product_info"]) is True
+        roles = [
+            item["role"]
+            for item in captured_t["product_info"]["generation_provenance"][
+                "reference_manifest"
+            ]["items"]
+        ]
+        assert roles[0] == "primary_subject"
+        assert roles[-1] == "scene"
+        assert grounded_role_transport_enabled(captured_v["product_info"]) is False
+        db = SessionLocal()
+        try:
+            t_run = (
+                db.query(GenerationRun)
+                .filter(GenerationRun.generate_task_id == transport.json()["task_id"])
+                .one()
+            )
+            v_run = (
+                db.query(GenerationRun)
+                .filter(GenerationRun.generate_task_id == v1.json()["task_id"])
+                .one()
+            )
+            assert t_run.executed_pipeline_version == "grounded_prompt_role_transport_v1"
+            assert v_run.executed_pipeline_version == "grounded_prompt_v1"
         finally:
             db.close()
     finally:
@@ -374,3 +607,176 @@ def test_pin_rejects_other_tenant_image_id(full_client, auth_headers):
         assert resp.status_code == 400
     finally:
         settings.grounded_rollout_mode = original
+
+
+def _user_id(username):
+    db = SessionLocal()
+    try:
+        from bebcare.models.user import User
+
+        return db.query(User).filter(User.username == username).one().user_id
+    finally:
+        db.close()
+
+
+def _seed_compare_run(
+    *,
+    owner_user_id,
+    compare_group_id,
+    pipeline,
+    product_id=None,
+    with_artifact=True,
+    selected=False,
+    cdn_url="https://cdn.test/out.jpg",
+):
+    from bebcare.services.generation_run_store import add_artifacts, create_generation_run
+
+    db = SessionLocal()
+    try:
+        run = create_generation_run(
+            db,
+            owner_user_id=owner_user_id,
+            source="studio",
+            product_id=product_id,
+            generate_task_id=None,
+            rollout_mode_at_start="studio",
+            experiment_variant="grounded_prompt_role_transport_v1",
+            requested_pipeline_version="grounded_refs_v1",
+            executed_pipeline_version="grounded_prompt_role_transport_v1",
+            fallback_reason=None,
+            fallback_path=None,
+            image_prompt_pipeline=pipeline,
+            compare_group_id=compare_group_id,
+            reference_manifest={"version": "ref_manifest_v1", "items": []},
+            provider_id=None,
+            model=None,
+            image_size=None,
+            image_provider_mode="byok",
+        )
+        if with_artifact:
+            add_artifacts(db, run, [cdn_url])
+            db.flush()
+            arts = (
+                db.query(GenerationArtifact)
+                .filter(GenerationArtifact.run_id == run.run_id)
+                .all()
+            )
+            if selected:
+                for art in arts:
+                    art.selected = True
+        db.commit()
+        return run.run_id
+    finally:
+        db.close()
+
+
+def test_compare_selection_is_tenant_isolated(full_client, auth_headers):
+    headers_v = register_or_create_user(
+        full_client, auth_headers, "cmp_v", "cmp_v@test.local", "PassCmpV123!"
+    )
+    headers_a = register_or_create_user(
+        full_client, auth_headers, "cmp_a", "cmp_a@test.local", "PassCmpA123!"
+    )
+    victim_id = _user_id("cmp_v")
+    group_id = "tenant-compare-group"
+    _seed_compare_run(
+        owner_user_id=victim_id,
+        compare_group_id=group_id,
+        pipeline="vision_scene",
+        selected=False,
+    )
+    denied = full_client.post(
+        "/v1/generate/compare-selection/",
+        headers=headers_a,
+        json={"compare_group_id": group_id, "image_prompt_pipeline": "vision_scene"},
+    )
+    assert denied.status_code == 404
+    assert denied.json().get("detail") == "Not found"
+    db = SessionLocal()
+    try:
+        run = (
+            db.query(GenerationRun)
+            .filter(GenerationRun.compare_group_id == group_id)
+            .one()
+        )
+        assert all(not art.selected for art in run.artifacts)
+    finally:
+        db.close()
+    ok = full_client.post(
+        "/v1/generate/compare-selection/",
+        headers=headers_v,
+        json={"compare_group_id": group_id, "image_prompt_pipeline": "vision_scene"},
+    )
+    assert ok.status_code == 200, ok.text
+
+
+def test_compare_selection_clears_only_same_group_siblings(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "cmp_sib", "cmp_sib@test.local", "PassCmpSib123!"
+    )
+    owner_id = _user_id("cmp_sib")
+    group_a = "compare-group-a"
+    group_b = "compare-group-b"
+    _seed_compare_run(
+        owner_user_id=owner_id,
+        compare_group_id=group_a,
+        pipeline="legacy_scene",
+        cdn_url="https://cdn.test/a-legacy.jpg",
+    )
+    _seed_compare_run(
+        owner_user_id=owner_id,
+        compare_group_id=group_a,
+        pipeline="vision_scene",
+        cdn_url="https://cdn.test/a-vision.jpg",
+    )
+    other_id = _seed_compare_run(
+        owner_user_id=owner_id,
+        compare_group_id=group_b,
+        pipeline="vision_scene",
+        selected=True,
+        cdn_url="https://cdn.test/b-vision.jpg",
+    )
+    resp = full_client.post(
+        "/v1/generate/compare-selection/",
+        headers=headers,
+        json={"compare_group_id": group_a, "image_prompt_pipeline": "vision_scene"},
+    )
+    assert resp.status_code == 200, resp.text
+    db = SessionLocal()
+    try:
+        a_runs = (
+            db.query(GenerationRun)
+            .filter(GenerationRun.compare_group_id == group_a)
+            .all()
+        )
+        selected = {
+            run.image_prompt_pipeline
+            for run in a_runs
+            if any(art.selected for art in run.artifacts)
+        }
+        assert selected == {"vision_scene"}
+        other = db.query(GenerationRun).filter(GenerationRun.run_id == other_id).one()
+        assert all(art.selected for art in other.artifacts)
+    finally:
+        db.close()
+
+
+def test_compare_selection_missing_artifacts_does_not_404(full_client, auth_headers):
+    headers = register_or_create_user(
+        full_client, auth_headers, "cmp_race", "cmp_race@test.local", "PassCmpRace123!"
+    )
+    owner_id = _user_id("cmp_race")
+    group_id = "compare-missing-artifacts"
+    _seed_compare_run(
+        owner_user_id=owner_id,
+        compare_group_id=group_id,
+        pipeline="vision_scene",
+        with_artifact=False,
+    )
+    resp = full_client.post(
+        "/v1/generate/compare-selection/",
+        headers=headers,
+        json={"compare_group_id": group_id, "image_prompt_pipeline": "vision_scene"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["updated"] == 0

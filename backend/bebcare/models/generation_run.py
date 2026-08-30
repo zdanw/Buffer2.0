@@ -53,6 +53,7 @@ class GenerationRun(OwnedMixin, Base):
     fallback_path = Column(String(64), nullable=True)
     image_prompt_pipeline = Column(String(32), nullable=True)
     compare_group_id = Column(String(36), nullable=True)
+    generation_plan = Column(JSON, nullable=True)
     reference_manifest = Column(JSON, nullable=True)
     provider_type = Column(String(32), nullable=True)
     provider_id = Column(String(36), nullable=True)

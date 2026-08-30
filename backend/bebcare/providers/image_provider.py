@@ -1,14 +1,17 @@
 from typing import List, Optional, Protocol
 
+from bebcare.providers.generate_request import GenerateImageRequest
+
 
 class ImageProvider(Protocol):
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "2048x2048",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
         """Return list of temporary image URLs."""
         ...

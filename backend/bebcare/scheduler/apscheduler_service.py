@@ -17,7 +17,7 @@ from bebcare.services.buffer_account_service import (
 )
 from bebcare.services.ownership import stamp_owner
 from bebcare.config.settings import settings
-from bebcare.services.grounded_rollout import grounded_rollout_mode
+from bebcare.services.grounded_rollout import grounded_rollout_mode, selection_provenance
 from bebcare.services.generate_task_store import (
     create_generate_task,
     update_generate_task,
@@ -111,6 +111,8 @@ def _run_platform_image_generation(
                 fallback_path=provenance.get("fallback_path"),
                 image_prompt_pipeline=None,
                 compare_group_id=None,
+                generation_plan=ctx.get("product_info", {}).get("generation_plan")
+                or provenance.get("generation_plan"),
                 reference_manifest=provenance.get("reference_manifest"),
                 provider_id=ctx.get("image_provider_id"),
                 model=ctx.get("image_model"),
@@ -468,18 +470,17 @@ class APSchedulerService:
             )
             if task_cfg
             else True,
-            "generation_provenance": {
-                "source": "automation",
-                "rollout_mode_at_start": grounded_rollout_mode(),
-                "experiment_variant": selected.experiment_variant,
-                "requested_pipeline_version": selected.requested_pipeline_version,
-                "executed_pipeline_version": selected.executed_pipeline_version,
-                "fallback_reason": selected.fallback_reason,
-                "fallback_path": selected.fallback_path,
-                "reference_manifest": selected.manifest,
-            },
+            "experiment_variant": selected.experiment_variant,
+            "executed_pipeline_version": selected.executed_pipeline_version,
+            "grounded_phase1b_enabled": bool(selected.grounded),
+            "generation_provenance": selection_provenance(
+                selected, source="automation"
+            ),
         }
         product_info = enrich_product_info(session, product, base_info)
+        from bebcare.services.generation_plan import attach_generation_plan
+
+        attach_generation_plan(product_info)
         owner_user_id = (
             task_cfg.owner_user_id if task_cfg else product.owner_user_id
         )

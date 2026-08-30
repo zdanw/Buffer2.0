@@ -203,6 +203,7 @@ def resolve_generate_references(
     pinned_scene_images: list[str] | None = None,
     pinned_product_image_ids: list[str] | None = None,
     pinned_scene_image_ids: list[str] | None = None,
+    requested_experiment: str | None = None,
 ):
     """Single selection entry for Studio and automation.
 
@@ -214,6 +215,7 @@ def resolve_generate_references(
         EXECUTED_LEGACY_RANDOM,
         EXPERIMENT_BASELINE,
         PIPELINE_BASELINE,
+        apply_phase1b_experiment,
         grounded_selection_enabled,
     )
     from bebcare.utils.grounded_reference_selector import (
@@ -226,6 +228,7 @@ def resolve_generate_references(
     )
 
     grounded = grounded_selection_enabled(source=source, task_mode=task_mode)
+    requested = (requested_experiment or "").strip() or None
     if not grounded:
         selected = resolve_reference_images(
             session,
@@ -257,6 +260,7 @@ def resolve_generate_references(
             fallback_path=None,
             experiment_variant=EXPERIMENT_BASELINE,
             grounded=False,
+            requested_experiment_variant=requested,
         )
 
     product_ids = pinned_product_image_ids
@@ -267,23 +271,28 @@ def resolve_generate_references(
         scene_ids = ids_for_urls(session, product_id, pinned_scene_images, "scene")
 
     try:
-        return select_grounded_references(
-            session,
-            product_id,
-            reference_count,
-            use_scene_reference,
-            owner_user_id=owner_user_id,
-            image_size=image_size,
-            pinned_product_image_ids=product_ids,
-            pinned_scene_image_ids=scene_ids,
+        return apply_phase1b_experiment(
+            select_grounded_references(
+                session,
+                product_id,
+                reference_count,
+                use_scene_reference,
+                owner_user_id=owner_user_id,
+                image_size=image_size,
+                pinned_product_image_ids=product_ids,
+                pinned_scene_image_ids=scene_ids,
+            ),
+            requested_experiment=requested,
         )
     except InvalidReferencePinError:
         raise
     except Exception as exc:
-        return fallback_legacy_selection(
+        fallback = fallback_legacy_selection(
             session,
             product_id,
             reference_count,
             use_scene_reference,
             reason=str(exc) or "grounded_selection_failed",
         )
+        fallback.requested_experiment_variant = requested
+        return fallback

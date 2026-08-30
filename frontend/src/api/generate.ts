@@ -89,6 +89,13 @@ export const generateImage = async (data: GenerateRequest): Promise<GenerateResp
   return response.data;
 };
 
+export const persistCompareSelection = async (data: {
+  compare_group_id: string;
+  image_prompt_pipeline: 'legacy_scene' | 'vision_scene';
+}): Promise<void> => {
+  await axiosInstance.post('/generate/compare-selection/', data);
+};
+
 export const resolveReferenceSelection = async (
   data: ReferenceSelectionRequest
 ): Promise<ReferenceSelectionResponse> => {

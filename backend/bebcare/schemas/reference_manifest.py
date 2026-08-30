@@ -2,7 +2,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-ManifestRole = Literal["primary_subject", "supporting_subject", "scene"]
+ManifestRole = Literal["primary_subject", "supporting_subject", "scene", "legacy_reference"]
 ManifestAuthority = Literal["explicit_pin", "preferred", "suitability", "legacy_url"]
 ManifestImageType = Literal["product", "scene"]
 MANIFEST_VERSION = "ref_manifest_v1"

@@ -8,6 +8,7 @@ import {
   generateContent,
   generateCopywriting,
   generateImage,
+  persistCompareSelection,
   aggregateGenerateProgress,
   buildGenerateProgressLayout,
   getGenerateStatus,
@@ -313,6 +314,7 @@ export default function Studio() {
   const [activePipeline, setActivePipeline] = useState<ScenePipelineKey>('vision_scene');
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
   const monotonicProgressRef = useRef(0);
+  const compareGroupIdRef = useRef<string | null>(null);
 
   const progressLayout = useMemo(
     () =>
@@ -864,6 +866,7 @@ export default function Studio() {
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `cmp-${Date.now()}`;
+    compareGroupIdRef.current = compareGroupId;
     const pinned = {
       reference_product_images: refs.reference_product_images,
       reference_scene_images: refs.reference_scene_images,
@@ -1131,6 +1134,14 @@ export default function Studio() {
 
   const selectPipelineForPublish = (key: ScenePipelineKey, slot: ScenePipelineSlot) => {
     applyPipelineSlotToContent(slot, key, generatedContent?.text || '');
+    const groupId = compareGroupIdRef.current;
+    if (!groupId) return;
+    void persistCompareSelection({
+      compare_group_id: groupId,
+      image_prompt_pipeline: key,
+    }).catch((error) => {
+      console.error('Failed to persist compare selection', error);
+    });
   };
 
   const renderComparePipelineCard = (key: ScenePipelineKey, slot: ScenePipelineSlot | null) => {
