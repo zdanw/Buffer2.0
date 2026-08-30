@@ -12,7 +12,11 @@ from bebcare.schemas.generate import (
     ReferenceSelectionResponse,
 )
 from bebcare.generator.content_generator import ContentGenerator
-from bebcare.utils.reference_selector import resolve_reference_images, select_reference_images
+from bebcare.utils.reference_selector import resolve_generate_references
+from bebcare.services.grounded_rollout import (
+    SOURCE_STUDIO,
+    grounded_rollout_mode,
+)
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.generate_task_store import (
@@ -47,32 +51,39 @@ def _image_progress_callback(task_id: str, start: int, end: int):
     return callback
 
 
-def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
+def _build_product_info(
+    product, request: GenerateRequest, db: Session, *, source: str = SOURCE_STUDIO
+) -> dict:
     try:
-        selected = resolve_reference_images(
+        selected = resolve_generate_references(
             db,
-            request.product_id,
-            request.reference_count,
-            request.use_scene_reference,
+            product_id=request.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=request.reference_count,
+            use_scene_reference=request.use_scene_reference,
+            source=source,
+            image_size=request.image_size,
             pinned_product_images=request.reference_product_images,
             pinned_scene_images=request.reference_scene_images,
+            pinned_product_image_ids=request.reference_product_image_ids,
+            pinned_scene_image_ids=request.reference_scene_image_ids,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if request.use_scene_reference and not selected["use_scene_reference"]:
+    if request.use_scene_reference and not selected.use_scene_reference:
         logger.warning(
             "No scene images for product %s, falling back to regular mode",
             request.product_id,
         )
-    if request.use_scene_reference and not selected["reference_product_images"]:
+    if request.use_scene_reference and not selected.reference_product_images:
         logger.warning("No product images for product %s", request.product_id)
     if (
         not request.use_scene_reference
-        and len(selected["reference_images"]) < request.reference_count
+        and len(selected.reference_images) < request.reference_count
     ):
         logger.warning(
             "Only %s images for product %s, requested %s",
-            len(selected["reference_images"]),
+            len(selected.reference_images),
             request.product_id,
             request.reference_count,
         )
@@ -84,12 +95,12 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "description": product.description,
         "selling_points": product.selling_points,
         "brand_voice": product.brand_voice,
-        "reference_images": selected["reference_images"],
-        "reference_product_images": selected["reference_product_images"],
-        "reference_scene_images": selected["reference_scene_images"],
+        "reference_images": selected.reference_images,
+        "reference_product_images": selected.reference_product_images,
+        "reference_scene_images": selected.reference_scene_images,
         "platform": request.platform,
         "style_hint": request.style_hint,
-        "use_scene_reference": selected["use_scene_reference"],
+        "use_scene_reference": selected.use_scene_reference,
         "use_vision_image_prompt": bool(request.use_vision_image_prompt),
         "realistic_placement": bool(request.realistic_placement),
         "image_provider_id": request.image_provider_id,
@@ -99,6 +110,18 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "owner_user_id": product.owner_user_id,
         "locale": request.locale or "en",
         "image_prompt_pipeline": request.image_prompt_pipeline,
+        "compare_group_id": request.compare_group_id,
+        "experiment_variant": request.experiment_variant or selected.experiment_variant,
+        "generation_provenance": {
+            "source": source,
+            "rollout_mode_at_start": grounded_rollout_mode(),
+            "experiment_variant": request.experiment_variant or selected.experiment_variant,
+            "requested_pipeline_version": selected.requested_pipeline_version,
+            "executed_pipeline_version": selected.executed_pipeline_version,
+            "fallback_reason": selected.fallback_reason,
+            "fallback_path": selected.fallback_path,
+            "reference_manifest": selected.manifest,
+        },
     }
     return enrich_product_info(db, product, base)
 
@@ -109,16 +132,44 @@ def resolve_reference_selection(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    get_owned_or_404(
+    product = get_owned_or_404(
         db, Product, request.product_id, current_user, id_attr="product_id"
     )
-    selected = select_reference_images(
-        db,
-        request.product_id,
-        request.reference_count,
-        request.use_scene_reference,
+    try:
+        selected = resolve_generate_references(
+            db,
+            product_id=request.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=request.reference_count,
+            use_scene_reference=request.use_scene_reference,
+            source=SOURCE_STUDIO,
+            image_size=request.image_size,
+            pinned_product_image_ids=request.reference_product_image_ids,
+            pinned_scene_image_ids=request.reference_scene_image_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ReferenceSelectionResponse(
+        reference_images=selected.reference_images,
+        reference_product_images=selected.reference_product_images,
+        reference_scene_images=selected.reference_scene_images,
+        use_scene_reference=selected.use_scene_reference,
+        reference_product_image_ids=selected.manifest
+        and [
+            item["image_id"]
+            for item in selected.manifest.get("items", [])
+            if item.get("image_type") == "product" and item.get("image_id")
+        ]
+        or [],
+        reference_scene_image_ids=selected.manifest
+        and [
+            item["image_id"]
+            for item in selected.manifest.get("items", [])
+            if item.get("image_type") == "scene" and item.get("image_id")
+        ]
+        or [],
+        reference_manifest=selected.manifest,
     )
-    return ReferenceSelectionResponse(**selected)
 
 
 def _owned_generate_product(
@@ -218,6 +269,35 @@ def _create_task_and_maybe_reserve(
         ) from exc
 
 
+def _record_studio_generation_run(
+    db: Session, *, task_id: str, product, request: GenerateRequest, product_info: dict
+) -> None:
+    from bebcare.services.generation_run_store import create_generation_run
+
+    provenance = product_info.get("generation_provenance") or {}
+    create_generation_run(
+        db,
+        owner_user_id=product.owner_user_id,
+        source=SOURCE_STUDIO,
+        product_id=str(product.product_id),
+        generate_task_id=task_id,
+        rollout_mode_at_start=provenance.get("rollout_mode_at_start") or grounded_rollout_mode(),
+        experiment_variant=provenance.get("experiment_variant"),
+        requested_pipeline_version=provenance.get("requested_pipeline_version") or "baseline_current",
+        executed_pipeline_version=provenance.get("executed_pipeline_version") or "legacy_random_refs",
+        fallback_reason=provenance.get("fallback_reason"),
+        fallback_path=provenance.get("fallback_path"),
+        image_prompt_pipeline=request.image_prompt_pipeline,
+        compare_group_id=request.compare_group_id or product_info.get("compare_group_id"),
+        reference_manifest=provenance.get("reference_manifest"),
+        provider_id=request.image_provider_id,
+        model=request.image_model,
+        image_size=request.image_size,
+        image_provider_mode=product_info.get("image_provider_mode"),
+    )
+    db.commit()
+
+
 @router.post("/", response_model=GenerateResponse)
 def generate_content(
     request: GenerateRequest,
@@ -235,6 +315,9 @@ def generate_content(
     task_id = str(uuid4())
     _create_task_and_maybe_reserve(
         db, task_id=task_id, user_id=current_user.user_id, mode=mode
+    )
+    _record_studio_generation_run(
+        db, task_id=task_id, product=product, request=request, product_info=product_info
     )
 
     async def run_generation(task_id: str, product_info: dict):
@@ -406,6 +489,9 @@ def generate_image_only(
     task_id = str(uuid4())
     _create_task_and_maybe_reserve(
         db, task_id=task_id, user_id=current_user.user_id, mode=mode
+    )
+    _record_studio_generation_run(
+        db, task_id=task_id, product=product, request=request, product_info=product_info
     )
 
     async def run_image_generation(task_id: str, product_info: dict):

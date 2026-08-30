@@ -16,12 +16,16 @@ export interface GenerateRequest {
   image_prompt_pipeline?: 'legacy_scene' | 'vision_scene';
   reference_product_images?: string[];
   reference_scene_images?: string[];
+  reference_product_image_ids?: string[];
+  reference_scene_image_ids?: string[];
+  compare_group_id?: string;
 }
 
 export interface ReferenceSelectionRequest {
   product_id: string;
   reference_count?: number;
   use_scene_reference?: boolean;
+  image_size?: string;
 }
 
 export interface ReferenceSelectionResponse {
@@ -29,6 +33,9 @@ export interface ReferenceSelectionResponse {
   reference_product_images: string[];
   reference_scene_images: string[];
   use_scene_reference: boolean;
+  reference_product_image_ids?: string[];
+  reference_scene_image_ids?: string[];
+  reference_manifest?: Record<string, unknown>;
 }
 
 export interface GenerateResponse {

@@ -9,7 +9,7 @@ from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
 from bebcare.models.user import User
-from bebcare.utils.reference_selector import select_reference_images
+from bebcare.utils.reference_selector import resolve_generate_references
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.buffer_account_service import (
     resolve_buffer_api_token,
@@ -17,6 +17,7 @@ from bebcare.services.buffer_account_service import (
 )
 from bebcare.services.ownership import stamp_owner
 from bebcare.config.settings import settings
+from bebcare.services.grounded_rollout import grounded_rollout_mode
 from bebcare.services.generate_task_store import (
     create_generate_task,
     update_generate_task,
@@ -49,42 +50,125 @@ def _run_expire_due_grants():
         db.close()
 
 
-def _run_platform_image_generation(owner_user_id: str, mode: str | None, generate_fn):
+def _run_platform_image_generation(
+    owner_user_id: str,
+    mode: str | None,
+    generate_fn,
+    *,
+    ctx: dict | None = None,
+    scheduled_task_id: str | None = None,
+):
     """Reserve one platform credit around a single image generation when mode=platform."""
-    if mode != "platform":
-        return generate_fn()
+    from bebcare.models.generation_run import GenerationRun
+    from bebcare.services.generation_run_store import (
+        create_generation_run,
+        finish_generation_run,
+    )
+    from bebcare.services.grounded_rollout import SOURCE_AUTOMATION, grounded_rollout_mode
 
-    gen_task_id = str(uuid.uuid4())
-    create_generate_task(gen_task_id, status="PENDING", owner_user_id=owner_user_id)
-    session = Session(bind=engine)
-    try:
-        reserve_one(session, user_id=owner_user_id, generate_task_id=gen_task_id)
-        session.commit()
-    except CreditError as exc:
-        session.rollback()
-        update_generate_task(
-            gen_task_id,
-            status="FAILURE",
-            set_result=True,
-            result={"error": str(exc)},
-        )
-        raise Exception(
-            "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
-        ) from exc
-    finally:
-        session.close()
+    gen_task_id = None
+    if mode == "platform":
+        gen_task_id = str(uuid.uuid4())
+        create_generate_task(gen_task_id, status="PENDING", owner_user_id=owner_user_id)
+        session = Session(bind=engine)
+        try:
+            reserve_one(session, user_id=owner_user_id, generate_task_id=gen_task_id)
+            session.commit()
+        except CreditError as exc:
+            session.rollback()
+            update_generate_task(
+                gen_task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": str(exc)},
+            )
+            raise Exception(
+                "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
+            ) from exc
+        finally:
+            session.close()
+
+    run_id = None
+    if ctx is not None:
+        provenance = (ctx.get("product_info") or {}).get("generation_provenance") or {}
+        session = Session(bind=engine)
+        try:
+            run = create_generation_run(
+                session,
+                owner_user_id=owner_user_id,
+                source=SOURCE_AUTOMATION,
+                product_id=ctx.get("product_id_str"),
+                generate_task_id=gen_task_id,
+                scheduled_task_id=scheduled_task_id,
+                rollout_mode_at_start=provenance.get("rollout_mode_at_start")
+                or grounded_rollout_mode(),
+                experiment_variant=provenance.get("experiment_variant"),
+                requested_pipeline_version=provenance.get("requested_pipeline_version")
+                or "baseline_current",
+                executed_pipeline_version=provenance.get("executed_pipeline_version")
+                or "legacy_random_refs",
+                fallback_reason=provenance.get("fallback_reason"),
+                fallback_path=provenance.get("fallback_path"),
+                image_prompt_pipeline=None,
+                compare_group_id=None,
+                reference_manifest=provenance.get("reference_manifest"),
+                provider_id=ctx.get("image_provider_id"),
+                model=ctx.get("image_model"),
+                image_size=ctx.get("image_size"),
+                image_provider_mode=mode,
+            )
+            session.commit()
+            run_id = run.run_id
+        finally:
+            session.close()
 
     try:
         result = generate_fn()
-        update_generate_task(gen_task_id, status="SUCCESS")
+        image_urls = result.get("image_urls") if isinstance(result, dict) else result
+        warning = result.get("warning") if isinstance(result, dict) else None
+        if gen_task_id:
+            first = image_urls[0] if image_urls else None
+            update_generate_task(
+                gen_task_id,
+                status="SUCCESS",
+                set_result=True,
+                result={"image": first, "warning": warning} if first else None,
+            )
+        elif run_id:
+            session = Session(bind=engine)
+            try:
+                run = session.query(GenerationRun).filter(GenerationRun.run_id == run_id).first()
+                if run:
+                    finish_generation_run(
+                        session,
+                        run,
+                        status="succeeded",
+                        image_urls=list(image_urls or []),
+                        persistence_warning=warning,
+                    )
+                    session.commit()
+            finally:
+                session.close()
         return result
     except Exception:
-        update_generate_task(
-            gen_task_id,
-            status="FAILURE",
-            set_result=True,
-            result={"error": "scheduler image generation failed"},
-        )
+        if gen_task_id:
+            update_generate_task(
+                gen_task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": "scheduler image generation failed"},
+            )
+        elif run_id:
+            session = Session(bind=engine)
+            try:
+                run = session.query(GenerationRun).filter(GenerationRun.run_id == run_id).first()
+                if run:
+                    finish_generation_run(
+                        session, run, status="failed", error_category="scheduler_image_failed"
+                    )
+                    session.commit()
+            finally:
+                session.close()
         raise
 
 
@@ -340,11 +424,19 @@ class APSchedulerService:
     def _prepare_product_context(
         self, session, product, task_id, reference_image_count, use_scene_reference, platforms
     ):
-        selected = select_reference_images(
-            session, product.product_id, reference_image_count, use_scene_reference
+        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+        selected = resolve_generate_references(
+            session,
+            product_id=product.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=reference_image_count,
+            use_scene_reference=use_scene_reference,
+            source="automation",
+            task_mode=getattr(task_cfg, "mode", None) if task_cfg else None,
+            image_size=getattr(task_cfg, "image_size", None) if task_cfg else None,
         )
-        reference_image_urls = selected["reference_images"]
-        effective_scene = selected["use_scene_reference"]
+        reference_image_urls = selected.reference_images
+        effective_scene = selected.use_scene_reference
         logger.info(
             "Product %s reference images (%s): %s",
             product.product_id,
@@ -353,7 +445,6 @@ class APSchedulerService:
         )
         logger.info("Scene reference mode: %s", effective_scene)
 
-        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
         product_id_str = str(product.product_id)
         base_info = {
             "product_id": product_id_str,
@@ -363,8 +454,8 @@ class APSchedulerService:
             "selling_points": product.selling_points,
             "brand_voice": product.brand_voice,
             "reference_images": reference_image_urls,
-            "reference_product_images": selected["reference_product_images"],
-            "reference_scene_images": selected["reference_scene_images"],
+            "reference_product_images": selected.reference_product_images,
+            "reference_scene_images": selected.reference_scene_images,
             "platform": platforms[0] if platforms else "instagram",
             "use_scene_reference": effective_scene,
             "use_vision_image_prompt": bool(
@@ -377,6 +468,16 @@ class APSchedulerService:
             )
             if task_cfg
             else True,
+            "generation_provenance": {
+                "source": "automation",
+                "rollout_mode_at_start": grounded_rollout_mode(),
+                "experiment_variant": selected.experiment_variant,
+                "requested_pipeline_version": selected.requested_pipeline_version,
+                "executed_pipeline_version": selected.executed_pipeline_version,
+                "fallback_reason": selected.fallback_reason,
+                "fallback_path": selected.fallback_path,
+                "reference_manifest": selected.manifest,
+            },
         }
         product_info = enrich_product_info(session, product, base_info)
         owner_user_id = (
@@ -391,8 +492,8 @@ class APSchedulerService:
             "product_id_str": product_id_str,
             "product_info": product_info,
             "reference_image_urls": reference_image_urls,
-            "reference_product_images": selected["reference_product_images"],
-            "reference_scene_images": selected["reference_scene_images"],
+            "reference_product_images": selected.reference_product_images,
+            "reference_scene_images": selected.reference_scene_images,
             "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
             "image_provider_mode": provider_mode,
             "image_model": task_cfg.image_model if task_cfg else None,
@@ -566,6 +667,8 @@ class APSchedulerService:
                             image_model=ctx["image_model"],
                             image_size=ctx.get("image_size"),
                         ),
+                        ctx=ctx,
+                        scheduled_task_id=task_id,
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -687,6 +790,8 @@ class APSchedulerService:
                 image_model=ctx["image_model"],
                 image_size=ctx.get("image_size"),
             ),
+            ctx=ctx,
+            scheduled_task_id=task_id,
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None

@@ -731,6 +731,7 @@ export default function TaskConfiguration() {
                     DEFAULT_IMAGE_GENERATION_CONTROLS.realistic_placement,
                   reference_count: formData.reference_image_count ?? DEFAULT_IMAGE_GENERATION_CONTROLS.reference_count,
                 }}
+                showCompareToggle={false}
                 onChange={(next) =>
                   setFormData({
                     ...formData,

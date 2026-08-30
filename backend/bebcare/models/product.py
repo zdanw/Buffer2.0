@@ -38,5 +38,7 @@ class ProductImage(Base):
     height = Column(Integer)
     image_type = Column(String(20), nullable=False, default="product")
     uploaded_at = Column(DateTime, default=datetime.utcnow)
-    
+    sort_index = Column(Integer, nullable=True)
+    is_preferred = Column(Boolean, nullable=False, default=False)
+
     product = relationship("Product", back_populates="images")

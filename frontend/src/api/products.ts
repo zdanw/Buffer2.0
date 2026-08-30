@@ -33,6 +33,8 @@ export interface ProductImage {
   height: number;
   image_type: string;
   uploaded_at: string;
+  sort_index?: number | null;
+  is_preferred?: boolean;
 }
 
 export interface ProductCreate {
@@ -127,4 +129,14 @@ export const uploadProductImages = async (productId: string, files: File[], imag
 
 export const deleteProductImage = async (productId: string, imageId: string): Promise<void> => {
   await axiosInstance.delete(`/products/${productId}/images/${imageId}`);
+};
+
+export const setProductImagePreferred = async (
+  productId: string,
+  imageId: string,
+  isPreferred: boolean,
+): Promise<void> => {
+  await axiosInstance.patch(`/products/${productId}/images/${imageId}`, {
+    is_preferred: isPreferred,
+  });
 };

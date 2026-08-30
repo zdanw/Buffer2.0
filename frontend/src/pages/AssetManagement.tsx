@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus, Star } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
-import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred } from '@/api/products';
 import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -57,6 +57,7 @@ export default function AssetManagement() {
   const [duplicating, setDuplicating] = useState(false);
   const [uploadingType, setUploadingType] = useState<'product' | 'scene' | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const [preferringImageId, setPreferringImageId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const selectNameOnOpen = useRef(false);
@@ -394,6 +395,22 @@ export default function AssetManagement() {
     }
   };
 
+  const handleSetPreferred = async (imageId: string, currentlyPreferred: boolean) => {
+    if (!selectedProduct || preferringImageId) return;
+    setPreferringImageId(imageId);
+    try {
+      await setProductImagePreferred(selectedProduct.product_id, imageId, !currentlyPreferred);
+      const updated = await getProduct(selectedProduct.product_id);
+      setProducts(prev => prev.map(p => p.product_id === updated.product_id ? updated : p));
+      setSelectedProduct(updated);
+    } catch (error) {
+      console.error('Failed to update preferred image:', error);
+      toast.error(t('assets.saveFailed'));
+    } finally {
+      setPreferringImageId(null);
+    }
+  };
+
   const openModal = (product?: Product) => {
     if (product) {
       setIsEdit(true);
@@ -723,7 +740,27 @@ export default function AssetManagement() {
                           alt=""
                           className="w-full aspect-square object-cover rounded-lg"
                         />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        {image.is_preferred && (
+                          <span className="absolute top-1 left-1 text-[10px] font-medium bg-forge-600 text-white px-1.5 py-0.5 rounded">
+                            {t('assets.preferred')}
+                          </span>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            title={t('assets.setPreferred')}
+                            onClick={() => handleSetPreferred(image.image_id, !!image.is_preferred)}
+                            disabled={preferringImageId === image.image_id || !!uploadingType}
+                            className={`p-2 rounded-full disabled:opacity-50 ${
+                              image.is_preferred ? 'bg-forge-600 text-white' : 'bg-white text-gray-800 hover:bg-gray-100'
+                            }`}
+                          >
+                            {preferringImageId === image.image_id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Star className={`w-4 h-4 ${image.is_preferred ? 'fill-current' : ''}`} />
+                            )}
+                          </button>
                           <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
                             <Eye className="w-4 h-4" />
                           </button>
@@ -782,7 +819,27 @@ export default function AssetManagement() {
                           alt=""
                           className="w-full aspect-square object-cover rounded-lg"
                         />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        {image.is_preferred && (
+                          <span className="absolute top-1 left-1 text-[10px] font-medium bg-forge-600 text-white px-1.5 py-0.5 rounded">
+                            {t('assets.preferred')}
+                          </span>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            title={t('assets.setPreferred')}
+                            onClick={() => handleSetPreferred(image.image_id, !!image.is_preferred)}
+                            disabled={preferringImageId === image.image_id || !!uploadingType}
+                            className={`p-2 rounded-full disabled:opacity-50 ${
+                              image.is_preferred ? 'bg-forge-600 text-white' : 'bg-white text-gray-800 hover:bg-gray-100'
+                            }`}
+                          >
+                            {preferringImageId === image.image_id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Star className={`w-4 h-4 ${image.is_preferred ? 'fill-current' : ''}`} />
+                            )}
+                          </button>
                           <button onClick={() => setPreviewImage(image.cdn_url)} className="p-2 bg-white rounded-full text-gray-800 hover:bg-gray-100">
                             <Eye className="w-4 h-4" />
                           </button>

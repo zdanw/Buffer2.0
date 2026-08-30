@@ -19,4 +19,6 @@ APP_RLS_TABLES: tuple[str, ...] = (
     "image_credit_reservations",
     "stripe_checkout_sessions",
     "stripe_subscriptions",
+    "generation_runs",
+    "generation_artifacts",
 )

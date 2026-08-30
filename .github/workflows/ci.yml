@@ -30,9 +30,9 @@ jobs:
       - name: Pytest (API + unit)
         run: pytest -q
 
-      - name: Deploy copy sync check
+      - name: Docker production source is backend/
         working-directory: .
-        run: python scripts/sync_deploy_copies.py --check
+        run: python scripts/check_docker_production_source.py
 
   frontend:
     runs-on: ubuntu-latest

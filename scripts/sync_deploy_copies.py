@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Sync backend/ → hf-space/ (backend is source of truth).
+"""Optional archive sync: backend/ → hf-space/.
+
+Production Docker builds copy application code from backend/, not hf-space/.
+This script does not define the live application source. CI gates production
+source with scripts/check_docker_production_source.py.
 
 Usage:
-  python scripts/sync_deploy_copies.py          # apply sync
-  python scripts/sync_deploy_copies.py --check  # exit 1 if drift
+  python scripts/sync_deploy_copies.py          # optional archive sync
+  python scripts/sync_deploy_copies.py --check  # report archive drift (not a production gate)
 
 Preserves deploy-only files (Dockerfile, README, …).
 Does not copy backend-only artifacts (tests, Long-CLIP, railway, …).
@@ -147,11 +151,13 @@ def apply_sync(target: Path, files: list[Path]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync backend → hf-space")
+    parser = argparse.ArgumentParser(
+        description="Optional archive sync backend → hf-space (not the production app source)"
+    )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Report drift and exit 1 if any target differs from backend",
+        help="Report archive drift vs backend; does not gate production deploys",
     )
     parser.add_argument(
         "--target",
@@ -165,6 +171,10 @@ def main() -> int:
     targets = TARGETS if args.target == "all" else (ROOT / args.target,)
 
     if args.check:
+        print(
+            "[check] NOTICE: production Docker copies backend/; "
+            "hf-space/ is an archive copy, not the active application source."
+        )
         any_drift = False
         for target in targets:
             if not target.is_dir():

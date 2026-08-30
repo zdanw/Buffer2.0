@@ -55,6 +55,15 @@ if "chromadb" not in sys.modules:
     )
 if "datasketch" not in sys.modules:
     _stub_module("datasketch", MinHash=MagicMock(), MinHashLSH=MagicMock())
+# Required SDKs: use the real package when installed. Stub only if import fails.
+try:
+    import resend  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    _stub_module("resend", api_key=None, Emails=MagicMock())
+try:
+    import stripe  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    sys.modules["stripe"] = MagicMock()
 
 import pytest
 from fastapi import Depends, FastAPI, APIRouter

@@ -259,7 +259,7 @@ python scripts/sync_deploy_copies.py --check  # 检查漂移（CI 门禁）
 
 HF **只认仓库根目录**的 `Dockerfile` 与带 `sdk: docker` 的 `README.md`，不会读取 `hf-space/Dockerfile`。
 
-推荐：将本单体仓库推到 Space；根目录 `Dockerfile` 从 `hf-space/` 复制应用代码。
+推荐：将本单体仓库推到 Space；根目录 `Dockerfile` 从 canonical `backend/` 复制应用代码。`hf-space/` 仅为归档副本，不是现行生产源。
 
 本地验证部署包：
 

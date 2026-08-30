@@ -848,6 +848,7 @@ export default function Studio() {
       product_id: baseRequest.product_id,
       reference_count: baseRequest.reference_count,
       use_scene_reference: true,
+      image_size: baseRequest.image_size || undefined,
     });
 
     setGeneratedContent((prev) => ({
@@ -859,9 +860,16 @@ export default function Studio() {
 
     setGenerateStatus((prev) => optimisticStatusForStage('starting', 5, prev));
 
+    const compareGroupId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `cmp-${Date.now()}`;
     const pinned = {
       reference_product_images: refs.reference_product_images,
       reference_scene_images: refs.reference_scene_images,
+      reference_product_image_ids: refs.reference_product_image_ids,
+      reference_scene_image_ids: refs.reference_scene_image_ids,
+      compare_group_id: compareGroupId,
     };
 
     const legacyReq: GenerateRequest = {
@@ -1292,6 +1300,7 @@ export default function Studio() {
 
           <ImageGenerationControls
             showReferenceCount
+            showCompareCreditHint={imageProviderMode === 'platform'}
             value={{
               use_scene_reference: useSceneReference,
               use_vision_image_prompt: useVisionImagePrompt,

@@ -35,6 +35,8 @@ interface ImageGenerationControlsProps {
   onChange: (next: ImageGenerationControlValues) => void;
   disabled?: boolean;
   showReferenceCount?: boolean;
+  showCompareToggle?: boolean;
+  showCompareCreditHint?: boolean;
 }
 
 const REFERENCE_COUNT_OPTIONS = Array.from({ length: STUDIO_REFERENCE_COUNT_MAX }, (_, i) => i + 1);
@@ -44,6 +46,8 @@ export default function ImageGenerationControls({
   onChange,
   disabled = false,
   showReferenceCount = false,
+  showCompareToggle = true,
+  showCompareCreditHint = false,
 }: ImageGenerationControlsProps) {
   const { t } = useI18n();
 
@@ -79,6 +83,7 @@ export default function ImageGenerationControls({
       )}
       {TOGGLES.map(({ field, labelKey, tooltipKey }) => {
         const compareLocksVision =
+          showCompareToggle &&
           field === 'use_vision_image_prompt' &&
           value.use_scene_reference &&
           (value.compare_scene_pipelines ?? true);
@@ -107,7 +112,7 @@ export default function ImageGenerationControls({
         </div>
       );
       })}
-      {value.use_scene_reference && (
+      {showCompareToggle && value.use_scene_reference && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -133,6 +138,9 @@ export default function ImageGenerationControls({
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-forge-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-forge-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
             </label>
           </div>
+          {showCompareCreditHint && (value.compare_scene_pipelines ?? true) && (
+            <p className="mt-2 text-xs text-gray-500">{t('studio.compareUsesTwoCredits')}</p>
+          )}
         </div>
       )}
     </>

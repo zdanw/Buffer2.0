@@ -24,6 +24,7 @@ from bebcare.services.ownership import (
     owned_query,
     stamp_owner,
 )
+from bebcare.services.preferred_image import next_sort_index, set_preferred_image
 from PIL import Image
 import uuid
 import io
@@ -54,6 +55,8 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
             "height": img.height,
             "image_type": img.image_type,
             "uploaded_at": img.uploaded_at,
+            "sort_index": img.sort_index,
+            "is_preferred": bool(img.is_preferred),
         }
         if img.image_type == "product":
             product_images.append(img_dict)
@@ -278,6 +281,8 @@ def duplicate_product(
             width=src_img.width,
             height=src_img.height,
             image_type=src_img.image_type,
+            sort_index=src_img.sort_index,
+            is_preferred=bool(src_img.is_preferred),
         )
         db.add(cloned)
         image_pairs.append((src_img, cloned))
@@ -449,7 +454,8 @@ async def upload_product_images(
                 phash=phash,
                 width=width,
                 height=height,
-                image_type=image_type
+                image_type=image_type,
+                sort_index=next_sort_index(db, product_id, image_type),
             )
             db.add(new_image)
             db.flush()
@@ -527,3 +533,36 @@ def delete_product_image(
     chroma_client.delete_image(image_id)
     db.delete(image)
     db.commit()
+
+
+@router.patch("/{product_id}/images/{image_id}")
+def patch_product_image(
+    product_id: str,
+    image_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    get_owned_or_404(db, Product, product_id, current_user, id_attr="product_id")
+    image = (
+        db.query(ProductImage)
+        .filter(
+            ProductImage.product_id == product_id,
+            ProductImage.image_id == image_id,
+        )
+        .first()
+    )
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if "is_preferred" not in payload:
+        raise HTTPException(status_code=400, detail="is_preferred is required")
+    set_preferred_image(db, image, bool(payload.get("is_preferred")))
+    db.commit()
+    db.refresh(image)
+    return {
+        "image_id": image.image_id,
+        "cdn_url": image.cdn_url,
+        "image_type": image.image_type,
+        "is_preferred": bool(image.is_preferred),
+        "sort_index": image.sort_index,
+    }

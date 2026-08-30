@@ -162,3 +162,128 @@ def select_reference_images(session, product_id, reference_count, use_scene_refe
         "reference_scene_images": scene_urls,
         "use_scene_reference": effective_scene,
     }
+
+
+def ids_for_urls(session, product_id: str, urls: list[str] | None, image_type: str) -> list[str] | None:
+    if urls is None:
+        return None
+    from bebcare.models import ProductImage
+
+    rows = (
+        session.query(ProductImage)
+        .filter(
+            ProductImage.product_id == product_id,
+            ProductImage.image_type == image_type,
+        )
+        .all()
+    )
+    by_url = {row.cdn_url: row.image_id for row in rows if row.cdn_url}
+    ids = []
+    for url in urls:
+        u = (url or "").strip()
+        if not u:
+            continue
+        image_id = by_url.get(u)
+        if image_id:
+            ids.append(image_id)
+    return ids
+
+
+def resolve_generate_references(
+    session,
+    *,
+    product_id: str,
+    owner_user_id: str,
+    reference_count: int,
+    use_scene_reference: bool,
+    source: str,
+    task_mode: str | None = None,
+    image_size: str | None = None,
+    pinned_product_images: list[str] | None = None,
+    pinned_scene_images: list[str] | None = None,
+    pinned_product_image_ids: list[str] | None = None,
+    pinned_scene_image_ids: list[str] | None = None,
+):
+    """Single selection entry for Studio and automation.
+
+    Grounded path never uses func.random(). Rollout-off keeps current random
+    scene-first behavior.
+    """
+    from bebcare.models import ProductImage
+    from bebcare.services.grounded_rollout import (
+        EXECUTED_LEGACY_RANDOM,
+        EXPERIMENT_BASELINE,
+        PIPELINE_BASELINE,
+        grounded_selection_enabled,
+    )
+    from bebcare.utils.grounded_reference_selector import (
+        GroundedSelection,
+        InvalidReferencePinError,
+        _legacy_manifest_from_urls,
+        _url_lookup,
+        fallback_legacy_selection,
+        select_grounded_references,
+    )
+
+    grounded = grounded_selection_enabled(source=source, task_mode=task_mode)
+    if not grounded:
+        selected = resolve_reference_images(
+            session,
+            product_id,
+            reference_count,
+            use_scene_reference,
+            pinned_product_images=pinned_product_images,
+            pinned_scene_images=pinned_scene_images,
+        )
+        images = (
+            session.query(ProductImage)
+            .filter(ProductImage.product_id == product_id)
+            .all()
+        )
+        manifest = _legacy_manifest_from_urls(
+            selected["reference_product_images"],
+            selected["reference_scene_images"],
+            image_id_by_url=_url_lookup(images),
+        )
+        return GroundedSelection(
+            reference_images=selected["reference_images"],
+            reference_product_images=selected["reference_product_images"],
+            reference_scene_images=selected["reference_scene_images"],
+            use_scene_reference=selected["use_scene_reference"],
+            manifest=manifest.model_dump(),
+            requested_pipeline_version=PIPELINE_BASELINE,
+            executed_pipeline_version=EXECUTED_LEGACY_RANDOM,
+            fallback_reason=None,
+            fallback_path=None,
+            experiment_variant=EXPERIMENT_BASELINE,
+            grounded=False,
+        )
+
+    product_ids = pinned_product_image_ids
+    scene_ids = pinned_scene_image_ids
+    if product_ids is None and pinned_product_images is not None:
+        product_ids = ids_for_urls(session, product_id, pinned_product_images, "product")
+    if scene_ids is None and pinned_scene_images is not None:
+        scene_ids = ids_for_urls(session, product_id, pinned_scene_images, "scene")
+
+    try:
+        return select_grounded_references(
+            session,
+            product_id,
+            reference_count,
+            use_scene_reference,
+            owner_user_id=owner_user_id,
+            image_size=image_size,
+            pinned_product_image_ids=product_ids,
+            pinned_scene_image_ids=scene_ids,
+        )
+    except InvalidReferencePinError:
+        raise
+    except Exception as exc:
+        return fallback_legacy_selection(
+            session,
+            product_id,
+            reference_count,
+            use_scene_reference,
+            reason=str(exc) or "grounded_selection_failed",
+        )

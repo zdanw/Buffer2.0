@@ -9,6 +9,8 @@ app_port: 7860
 
 # Bebcare AI Studio API
 
+> Phase 1A: the **root Dockerfile** copies production application code from `backend/`, not this directory. `hf-space/` is retained as an archive / rollback reference. Do not treat this tree as independently editable live app code.
+
 全自动社媒内容生成与发布系统后端（Hugging Face Space 部署包）。
 
 本目录为可独立推送到 HF Space 的自包含副本，与仓库内 `backend/` 源码对应。**开发请改 `backend/`**，再执行：

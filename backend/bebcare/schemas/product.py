@@ -42,6 +42,9 @@ class ProductImageSchema(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     uploaded_at: datetime
+    image_type: Optional[str] = None
+    sort_index: Optional[int] = None
+    is_preferred: bool = False
 
 class ProductResponse(ProductBase):
     product_id: UUID

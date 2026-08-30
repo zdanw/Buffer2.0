@@ -2,7 +2,8 @@
 # 文档: https://huggingface.co/docs/hub/spaces-sdks-docker
 #
 # Space 只识别仓库【根目录】的 Dockerfile 与 README.md（sdk: docker）。
-# 应用代码从 hf-space/ 复制进镜像。
+# 生产应用代码从 canonical backend/ 复制进镜像（不再从 hf-space/ 部署业务代码）。
+# hf-space/ 保留为历史部署副本；回滚使用此前已部署的 HF 镜像。
 
 FROM python:3.10-slim
 
@@ -17,16 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY hf-space/requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=user:user hf-space/bebcare/ ./bebcare/
-COPY --chown=user:user hf-space/scripts/ ./scripts/
-COPY --chown=user:user hf-space/migrations/ ./migrations/
-COPY --chown=user:user hf-space/alembic.ini ./
-COPY --chown=user:user hf-space/app.py ./
-COPY --chown=user:user hf-space/.env.example ./
+COPY --chown=user:user backend/bebcare/ ./bebcare/
+COPY --chown=user:user backend/scripts/ ./scripts/
+COPY --chown=user:user backend/migrations/ ./migrations/
+COPY --chown=user:user backend/alembic.ini ./
+COPY --chown=user:user backend/app.py ./
+COPY --chown=user:user backend/.env.example ./
 
 RUN mkdir -p /app/chroma_data && chown -R user:user /app/chroma_data
 

@@ -19,12 +19,19 @@ class GenerateRequest(BaseModel):
     # Pin the same reference URLs across parallel generations (Studio compare)
     reference_product_images: Optional[List[str]] = None
     reference_scene_images: Optional[List[str]] = None
+    reference_product_image_ids: Optional[List[str]] = None
+    reference_scene_image_ids: Optional[List[str]] = None
+    compare_group_id: Optional[str] = None
+    experiment_variant: Optional[str] = None
 
 
 class ReferenceSelectionRequest(BaseModel):
     product_id: str
     reference_count: int = 2
     use_scene_reference: bool = False
+    image_size: Optional[str] = None
+    reference_product_image_ids: Optional[List[str]] = None
+    reference_scene_image_ids: Optional[List[str]] = None
 
 
 class ReferenceSelectionResponse(BaseModel):
@@ -32,6 +39,9 @@ class ReferenceSelectionResponse(BaseModel):
     reference_product_images: List[str]
     reference_scene_images: List[str]
     use_scene_reference: bool
+    reference_product_image_ids: List[str] = []
+    reference_scene_image_ids: List[str] = []
+    reference_manifest: Optional[Dict] = None
 
 class GenerateResponse(BaseModel):
     task_id: str

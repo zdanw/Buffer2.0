@@ -107,6 +107,13 @@ class Settings(BaseSettings):
     resend_api_key: str | None = None
     resend_from: str | None = None
 
+    # Phase 1A grounded reference selection. Default off preserves current random
+    # scene-first behavior. Recommended first enablement: studio.
+    # off | studio | manual_automation | all
+    grounded_rollout_mode: str = "off"
+    # 64-bit pHash bit Hamming distance; near-duplicates are excluded as supporting refs.
+    phash_near_duplicate_hamming: int = 8
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
         extra="ignore",
@@ -137,6 +144,15 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return ",".join(str(v).strip() for v in value if str(v).strip())
         return str(value)
+
+    @field_validator("grounded_rollout_mode", mode="before")
+    @classmethod
+    def normalize_grounded_rollout_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
 
     @property
     def cors_origins(self) -> list[str]:
