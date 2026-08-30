@@ -58,6 +58,19 @@ export const pagesEn: TranslationTree = {
     productVoiceOverride: 'Product-specific override',
     hasOnBodyBranding: 'Product has on-body branding',
     hasOnBodyBrandingHint: 'Uncheck if this SKU has no printed logo on the product itself.',
+    offeringType: 'Offering type',
+    offeringTypeHint: 'Optional. Leave as Automatic / Unknown unless you want to classify this SKU.',
+    offeringTypes: {
+      unknown: 'Automatic / Unknown',
+      physical_product: 'Physical product',
+      software: 'Software',
+      saas: 'SaaS',
+      service: 'Service',
+      digital_product: 'Digital product',
+      event_or_experience: 'Event or experience',
+      mixed: 'Mixed',
+    },
+    metadataProcessing: 'Processing',
     incomplete: 'Incomplete',
     incompleteBannerTitle: 'Product images required',
     incompleteBannerBody: 'Upload at least one product image so Studio and automations can generate visuals for this product.',
@@ -85,6 +98,8 @@ export const pagesEn: TranslationTree = {
         'Overrides the brand kit tone for this product only (max {{max}} chars).\n\nExample: "Warm, reassuring parent-to-parent — never clinical."',
       brand:
         'Which brand kit supplies voice, hashtags, logo rules, and Buffer account.\n\nExample: Pick "Bebcare" so posts inherit that brand\'s tone and publish channel.',
+      offeringType:
+        'Optional classification for this SKU. Leave as Automatic / Unknown if you are not sure. This does not change generation in this release.',
     },
   },
   brands: {
@@ -826,6 +841,19 @@ export const pagesZh: TranslationTree = {
     productVoiceOverride: '本产品单独覆盖',
     hasOnBodyBranding: '产品有本体印刷标识',
     hasOnBodyBrandingHint: '若该产品表面没有印刷 Logo，请取消勾选。',
+    offeringType: '供给类型',
+    offeringTypeHint: '可选。不确定时保持「自动 / 未知」即可。',
+    offeringTypes: {
+      unknown: '自动 / 未知',
+      physical_product: '实物产品',
+      software: '软件',
+      saas: 'SaaS',
+      service: '服务',
+      digital_product: '数字产品',
+      event_or_experience: '活动或体验',
+      mixed: '混合',
+    },
+    metadataProcessing: '处理中',
     incomplete: '未完成',
     incompleteBannerTitle: '需要上传产品图',
     incompleteBannerBody: '请至少上传一张产品图，Studio 与自动化任务才能为此产品生成图像。',
@@ -853,6 +881,8 @@ export const pagesZh: TranslationTree = {
         '仅覆盖本产品调性，不影响同品牌其他 SKU（最多 {{max}} 字）。\n\n例：「像妈妈跟朋友聊天，温暖务实，不要医疗腔」。',
       brand:
         '继承哪个品牌套件的调性、话题标签、Logo 规则与 Buffer 账户。\n\n例：选「Bebcare」则帖子用该品牌语气并从对应 Buffer 发布。',
+      offeringType:
+        '可选分类。不确定时保持「自动 / 未知」。当前版本不会因此改变出图提示词。',
     },
   },
   brands: {

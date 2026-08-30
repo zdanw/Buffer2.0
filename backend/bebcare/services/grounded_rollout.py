@@ -74,6 +74,7 @@ def selection_provenance(selection, *, source: str) -> dict:
         "fallback_path": selection.fallback_path,
         "reference_manifest": selection.manifest,
         "grounded_phase1b_enabled": eligible,
+        "deterministic_metadata": getattr(selection, "deterministic_metadata", None),
     }
 
 

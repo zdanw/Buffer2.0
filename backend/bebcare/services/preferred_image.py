@@ -27,3 +27,9 @@ def set_preferred_image(db: Session, image: ProductImage, is_preferred: bool) ->
             ProductImage.is_preferred.is_(True),
         ).update({ProductImage.is_preferred: False}, synchronize_session="fetch")
     image.is_preferred = bool(is_preferred)
+    try:
+        from bebcare.services.asset_metadata import link_near_duplicates
+
+        link_near_duplicates(db, image)
+    except Exception:
+        pass

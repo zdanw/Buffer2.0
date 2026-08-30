@@ -55,6 +55,7 @@ class GroundedSelection:
     experiment_variant: str
     grounded: bool
     requested_experiment_variant: Optional[str] = None
+    deterministic_metadata: Optional[dict] = None
 
 
 def _legacy_manifest_from_urls(
@@ -194,10 +195,14 @@ def _exclude_near_duplicates(
     pool: list[ProductImage],
 ) -> list[ProductImage]:
     remaining = []
+    from bebcare.services.asset_metadata import is_exact_duplicate
+
     for image in pool:
         if image.image_id == chosen.image_id:
             continue
         if is_near_duplicate(chosen.phash, image.phash):
+            continue
+        if is_exact_duplicate(chosen, image) and not image.is_preferred:
             continue
         remaining.append(image)
     return remaining

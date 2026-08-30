@@ -1,6 +1,27 @@
 import axiosInstance from './axiosInstance';
 import type { ProductDimension } from './dimensions';
 
+export type OfferingType =
+  | 'physical_product'
+  | 'software'
+  | 'saas'
+  | 'service'
+  | 'digital_product'
+  | 'event_or_experience'
+  | 'mixed'
+  | 'unknown';
+
+export const OFFERING_TYPES: OfferingType[] = [
+  'unknown',
+  'physical_product',
+  'software',
+  'saas',
+  'service',
+  'digital_product',
+  'event_or_experience',
+  'mixed',
+];
+
 export interface BrandNested {
   brand_id: string;
   name: string;
@@ -17,6 +38,7 @@ export interface Product {
   brand_id?: string;
   use_brand_voice?: boolean;
   has_on_body_branding?: boolean;
+  offering_type?: OfferingType;
   brand?: BrandNested | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +57,7 @@ export interface ProductImage {
   uploaded_at: string;
   sort_index?: number | null;
   is_preferred?: boolean;
+  analysis_status?: string | null;
 }
 
 export interface ProductCreate {
@@ -46,6 +69,7 @@ export interface ProductCreate {
   brand_id?: string;
   use_brand_voice?: boolean;
   has_on_body_branding?: boolean;
+  offering_type?: OfferingType;
 }
 
 export interface Pagination {

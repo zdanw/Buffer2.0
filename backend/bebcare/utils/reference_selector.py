@@ -227,6 +227,32 @@ def resolve_generate_references(
         select_grounded_references,
     )
 
+    from bebcare.services.asset_metadata import (
+        ensure_product_deterministic_metadata,
+        provenance_for_manifest,
+    )
+
+    try:
+        ensure_product_deterministic_metadata(
+            session,
+            product_id=product_id,
+            owner_user_id=owner_user_id,
+            trigger="generate",
+        )
+        # Release SQLite write locks before generate_task_store opens another session.
+        session.commit()
+    except Exception:
+        pass
+
+    def _stamp(selection):
+        try:
+            selection.deterministic_metadata = provenance_for_manifest(
+                session, selection.manifest
+            )
+        except Exception:
+            selection.deterministic_metadata = None
+        return selection
+
     grounded = grounded_selection_enabled(source=source, task_mode=task_mode)
     requested = (requested_experiment or "").strip() or None
     if not grounded:
@@ -248,7 +274,7 @@ def resolve_generate_references(
             selected["reference_scene_images"],
             image_id_by_url=_url_lookup(images),
         )
-        return GroundedSelection(
+        return _stamp(GroundedSelection(
             reference_images=selected["reference_images"],
             reference_product_images=selected["reference_product_images"],
             reference_scene_images=selected["reference_scene_images"],
@@ -261,7 +287,7 @@ def resolve_generate_references(
             experiment_variant=EXPERIMENT_BASELINE,
             grounded=False,
             requested_experiment_variant=requested,
-        )
+        ))
 
     product_ids = pinned_product_image_ids
     scene_ids = pinned_scene_image_ids
@@ -271,18 +297,20 @@ def resolve_generate_references(
         scene_ids = ids_for_urls(session, product_id, pinned_scene_images, "scene")
 
     try:
-        return apply_phase1b_experiment(
-            select_grounded_references(
-                session,
-                product_id,
-                reference_count,
-                use_scene_reference,
-                owner_user_id=owner_user_id,
-                image_size=image_size,
-                pinned_product_image_ids=product_ids,
-                pinned_scene_image_ids=scene_ids,
-            ),
-            requested_experiment=requested,
+        return _stamp(
+            apply_phase1b_experiment(
+                select_grounded_references(
+                    session,
+                    product_id,
+                    reference_count,
+                    use_scene_reference,
+                    owner_user_id=owner_user_id,
+                    image_size=image_size,
+                    pinned_product_image_ids=product_ids,
+                    pinned_scene_image_ids=scene_ids,
+                ),
+                requested_experiment=requested,
+            )
         )
     except InvalidReferencePinError:
         raise
@@ -295,4 +323,4 @@ def resolve_generate_references(
             reason=str(exc) or "grounded_selection_failed",
         )
         fallback.requested_experiment_variant = requested
-        return fallback
+        return _stamp(fallback)

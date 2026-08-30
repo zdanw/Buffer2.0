@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus, Star } from 'lucide-react';
-import type { Product, ProductCreate, PaginatedResponse } from '@/api/products';
-import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred } from '@/api/products';
+import type { Product, ProductCreate, PaginatedResponse, OfferingType } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred, OFFERING_TYPES } from '@/api/products';
 import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -74,6 +74,7 @@ export default function AssetManagement() {
     brand_id: '',
     use_brand_voice: false,
     has_on_body_branding: true,
+    offering_type: 'unknown',
   });
   const [inheritedVoice, setInheritedVoice] = useState<string>('');
   const [detailInheritedVoice, setDetailInheritedVoice] = useState<string>('');
@@ -92,6 +93,7 @@ export default function AssetManagement() {
       brand_voice: '',
       use_brand_voice: false,
       has_on_body_branding: true,
+      offering_type: 'unknown',
       ...draft.formData,
       brand_id: brandId || (draft.formData.brand_id as string) || '',
     });
@@ -282,6 +284,7 @@ export default function AssetManagement() {
         brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
         has_on_body_branding: true,
+        offering_type: 'unknown',
       });
     } catch (error) {
       console.error('Failed to save product:', error);
@@ -424,6 +427,7 @@ export default function AssetManagement() {
         brand_id: defaultProductBrandId(brands, product.brand_id || activeBrandId),
         use_brand_voice: product.use_brand_voice ?? false,
         has_on_body_branding: product.has_on_body_branding ?? true,
+        offering_type: (product.offering_type as OfferingType) || 'unknown',
       });
     } else {
       setIsEdit(false);
@@ -437,6 +441,7 @@ export default function AssetManagement() {
         brand_id: defaultProductBrandId(brands, activeBrandId),
         use_brand_voice: false,
         has_on_body_branding: true,
+        offering_type: 'unknown',
       });
     }
     setShowModal(true);
@@ -745,6 +750,11 @@ export default function AssetManagement() {
                             {t('assets.preferred')}
                           </span>
                         )}
+                        {(image.analysis_status === 'pending' || image.analysis_status === 'analyzing') && (
+                          <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
+                            {t('assets.metadataProcessing')}
+                          </span>
+                        )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
                           <button
                             type="button"
@@ -822,6 +832,11 @@ export default function AssetManagement() {
                         {image.is_preferred && (
                           <span className="absolute top-1 left-1 text-[10px] font-medium bg-forge-600 text-white px-1.5 py-0.5 rounded">
                             {t('assets.preferred')}
+                          </span>
+                        )}
+                        {(image.analysis_status === 'pending' || image.analysis_status === 'analyzing') && (
+                          <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
+                            {t('assets.metadataProcessing')}
                           </span>
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
@@ -1020,6 +1035,30 @@ export default function AssetManagement() {
                     </span>
                   </label>
                   <p className="mt-1 text-xs text-gray-500">{t('assets.hasOnBodyBrandingHint')}</p>
+                </div>
+                <div>
+                  <LabelWithTooltip
+                    label={t('assets.offeringType')}
+                    tooltip={t('assets.tooltips.offeringType')}
+                    required={false}
+                  />
+                  <select
+                    value={formData.offering_type || 'unknown'}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        offering_type: e.target.value as OfferingType,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent bg-white"
+                  >
+                    {OFFERING_TYPES.map((value) => (
+                      <option key={value} value={value}>
+                        {t(`assets.offeringTypes.${value}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">{t('assets.offeringTypeHint')}</p>
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">

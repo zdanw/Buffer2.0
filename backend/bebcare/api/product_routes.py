@@ -57,6 +57,7 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
             "uploaded_at": img.uploaded_at,
             "sort_index": img.sort_index,
             "is_preferred": bool(img.is_preferred),
+            "analysis_status": img.analysis_status,
         }
         if img.image_type == "product":
             product_images.append(img_dict)
@@ -73,6 +74,7 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
         "brand_voice": product.brand_voice,
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
         "has_on_body_branding": bool(getattr(product, "has_on_body_branding", True)),
+        "offering_type": getattr(product, "offering_type", None) or "unknown",
         "created_at": product.created_at,
         "updated_at": product.updated_at,
         "product_images": product_images,
@@ -210,6 +212,7 @@ def create_product(
         brand_voice=product.brand_voice,
         use_brand_voice=product.use_brand_voice,
         has_on_body_branding=product.has_on_body_branding,
+        offering_type=product.offering_type or "unknown",
     )
     stamp_owner(new_product, current_user)
     db.add(new_product)
@@ -267,6 +270,7 @@ def duplicate_product(
         brand_voice=source.brand_voice,
         use_brand_voice=bool(getattr(source, "use_brand_voice", True)),
         has_on_body_branding=bool(getattr(source, "has_on_body_branding", True)),
+        offering_type=getattr(source, "offering_type", None) or "unknown",
     )
     stamp_owner(new_product, current_user)
     db.add(new_product)
@@ -283,10 +287,23 @@ def duplicate_product(
             image_type=src_img.image_type,
             sort_index=src_img.sort_index,
             is_preferred=bool(src_img.is_preferred),
+            content_hash=src_img.content_hash,
+            detected_mime_type=src_img.detected_mime_type,
+            has_alpha=src_img.has_alpha,
+            exif_orientation=src_img.exif_orientation,
+            analysis_status=src_img.analysis_status,
+            deterministic_metadata_version=src_img.deterministic_metadata_version,
+            deterministic_metadata_at=src_img.deterministic_metadata_at,
+            basic_quality_json=src_img.basic_quality_json,
         )
         db.add(cloned)
         image_pairs.append((src_img, cloned))
     db.flush()
+    cloned_by_source = {src.image_id: cloned.image_id for src, cloned in image_pairs}
+    for src_img, cloned in image_pairs:
+        source_dup = src_img.near_duplicate_of_image_id
+        if source_dup and source_dup in cloned_by_source:
+            cloned.near_duplicate_of_image_id = cloned_by_source[source_dup]
 
     source_dims = (
         db.query(ProductDimension)
@@ -375,6 +392,8 @@ def update_product(
         product.use_brand_voice = product_update.use_brand_voice
     if product_update.has_on_body_branding is not None:
         product.has_on_body_branding = product_update.has_on_body_branding
+    if product_update.offering_type is not None:
+        product.offering_type = product_update.offering_type
 
     db.commit()
     db.refresh(product)
@@ -456,9 +475,24 @@ async def upload_product_images(
                 height=height,
                 image_type=image_type,
                 sort_index=next_sort_index(db, product_id, image_type),
+                analysis_status="pending",
             )
             db.add(new_image)
             db.flush()
+            try:
+                from bebcare.services.asset_metadata import refresh_deterministic_metadata
+
+                refresh_deterministic_metadata(
+                    db,
+                    new_image,
+                    owner_user_id=current_user.user_id,
+                    raw_bytes=file_content,
+                    trigger="upload",
+                )
+            except Exception:
+                logger.exception("det_meta upload non-blocking image_id=%s", new_image.image_id)
+                if not new_image.analysis_status:
+                    new_image.analysis_status = "failed"
             
             chroma_client.add_image(
                 str(new_image.image_id),
@@ -531,6 +565,9 @@ def delete_product_image(
         raise HTTPException(status_code=404, detail="Image not found")
     
     chroma_client.delete_image(image_id)
+    from bebcare.services.asset_metadata import clear_near_duplicate_refs
+
+    clear_near_duplicate_refs(db, image_id)
     db.delete(image)
     db.commit()
 

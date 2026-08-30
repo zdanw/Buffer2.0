@@ -1,7 +1,28 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
+
+OFFERING_TYPES = (
+    "physical_product",
+    "software",
+    "saas",
+    "service",
+    "digital_product",
+    "event_or_experience",
+    "mixed",
+    "unknown",
+)
+OfferingType = Literal[
+    "physical_product",
+    "software",
+    "saas",
+    "service",
+    "digital_product",
+    "event_or_experience",
+    "mixed",
+    "unknown",
+]
 
 class BrandNested(BaseModel):
     brand_id: str
@@ -21,6 +42,17 @@ class ProductBase(BaseModel):
     brand_voice: Optional[str] = None
     use_brand_voice: bool = True
     has_on_body_branding: bool = True
+    offering_type: OfferingType = "unknown"
+
+    @field_validator("offering_type", mode="before")
+    @classmethod
+    def normalize_offering_type(cls, value):
+        if value is None or value == "":
+            return "unknown"
+        text = str(value).strip().lower()
+        if text not in OFFERING_TYPES:
+            raise ValueError("invalid offering_type")
+        return text
 
 class ProductCreate(ProductBase):
     pass
@@ -34,6 +66,17 @@ class ProductUpdate(BaseModel):
     brand_voice: Optional[str] = None
     use_brand_voice: Optional[bool] = None
     has_on_body_branding: Optional[bool] = None
+    offering_type: Optional[OfferingType] = None
+
+    @field_validator("offering_type", mode="before")
+    @classmethod
+    def normalize_offering_type(cls, value):
+        if value is None or value == "":
+            return value
+        text = str(value).strip().lower()
+        if text not in OFFERING_TYPES:
+            raise ValueError("invalid offering_type")
+        return text
 
 class ProductImageSchema(BaseModel):
     image_id: UUID
@@ -45,6 +88,7 @@ class ProductImageSchema(BaseModel):
     image_type: Optional[str] = None
     sort_index: Optional[int] = None
     is_preferred: bool = False
+    analysis_status: Optional[str] = None
 
 class ProductResponse(ProductBase):
     product_id: UUID
