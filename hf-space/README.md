@@ -13,11 +13,7 @@ app_port: 7860
 
 全自动社媒内容生成与发布系统后端（Hugging Face Space 部署包）。
 
-本目录为可独立推送到 HF Space 的自包含副本，与仓库内 `backend/` 源码对应。**开发请改 `backend/`**，再执行：
-
-```bash
-python scripts/sync_deploy_copies.py
-```
+本目录是非规范归档 / 历史回滚副本，**不是**现行生产源。Canonical 代码在仓库 `backend/`；根目录 `Dockerfile` 从 `backend/` 构建。`GROUNDED_ROLLOUT_MODE` 默认 `off`。**开发请改 `backend/`**。
 
 ## 部署到 Hugging Face Space
 
@@ -28,7 +24,7 @@ python scripts/sync_deploy_copies.py
 将本 Git 仓库推到 Space 远程。根目录已有：
 
 - `README.md`（`sdk: docker` + `app_port: 7860`，**不要**写 `app_file`）
-- `Dockerfile`（从 `hf-space/` 复制应用代码）
+- `Dockerfile`（从 canonical `backend/` 复制应用代码）
 - `app.py`（兼容入口）
 
 Space 创建时 SDK 选 **Docker**；若曾建成 Gradio，改根目录 README 的 YAML 为 `sdk: docker` 后 Factory reboot。

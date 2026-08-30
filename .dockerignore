@@ -1,18 +1,21 @@
 # Hugging Face Space / Docker 构建忽略项
+# Canonical app is backend/; do not ignore the backend/ tree (root Dockerfile COPYs it).
 .git
 .github
 .venv
+**/.venv
 .trae
 **/__pycache__
 **/*.pyc
 **/*.db
 **/.env
 frontend/
-backend/
 chroma_data/
 **/Long-CLIP/
 node_modules/
 *.md
 !README.md
 .pytest_cache
+**/.pytest_cache
 .mypy_cache
+**/.mypy_cache

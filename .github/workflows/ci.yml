@@ -34,6 +34,21 @@ jobs:
         working-directory: .
         run: python scripts/check_docker_production_source.py
 
+  docker-root:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Docker production source and build context
+        run: python scripts/check_docker_production_source.py
+
+      - name: Build root image without push
+        run: docker build -t pulseforge-ci:local .
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

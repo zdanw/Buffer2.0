@@ -4,7 +4,7 @@
 
 全自动社媒内容生成与发布系统，面向 Bebcare 婴儿产品品牌。系统根据产品资产与可配置的提示词维度，自动生成英文社媒文案与产品图，经去重与人工审核后，通过 Buffer 发布到 Instagram、Facebook、TikTok 等多平台。
 
-> 根目录部署到 Hugging Face Space 时，本文件顶部 YAML（`sdk: docker`）供 Space 识别。**业务开发请改** `backend/` **与** `frontend/`，再同步部署副本。
+> 根目录部署到 Hugging Face Space 时，本文件顶部 YAML（`sdk: docker`）供 Space 识别。**业务开发请改** `backend/` **与** `frontend/`。根目录 `Dockerfile` 从 canonical `backend/` 构建；`hf-space/` 仅为非规范归档 / 历史回滚副本。`GROUNDED_ROLLOUT_MODE` 默认 `off`。
 
 ## 核心特性
 
@@ -16,7 +16,7 @@
 - **Cron 调度**：APScheduler 定时任务，全局并发控制，适配 HF Space 资源
 - **多平台触达**：Buffer GraphQL，覆盖 Instagram、Facebook、TikTok、X、LinkedIn 等
 - **管理后台**：React 管理台（资产 / 维度 / 任务 / 待发 / 预览 / 日历 / Provider / 用户）
-- **可部署副本**：`hf-space/`、`space4/` 由脚本从 `backend/` 同步，CI 漂移门禁
+- **部署源**：根 Docker 从 `backend/` 复制运行时代码；`hf-space/` 保留为归档 / 回滚参考，不是现行生产源
 
 
 
@@ -227,14 +227,9 @@ python ../scripts/sync_deploy_copies.py
 
 探活（无需登录）：`GET /`、`GET /health`。
 
-### 3. 同步部署副本
+### 3. 部署源
 
-业务改动只改 `backend/`，再同步：
-
-```bash
-python scripts/sync_deploy_copies.py          # 同步到 hf-space/、space4/
-python scripts/sync_deploy_copies.py --check  # 检查漂移（CI 门禁）
-```
+Canonical 应用代码在 `backend/`。根目录 `Dockerfile` 从 `backend/` 复制进镜像。`hf-space/` 是非规范归档 / 历史回滚副本，不是现行生产源。`GROUNDED_ROLLOUT_MODE` 默认 `off`。
 
 
 
@@ -250,7 +245,7 @@ python scripts/sync_deploy_copies.py --check  # 检查漂移（CI 门禁）
 | 后端  | Hugging Face Space（Docker，端口 7860）                  |
 | 前端  | Vercel（`/v1` 由 Edge Function 代理到 Space）             |
 | 数据库 | Supabase Postgres，`APP_ENV=production`              |
-| 密钥  | Space Settings → Secrets（见 `hf-space/.env.example`） |
+| 密钥  | Space Settings → Secrets（见 `backend/.env.example`） |
 
 
 
@@ -259,14 +254,13 @@ python scripts/sync_deploy_copies.py --check  # 检查漂移（CI 门禁）
 
 HF **只认仓库根目录**的 `Dockerfile` 与带 `sdk: docker` 的 `README.md`，不会读取 `hf-space/Dockerfile`。
 
-推荐：将本单体仓库推到 Space；根目录 `Dockerfile` 从 canonical `backend/` 复制应用代码。`hf-space/` 仅为归档副本，不是现行生产源。
+推荐：将本单体仓库推到 Space；根目录 `Dockerfile` 从 canonical `backend/` 复制应用代码。`hf-space/` 仅为归档副本，不是现行生产源。`GROUNDED_ROLLOUT_MODE` 默认 `off`。
 
-本地验证部署包：
+本地验证（仓库根目录）：
 
 ```bash
-cd hf-space
 docker build -t bebcare-api .
-docker run --rm -p 7860:7860 --env-file .env bebcare-api
+docker run --rm -p 7860:7860 --env-file backend/.env bebcare-api
 curl http://127.0.0.1:7860/health
 ```
 
@@ -286,7 +280,8 @@ curl http://127.0.0.1:7860/health
 
 - 后端 `pytest`
 - 前端 `npm run build`
-- `sync_deploy_copies.py --check`
+- `scripts/check_docker_production_source.py`（Dockerfile `COPY` 与 `.dockerignore` 不得排除 `backend/`）
+- 根目录 `docker build`（不推送镜像）
 
 
 
@@ -323,7 +318,7 @@ Bebcare_Buffer2.0/
 │   │   └── lib/
 │   ├── api/                      # Vercel /v1 代理
 │   └── vercel.json
-├── hf-space/                     # HF Space 部署副本
+├── hf-space/                     # 非规范归档 / 历史回滚副本（非现行生产源）
 ├── space4/                       # 魔搭创空间部署副本
 ├── scripts/
 │   └── sync_deploy_copies.py     # 同步 / --check
@@ -456,7 +451,7 @@ npm run lint
 
 ## 注意事项
 
-1. **开发只改** `backend/`，部署前执行同步脚本；CI 对 `hf-space/`、`space4/` 做漂移检查
+1. **开发只改** `backend/`；根 Docker 从 `backend/` 构建。`hf-space/` 不是现行生产源
 2. 生产 **禁止 SQLite**；未配置 Postgres 时 `APP_ENV=production` 会启动失败
 3. HF Space 资源有限：`MAX_CONCURRENT_JOBS=1`，错开 Cron，避免多任务同一分钟触发
 4. Supabase 免费连接数有限，勿盲目加大 `DB_POOL_SIZE`
