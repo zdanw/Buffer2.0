@@ -344,7 +344,7 @@ export const zh: TranslationTree = {
       name: {
         label: '名称',
         tooltip:
-          '设置页中的友好名称，便于识别此 Buffer 组织。\n\n例：「代理商 Buffer」或「Bebcare 美国站」——不要用 Token 当名称。',
+          '设置页中的友好名称，便于识别此 Buffer 组织。\n\n例：「代理商 Buffer」或「Nike 美国站」——不要用 Token 当名称。',
       },
       token: {
         label: 'Buffer API Token',

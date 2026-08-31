@@ -346,7 +346,7 @@ export const en: TranslationTree = {
       name: {
         label: 'Name',
         tooltip:
-          'Friendly label in Settings so you recognize this Buffer org.\n\nExample: "Agency Buffer" or "Bebcare US org" — not the raw token.',
+          'Friendly label in Settings so you recognize this Buffer org.\n\nExample: "Agency Buffer" or "Nike US org" — not the raw token.',
       },
       token: {
         label: 'Buffer API token',

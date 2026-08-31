@@ -90,7 +90,7 @@ export const pagesEn: TranslationTree = {
     },
     tooltips: {
       productName:
-        'Display name for this product in lists, Studio, and automations.\n\nExample: "Bebcare Linda Night Light" — not the SKU code.',
+        'Display name for this product in lists, Studio, and automations.\n\nExample: "Fisher-Price Soothe & Glow Seahorse" — not the SKU code.',
       category:
         'Groups products for filtering and can scope visual style presets.\n\nExample: "Baby monitors" vs "Night lights" may get different scene options.',
       description:
@@ -100,7 +100,7 @@ export const pagesEn: TranslationTree = {
       brandVoice:
         'Overrides the brand kit tone for this product only (max {{max}} chars).\n\nExample: "Warm, reassuring parent-to-parent — never clinical."',
       brand:
-        'Which brand kit supplies voice, hashtags, logo rules, and Buffer account.\n\nExample: Pick "Bebcare" so posts inherit that brand\'s tone and publish channel.',
+        'Which brand kit supplies voice, hashtags, logo rules, and Buffer account.\n\nExample: Pick "Fisher-Price" so posts inherit that brand\'s tone and publish channel.',
       offeringType:
         'Optional classification for this SKU. Leave as Automatic / Unknown if you are not sure. This does not change generation in this release.',
     },
@@ -171,7 +171,7 @@ export const pagesEn: TranslationTree = {
     },
     tooltips: {
       name:
-        'Label for this brand kit in dropdowns and cards.\n\nExample: "Bebcare US" vs internal code "BC-01".',
+        'Label for this brand kit in dropdowns and cards.\n\nExample: "Fisher-Price US" vs internal code "FP-01".',
       voice:
         'Default writing personality for all products under this brand.\n\nExample: "Friendly expert parent — practical tips, never fear-based."',
       audience:
@@ -179,9 +179,9 @@ export const pagesEn: TranslationTree = {
       toneKeywords:
         'Comma-separated mood tags the copy model should match.\n\nExample: "warm, playful, trustworthy, minimal jargon".',
       bufferAccount:
-        'Buffer token used when auto-publishing this brand\'s posts. One account ↔ one brand only.\n\nExample: Bind "Bebcare Buffer" here so Bebcare products never post to another org.',
+        'Buffer token used when auto-publishing this brand\'s posts. One account ↔ one brand only.\n\nExample: Bind "Fisher-Price Buffer" here so Fisher-Price products never post to another org.',
       hashtags:
-        'Appended to every generated post for this brand.\n\nExample: "#Bebcare #NurseryEssentials #NewMom".',
+        'Appended to every generated post for this brand.\n\nExample: "#FisherPrice #NurseryEssentials #NewParent".',
       emojiStyle:
         'How many emojis the copy model may use.\n\nExample: Minimal = one per post; Heavy = several in hooks and CTAs.',
       wordsToAvoid:
@@ -189,7 +189,7 @@ export const pagesEn: TranslationTree = {
       verticalPack:
         'Starter set of visual style dimensions (scenes, lighting) for image generation.\n\nExample: "Baby & family" adds nursery, playroom, and soft-morning presets.',
       logoFontRule:
-        'When reference photos show printed logos, how strictly to preserve them.\n\nExample: "Keep Bebcare wordmark blue #2B5CE6, sans-serif, no warping on curved surfaces."',
+        'When reference photos show printed logos, how strictly to preserve them.\n\nExample: "Keep Nike swoosh black, sans-serif, no warping on curved surfaces."',
       logoInImages:
         'Whether generated images include your logo and how.\n\nExample: Preserve = only if visible on product in refs; Composite = AI clean image + your logo on export.',
       logo:
@@ -309,7 +309,7 @@ export const pagesEn: TranslationTree = {
     previewingAs: 'Previewing as',
     tooltips: {
       product:
-        'Source of product photos, scene photos, category, and inherited brand voice.\n\nExample: Pick "Linda Night Light" to use its uploaded refs and Bebcare tone.',
+        'Source of product photos, scene photos, category, and inherited brand voice.\n\nExample: Pick "Soothe & Glow Seahorse" to use its uploaded refs and Fisher-Price tone.',
       platforms:
         'Each platform adjusts caption length, hashtags, and tone.\n\nExample: Instagram = visual hook + hashtags; LinkedIn = longer, professional angle.',
       sceneReference:
@@ -443,7 +443,7 @@ export const pagesEn: TranslationTree = {
     removeProduct: 'Remove {{name}}',
     tooltips: {
       taskName:
-        'Your label in the task list — not shown on social posts.\n\nExample: "Bebcare Linda - Doubao daily IG".',
+        'Your label in the task list — not shown on social posts.\n\nExample: "Fisher-Price Seahorse - daily IG".',
       taskMode:
         'Auto = generate and publish on schedule. Manual = generate drafts to Pending for your approval.\n\nExample: Manual for new products until you trust the output quality.',
       cronExpression:
@@ -876,7 +876,7 @@ export const pagesZh: TranslationTree = {
     },
     tooltips: {
       productName:
-        '产品在列表、Studio 与自动化任务中的显示名称。\n\n例：「Bebcare Linda 小夜灯」，不要用内部 SKU 编码。',
+        '产品在列表、Studio 与自动化任务中的显示名称。\n\n例：「Fisher-Price 安抚小海马」，不要用内部 SKU 编码。',
       category:
         '用于筛选产品，也可限定视觉风格预设的适用范围。\n\n例：「婴儿监护器」与「小夜灯」可能对应不同的场景选项。',
       description:
@@ -886,7 +886,7 @@ export const pagesZh: TranslationTree = {
       brandVoice:
         '仅覆盖本产品调性，不影响同品牌其他 SKU（最多 {{max}} 字）。\n\n例：「像妈妈跟朋友聊天，温暖务实，不要医疗腔」。',
       brand:
-        '继承哪个品牌套件的调性、话题标签、Logo 规则与 Buffer 账户。\n\n例：选「Bebcare」则帖子用该品牌语气并从对应 Buffer 发布。',
+        '继承哪个品牌套件的调性、话题标签、Logo 规则与 Buffer 账户。\n\n例：选「Fisher-Price」则帖子用该品牌语气并从对应 Buffer 发布。',
       offeringType:
         '可选分类。不确定时保持「自动 / 未知」。当前版本不会因此改变出图提示词。',
     },
@@ -957,7 +957,7 @@ export const pagesZh: TranslationTree = {
     },
     tooltips: {
       name:
-        '品牌套件在下拉框与卡片中的名称。\n\n例：「Bebcare 美国站」，而不是内部代码「BC-01」。',
+        '品牌套件在下拉框与卡片中的名称。\n\n例：「Fisher-Price 美国站」，而不是内部代码「FP-01」。',
       voice:
         '该品牌下所有产品的默认写作风格。\n\n例：「靠谱育儿达人——实用建议，不贩卖焦虑」。',
       audience:
@@ -965,9 +965,9 @@ export const pagesZh: TranslationTree = {
       toneKeywords:
         '逗号分隔的语气关键词，模型会尽量贴合。\n\n例：「温暖、轻松、可信、少术语」。',
       bufferAccount:
-        '自动发布时使用的 Buffer Token。一个账户只能绑一个品牌。\n\n例：绑定「Bebcare Buffer」，Bebcare 产品不会发到其他组织。',
+        '自动发布时使用的 Buffer Token。一个账户只能绑一个品牌。\n\n例：绑定「Fisher-Price Buffer」，Fisher-Price 产品不会发到其他组织。',
       hashtags:
-        '生成帖子末尾附加的默认话题标签。\n\n例：「#Bebcare #婴儿房好物 #新手妈妈」。',
+        '生成帖子末尾附加的默认话题标签。\n\n例：「#FisherPrice #婴儿房好物 #新手妈妈」。',
       emojiStyle:
         '文案中表情符号用量。\n\n例：少量 = 每条最多一个；丰富 = 开头和 CTA 可用多个。',
       wordsToAvoid:
@@ -975,7 +975,7 @@ export const pagesZh: TranslationTree = {
       verticalPack:
         '图像生成用的视觉风格维度预设包（场景、光线等）。\n\n例：「母婴家庭」会加入婴儿房、游戏区、晨光等选项。',
       logoFontRule:
-        '参考图上有印刷 Logo 时的保真要求。\n\n例：「Bebcare 字样保持 #2B5CE6 蓝色、无衬线、曲面不扭曲」。',
+        '参考图上有印刷 Logo 时的保真要求。\n\n例：「Nike 标识保持黑色、无衬线、曲面不扭曲」。',
       logoInImages:
         '生成图是否含 Logo、如何含。\n\n例：保留 = 仅当参考图里已有；导出叠加 = AI 出无标图 + 导出时贴你的 Logo。',
       logo:
@@ -1095,7 +1095,7 @@ export const pagesZh: TranslationTree = {
     previewingAs: '预览品牌',
     tooltips: {
       product:
-        '提供产品图、场景图、分类与继承的品牌调性。\n\n例：选「Linda 小夜灯」即用其上传的参考图与 Bebcare 语气。',
+        '提供产品图、场景图、分类与继承的品牌调性。\n\n例：选「安抚小海马」即用其上传的参考图与 Fisher-Price 语气。',
       platforms:
         '每个平台会调整文案长度、标签与语气。\n\n例：Instagram 偏视觉开头 + 标签；LinkedIn 更长、更专业。',
       sceneReference:
@@ -1229,7 +1229,7 @@ export const pagesZh: TranslationTree = {
     removeProduct: '移除 {{name}}',
     tooltips: {
       taskName:
-        '任务列表中的名称，不会出现在社媒帖子上。\n\n例：「Bebcare Linda - 豆包每日 IG」。',
+        '任务列表中的名称，不会出现在社媒帖子上。\n\n例：「Fisher-Price 小海马 - 每日 IG」。',
       taskMode:
         '自动 = 按 CRON 生成并直接发布。手动 = 生成草稿到「待发布」等你审核。\n\n例：新品先用手动模式，确认质量后再改自动。',
       cronExpression:
