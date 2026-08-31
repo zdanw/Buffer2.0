@@ -114,6 +114,10 @@ class Settings(BaseSettings):
     # 64-bit pHash bit Hamming distance; near-duplicates are excluded as supporting refs.
     phash_near_duplicate_hamming: int = 8
 
+    # Phase 2B semantic asset intelligence. Default off: no vision analysis calls.
+    # off | studio | all
+    asset_intelligence_mode: str = "off"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
         extra="ignore",
@@ -149,6 +153,15 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_grounded_rollout_mode(cls, value: str) -> str:
         allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("asset_intelligence_mode", mode="before")
+    @classmethod
+    def normalize_asset_intelligence_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "all"}
         mode = str(value or "off").strip().lower()
         if mode not in allowed:
             return "off"

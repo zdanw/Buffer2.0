@@ -231,6 +231,12 @@ def resolve_generate_references(
         ensure_product_deterministic_metadata,
         provenance_for_manifest,
     )
+    from bebcare.services.asset_intelligence import (
+        enqueue_selected_intelligence,
+        load_usable_analyses,
+        provenance_summary,
+        selected_image_ids,
+    )
 
     try:
         ensure_product_deterministic_metadata(
@@ -244,6 +250,14 @@ def resolve_generate_references(
     except Exception:
         pass
 
+    intelligence_by_image = {}
+    try:
+        intelligence_by_image = load_usable_analyses(
+            session, owner_user_id=owner_user_id, product_id=product_id
+        )
+    except Exception:
+        intelligence_by_image = {}
+
     def _stamp(selection):
         try:
             selection.deterministic_metadata = provenance_for_manifest(
@@ -251,6 +265,28 @@ def resolve_generate_references(
             )
         except Exception:
             selection.deterministic_metadata = None
+        ids = selected_image_ids(selection.manifest)
+        scheduled: list[str] = []
+        fallback_reason = None
+        try:
+            scheduled = enqueue_selected_intelligence(
+                image_ids=ids,
+                owner_user_id=owner_user_id,
+                product_id=product_id,
+                source=source,
+            )
+        except Exception:
+            fallback_reason = "intelligence_enqueue_failed"
+        try:
+            selection.asset_intelligence = provenance_summary(
+                source=source,
+                selected_ids=ids,
+                by_image=intelligence_by_image,
+                scheduled_ids=scheduled,
+                fallback_reason=fallback_reason,
+            )
+        except Exception:
+            selection.asset_intelligence = None
         return selection
 
     grounded = grounded_selection_enabled(source=source, task_mode=task_mode)
@@ -308,6 +344,7 @@ def resolve_generate_references(
                     image_size=image_size,
                     pinned_product_image_ids=product_ids,
                     pinned_scene_image_ids=scene_ids,
+                    intelligence_by_image=intelligence_by_image,
                 ),
                 requested_experiment=requested,
             )

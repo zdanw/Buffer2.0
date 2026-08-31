@@ -60,6 +60,9 @@ export const pagesEn: TranslationTree = {
     hasOnBodyBrandingHint: 'Uncheck if this SKU has no printed logo on the product itself.',
     offeringType: 'Offering type',
     offeringTypeHint: 'Optional. Leave as Automatic / Unknown unless you want to classify this SKU.',
+    offeringTypeSuggestion: 'Automatic suggestion: {{type}} (not applied until you select it).',
+    intelligenceCached: 'Cached intelligence used',
+    intelligenceCachedHint: 'Semantic labels came from a previous Studio analysis cache. This does not change your Preferred image.',
     offeringTypes: {
       unknown: 'Automatic / Unknown',
       physical_product: 'Physical product',
@@ -843,6 +846,9 @@ export const pagesZh: TranslationTree = {
     hasOnBodyBrandingHint: '若该产品表面没有印刷 Logo，请取消勾选。',
     offeringType: '供给类型',
     offeringTypeHint: '可选。不确定时保持「自动 / 未知」即可。',
+    offeringTypeSuggestion: '自动建议：{{type}}（需手动选择才会生效）。',
+    intelligenceCached: '已使用缓存智能标签',
+    intelligenceCachedHint: '标签来自此前 Studio 分析缓存，不会覆盖你指定的首选图。',
     offeringTypes: {
       unknown: '自动 / 未知',
       physical_product: '实物产品',

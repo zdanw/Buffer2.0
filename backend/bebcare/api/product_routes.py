@@ -44,9 +44,29 @@ def _brand_nested(product: Product) -> dict | None:
 
 
 def _product_to_dict(product: Product, product_dimensions: list | None = None) -> dict:
+    labels: dict = {}
+    suggestion = None
+    intelligence_used = False
+    try:
+        from sqlalchemy.orm import object_session
+        from bebcare.services.asset_intelligence import compact_labels_for_product
+
+        session = object_session(product)
+        owner_id = getattr(product, "owner_user_id", None)
+        if session is not None and owner_id:
+            packed = compact_labels_for_product(
+                session, owner_user_id=owner_id, product=product
+            )
+            labels = packed.get("by_image") or {}
+            suggestion = packed.get("offering_type_suggestion")
+            intelligence_used = bool(labels)
+    except Exception:
+        labels = {}
+
     product_images = []
     scene_images = []
     for img in product.images:
+        info = labels.get(img.image_id) or {}
         img_dict = {
             "image_id": img.image_id,
             "cdn_url": img.cdn_url,
@@ -58,6 +78,7 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
             "sort_index": img.sort_index,
             "is_preferred": bool(img.is_preferred),
             "analysis_status": img.analysis_status,
+            "intelligence_label": info.get("label"),
         }
         if img.image_type == "product":
             product_images.append(img_dict)
@@ -75,6 +96,8 @@ def _product_to_dict(product: Product, product_dimensions: list | None = None) -
         "use_brand_voice": bool(getattr(product, "use_brand_voice", True)),
         "has_on_body_branding": bool(getattr(product, "has_on_body_branding", True)),
         "offering_type": getattr(product, "offering_type", None) or "unknown",
+        "offering_type_suggestion": suggestion,
+        "intelligence_cached": intelligence_used,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
         "product_images": product_images,

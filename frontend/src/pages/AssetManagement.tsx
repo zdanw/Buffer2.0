@@ -703,6 +703,12 @@ export default function AssetManagement() {
                       <p className="text-sm text-gray-400">{t('assets.noSellingPoints')}</p>
                     )}
                   </div>
+                  {selectedProduct.intelligence_cached ? (
+                    <details className="text-xs text-gray-500">
+                      <summary className="cursor-pointer">{t('assets.intelligenceCached')}</summary>
+                      <p className="mt-1 text-gray-400">{t('assets.intelligenceCachedHint')}</p>
+                    </details>
+                  ) : null}
                 </div>
               </div>
 
@@ -753,6 +759,11 @@ export default function AssetManagement() {
                         {(image.analysis_status === 'pending' || image.analysis_status === 'analyzing') && (
                           <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
                             {t('assets.metadataProcessing')}
+                          </span>
+                        )}
+                        {image.intelligence_label && (
+                          <span className="absolute top-1 right-1 text-[10px] font-medium bg-white/90 text-gray-700 px-1.5 py-0.5 rounded">
+                            {image.intelligence_label}
                           </span>
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
@@ -837,6 +848,11 @@ export default function AssetManagement() {
                         {(image.analysis_status === 'pending' || image.analysis_status === 'analyzing') && (
                           <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
                             {t('assets.metadataProcessing')}
+                          </span>
+                        )}
+                        {image.intelligence_label && (
+                          <span className="absolute top-1 right-1 text-[10px] font-medium bg-white/90 text-gray-700 px-1.5 py-0.5 rounded">
+                            {image.intelligence_label}
                           </span>
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
@@ -1059,6 +1075,16 @@ export default function AssetManagement() {
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-gray-500">{t('assets.offeringTypeHint')}</p>
+                  {selectedProduct?.offering_type_suggestion &&
+                    (formData.offering_type || 'unknown') === 'unknown' && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        {t('assets.offeringTypeSuggestion', {
+                          type: t(
+                            `assets.offeringTypes.${selectedProduct.offering_type_suggestion}`,
+                          ),
+                        })}
+                      </p>
+                    )}
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">

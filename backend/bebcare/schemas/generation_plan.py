@@ -197,6 +197,30 @@ def build_generation_plan(
         "no_generated_small_text",
         "handheld_physical_replacement_prohibited",
     ]
+    intel = (product_info or {}).get("asset_intelligence") or {}
+    if not intel:
+        intel = ((product_info or {}).get("generation_provenance") or {}).get(
+            "asset_intelligence"
+        ) or {}
+    enabled = bool(intel.get("enabled") and intel.get("cache_hit"))
+    selected_intel = (
+        (product_info or {}).get("asset_intelligence_results")
+        or intel.get("results")
+        or []
+    )
+    has_screenshot = False
+    has_packaging = False
+    for row in selected_intel:
+        if not isinstance(row, dict):
+            continue
+        if row.get("is_screenshot"):
+            has_screenshot = True
+        if row.get("is_packaging"):
+            has_packaging = True
+    if enabled and has_screenshot:
+        constraints.append("screenshot_not_physical_instance")
+    if enabled and has_packaging:
+        constraints.append("packaging_not_silent_hero")
     primary_count = 1
     if display == "reference_supported_group" and isinstance(structured_group, dict):
         raw_count = structured_group.get("primary_subject_count") or structured_group.get(

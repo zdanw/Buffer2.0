@@ -89,6 +89,7 @@ class ProductImageSchema(BaseModel):
     sort_index: Optional[int] = None
     is_preferred: bool = False
     analysis_status: Optional[str] = None
+    intelligence_label: Optional[str] = None
 
 class ProductResponse(ProductBase):
     product_id: UUID
@@ -96,6 +97,8 @@ class ProductResponse(ProductBase):
     updated_at: datetime
     images: List[ProductImageSchema] = []
     brand: Optional[BrandNested] = None
+    offering_type_suggestion: Optional[str] = None
+    intelligence_cached: Optional[bool] = None
     
     model_config = {"from_attributes": True}
     

@@ -21,4 +21,5 @@ APP_RLS_TABLES: tuple[str, ...] = (
     "stripe_subscriptions",
     "generation_runs",
     "generation_artifacts",
+    "product_image_analyses",
 )

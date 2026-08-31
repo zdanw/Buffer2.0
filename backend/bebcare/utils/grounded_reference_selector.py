@@ -56,6 +56,7 @@ class GroundedSelection:
     grounded: bool
     requested_experiment_variant: Optional[str] = None
     deterministic_metadata: Optional[dict] = None
+    asset_intelligence: Optional[dict] = None
 
 
 def _legacy_manifest_from_urls(
@@ -218,11 +219,27 @@ def select_grounded_references(
     image_size: str | None = None,
     pinned_product_image_ids: list[str] | None = None,
     pinned_scene_image_ids: list[str] | None = None,
+    intelligence_by_image: dict | None = None,
 ) -> GroundedSelection:
     count = max(int(reference_count or 1), 1)
     products = [img for img in _owned_images(session, product_id, owner_user_id, "product") if _valid_candidate(img)]
     scenes = [img for img in _owned_images(session, product_id, owner_user_id, "scene") if _valid_candidate(img)]
     repeats = recent_primary_counts(session, product_id)
+    intel = intelligence_by_image or {}
+
+    def rank_key(image: ProductImage, score: float):
+        result = intel.get(image.image_id)
+        avoid = 0
+        if result is not None and not image.is_preferred:
+            if getattr(result, "is_packaging", lambda: False)() or getattr(
+                result, "generation_suitability", ""
+            ) == "avoid_as_primary":
+                avoid = 1
+        return (
+            avoid,
+            -score,
+            *tie_break_key(image.sort_index, image.uploaded_at, image.image_id),
+        )
 
     try:
         pinned_products = (
@@ -296,7 +313,7 @@ def select_grounded_references(
             target_aspect = parse_target_aspect(image_size)
             ranked = sorted(
                 pool,
-                key=lambda img: _rank_key(
+                key=lambda img: rank_key(
                     img,
                     suitability_score(
                         width=img.width,
@@ -332,7 +349,7 @@ def select_grounded_references(
         while len(selected_products) < count and pool:
             ranked_support = sorted(
                 pool,
-                key=lambda img: _rank_key(
+                key=lambda img: rank_key(
                     img,
                     suitability_score(
                         width=img.width,
@@ -393,7 +410,7 @@ def select_grounded_references(
             elif scenes:
                 ranked_scenes = sorted(
                     scenes,
-                    key=lambda img: _rank_key(
+                    key=lambda img: rank_key(
                         img,
                         suitability_score(
                             width=img.width,

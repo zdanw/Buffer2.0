@@ -118,6 +118,10 @@ def _build_product_info(
         "executed_pipeline_version": selected.executed_pipeline_version,
         "grounded_phase1b_enabled": bool(selected.grounded),
         "generation_provenance": selection_provenance(selected, source=source),
+        "asset_intelligence": getattr(selected, "asset_intelligence", None),
+        "asset_intelligence_results": (
+            (getattr(selected, "asset_intelligence", None) or {}).get("results") or []
+        ),
     }
     from bebcare.services.generation_plan import attach_generation_plan
 

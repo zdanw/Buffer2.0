@@ -39,6 +39,8 @@ export interface Product {
   use_brand_voice?: boolean;
   has_on_body_branding?: boolean;
   offering_type?: OfferingType;
+  offering_type_suggestion?: string | null;
+  intelligence_cached?: boolean;
   brand?: BrandNested | null;
   created_at: string;
   updated_at: string;
@@ -58,6 +60,7 @@ export interface ProductImage {
   sort_index?: number | null;
   is_preferred?: boolean;
   analysis_status?: string | null;
+  intelligence_label?: string | null;
 }
 
 export interface ProductCreate {

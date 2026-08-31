@@ -75,6 +75,7 @@ def selection_provenance(selection, *, source: str) -> dict:
         "reference_manifest": selection.manifest,
         "grounded_phase1b_enabled": eligible,
         "deterministic_metadata": getattr(selection, "deterministic_metadata", None),
+        "asset_intelligence": getattr(selection, "asset_intelligence", None),
     }
 
 

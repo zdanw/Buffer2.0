@@ -19,6 +19,7 @@ from .image_credit import ImageCreditGrant, ImageCreditReservation
 from .stripe_checkout import StripeCheckoutSession
 from .stripe_subscription import StripeSubscription
 from .generation_run import GenerationRun, GenerationArtifact
+from .product_image_analysis import ProductImageAnalysis
 
 __all__ = [
     "Brand",
@@ -47,4 +48,5 @@ __all__ = [
     "StripeSubscription",
     "GenerationRun",
     "GenerationArtifact",
+    "ProductImageAnalysis",
 ]
