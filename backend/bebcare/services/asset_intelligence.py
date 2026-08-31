@@ -17,6 +17,8 @@ from bebcare.models.product_image_analysis import ProductImageAnalysis
 from bebcare.schemas.asset_intelligence import (
     SEMANTIC_SCHEMA_VERSION,
     AssetIntelligenceResult,
+    compact_catalog_context,
+    offering_context_for_product,
     offering_context_version,
     parse_intelligence_result,
 )
@@ -70,7 +72,7 @@ def load_usable_analyses(
     if not hashes:
         return {}
     product = session.query(Product).filter(Product.product_id == product_id).first()
-    context = offering_context_version(getattr(product, "offering_type", None) if product else None)
+    context = offering_context_for_product(product)
     rows = (
         session.query(ProductImageAnalysis)
         .filter(
@@ -103,9 +105,15 @@ def analysis_for_image(
     owner_user_id: str,
     image: ProductImage,
     offering_type: str | None,
+    product: Product | None = None,
 ) -> Optional[ProductImageAnalysis]:
     if not image.content_hash:
         return None
+    context = (
+        offering_context_for_product(product, offering_type)
+        if product is not None
+        else offering_context_version(offering_type)
+    )
     return (
         session.query(ProductImageAnalysis)
         .filter(
@@ -113,7 +121,7 @@ def analysis_for_image(
             ProductImageAnalysis.content_hash == image.content_hash,
             ProductImageAnalysis.schema_version == SEMANTIC_SCHEMA_VERSION,
             ProductImageAnalysis.model_version == _model_version(),
-            ProductImageAnalysis.offering_context_version == offering_context_version(offering_type),
+            ProductImageAnalysis.offering_context_version == context,
         )
         .first()
     )
@@ -239,7 +247,7 @@ def run_intelligence_job(
         if not product:
             return outcomes
         offering = getattr(product, "offering_type", None) or "unknown"
-        context = offering_context_version(offering)
+        context = offering_context_for_product(product, offering)
         images = (
             db.query(ProductImage)
             .filter(
@@ -255,7 +263,11 @@ def run_intelligence_job(
                 outcomes["skipped"].append({"image_id": image.image_id, "reason": "missing_content_hash"})
                 continue
             existing = analysis_for_image(
-                db, owner_user_id=owner_user_id, image=image, offering_type=offering
+                db,
+                owner_user_id=owner_user_id,
+                image=image,
+                offering_type=offering,
+                product=product,
             )
             if is_usable_cache_hit(existing):
                 existing.product_image_id = existing.product_image_id or image.image_id
@@ -310,10 +322,15 @@ def _reload_cache_row(
     owner_user_id: str,
     image: ProductImage,
     offering: str,
+    product: Product | None = None,
 ) -> Optional[ProductImageAnalysis]:
     db.expire_all()
     return analysis_for_image(
-        db, owner_user_id=owner_user_id, image=image, offering_type=offering
+        db,
+        owner_user_id=owner_user_id,
+        image=image,
+        offering_type=offering,
+        product=product,
     )
 
 
@@ -354,7 +371,11 @@ def _analyze_one(
     except IntegrityError:
         db.rollback()
         recovered = _reload_cache_row(
-            db, owner_user_id=owner_user_id, image=image, offering=offering
+            db,
+            owner_user_id=owner_user_id,
+            image=image,
+            offering=offering,
+            product=product,
         )
         if is_usable_cache_hit(recovered):
             outcomes["skipped"].append({"image_id": image.image_id, "reason": "cache_hit"})
@@ -365,6 +386,11 @@ def _analyze_one(
         payload = analyze_reference_image(
             image_url=image.cdn_url,
             offering_type=offering,
+            catalog_context=compact_catalog_context(
+                getattr(product, "category", None),
+                getattr(product, "description", None),
+                getattr(product, "selling_points", None),
+            ),
             complete=complete,
         )
         result: AssetIntelligenceResult = payload["result"]

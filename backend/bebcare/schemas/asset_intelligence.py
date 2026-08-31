@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -126,9 +127,82 @@ class AssetIntelligenceResult(BaseModel):
         return True
 
 
-def offering_context_version(offering_type: str | None) -> str:
+CATALOG_CATEGORY_CAP = 80
+CATALOG_DESCRIPTION_CAP = 400
+CATALOG_POINT_CAP = 80
+CATALOG_POINT_MAX = 5
+
+
+def _selling_point_list(raw: Any) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        items = [str(item) for item in raw]
+    else:
+        items = str(raw).split(",")
+    points: list[str] = []
+    for item in items:
+        text = item.strip()[:CATALOG_POINT_CAP]
+        if text:
+            points.append(text)
+        if len(points) >= CATALOG_POINT_MAX:
+            break
+    return points
+
+
+def compact_catalog_context(
+    category: str | None = None,
+    description: str | None = None,
+    selling_points: Any = None,
+) -> str:
+    """Capped catalog notes for vision analysis. User text is untrusted."""
+    cat = (category or "").strip()[:CATALOG_CATEGORY_CAP]
+    desc = (description or "").strip()[:CATALOG_DESCRIPTION_CAP]
+    points = _selling_point_list(selling_points)
+    return "\n".join(
+        (
+            f"category: {cat}" if cat else "category:",
+            f"description: {desc}" if desc else "description:",
+            f"selling_points: {'; '.join(points)}" if points else "selling_points:",
+        )
+    )
+
+
+def catalog_context_digest(catalog_text: str) -> str:
+    blob = (catalog_text or "").strip()
+    useful = blob.replace("category:", "").replace("description:", "").replace(
+        "selling_points:", ""
+    )
+    if not useful.strip():
+        return "none"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
+
+
+def offering_context_version(
+    offering_type: str | None,
+    *,
+    category: str | None = None,
+    description: str | None = None,
+    selling_points: Any = None,
+) -> str:
     kind = (offering_type or "unknown").strip().lower() or "unknown"
-    return f"{OFFERING_CONTEXT_PREFIX}:{kind}"
+    digest = catalog_context_digest(
+        compact_catalog_context(category, description, selling_points)
+    )
+    return f"{OFFERING_CONTEXT_PREFIX}:{kind}:{digest}"
+
+
+def offering_context_for_product(product: Any, offering_type: str | None = None) -> str:
+    if product is None:
+        return offering_context_version(offering_type)
+    return offering_context_version(
+        offering_type
+        if offering_type is not None
+        else getattr(product, "offering_type", None),
+        category=getattr(product, "category", None),
+        description=getattr(product, "description", None),
+        selling_points=getattr(product, "selling_points", None),
+    )
 
 
 def parse_intelligence_result(payload: Any) -> AssetIntelligenceResult:

@@ -12,7 +12,11 @@ from bebcare.database import SessionLocal
 from bebcare.models.product import Product, ProductImage
 from bebcare.models.product_image_analysis import ProductImageAnalysis
 from bebcare.models.user import User
-from bebcare.schemas.asset_intelligence import SEMANTIC_SCHEMA_VERSION, offering_context_version
+from bebcare.schemas.asset_intelligence import (
+    SEMANTIC_SCHEMA_VERSION,
+    offering_context_for_product,
+    offering_context_version,
+)
 from bebcare.services.asset_intelligence import (
     _analyze_one,
     analysis_for_image,
@@ -203,7 +207,11 @@ def _run_failing_job(complete, *, color=(9, 8, 7, 255), name="Fail Job"):
             complete=complete,
         )
         row = analysis_for_image(
-            db, owner_user_id=owner.user_id, image=image, offering_type="unknown"
+            db,
+            owner_user_id=owner.user_id,
+            image=image,
+            offering_type="unknown",
+            product=db.query(Product).filter(Product.product_id == product_id).one(),
         )
         return db, owner, product_id, image, row
     except Exception:
@@ -304,7 +312,9 @@ def test_max_attempts_stop_retries(client):
             content_hash=image.content_hash,
             schema_version=SEMANTIC_SCHEMA_VERSION,
             model_version=analysis_model_version(),
-            offering_context_version=offering_context_version("unknown"),
+            offering_context_version=offering_context_version(
+                "unknown", category="test", description="d"
+            ),
             status="failed",
             failure_type=FAILURE_TRANSIENT,
             error_category="timeout",
@@ -486,7 +496,9 @@ def test_unique_constraint_race_no_second_call(client):
             content_hash=image.content_hash,
             schema_version=SEMANTIC_SCHEMA_VERSION,
             model_version=analysis_model_version(),
-            offering_context_version=offering_context_version("unknown"),
+            offering_context_version=offering_context_version(
+                "unknown", category="test", description="d"
+            ),
             status="ready",
             normalized_result=_ok_body(),
             product_image_id=image.image_id,
@@ -508,7 +520,7 @@ def test_unique_constraint_race_no_second_call(client):
             product=product,
             owner_user_id=owner.user_id,
             offering="unknown",
-            context="offering_v1:unknown",
+            context=offering_context_for_product(product, "unknown"),
             existing=None,
             complete=boom,
             outcomes=outcomes,
@@ -532,7 +544,9 @@ def test_duplicate_active_job_skips_provider(client):
             content_hash=image.content_hash,
             schema_version=SEMANTIC_SCHEMA_VERSION,
             model_version=analysis_model_version(),
-            offering_context_version=offering_context_version("unknown"),
+            offering_context_version=offering_context_version(
+                "unknown", category="test", description="d"
+            ),
             status="analyzing",
             last_attempt_at=datetime.utcnow(),
             attempt_count=1,
@@ -639,7 +653,11 @@ def test_rollout_off_and_cache_hit_zero_calls(client):
         assert calls["n"] == 0
         assert is_usable_cache_hit(
             analysis_for_image(
-                db, owner_user_id=owner.user_id, image=image, offering_type="unknown"
+                db,
+                owner_user_id=owner.user_id,
+                image=image,
+                offering_type="unknown",
+                product=db.query(Product).filter(Product.product_id == product_id).one(),
             )
         )
     finally:
@@ -685,7 +703,9 @@ def test_schema_version_change_new_cache_identity(client):
             content_hash=image.content_hash,
             schema_version="sem_v0",
             model_version=analysis_model_version(),
-            offering_context_version=offering_context_version("unknown"),
+            offering_context_version=offering_context_version(
+                "unknown", category="test", description="d"
+            ),
             status="failed",
             failure_type=FAILURE_PERMANENT,
             error_category="structured_output_invalid",

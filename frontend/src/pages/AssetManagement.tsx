@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus, Star } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse, OfferingType } from '@/api/products';
-import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred, OFFERING_TYPES } from '@/api/products';
+import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred } from '@/api/products';
 import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
 import type { DimensionType } from '@/api/dimensions';
 import { getDimensionTypes } from '@/api/dimensions';
@@ -26,6 +26,7 @@ import BrandPicker from '@/components/BrandPicker';
 import BrandBadge from '@/components/BrandBadge';
 import BrandInheritanceHint from '@/components/BrandInheritanceHint';
 import CategoryCombobox, { findCanonicalCategory } from '@/components/CategoryCombobox';
+import VisualSetupRow from '@/components/VisualSetupRow';
 import SetupFlowCallout from '@/components/SetupFlowCallout';
 import {
   clearProductFormDraft,
@@ -1001,6 +1002,15 @@ export default function AssetManagement() {
                     required
                   />
                 </div>
+                <VisualSetupRow
+                  value={formData.offering_type}
+                  suggestion={
+                    (formData.offering_type || 'unknown') === 'unknown'
+                      ? selectedProduct?.offering_type_suggestion
+                      : null
+                  }
+                  onChange={(offering_type) => setFormData({ ...formData, offering_type })}
+                />
                 <div>
                   <LabelWithTooltip
                     label={t('assets.description')}
@@ -1051,40 +1061,6 @@ export default function AssetManagement() {
                     </span>
                   </label>
                   <p className="mt-1 text-xs text-gray-500">{t('assets.hasOnBodyBrandingHint')}</p>
-                </div>
-                <div>
-                  <LabelWithTooltip
-                    label={t('assets.offeringType')}
-                    tooltip={t('assets.tooltips.offeringType')}
-                    required={false}
-                  />
-                  <select
-                    value={formData.offering_type || 'unknown'}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        offering_type: e.target.value as OfferingType,
-                      })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent bg-white"
-                  >
-                    {OFFERING_TYPES.map((value) => (
-                      <option key={value} value={value}>
-                        {t(`assets.offeringTypes.${value}`)}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">{t('assets.offeringTypeHint')}</p>
-                  {selectedProduct?.offering_type_suggestion &&
-                    (formData.offering_type || 'unknown') === 'unknown' && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {t('assets.offeringTypeSuggestion', {
-                          type: t(
-                            `assets.offeringTypes.${selectedProduct.offering_type_suggestion}`,
-                          ),
-                        })}
-                      </p>
-                    )}
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
