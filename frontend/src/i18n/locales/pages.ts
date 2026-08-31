@@ -279,6 +279,7 @@ export const pagesEn: TranslationTree = {
     linkDimensions: 'Visual style presets',
     linkAutomations: 'Automations',
     linkImageModels: 'Image models',
+    linkHelp: 'Help Center — full user guide',
   },
   studio: {
     title: 'Studio',
@@ -1073,6 +1074,7 @@ export const pagesZh: TranslationTree = {
     linkDimensions: '视觉风格预设',
     linkAutomations: '自动化任务',
     linkImageModels: '图像模型',
+    linkHelp: '帮助中心 — 完整使用指南',
   },
   studio: {
     title: 'Studio',

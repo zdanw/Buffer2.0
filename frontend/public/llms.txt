@@ -1,0 +1,42 @@
+# PulseForge
+
+> Social content, forged at scale — multi-brand AI social media automation.
+
+## Documentation (preferred for LLM ingestion)
+
+- Help index (SPA): https://pulseforge.app/docs
+- FAQ (SPA): https://pulseforge.app/docs/faq
+- Static HTML mirror: https://pulseforge.app/docs/html/
+- Repository markdown: docs/README.md
+
+## Guides
+
+- https://pulseforge.app/docs/quick-start
+- https://pulseforge.app/docs/onboarding
+- https://pulseforge.app/docs/brand-kits
+- https://pulseforge.app/docs/products
+- https://pulseforge.app/docs/visual-styles
+- https://pulseforge.app/docs/studio
+- https://pulseforge.app/docs/automations
+- https://pulseforge.app/docs/review
+- https://pulseforge.app/docs/calendar
+- https://pulseforge.app/docs/buffer
+- https://pulseforge.app/docs/image-models
+- https://pulseforge.app/docs/billing
+- https://pulseforge.app/docs/html/getting-started-quick-start.html
+- https://pulseforge.app/docs/html/getting-started-onboarding.html
+- https://pulseforge.app/docs/html/guides-brand-kits.html
+- https://pulseforge.app/docs/html/guides-products.html
+- https://pulseforge.app/docs/html/guides-visual-styles.html
+- https://pulseforge.app/docs/html/guides-studio.html
+- https://pulseforge.app/docs/html/guides-automations.html
+- https://pulseforge.app/docs/html/guides-review.html
+- https://pulseforge.app/docs/html/guides-calendar.html
+- https://pulseforge.app/docs/html/guides-buffer.html
+- https://pulseforge.app/docs/html/guides-image-models.html
+- https://pulseforge.app/docs/html/guides-billing.html
+
+## FAQ
+
+- https://pulseforge.app/docs/faq
+- https://pulseforge.app/docs/html/faq.html

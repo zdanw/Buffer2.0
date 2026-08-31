@@ -28,9 +28,11 @@ const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings')
 const SystemImageProviderSettings = lazy(() => import('./pages/SystemImageProviderSettings'));
 const BufferAccountSettings = lazy(() => import('./pages/BufferAccountSettings'));
 const VisionModelPlayground = lazy(() => import('./pages/VisionModelPlayground'));
+const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const Landing = lazy(() => import('./pages/Landing'));
+const PublicDocs = lazy(() => import('./pages/PublicDocs'));
 
 const TAB_ROUTES: Record<string, string> = {
   brand: '/brand',
@@ -43,6 +45,7 @@ const TAB_ROUTES: Record<string, string> = {
   'image-models': '/image-models',
   'buffer-accounts': '/buffer-accounts',
   account: '/account',
+  help: '/help',
   'system-image': '/system-image',
   users: '/users',
   ...(import.meta.env.DEV ? { 'vision-playground': '/vision-playground' } : {}),
@@ -64,6 +67,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/image-models': 'image-models',
   '/buffer-accounts': 'buffer-accounts',
   '/account': 'account',
+  '/help': 'help',
   '/system-image': 'system-image',
   '/users': 'users',
   ...(import.meta.env.DEV ? { '/vision-playground': 'vision-playground' } : {}),
@@ -273,6 +277,7 @@ function AppContent() {
           {lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)}
           {lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)}
           {lazyPanel('account', activeTab, mountedTabs, AccountSettings)}
+          {lazyPanel('help', activeTab, mountedTabs, HelpCenter)}
           {currentUser?.is_admin
             ? lazyPanel('system-image', activeTab, mountedTabs, SystemImageProviderSettings)
             : null}
@@ -352,6 +357,14 @@ function App() {
                 <Signup />
               </Suspense>
             </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/docs/*"
+          element={
+            <Suspense fallback={<AppShellFallback />}>
+              <PublicDocs />
+            </Suspense>
           }
         />
         {Object.entries(LEGACY_REDIRECTS).map(([from]) => (

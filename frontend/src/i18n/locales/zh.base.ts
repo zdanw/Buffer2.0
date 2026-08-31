@@ -32,6 +32,7 @@ export const zh: TranslationTree = {
     systemImage: '平台图像',
     users: '用户管理',
     visionPlayground: 'Agnes 测试',
+    help: '帮助',
     logout: '退出登录',
     adminAccount: '管理员账户',
     openMenu: '打开菜单',

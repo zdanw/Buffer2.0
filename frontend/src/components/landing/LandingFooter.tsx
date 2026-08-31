@@ -7,6 +7,7 @@ const PRODUCT_LINKS = [
   { href: '#showcase', labelKey: 'landing.navShowcase' },
   { href: '#for-teams', labelKey: 'landing.navForTeams' },
   { href: '#how-it-works', labelKey: 'landing.navHow' },
+  { to: '/docs', labelKey: 'nav.help' },
 ] as const;
 
 export default function LandingFooter() {
@@ -34,13 +35,22 @@ export default function LandingFooter() {
             <h2 className="text-sm font-semibold text-ink-900">{t('landing.footerProductHeading')}</h2>
             <ul className="mt-4 space-y-2.5">
               {PRODUCT_LINKS.map((link) => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-ink-500 hover:text-forge-600 transition-colors"
-                  >
-                    {t(link.labelKey)}
-                  </a>
+                <li key={'to' in link ? link.to : link.href}>
+                  {'to' in link ? (
+                    <Link
+                      to={link.to}
+                      className="text-sm text-ink-500 hover:text-forge-600 transition-colors"
+                    >
+                      {t(link.labelKey)}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-sm text-ink-500 hover:text-forge-600 transition-colors"
+                    >
+                      {t(link.labelKey)}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

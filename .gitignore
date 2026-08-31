@@ -69,8 +69,8 @@ instance/
 # Scrapy
 .scrapy
 
-# Sphinx / local docs (specs & plans stay local; not committed)
-docs/
+# Local planning notes only (user-facing guides in /docs are committed)
+/docs/private/
 
 # PyBuilder
 .pybuilder/

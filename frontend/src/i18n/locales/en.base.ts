@@ -33,6 +33,7 @@ export const en: TranslationTree = {
     systemImage: 'Platform Image',
     users: 'Users',
     visionPlayground: 'Agnes Playground',
+    help: 'Help',
     logout: 'Log out',
     adminAccount: 'Admin account',
     openMenu: 'Open menu',

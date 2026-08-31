@@ -1,4 +1,4 @@
-import { Calendar, Image, Settings, Clock, LogOut, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, UserRound, Bot } from 'lucide-react';
+import { Calendar, Image, Settings, Clock, LogOut, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, UserRound, Bot, BookOpen } from 'lucide-react';
 import { clearAuth } from '../api/auth';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -43,6 +43,7 @@ const settingsItems: NavItem[] = [
   { id: 'image-models', labelKey: 'nav.imageModels', icon: Cpu },
   { id: 'buffer-accounts', labelKey: 'nav.bufferAccounts', icon: Share2 },
   { id: 'account', labelKey: 'nav.account', icon: UserRound },
+  { id: 'help', labelKey: 'nav.help', icon: BookOpen },
 ];
 
 const adminItems: NavItem[] = [

@@ -62,7 +62,7 @@ export default function OnboardingWizard({ onComplete, onSkip, onGoStudio }: Onb
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
+    <div data-help-overlay="onboarding-wizard" className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex justify-end p-3">
           <button

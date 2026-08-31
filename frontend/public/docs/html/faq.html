@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ | PulseForge</title>
+  <meta name="description" content="PulseForge frequently asked questions" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pulseforge.app/docs/html/faq.html" />
+  <meta property="og:title" content="FAQ | PulseForge" />
+  <meta property="og:description" content="PulseForge frequently asked questions" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://pulseforge.app/docs/html/faq.html" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "name": "PulseForge FAQ"}</script>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="https://pulseforge.app/">PulseForge</a> ·
+      <a href="https://pulseforge.app/docs">Help Center</a> ·
+      <a href="https://pulseforge.app/docs/faq">FAQ</a> ·
+      <a href="https://pulseforge.app/signup">Sign up</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Frequently asked questions</h1>
+<h2>What is PulseForge?</h2>
+<p>PulseForge is a multi-brand social content platform. You define brand voice and product assets, then AI generates platform-specific copy and images. Content can auto-publish via Buffer or go through a Review queue first.</p>
+<h2>What is the difference between auto and manual publish?</h2>
+<p>|------|----------|</p>
+<p>Start with manual until output quality is consistent.</p>
+<h2>Why do I need a Buffer token?</h2>
+<p>PulseForge does not post directly to Instagram or Facebook. [Buffer](https://buffer.com) handles scheduling and delivery. Each **brand kit** binds to **one** Buffer API token.</p>
+<p>See [Buffer setup guide](guides/buffer.md).</p>
+<h2>How do image credits work?</h2>
+<ul>
+<li>Each image generation uses **one platform credit** by default</li>
+<li>Signup and onboarding include free credits</li>
+<li>Subscribe on the **Account** page for monthly packs</li>
+<li>Add your own API key under **Image Models** (BYOK) to bypass platform credits</li>
+</ul>
+<h2>Why must images be on CDN before publishing?</h2>
+<p>Generated images may start on temporary URLs. Buffer needs stable public links. PulseForge uploads to GitHub CDN. In **Review**, images marked **Not on CDN** must be re-uploaded before publish.</p>
+<h2>Why did generation fail?</h2>
+<p>Common causes:</p>
+<p><strong>**No product reference images**</strong></p>
+<p><strong>**No credits left**</strong></p>
+<p><strong>**API unreachable**</strong></p>
+<p><strong>**Image provider misconfigured**</strong></p>
+<h2>How do I write a CRON expression?</h2>
+<p>Five fields: `minute hour day month weekday`</p>
+<p>|---------|---------|</p>
+<p>The Automations form validates your expression.</p>
+<h2>What is the Generic brand?</h2>
+<p>A fallback when you don&#x27;t need brand-specific rules. Products without a brand kit still generate with neutral voice. Create a named brand for consistent tone and Buffer binding.</p>
+<h2>How are logos handled in generated images?</h2>
+<p>Per brand kit:</p>
+<p>|---------|--------|</p>
+<h2>What language is content generated in?</h2>
+<ul>
+<li>**Social copy** — English by default, tuned per platform</li>
+<li>**Image prompts** — Chinese internally (for the image model)</li>
+<li>**App UI** — English or 中文 via the sidebar language toggle</li>
+</ul>
+<h2>Where is the full user guide?</h2>
+<p>Log in → **Settings → Help** in the sidebar, or read the [docs index](README.md).</p>
+    <p><a href="https://pulseforge.app/docs">← All guides</a></p>
+  </main>
+</body>
+</html>

@@ -45,7 +45,7 @@ export default function OnboardingChecklist({
   if (allDone) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+    <div data-help-overlay="onboarding-checklist" className="fixed bottom-4 right-4 z-40 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
       <button
         type="button"
         onClick={toggleOpen}
@@ -95,6 +95,9 @@ export default function OnboardingChecklist({
             );
           })}
           <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{t('onboarding.optionalSetup')}</p>
+          <button type="button" onClick={() => onNavigate('help')} className="text-xs text-forge-600 hover:underline block">
+            {t('onboarding.linkHelp')}
+          </button>
           <button type="button" onClick={() => onNavigate('automations')} className="text-xs text-forge-600 hover:underline block">
             {t('onboarding.linkAutomations')}
           </button>
