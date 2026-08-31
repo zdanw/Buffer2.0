@@ -2,7 +2,7 @@
 
 Welcome to the PulseForge documentation. These guides are for **operators, marketers, and content teams** using the platform day to day.
 
-> **In-app Help Center:** After logging in, open **Settings → Help** in the sidebar for the same content with live screenshots and search.
+> **In-app Help Center:** After logging in, click **Help** in the top-right bar for the same content with live screenshots and search.
 
 > **Public docs (indexable):** [/docs](/docs) — no login required. Crawlers and LLMs can also use [/llms.txt](/llms.txt), [/sitemap.xml](/sitemap.xml), and static HTML at `/docs/html/`.
 

@@ -73,4 +73,4 @@ Per brand kit:
 
 ## Where is the full user guide?
 
-Log in → **Settings → Help** in the sidebar, or read the [docs index](README.md).
+Log in → **Help** in the top-right bar, or read the [docs index](README.md).

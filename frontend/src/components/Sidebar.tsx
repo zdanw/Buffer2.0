@@ -1,5 +1,4 @@
-import { Calendar, Image, Settings, Clock, LogOut, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, UserRound, Bot, BookOpen } from 'lucide-react';
-import { clearAuth } from '../api/auth';
+import { Calendar, Image, Settings, Clock, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, Bot } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import BrandLogo from './BrandLogo';
@@ -42,8 +41,6 @@ const insightsItems: NavItem[] = [
 const settingsItems: NavItem[] = [
   { id: 'image-models', labelKey: 'nav.imageModels', icon: Cpu },
   { id: 'buffer-accounts', labelKey: 'nav.bufferAccounts', icon: Share2 },
-  { id: 'account', labelKey: 'nav.account', icon: UserRound },
-  { id: 'help', labelKey: 'nav.help', icon: BookOpen },
 ];
 
 const adminItems: NavItem[] = [
@@ -57,11 +54,6 @@ const devItems: NavItem[] = [
 
 export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = false, onClose }: SidebarProps) {
   const { t } = useI18n();
-
-  const handleLogout = () => {
-    clearAuth();
-    window.location.href = '/login';
-  };
 
   const groups: NavGroup[] = [
     { labelKey: 'nav.groups.content', items: contentItems },
@@ -143,16 +135,9 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
 
         <div className="mt-auto pt-5 border-t border-white/10">
           <LanguageSwitcher />
-          <button
-            onClick={handleLogout}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white/80 transition-colors duration-150 cursor-pointer text-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="font-medium">{t('nav.logout')}</span>
-          </button>
-          {isAdmin && (
-            <p className="text-white/30 text-xs text-center mt-2">{t('nav.adminAccount')}</p>
-          )}
+          {isAdmin ? (
+            <p className="text-white/30 text-xs text-center mt-3">{t('nav.adminAccount')}</p>
+          ) : null}
         </div>
       </aside>
     </>

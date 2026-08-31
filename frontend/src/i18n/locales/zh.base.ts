@@ -33,6 +33,7 @@ export const zh: TranslationTree = {
     users: '用户管理',
     visionPlayground: 'Agnes 测试',
     help: '帮助',
+    userMenu: '{{name}} 的账户菜单',
     logout: '退出登录',
     adminAccount: '管理员账户',
     openMenu: '打开菜单',

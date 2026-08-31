@@ -34,6 +34,7 @@ export const en: TranslationTree = {
     users: 'Users',
     visionPlayground: 'Agnes Playground',
     help: 'Help',
+    userMenu: 'Account menu for {{name}}',
     logout: 'Log out',
     adminAccount: 'Admin account',
     openMenu: 'Open menu',
