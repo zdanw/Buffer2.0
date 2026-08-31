@@ -542,6 +542,13 @@ export const pagesEn: TranslationTree = {
     generateFailed: 'Generation request failed. Please try again.',
     connectionRetry:
       'Connection timed out, but your task may still be running. Continuing to poll…',
+    pollConnectionDegraded:
+      'Cannot reach the server for task status updates. Your generation may still be running in the background.',
+    pollConnectionStalled:
+      'Status updates timed out. The task may already be finished — use Refresh status to check again.',
+    refreshStatus: 'Refresh status',
+    refreshingStatus: 'Refreshing…',
+    pollRefreshFailed: 'Could not refresh task status. Please try again in a moment.',
     generateCopyFirst: 'Generate copy before publishing',
     generateBeforeSave: 'Generate copy or images before saving',
     saveFailed: 'Failed to save to pending. Please try again.',
@@ -1305,6 +1312,13 @@ export const pagesZh: TranslationTree = {
       '品牌「{{name}}」尚未绑定 Buffer 账户，请到「品牌管理」中绑定后再发布。',
     generateFailed: '生成请求失败，请稍后重试',
     connectionRetry: '连接超时，任务可能仍在后台运行，正在继续等待…',
+    pollConnectionDegraded:
+      '无法获取任务进度，后台生成可能仍在进行，请稍候…',
+    pollConnectionStalled:
+      '状态更新超时，任务可能已完成，请点击「刷新状态」重新查询。',
+    refreshStatus: '刷新状态',
+    refreshingStatus: '刷新中…',
+    pollRefreshFailed: '刷新状态失败，请稍后再试。',
     generateCopyFirst: '请先生成文案后再发布',
     generateBeforeSave: '请先生成文案或图片后再保存',
     saveFailed: '保存到待发布失败，请重试',

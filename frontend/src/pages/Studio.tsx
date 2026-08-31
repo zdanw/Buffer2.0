@@ -11,6 +11,8 @@ import {
   aggregateGenerateProgress,
   buildGenerateProgressLayout,
   fetchGenerateStatuses,
+  POLL_STALL_CONSECUTIVE_FAILURES,
+  POLL_WARN_CONSECUTIVE_FAILURES,
   resolveReferenceSelection,
   type GenerateRequest,
   type GenerateStatus,
@@ -56,6 +58,8 @@ interface ScenePipelineSlot {
 type CompareSceneResults = Record<ScenePipelineKey, ScenePipelineSlot | null>;
 
 type GenerateType = 'all' | 'copywriting' | 'image';
+
+type PollHealth = 'ok' | 'degraded' | 'stalled';
 
 const OPTIMISTIC_GENERATE_STATUS: GenerateStatus = {
   task_id: '',
@@ -314,6 +318,9 @@ export default function Studio() {
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
   const monotonicProgressRef = useRef(0);
   const taskStatusesRef = useRef<GenerateStatus[]>([]);
+  const consecutivePollFailuresRef = useRef(0);
+  const [pollHealth, setPollHealth] = useState<PollHealth>('ok');
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   const progressLayout = useMemo(
     () =>
@@ -350,6 +357,9 @@ export default function Studio() {
   const finishGeneration = useCallback(
     (outcome: 'SUCCESS' | 'FAILURE', opts?: { error?: string; taskId?: string }) => {
       monotonicProgressRef.current = 0;
+      consecutivePollFailuresRef.current = 0;
+      setPollHealth('ok');
+      setIsRefreshingStatus(false);
       setIsGenerating(false);
       setGeneratingType(null);
       setActiveTaskIds([]);
@@ -519,6 +529,96 @@ export default function Studio() {
     [finishGeneration],
   );
 
+  const recordPollOutcome = useCallback((allSucceeded: boolean) => {
+    if (allSucceeded) {
+      consecutivePollFailuresRef.current = 0;
+      setPollHealth('ok');
+      return;
+    }
+    consecutivePollFailuresRef.current += 1;
+    const failures = consecutivePollFailuresRef.current;
+    if (failures >= POLL_STALL_CONSECUTIVE_FAILURES) {
+      setPollHealth('stalled');
+    } else if (failures >= POLL_WARN_CONSECUTIVE_FAILURES) {
+      setPollHealth('degraded');
+    }
+  }, []);
+
+  const processPollRound = useCallback(
+    (
+      statuses: GenerateStatus[],
+      pollSucceeded: boolean,
+    ): boolean => {
+      recordPollOutcome(pollSucceeded);
+      taskStatusesRef.current = statuses;
+      setTaskStatuses(statuses);
+      applyAggregateStatus(statuses, activeTaskIds[0]);
+
+      const compareMode =
+        (generatingType === 'image' || generatingType === 'all') &&
+        useSceneReference &&
+        compareScenePipelines;
+
+      applyPartialResults(
+        statuses,
+        generatingType as GenerateType | null,
+        compareMode,
+        activeTaskIds,
+      );
+
+      const allTerminal = statuses.every((s) => isTerminalStatus(s.status));
+      const compareAllReady = isCompareAllBatchReady(
+        activeTaskIds,
+        generatingType,
+        compareMode,
+      );
+
+      if (allTerminal && compareAllReady) {
+        applyRecoveredResults(
+          statuses,
+          generatingType as GenerateType | null,
+          compareMode,
+          activeTaskIds,
+        );
+        return true;
+      }
+      return false;
+    },
+    [
+      activeTaskIds,
+      generatingType,
+      useSceneReference,
+      compareScenePipelines,
+      applyAggregateStatus,
+      applyPartialResults,
+      applyRecoveredResults,
+      recordPollOutcome,
+    ],
+  );
+
+  const runStatusPoll = useCallback(async (): Promise<boolean> => {
+    if (activeTaskIds.length === 0) return false;
+    const previousById = statusMap(taskStatusesRef.current);
+    const { statuses, allSucceeded } = await fetchGenerateStatuses(
+      activeTaskIds,
+      previousById,
+    );
+    return processPollRound(statuses, allSucceeded);
+  }, [activeTaskIds, processPollRound]);
+
+  const handleManualRefreshStatus = async () => {
+    if (activeTaskIds.length === 0 || isRefreshingStatus) return;
+    setIsRefreshingStatus(true);
+    try {
+      await runStatusPoll();
+    } catch (error) {
+      console.error('Failed to refresh generate status:', error);
+      toast.error(t('preview.pollRefreshFailed'));
+    } finally {
+      setIsRefreshingStatus(false);
+    }
+  };
+
   const previewBrand = useMemo((): BrandSummary | null => {
     const product = products.find((p) => p.product_id === selectedProduct);
     if (!product) return activeBrand;
@@ -635,7 +735,7 @@ export default function Studio() {
 
     const recoverTasks = async () => {
       try {
-        const statuses = await fetchGenerateStatuses(pendingTaskIds);
+        const { statuses } = await fetchGenerateStatuses(pendingTaskIds);
         if (cancelled) return;
         taskStatusesRef.current = statuses;
         setTaskStatuses(statuses);
@@ -724,44 +824,12 @@ export default function Studio() {
       };
     }
 
-    const compareMode =
-      (generatingType === 'image' || generatingType === 'all') &&
-      useSceneReference &&
-      compareScenePipelines;
-
     const checkStatus = async () => {
       try {
-        const previousById = statusMap(taskStatusesRef.current);
-        const statuses = await fetchGenerateStatuses(activeTaskIds, previousById);
-        taskStatusesRef.current = statuses;
-        setTaskStatuses(statuses);
-        applyAggregateStatus(statuses, activeTaskIds[0]);
-
-        applyPartialResults(
-          statuses,
-          generatingType as GenerateType | null,
-          compareMode,
-          activeTaskIds,
-        );
-
-        const allTerminal = statuses.every((s) => isTerminalStatus(s.status));
-        const compareAllReady = isCompareAllBatchReady(
-          activeTaskIds,
-          generatingType,
-          compareMode,
-        );
-
-        if (allTerminal && compareAllReady) {
-          applyRecoveredResults(
-            statuses,
-            generatingType as GenerateType | null,
-            compareMode,
-            activeTaskIds,
-          );
-          if (interval) clearInterval(interval);
-          return;
-        }
+        const done = await runStatusPoll();
+        if (done && interval) clearInterval(interval);
       } catch (error) {
+        recordPollOutcome(false);
         console.error('Failed to check status:', error);
       }
     };
@@ -774,13 +842,8 @@ export default function Studio() {
   }, [
     activeTaskIds,
     isGenerating,
-    generatingType,
-    useSceneReference,
-    compareScenePipelines,
-    applyPartialResults,
-    applyRecoveredResults,
-    applyAggregateStatus,
-    finishGeneration,
+    runStatusPoll,
+    recordPollOutcome,
   ]);
 
   const loadProducts = async (force = false) => {
@@ -910,6 +973,9 @@ export default function Studio() {
     if (isGenerating) return;
 
     monotonicProgressRef.current = OPTIMISTIC_GENERATE_STATUS.progress ?? 2;
+    consecutivePollFailuresRef.current = 0;
+    setPollHealth('ok');
+    setIsRefreshingStatus(false);
     setIsGenerating(true);
     setGeneratingType(type);
     setPublishStatus(null);
@@ -1454,6 +1520,41 @@ export default function Studio() {
               </button>
             )}
           </div>
+
+          {isGenerating && pollHealth !== 'ok' && (
+            <div
+              className={`p-4 rounded-lg border ${
+                pollHealth === 'stalled'
+                  ? 'bg-orange-50 border-orange-200'
+                  : 'bg-amber-50 border-amber-200'
+              }`}
+            >
+              <p
+                className={`text-sm font-medium ${
+                  pollHealth === 'stalled' ? 'text-orange-800' : 'text-amber-800'
+                }`}
+              >
+                {pollHealth === 'stalled'
+                  ? t('preview.pollConnectionStalled')
+                  : t('preview.pollConnectionDegraded')}
+              </p>
+              {pollHealth === 'stalled' && (
+                <button
+                  type="button"
+                  onClick={() => void handleManualRefreshStatus()}
+                  disabled={isRefreshingStatus}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isRefreshingStatus ? 'animate-spin' : ''}`}
+                  />
+                  {isRefreshingStatus
+                    ? t('preview.refreshingStatus')
+                    : t('preview.refreshStatus')}
+                </button>
+              )}
+            </div>
+          )}
 
           {generateStatus && (
             <div className={`p-4 rounded-lg ${

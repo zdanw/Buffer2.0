@@ -97,6 +97,16 @@ export const getGenerateStatus = async (taskId: string): Promise<GenerateStatus>
 const POLL_INTERVAL_MS = 1000;
 /** Keep polling through ~2 minutes of consecutive transient errors. */
 const MAX_CONSECUTIVE_POLL_ERRORS = 120;
+/** ~5s of all polls failing — show connection warning in UI. */
+export const POLL_WARN_CONSECUTIVE_FAILURES = 5;
+/** ~20s of all polls failing — offer manual status refresh. */
+export const POLL_STALL_CONSECUTIVE_FAILURES = 20;
+
+export interface FetchGenerateStatusesResult {
+  statuses: GenerateStatus[];
+  failedTaskIds: string[];
+  allSucceeded: boolean;
+}
 
 function isTransientPollError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return true;
@@ -112,13 +122,15 @@ function isTransientPollError(error: unknown): boolean {
 export async function fetchGenerateStatuses(
   taskIds: string[],
   previousById?: Map<string, GenerateStatus>,
-): Promise<GenerateStatus[]> {
+): Promise<FetchGenerateStatusesResult> {
   const results = await Promise.allSettled(taskIds.map((taskId) => getGenerateStatus(taskId)));
-  return taskIds.map((taskId, index) => {
+  const failedTaskIds: string[] = [];
+  const statuses = taskIds.map((taskId, index) => {
     const result = results[index];
     if (result.status === 'fulfilled') {
       return result.value;
     }
+    failedTaskIds.push(taskId);
     return (
       previousById?.get(taskId) ?? {
         task_id: taskId,
@@ -128,6 +140,11 @@ export async function fetchGenerateStatuses(
       }
     );
   });
+  return {
+    statuses,
+    failedTaskIds,
+    allSucceeded: failedTaskIds.length === 0,
+  };
 }
 
 export interface ProgressSegment {
