@@ -69,12 +69,15 @@ module.exports = (req, res) => {
   }
   headers['host'] = TARGET_HOST;
 
+  const isStatusPoll = targetPath.includes('/generate/status/');
+  const timeoutMs = isStatusPoll ? 15000 : TIMEOUT_MS;
+
   const options = {
     hostname: TARGET_HOST,
     path: targetPath,
     method: req.method,
     headers: headers,
-    timeout: TIMEOUT_MS,
+    timeout: timeoutMs,
   };
 
   const proxyReq = https.request(options, (proxyRes) => {
@@ -109,7 +112,7 @@ module.exports = (req, res) => {
   });
 
   proxyReq.on('timeout', () => {
-    console.error('Proxy request timed out after', TIMEOUT_MS, 'ms');
+    console.error('Proxy request timed out after', timeoutMs, 'ms');
     proxyReq.destroy();
     res.writeHead(504, {
       'Content-Type': 'application/json',

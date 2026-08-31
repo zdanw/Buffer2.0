@@ -266,7 +266,9 @@ function AppContent() {
           })}
           {lazyPanel('automations', activeTab, mountedTabs, TaskConfiguration)}
           {lazyPanel('review', activeTab, mountedTabs, PendingRelease)}
-          {lazyPanel('studio', activeTab, mountedTabs, Studio)}
+          {lazyPanel('studio', activeTab, mountedTabs, Studio, {
+            isPageActive: activeTab === 'studio',
+          })}
           {lazyPanel('calendar', activeTab, mountedTabs, PublishCalendar)}
           {lazyPanel('image-models', activeTab, mountedTabs, ImageProviderSettings)}
           {lazyPanel('buffer-accounts', activeTab, mountedTabs, BufferAccountSettings)}
