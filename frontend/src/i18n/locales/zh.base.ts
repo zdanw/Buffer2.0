@@ -247,6 +247,11 @@ export const zh: TranslationTree = {
         label: '选择模型',
         tooltip: '每条配置仅绑定一个模型。根据 API Key 自动拉取后选择。',
       },
+      customModel: {
+        label: '自定义模型 ID',
+        tooltip:
+          '当无法自动拉取模型列表时，手动填写服务商控制台中的模型或接入点 ID。\n\n例：豆包 Ark 的 ep-20260616164806-7pj5g，或 OpenAI 兼容的 gpt-image-1。',
+      },
       manualModels: {
         label: '手动模型列表',
         tooltip:
@@ -292,7 +297,13 @@ export const zh: TranslationTree = {
     advancedSettings: '高级设置',
     discover: {
       loading: '正在验证 Key 并拉取可用模型…',
-      failed: '无法拉取模型列表，请检查 API Key 或手动添加 Model ID',
+      failed: '无法拉取模型列表，请检查 API Key 或手动填写模型 ID',
+      waitForKey: '请先在上方粘贴 API Key，可用模型将显示在此处。',
+      emptyList: '该 Key 未返回任何图像模型。',
+      editSavedHint: '留空 API Key 表示保留当前密钥。粘贴新 Key 可从服务商重新拉取模型列表。',
+      useManualInstead: '改用自定义模型 ID',
+      manualHint: '适用于服务商不提供模型列表，或所需模型未出现在列表中的情况。',
+      retry: '重新拉取',
     },
     modelDoc: {
       title: '模型说明',

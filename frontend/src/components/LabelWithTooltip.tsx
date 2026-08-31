@@ -15,11 +15,12 @@ export default function LabelWithTooltip({
   required,
 }: LabelWithTooltipProps) {
   return (
-    <div className="mb-1 flex items-center gap-1.5 flex-wrap">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-gray-700">
+    <div className="mb-1 flex items-baseline gap-1 flex-wrap">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-gray-700 inline-flex items-baseline gap-0.5">
         {label}
+        {required === true ? <FieldRequirementBadge required /> : null}
       </label>
-      {required !== undefined ? <FieldRequirementBadge required={required} /> : null}
+      {required === false ? <FieldRequirementBadge required={false} /> : null}
       <HelpTooltip content={tooltip} />
     </div>
   );

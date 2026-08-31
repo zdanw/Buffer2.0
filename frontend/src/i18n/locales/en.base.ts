@@ -69,7 +69,7 @@ export const en: TranslationTree = {
     noNotes: 'No notes yet',
     charCount: '{{current}}/{{max}}',
     fieldRequired: 'Required',
-    fieldOptional: 'Optional',
+    fieldOptional: 'optional',
   },
   api: {
     bannerTitle: 'Cannot reach PulseForge API',
@@ -248,6 +248,11 @@ export const en: TranslationTree = {
         label: 'Select model',
         tooltip: 'Each provider entry binds exactly one model. Pick from the list fetched via your API key.',
       },
+      customModel: {
+        label: 'Custom model ID',
+        tooltip:
+          'Type the model or endpoint ID from your provider dashboard when auto-discovery is unavailable.\n\nExample: ep-20260616164806-7pj5g for Doubao Ark, or gpt-image-1 for OpenAI-compatible hosts.',
+      },
       manualModels: {
         label: 'Manual model list',
         tooltip:
@@ -293,7 +298,13 @@ export const en: TranslationTree = {
     advancedSettings: 'Advanced settings',
     discover: {
       loading: 'Validating key and fetching models…',
-      failed: 'Could not fetch models. Check your API key or add model IDs manually.',
+      failed: 'Could not fetch models. Check your API key or enter a model ID manually.',
+      waitForKey: 'Paste your API key above — available models will load here.',
+      emptyList: 'No image models were returned for this key.',
+      editSavedHint: 'Leave the API key blank to keep the current key. Paste a new key to reload models from your provider.',
+      useManualInstead: 'Use a custom model ID instead',
+      manualHint: 'Use this when your provider does not expose a model list, or the model you need is not listed.',
+      retry: 'Retry fetch',
     },
     modelDoc: {
       title: 'Model documentation',

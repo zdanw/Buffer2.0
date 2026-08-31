@@ -18,6 +18,9 @@ import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
 import FormLabel from '@/components/FormLabel';
 import FieldRequirementBadge from '@/components/FieldRequirementBadge';
+import ImageProviderModelSection, {
+  type DiscoverStatus,
+} from '@/components/ImageProviderModelSection';
 import { examplesForProviderType } from '@/lib/imageProviderExamples';
 import { IMAGE_PROVIDER_PRESETS, presetForType } from '@/lib/imageProviderPresets';
 
@@ -43,9 +46,10 @@ export default function SystemImageProviderSettings() {
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [discoverStatus, setDiscoverStatus] = useState<DiscoverStatus>('idle');
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
   const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
-  const [manualModelId, setManualModelId] = useState('');
+  const [showManualModel, setShowManualModel] = useState(false);
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [apiKeyEditable, setApiKeyEditable] = useState(false);
   const discoverSeq = useRef(0);
@@ -70,15 +74,24 @@ export default function SystemImageProviderSettings() {
     void load();
   }, []);
 
+  const resetDiscoverState = () => {
+    setDiscoveredModels([]);
+    setDiscoverMessage(null);
+    setDiscoverStatus('idle');
+    setShowManualModel(false);
+  };
+
   const runDiscover = async () => {
     const trimmed = form.api_key.trim();
     if (!trimmed || trimmed.length < 8) {
-      setDiscoveredModels([]);
-      setDiscoverMessage(null);
+      resetDiscoverState();
       return;
     }
     const seq = ++discoverSeq.current;
     setDiscovering(true);
+    setDiscoverStatus('loading');
+    setDiscoverMessage(null);
+    setShowManualModel(false);
     try {
       const res = await discoverImageProviderModels({
         provider_type: form.provider_type,
@@ -87,15 +100,32 @@ export default function SystemImageProviderSettings() {
         supports_list_models: form.supports_list_models,
       });
       if (seq !== discoverSeq.current) return;
-      setDiscoveredModels(res.models);
-      setDiscoverMessage(res.message || null);
-      if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
-      if (res.models.length > 0 && !form.default_model) {
-        setForm((f) => ({ ...f, default_model: res.models[0].id }));
+      if (res.ok && res.models.length > 0) {
+        setDiscoveredModels(res.models);
+        setDiscoverStatus('success');
+        setDiscoverMessage(res.message || null);
+        if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
+        setForm((f) => {
+          const stillValid = res.models.some((m) => m.id === f.default_model);
+          return stillValid ? f : { ...f, default_model: res.models[0].id };
+        });
+      } else {
+        setDiscoveredModels([]);
+        setDiscoverStatus('failed');
+        setShowManualModel(true);
+        setDiscoverMessage(
+          res.message ||
+            (res.models.length === 0
+              ? t('imageProviders.discover.emptyList')
+              : t('imageProviders.discover.failed'))
+        );
+        if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
       }
     } catch {
       if (seq !== discoverSeq.current) return;
       setDiscoveredModels([]);
+      setDiscoverStatus('failed');
+      setShowManualModel(true);
       setDiscoverMessage(t('imageProviders.discover.failed'));
     } finally {
       if (seq === discoverSeq.current) setDiscovering(false);
@@ -103,24 +133,30 @@ export default function SystemImageProviderSettings() {
   };
 
   useEffect(() => {
-    if (!showModal || !apiKeyTouched || !form.api_key.trim()) return;
+    if (!showModal || !apiKeyTouched) return;
+    if (editingId && !form.api_key.trim()) return;
+    const trimmed = form.api_key.trim();
+    if (!trimmed || trimmed.length < 8) {
+      resetDiscoverState();
+      return;
+    }
+    setDiscoverStatus('loading');
     const timer = window.setTimeout(() => void runDiscover(), 500);
     return () => window.clearTimeout(timer);
-  }, [showModal, apiKeyTouched, form.api_key, form.provider_type, form.base_url]);
+  }, [showModal, apiKeyTouched, editingId, form.api_key, form.provider_type, form.base_url, form.supports_list_models]);
 
   const closeModal = () => {
     discoverSeq.current += 1;
     setShowModal(false);
-    setDiscoveredModels([]);
-    setDiscoverMessage(null);
+    resetDiscoverState();
   };
+
+  const keepingExistingKey = Boolean(editingId && !form.api_key.trim());
 
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY });
-    setDiscoveredModels([]);
-    setDiscoverMessage(null);
-    setManualModelId('');
+    resetDiscoverState();
     setShowAdvanced(false);
     setApiKeyTouched(false);
     setApiKeyEditable(false);
@@ -140,9 +176,7 @@ export default function SystemImageProviderSettings() {
       is_active: row.is_active,
       is_default: row.is_default,
     });
-    setDiscoveredModels([]);
-    setDiscoverMessage(null);
-    setManualModelId('');
+    resetDiscoverState();
     setShowAdvanced(false);
     setApiKeyTouched(false);
     setApiKeyEditable(false);
@@ -156,7 +190,12 @@ export default function SystemImageProviderSettings() {
     setError('');
     try {
       const preset = presetForType(form.provider_type);
-      const defaultModel = form.default_model?.trim() || discoveredModels[0]?.id || manualModelId.trim() || null;
+      if (discovering || (!keepingExistingKey && form.api_key.trim().length >= 8 && discoverStatus === 'loading')) {
+        setError(t('imageProviders.discover.loading'));
+        setSaving(false);
+        return;
+      }
+      const defaultModel = form.default_model?.trim() || discoveredModels[0]?.id || null;
       if (!defaultModel) {
         setError(t('imageProviders.validation.modelRequired'));
         setSaving(false);
@@ -334,9 +373,12 @@ export default function SystemImageProviderSettings() {
                   provider_type: providerType,
                   base_url: preset.base_url,
                   supports_list_models: preset.supports_list_models,
-                  default_model: providerType === 'agnes' ? 'agnes-image-2.1-flash' : '',
+                  default_model: '',
                 });
-                setDiscoveredModels([]);
+                resetDiscoverState();
+                if (form.api_key.trim().length >= 8) {
+                  setApiKeyTouched(true);
+                }
               }}
             >
               {(Object.keys(IMAGE_PROVIDER_PRESETS) as ImageProviderType[]).map((k) => (
@@ -369,47 +411,26 @@ export default function SystemImageProviderSettings() {
               data-1p-ignore
             />
             </div>
-            {discovering ? (
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                {t('imageProviders.discover.loading')}
-              </p>
-            ) : discoverMessage ? (
-              <p className="text-xs text-amber-700">{discoverMessage}</p>
-            ) : null}
-            {discoveredModels.length > 0 ? (
-              <div>
-                <FormLabel label={t('imageProviders.fields.defaultModel.label')} required htmlFor="system-provider-model-select" className="text-xs text-gray-600 mb-1" />
-              <select
-                id="system-provider-model-select"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                value={form.default_model}
-                onChange={(e) => setForm({ ...form, default_model: e.target.value })}
-              >
-                {discoveredModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.id}
-                  </option>
-                ))}
-              </select>
-              </div>
-            ) : (
-              <div>
-                <FormLabel label={t('imageProviders.fields.defaultModel.label')} required htmlFor="system-provider-model-input" className="text-xs text-gray-600 mb-1" />
-              <input
-                id="system-provider-model-input"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder={examplesForProviderType(form.provider_type).defaultModel}
-                value={form.default_model || manualModelId}
-                onChange={(e) => {
-                  setManualModelId(e.target.value);
-                  setForm({ ...form, default_model: e.target.value });
-                }}
-                autoComplete="off"
-                data-1p-ignore
-              />
-              </div>
-            )}
+            <ImageProviderModelSection
+              keepingExistingKey={keepingExistingKey}
+              apiKey={form.api_key}
+              apiKeyTouched={apiKeyTouched}
+              defaultModel={form.default_model || ''}
+              onDefaultModelChange={(default_model) => setForm({ ...form, default_model })}
+              modelPlaceholder={examplesForProviderType(form.provider_type).defaultModel}
+              discoverStatus={discoverStatus}
+              discoverMessage={discoverMessage}
+              discoveredModels={discoveredModels}
+              showManualModel={showManualModel}
+              onUseManualModel={() => {
+                setShowManualModel(true);
+                setForm((prev) => ({ ...prev, default_model: '' }));
+              }}
+              onRetryDiscover={() => {
+                setApiKeyTouched(true);
+                void runDiscover();
+              }}
+            />
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
@@ -443,7 +464,7 @@ export default function SystemImageProviderSettings() {
             </label>
             <button
               type="submit"
-              disabled={saving || discovering}
+              disabled={saving || discovering || (!keepingExistingKey && discoverStatus === 'loading')}
               className="w-full py-2 bg-forge-600 text-white rounded-lg text-sm disabled:opacity-50"
             >
               {t('common.save')}

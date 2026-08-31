@@ -32,6 +32,9 @@ import {
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import HelpTooltip from '@/components/HelpTooltip';
+import ImageProviderModelSection, {
+  type DiscoverStatus,
+} from '@/components/ImageProviderModelSection';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
@@ -68,9 +71,10 @@ export default function ImageProviderSettings() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [discoverStatus, setDiscoverStatus] = useState<DiscoverStatus>('idle');
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
   const [discoveredModels, setDiscoveredModels] = useState<ImageModelInfo[]>([]);
-  const [discoverFailed, setDiscoverFailed] = useState(false);
+  const [showManualModel, setShowManualModel] = useState(false);
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [apiKeyEditable, setApiKeyEditable] = useState(false);
   const discoverSeq = useRef(0);
@@ -84,7 +88,6 @@ export default function ImageProviderSettings() {
       provider_type: providerType,
       base_url: preset.base_url,
       supports_list_models: preset.supports_list_models,
-      ...(providerType === 'agnes' ? { default_model: 'agnes-image-2.1-flash' } : {}),
     };
   };
 
@@ -113,7 +116,8 @@ export default function ImageProviderSettings() {
   const resetDiscoverState = () => {
     setDiscoverMessage(null);
     setDiscoveredModels([]);
-    setDiscoverFailed(false);
+    setDiscoverStatus('idle');
+    setShowManualModel(false);
   };
 
   const runDiscover = useCallback(
@@ -125,7 +129,9 @@ export default function ImageProviderSettings() {
       }
       const seq = ++discoverSeq.current;
       setDiscovering(true);
+      setDiscoverStatus('loading');
       setDiscoverMessage(null);
+      setShowManualModel(false);
       try {
         const res = await discoverImageProviderModels({
           provider_type: snapshot.provider_type,
@@ -135,9 +141,9 @@ export default function ImageProviderSettings() {
         });
         if (seq !== discoverSeq.current) return;
 
-        if (res.ok) {
+        if (res.ok && res.models.length > 0) {
           setDiscoveredModels(res.models);
-          setDiscoverFailed(res.models.length === 0);
+          setDiscoverStatus('success');
           setDiscoverMessage(res.message || null);
           setForm((prev) => {
             const next = { ...prev };
@@ -145,20 +151,36 @@ export default function ImageProviderSettings() {
             if (res.supports_list_models != null) {
               next.supports_list_models = res.supports_list_models;
             }
-            if (res.models.length > 0 && !next.default_model) {
+            const stillValid = res.models.some((m) => m.id === next.default_model);
+            if (!stillValid) {
               next.default_model = res.models[0].id;
             }
             return next;
           });
         } else {
           setDiscoveredModels([]);
-          setDiscoverFailed(true);
-          setDiscoverMessage(res.message || t('imageProviders.discover.failed'));
+          setDiscoverStatus('failed');
+          setShowManualModel(true);
+          setDiscoverMessage(
+            res.message ||
+              (res.models.length === 0
+                ? t('imageProviders.discover.emptyList')
+                : t('imageProviders.discover.failed'))
+          );
+          setForm((prev) => {
+            const next = { ...prev };
+            if (res.base_url) next.base_url = res.base_url;
+            if (res.supports_list_models != null) {
+              next.supports_list_models = res.supports_list_models;
+            }
+            return next;
+          });
         }
       } catch (err: any) {
         if (seq !== discoverSeq.current) return;
         setDiscoveredModels([]);
-        setDiscoverFailed(true);
+        setDiscoverStatus('failed');
+        setShowManualModel(true);
         const detail = err.response?.data?.detail;
         setDiscoverMessage(
           typeof detail === 'string' ? detail : t('imageProviders.discover.failed')
@@ -171,7 +193,14 @@ export default function ImageProviderSettings() {
   );
 
   useEffect(() => {
-    if (!showModal || !apiKeyTouched || !form.api_key.trim()) return;
+    if (!showModal || !apiKeyTouched) return;
+    if (editingId && !form.api_key.trim()) return;
+    const trimmed = form.api_key.trim();
+    if (!trimmed || trimmed.length < 8) {
+      resetDiscoverState();
+      return;
+    }
+    setDiscoverStatus('loading');
     const timer = window.setTimeout(() => {
       void runDiscover(form.api_key, form);
     }, 500);
@@ -179,12 +208,15 @@ export default function ImageProviderSettings() {
   }, [
     showModal,
     apiKeyTouched,
+    editingId,
     form.api_key,
     form.provider_type,
     form.base_url,
     form.supports_list_models,
     runDiscover,
   ]);
+
+  const keepingExistingKey = Boolean(editingId && !form.api_key.trim());
 
   const closeModal = () => {
     discoverSeq.current += 1;
@@ -234,6 +266,10 @@ export default function ImageProviderSettings() {
     }
     if (!editingId && !form.api_key.trim()) {
       setError(t('imageProviders.validation.apiKeyRequired'));
+      return;
+    }
+    if (discovering || (!keepingExistingKey && form.api_key.trim().length >= 8 && discoverStatus === 'loading')) {
+      setError(t('imageProviders.discover.loading'));
       return;
     }
 
@@ -339,7 +375,6 @@ export default function ImageProviderSettings() {
     }
   };
 
-  const showModelInput = discoveredModels.length === 0;
   const providerExamples = examplesForProviderType(form.provider_type);
 
   if (loading) {
@@ -562,9 +597,12 @@ export default function ImageProviderSettings() {
                     setForm({
                       ...form,
                       ...applyTypePreset(providerType),
-                      default_model: providerType === 'agnes' ? 'agnes-image-2.1-flash' : '',
+                      default_model: '',
                     });
                     resetDiscoverState();
+                    if (form.api_key.trim().length >= 8) {
+                      setApiKeyTouched(true);
+                    }
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
@@ -607,74 +645,28 @@ export default function ImageProviderSettings() {
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {discovering ? (
-                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1.5">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    {t('imageProviders.discover.loading')}
-                  </p>
-                ) : null}
-                {!discovering && discoverMessage ? (
-                  <p
-                    className={`text-xs mt-2 ${
-                      discoverFailed ? 'text-amber-700' : 'text-green-700'
-                    }`}
-                  >
-                    {discoverMessage}
-                  </p>
-                ) : null}
               </div>
 
-              {discoveredModels.length > 0 ? (
-                <div>
-                  <LabelWithTooltip
-                    label={t('imageProviders.fields.availableModels.label')}
-                    tooltip={t('imageProviders.fields.availableModels.tooltip')}
-                    required
-                  />
-                  <ul className="space-y-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                    {discoveredModels.map((m) => (
-                      <li key={m.id}>
-                        <label className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="default-model"
-                            checked={form.default_model === m.id}
-                            onChange={() => setForm({ ...form, default_model: m.id })}
-                            className="mt-1"
-                          />
-                          <span className="min-w-0">
-                            <span className="font-mono text-sm text-gray-900 break-all">{m.id}</span>
-                            {m.owned_by ? (
-                              <span className="block text-xs text-gray-400">{m.owned_by}</span>
-                            ) : null}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {showModelInput ? (
-                <div>
-                  <LabelWithTooltip
-                    htmlFor="provider-default-model"
-                    label={t('imageProviders.fields.defaultModel.label')}
-                    tooltip={t('imageProviders.fields.defaultModel.tooltip')}
-                    required
-                  />
-                  <input
-                    id="provider-default-model"
-                    value={form.default_model || ''}
-                    onChange={(e) => setForm({ ...form, default_model: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono text-sm"
-                    autoComplete="off"
-                    data-1p-ignore
-                    placeholder={providerExamples.defaultModel}
-                    required
-                  />
-                </div>
-              ) : null}
+              <ImageProviderModelSection
+                keepingExistingKey={keepingExistingKey}
+                apiKey={form.api_key}
+                apiKeyTouched={apiKeyTouched}
+                defaultModel={form.default_model || ''}
+                onDefaultModelChange={(default_model) => setForm({ ...form, default_model })}
+                modelPlaceholder={providerExamples.defaultModel}
+                discoverStatus={discoverStatus}
+                discoverMessage={discoverMessage}
+                discoveredModels={discoveredModels}
+                showManualModel={showManualModel}
+                onUseManualModel={() => {
+                  setShowManualModel(true);
+                  setForm((prev) => ({ ...prev, default_model: '' }));
+                }}
+                onRetryDiscover={() => {
+                  setApiKeyTouched(true);
+                  void runDiscover(form.api_key, form);
+                }}
+              />
 
               <div>
                 <button
@@ -760,7 +752,7 @@ export default function ImageProviderSettings() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || discovering}
+                  disabled={saving || discovering || (!keepingExistingKey && discoverStatus === 'loading')}
                   className="px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? t('common.saving') : t('common.save')}
