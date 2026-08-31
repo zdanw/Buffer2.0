@@ -1633,7 +1633,11 @@ export default function Studio({ isPageActive = true }: StudioProps) {
 
           {generatedContent?.warning && (
             <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="font-medium text-amber-800">{t('pending.cdnFailed')}</p>
+              <p className="font-medium text-amber-800">
+                {String(generatedContent.warning).includes('GitHub CDN')
+                  ? t('pending.cdnFailed')
+                  : t('preview.qualityNotice')}
+              </p>
               <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
             </div>
           )}

@@ -80,3 +80,5 @@ def test_env_example_documents_grounded_rollout_default_off():
     assert "GROUNDED_ROLLOUT_MODE=off" in text
     for value in ("off", "studio", "manual_automation", "all"):
         assert value in text
+    assert "ASSET_INTELLIGENCE_MODE=off" in text
+    assert "QUALITY_PROTECTION_MODE=off" in text

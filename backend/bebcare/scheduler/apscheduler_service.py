@@ -64,6 +64,10 @@ def _run_platform_image_generation(
         create_generation_run,
         finish_generation_run,
     )
+    from bebcare.services.quality_protection_rollout import (
+        POLICY_VERSION,
+        quality_protection_mode,
+    )
     from bebcare.services.grounded_rollout import SOURCE_AUTOMATION, grounded_rollout_mode
 
     gen_task_id = None
@@ -118,9 +122,14 @@ def _run_platform_image_generation(
                 model=ctx.get("image_model"),
                 image_size=ctx.get("image_size"),
                 image_provider_mode=mode,
+                quality_protection_mode=quality_protection_mode(),
+                quality_policy_version=POLICY_VERSION,
             )
             session.commit()
             run_id = run.run_id
+            if ctx.get("product_info") is not None:
+                ctx["product_info"]["generation_run_id"] = run_id
+                ctx["product_info"]["owner_user_id"] = owner_user_id
         finally:
             session.close()
 
@@ -136,7 +145,7 @@ def _run_platform_image_generation(
                 set_result=True,
                 result={"image": first, "warning": warning} if first else None,
             )
-        elif run_id:
+        if run_id:
             session = Session(bind=engine)
             try:
                 run = session.query(GenerationRun).filter(GenerationRun.run_id == run_id).first()
@@ -489,6 +498,7 @@ class APSchedulerService:
         ) or "byok"
         product_info["owner_user_id"] = owner_user_id
         product_info["image_provider_mode"] = provider_mode
+        product_info["task_mode"] = getattr(task_cfg, "mode", None) if task_cfg else None
         return {
             "product_id_str": product_id_str,
             "product_info": product_info,
@@ -801,10 +811,65 @@ class APSchedulerService:
             raise Exception("Auto task image generation returned no URLs; publish aborted")
         logger.info(f"Generated images: {image_urls}")
 
+        from bebcare.services.grounded_rollout import SOURCE_AUTOMATION
+        from bebcare.services.quality_protection import apply_publish_gate
+
+        gate_session = Session(bind=engine)
+        try:
+            gate = apply_publish_gate(
+                gate_session,
+                owner_user_id=ctx["owner_user_id"],
+                run_id=(ctx.get("product_info") or {}).get("generation_run_id"),
+                source=SOURCE_AUTOMATION,
+                task_mode="auto",
+                hard_fail=bool(isinstance(image_result, dict) and image_result.get("quality_hard_fail")),
+                image_urls=list(image_urls),
+            )
+            gate_session.commit()
+        finally:
+            gate_session.close()
+        if gate.get("blocked"):
+            draft_session = Session(bind=engine)
+            try:
+                draft = ManualTaskDraft(
+                    draft_id=str(uuid.uuid4()),
+                    task_id=task_id,
+                    product_id=str(product_id),
+                    images=list(image_urls),
+                    copywritings=[copywriting],
+                    dimensions=[dimensions],
+                    image_prompts=[image_prompt],
+                    reference_product_images=reference_product_images,
+                    reference_scene_images=reference_scene_images,
+                    status="pending",
+                )
+                stamp_owner(draft, SimpleNamespace(user_id=ctx["owner_user_id"]))
+                draft_session.add(draft)
+                draft_session.commit()
+            finally:
+                draft_session.close()
+            logger.info(
+                "Auto task %s publish paused; draft routed to Review product=%s",
+                task_id,
+                product_id,
+            )
+            return {
+                "images": list(image_urls),
+                "platforms": [],
+                "copywriting": copywriting,
+                "dimensions": dimensions,
+                "image_prompt": image_prompt,
+                "reference_product_images": reference_product_images,
+                "reference_scene_images": reference_scene_images,
+                "warning": gate.get("warning"),
+                "publish_paused": True,
+            }
+
         generated_images = []
         published_platforms = []
 
-        similarity = deduplication_engine.calculate_text_image_match(copywriting, image_urls[0])
+        publish_url = gate.get("selected_url") or image_urls[0]
+        similarity = deduplication_engine.calculate_text_image_match(copywriting, publish_url)
         if similarity is None:
             logger.info("Text-image match skipped (CLIP disabled)")
         else:
@@ -826,7 +891,7 @@ class APSchedulerService:
                 }
 
         # generate_image already persists to CDN
-        cdn_url = image_urls[0]
+        cdn_url = publish_url
         generated_images.append(cdn_url)
 
         publish_result = buffer_publisher.publish(

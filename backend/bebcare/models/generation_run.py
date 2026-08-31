@@ -68,6 +68,8 @@ class GenerationRun(OwnedMixin, Base):
     provider_usage = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
+    quality_protection_mode = Column(String(32), nullable=True)
+    quality_policy_version = Column(String(32), nullable=True)
 
     artifacts = relationship(
         "GenerationArtifact",

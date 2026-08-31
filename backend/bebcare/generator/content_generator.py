@@ -982,6 +982,31 @@ class ContentGenerator:
         if progress_callback:
             progress_callback("image_generation", 0.2)
 
+        from bebcare.services.quality_protection import (
+            QualityProtectionError,
+            validate_post_generation,
+            validate_pre_generation,
+        )
+        from bebcare.services.grounded_rollout import SOURCE_STUDIO as _SRC_STUDIO
+
+        qa_source = (product_info.get("generation_provenance") or {}).get("source") or _SRC_STUDIO
+        qa_session, qa_own = self._db_session(db)
+        try:
+            validate_pre_generation(
+                qa_session,
+                product_info,
+                source=qa_source,
+                provider_ok=bool(provider and resolved_model),
+                image_size=size,
+            )
+            qa_session.commit()
+        except QualityProtectionError:
+            qa_session.commit()
+            raise
+        finally:
+            if qa_own:
+                qa_session.close()
+
         async def make_image_request():
             from bebcare.providers.generate_request import GenerateImageRequest
             from bebcare.schemas.reference_manifest import ReferenceManifest
@@ -1040,6 +1065,21 @@ class ContentGenerator:
 
         if progress_callback:
             progress_callback("image_generation", 0.75)
+
+        qa_session, qa_own = self._db_session(db)
+        try:
+            qa_summary = validate_post_generation(
+                qa_session,
+                product_info,
+                source=qa_source,
+                image_urls=list(image_urls or []),
+                requested_size=size,
+                candidate_bytes=product_info.get("_qa_candidate_bytes"),
+            )
+            qa_session.commit()
+        finally:
+            if qa_own:
+                qa_session.close()
 
         if progress_callback:
             progress_callback("finalizing", 0.78)
@@ -1100,7 +1140,11 @@ class ContentGenerator:
             "dimensions": selected_dimensions,
             "image_prompt": image_prompt,
             "logo_mode": effective_logo_mode,
+            "quality_hard_fail": bool(qa_summary.get("hard_fail")),
         }
+        warnings = []
+        if qa_summary.get("warning"):
+            warnings.append(qa_summary["warning"])
         if cdn_upload_failed:
             logger.error(
                 "[CDN] persist batch finished with failures product_id=%s "
@@ -1109,7 +1153,7 @@ class ContentGenerator:
                 sum(1 for u in cdn_urls if "cdn.jsdelivr.net" in str(u)),
                 sum(1 for u in cdn_urls if "cdn.jsdelivr.net" not in str(u)),
             )
-            result["warning"] = (
+            warnings.append(
                 "上传 GitHub CDN 失败，已使用临时图片链接展示；请尽快发布（链接可能过期）"
             )
         else:
@@ -1118,6 +1162,8 @@ class ContentGenerator:
                 product_id,
                 len(cdn_urls),
             )
+        if warnings:
+            result["warning"] = " ".join(warnings)
         if progress_callback:
             progress_callback("finalizing", 0.95)
         return result

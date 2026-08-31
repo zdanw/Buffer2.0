@@ -277,9 +277,13 @@ def _record_studio_generation_run(
     db: Session, *, task_id: str, product, request: GenerateRequest, product_info: dict
 ) -> None:
     from bebcare.services.generation_run_store import create_generation_run
+    from bebcare.services.quality_protection_rollout import (
+        POLICY_VERSION,
+        quality_protection_mode,
+    )
 
     provenance = product_info.get("generation_provenance") or {}
-    create_generation_run(
+    run = create_generation_run(
         db,
         owner_user_id=product.owner_user_id,
         source=SOURCE_STUDIO,
@@ -299,7 +303,11 @@ def _record_studio_generation_run(
         model=request.image_model,
         image_size=request.image_size,
         image_provider_mode=product_info.get("image_provider_mode"),
+        quality_protection_mode=quality_protection_mode(),
+        quality_policy_version=POLICY_VERSION,
     )
+    product_info["generation_run_id"] = run.run_id
+    product_info["owner_user_id"] = product.owner_user_id
     db.commit()
 
 

@@ -32,6 +32,8 @@ def create_generation_run(
     image_size: Optional[str],
     image_provider_mode: Optional[str],
     provider_type: Optional[str] = None,
+    quality_protection_mode: Optional[str] = None,
+    quality_policy_version: Optional[str] = None,
 ) -> GenerationRun:
     run = GenerationRun(
         source=source,
@@ -55,6 +57,8 @@ def create_generation_run(
         image_provider_mode=image_provider_mode,
         status="pending",
         credits_charged=0,
+        quality_protection_mode=quality_protection_mode,
+        quality_policy_version=quality_policy_version,
     )
     stamp_owner(run, type("Owner", (), {"user_id": owner_user_id})())
     db.add(run)
@@ -123,6 +127,9 @@ def finish_generation_run(
     run.credits_charged = credits_charged_for_task(db, run.generate_task_id)
     if image_urls:
         add_artifacts(db, run, image_urls, persistence_warning=persistence_warning)
+        from bebcare.services.quality_protection import bind_findings_to_artifacts
+
+        bind_findings_to_artifacts(db, run)
     elif persistence_warning and run.artifacts:
         for artifact in run.artifacts:
             artifact.persistence_warning = persistence_warning
