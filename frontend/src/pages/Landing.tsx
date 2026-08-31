@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import LandingFooter from '@/components/landing/LandingFooter';
 import LandingBentoGrid from '@/components/landing/LandingBentoGrid';
 import LandingHeroVisual from '@/components/landing/LandingHeroVisual';
+import { pickRandomHeroTitleKey } from '@/components/landing/landingHeroTitles';
 import LandingMarquee from '@/components/landing/LandingMarquee';
 import LandingPicture from '@/components/landing/LandingPicture';
 import LandingPainSection from '@/components/landing/LandingPainSection';
@@ -12,12 +14,7 @@ import { useI18n } from '@/i18n/useI18n';
 
 export default function Landing() {
   const { t } = useI18n();
-
-  const trustBadges = [
-    t('landing.trustBadge1'),
-    t('landing.trustBadge2'),
-    t('landing.trustBadge3'),
-  ];
+  const [heroTitleKey] = useState(pickRandomHeroTitleKey);
 
   return (
     <div className="min-h-screen bg-canvas text-ink-900">
@@ -57,24 +54,17 @@ export default function Landing() {
       </header>
 
       <section className="relative">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-8 sm:pt-14 lg:pt-16 lg:pb-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-12 sm:pt-14 lg:pt-16 lg:pb-16">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-forge-200 bg-forge-50 text-forge-700 text-xs font-semibold uppercase tracking-wider mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-forge-500 animate-pulse" />
-                {t('brand.tagline')}
-              </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.05] text-ink-900">
-                {t('landing.heroTitle')}
+                {t(heroTitleKey)}
               </h1>
               <p className="mt-5 text-lg text-ink-500 leading-relaxed max-w-lg">
                 {t('landing.heroSubtitle')}
               </p>
-              <p className="mt-4 text-sm text-ink-400 leading-relaxed max-w-lg border-l-2 border-forge-300 pl-4">
-                {t('landing.heroUrgency')}
-              </p>
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <div className="mt-8">
                 <Link
                   to="/signup"
                   className="inline-flex items-center justify-center gap-2 bg-forge-600 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-forge-700 transition-all text-base shadow-lg shadow-forge-600/20 hover:scale-[1.02] active:scale-[0.98]"
@@ -82,31 +72,17 @@ export default function Landing() {
                   {t('landing.getStarted')}
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-2 border border-canvas-border bg-white font-semibold px-7 py-3.5 rounded-xl hover:shadow-card transition-shadow text-ink-700"
-                >
-                  {t('landing.signIn')}
-                </Link>
+                <p className="mt-4 text-sm text-ink-400">{t('landing.heroTrustLine')}</p>
               </div>
-
-              <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2">
-                {trustBadges.map((badge) => (
-                  <li key={badge} className="flex items-center gap-1.5 text-sm text-ink-500">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={2.5} />
-                    {badge}
-                  </li>
-                ))}
-              </ul>
             </div>
 
-            <div className="relative z-10 lg:pl-4">
+            <div className="relative z-10 lg:pl-4 flex items-center justify-center">
               <LandingHeroVisual />
             </div>
           </div>
         </div>
 
-        <LandingMarquee />
+        <LandingMarquee className="relative z-20" />
       </section>
 
       <LandingPainSection />
@@ -197,15 +173,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-canvas-border py-8 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-ink-500">
-            <BrandLogo size="sm" />
-            <span>{t('brand.name')}</span>
-          </div>
-          <LanguageSwitcher compact variant="light" />
-        </div>
-      </footer>
+      <LandingFooter />
 
       <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 border-t border-canvas-border backdrop-blur sm:hidden">
         <Link

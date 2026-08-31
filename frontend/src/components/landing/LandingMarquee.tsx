@@ -9,12 +9,12 @@ const ITEM_KEYS = [
   'landing.marquee6',
 ] as const;
 
-export default function LandingMarquee() {
+export default function LandingMarquee({ className = '' }: { className?: string }) {
   const { t } = useI18n();
   const items = ITEM_KEYS.map((key) => t(key));
 
   return (
-    <div className="relative border-y border-canvas-border bg-white overflow-hidden">
+    <div className={`relative border-y border-canvas-border bg-white overflow-hidden ${className}`}>
       <div className="flex animate-landing-marquee whitespace-nowrap py-3">
         {[...items, ...items].map((item, i) => (
           <span
