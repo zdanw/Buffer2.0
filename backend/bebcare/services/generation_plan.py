@@ -26,7 +26,10 @@ def executed_plan_contract(product_info: dict | None, locale: str = "en") -> str
     plan = plan_from_product_info(product_info)
     if plan is None:
         return ""
-    return render_generation_plan_contract(plan, locale)
+    from bebcare.schemas.generation_plan import render_fidelity_contract_suffix
+
+    extra = render_fidelity_contract_suffix(product_info, locale)
+    return f"{render_generation_plan_contract(plan, locale)} {extra}".strip()
 
 
 def attach_generation_plan(product_info: dict) -> GenerationPlan | None:
@@ -56,4 +59,7 @@ def attach_generation_plan(product_info: dict) -> GenerationPlan | None:
     product_info["generation_plan"] = dumped
     provenance["generation_plan"] = dumped
     product_info["generation_provenance"] = provenance
-    return plan
+    from bebcare.services.product_fidelity_prevention import apply_product_fidelity_prevention
+
+    apply_product_fidelity_prevention(product_info)
+    return plan_from_product_info(product_info) or plan

@@ -344,3 +344,21 @@ def render_generation_plan_contract(plan: GenerationPlan, locale: str = "en") ->
         "Allow scene-consistent perspective, supported orientation, scale, lighting, reflection, "
         "shadow, focus, environmental color, and credible occlusion."
     )
+
+
+def render_fidelity_contract_suffix(product_info: dict | None, locale: str = "en") -> str:
+    info = product_info or {}
+    overlay = info.get("fidelity_guard") or {}
+    plan_dict = info.get("generation_plan") if isinstance(info.get("generation_plan"), dict) else {}
+    if not overlay and not (plan_dict or {}).get("fidelity_policy_version"):
+        return ""
+    from bebcare.services.product_fidelity_prevention import fidelity_prompt_prefix
+
+    payload = dict(plan_dict)
+    payload.update(overlay)
+    prefix = fidelity_prompt_prefix(payload)
+    if not prefix:
+        return ""
+    if _locale(locale) == "zh":
+        return "产品保真：" + prefix
+    return "Product fidelity: " + prefix

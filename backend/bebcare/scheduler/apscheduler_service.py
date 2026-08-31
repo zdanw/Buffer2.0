@@ -68,6 +68,11 @@ def _run_platform_image_generation(
         POLICY_VERSION,
         quality_protection_mode,
     )
+    from bebcare.services.product_fidelity_rollout import (
+        VISUAL_POLICY_VERSION,
+        product_fidelity_prevention_mode,
+        visual_fidelity_qa_mode,
+    )
     from bebcare.services.grounded_rollout import SOURCE_AUTOMATION, grounded_rollout_mode
 
     gen_task_id = None
@@ -124,6 +129,9 @@ def _run_platform_image_generation(
                 image_provider_mode=mode,
                 quality_protection_mode=quality_protection_mode(),
                 quality_policy_version=POLICY_VERSION,
+                product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
+                visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
+                visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
             )
             session.commit()
             run_id = run.run_id

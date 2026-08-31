@@ -982,6 +982,16 @@ class ContentGenerator:
         if progress_callback:
             progress_callback("image_generation", 0.2)
 
+        from bebcare.services.product_fidelity_prevention import sanitize_final_image_prompt
+        import hashlib
+
+        if positive_prompt:
+            positive_prompt = sanitize_final_image_prompt(positive_prompt, product_info)
+            image_prompt = positive_prompt
+            product_info["_sanitized_prompt_hash"] = hashlib.sha256(
+                positive_prompt.encode("utf-8")
+            ).hexdigest()
+
         from bebcare.services.quality_protection import (
             QualityProtectionError,
             validate_post_generation,
@@ -1076,6 +1086,32 @@ class ContentGenerator:
                 requested_size=size,
                 candidate_bytes=product_info.get("_qa_candidate_bytes"),
             )
+            from bebcare.services.visual_fidelity_qa import run_visual_fidelity_qa
+
+            hashes = [row.get("sha256") for row in (qa_summary.get("candidates") or [])]
+            if not any(hashes):
+                blobs = product_info.get("_qa_candidate_bytes") or []
+                hashes = [
+                    hashlib.sha256(blob).hexdigest() if isinstance(blob, (bytes, bytearray)) else None
+                    for blob in blobs
+                ]
+            product_info["_qa_candidate_hashes"] = hashes
+            visual_summary = run_visual_fidelity_qa(
+                qa_session,
+                product_info,
+                source=qa_source,
+                image_urls=list(image_urls or []),
+                assessor=product_info.get("_visual_fidelity_assessor"),
+            )
+            if visual_summary.get("warning") and not qa_summary.get("warning"):
+                qa_summary["warning"] = visual_summary["warning"]
+            elif visual_summary.get("warning") and qa_summary.get("warning"):
+                if visual_summary["warning"] not in str(qa_summary["warning"]):
+                    qa_summary["warning"] = f"{qa_summary['warning']} {visual_summary['warning']}"
+            if visual_summary.get("warning_code"):
+                qa_summary["warning_code"] = visual_summary["warning_code"]
+            if visual_summary.get("hard_fail"):
+                qa_summary["hard_fail"] = True
             qa_session.commit()
         finally:
             if qa_own:
@@ -1141,6 +1177,7 @@ class ContentGenerator:
             "image_prompt": image_prompt,
             "logo_mode": effective_logo_mode,
             "quality_hard_fail": bool(qa_summary.get("hard_fail")),
+            "warning_code": qa_summary.get("warning_code"),
         }
         warnings = []
         if qa_summary.get("warning"):

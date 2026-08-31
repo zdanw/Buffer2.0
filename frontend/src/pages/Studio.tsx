@@ -54,6 +54,7 @@ interface ScenePipelineSlot {
   image_prompt?: string;
   dimensions?: DimensionInfo;
   warning?: string;
+  warning_code?: string;
   reference_product_images?: string[];
   reference_scene_images?: string[];
   error?: string;
@@ -107,6 +108,7 @@ function slotFromStatus(status: GenerateStatus): ScenePipelineSlot | null {
     image_prompt: result.image_prompt,
     dimensions: result.dimensions,
     warning: result.warning,
+    warning_code: result.warning_code,
     reference_product_images: result.reference_product_images,
     reference_scene_images: result.reference_scene_images,
   };
@@ -213,6 +215,7 @@ interface PreviewState {
     reference_product_images?: string[];
     reference_scene_images?: string[];
     warning?: string;
+    warning_code?: string;
     logo_mode?: string;
   } | null;
   taskId: string | null;
@@ -312,6 +315,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
     reference_product_images?: string[];
     reference_scene_images?: string[];
     warning?: string;
+    warning_code?: string;
     logo_mode?: string;
   } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -441,6 +445,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           reference_scene_images:
             s.result?.reference_scene_images ?? prev?.reference_scene_images,
           warning: s.result?.warning ?? prev?.warning,
+          warning_code: s.result?.warning_code ?? prev?.warning_code,
           logo_mode: s.result?.logo_mode ?? prev?.logo_mode,
         }));
       }
@@ -526,6 +531,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           reference_scene_images:
             status.result?.reference_scene_images ?? prev?.reference_scene_images,
           warning: status.result?.warning ?? prev?.warning,
+          warning_code: status.result?.warning_code ?? prev?.warning_code,
           logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
         }));
         finishGeneration('SUCCESS', { taskId: status.task_id });
@@ -1636,7 +1642,27 @@ export default function Studio({ isPageActive = true }: StudioProps) {
               <p className="font-medium text-amber-800">
                 {String(generatedContent.warning).includes('GitHub CDN')
                   ? t('pending.cdnFailed')
-                  : t('preview.qualityNotice')}
+                  : generatedContent.warning_code === 'fidelity_placement'
+                    ? t('preview.fidelityPlacement')
+                    : generatedContent.warning_code === 'fidelity_branding'
+                      ? t('preview.fidelityBranding')
+                      : generatedContent.warning_code === 'fidelity_rendered'
+                        ? t('preview.fidelityRendered')
+                        : generatedContent.warning_code === 'fidelity_publish_paused'
+                          ? t('preview.fidelityPublishPaused')
+                          : generatedContent.warning_code === 'fidelity_product'
+                            ? t('preview.fidelityProduct')
+                  : String(generatedContent.warning).includes('Unsupported product placement')
+                    ? t('preview.fidelityPlacement')
+                    : String(generatedContent.warning).includes('Branding could not be verified')
+                      ? t('preview.fidelityBranding')
+                      : String(generatedContent.warning).includes('heavily rendered')
+                        ? t('preview.fidelityRendered')
+                        : String(generatedContent.warning).includes('Automatic publishing paused')
+                          ? t('preview.fidelityPublishPaused')
+                          : String(generatedContent.warning).includes('Product details may differ')
+                            ? t('preview.fidelityProduct')
+                            : t('preview.qualityNotice')}
               </p>
               <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
             </div>

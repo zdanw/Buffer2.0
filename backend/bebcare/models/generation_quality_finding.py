@@ -43,4 +43,8 @@ class GenerationArtifactQualityFinding(OwnedMixin, Base):
     passed = Column(Boolean, nullable=False, default=True)
     details = Column(JSON, nullable=True)
     policy_version = Column(String(32), nullable=False)
+    qa_kind = Column(String(32), nullable=False, default="deterministic")
+    confidence = Column(String(16), nullable=True)
+    visual_model_version = Column(String(64), nullable=True)
+    cache_key = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

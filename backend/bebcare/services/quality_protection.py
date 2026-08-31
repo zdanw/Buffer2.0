@@ -71,7 +71,7 @@ USER_MESSAGE = {
     "unsupported_format": "Image format is invalid",
     "undecodable": "Image format is invalid",
     "aspect_mismatch": "Image size does not match the requested format",
-    "publish_blocked": "Automatic publishing was paused",
+    "publish_blocked": "Automatic publishing paused",
     "candidate_retrieval": "Image could not be retrieved for quality checks",
     "flat_color": "Image has very little color variation",
 }
@@ -120,6 +120,11 @@ def record_finding(
     passed: bool,
     details: dict | None = None,
     artifact_id: str | None = None,
+    qa_kind: str = "deterministic",
+    confidence: str | None = None,
+    visual_model_version: str | None = None,
+    cache_key: str | None = None,
+    policy_version: str | None = None,
 ) -> GenerationArtifactQualityFinding:
     if artifact_id:
         artifact = (
@@ -141,7 +146,11 @@ def record_finding(
         severity=severity,
         passed=passed,
         details=details or {},
-        policy_version=POLICY_VERSION,
+        policy_version=policy_version or POLICY_VERSION,
+        qa_kind=qa_kind,
+        confidence=confidence,
+        visual_model_version=visual_model_version,
+        cache_key=cache_key,
     )
     stamp_owner(finding, type("Owner", (), {"user_id": run.owner_user_id})())
     db.add(finding)
@@ -667,6 +676,9 @@ def validate_post_generation(
                 retrieval_outcome=retrieval_outcome,
                 retrieval_details=retrieval_details,
             )
+            for item in items:
+                if item.get("check_code") == "candidate_hash":
+                    candidate_meta["sha256"] = (item.get("details") or {}).get("sha256")
         recorded: list[GenerationArtifactQualityFinding] = []
         for item in items:
             details = dict(item.get("details") or {})
@@ -748,6 +760,13 @@ def apply_publish_gate(
         source=source,
         task_mode=task_mode,
         persisted_mode=run.quality_protection_mode,
+    )
+    from bebcare.services.product_fidelity_rollout import visual_fidelity_blocks_auto_publish
+
+    blocking = blocking or visual_fidelity_blocks_auto_publish(
+        source=source,
+        task_mode=task_mode,
+        persisted_mode=getattr(run, "visual_fidelity_qa_mode", None),
     )
 
     def _artifact_for_index(index: int) -> GenerationArtifact | None:

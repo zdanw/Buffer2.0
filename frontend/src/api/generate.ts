@@ -63,6 +63,7 @@ export interface GenerateResult {
   reference_product_images?: string[];
   reference_scene_images?: string[];
   warning?: string;
+  warning_code?: string;
   logo_mode?: string;
 }
 

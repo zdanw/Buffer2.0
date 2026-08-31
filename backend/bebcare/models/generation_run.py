@@ -70,6 +70,9 @@ class GenerationRun(OwnedMixin, Base):
     completed_at = Column(DateTime, nullable=True)
     quality_protection_mode = Column(String(32), nullable=True)
     quality_policy_version = Column(String(32), nullable=True)
+    product_fidelity_prevention_mode = Column(String(32), nullable=True)
+    visual_fidelity_qa_mode = Column(String(32), nullable=True)
+    visual_fidelity_policy_version = Column(String(32), nullable=True)
 
     artifacts = relationship(
         "GenerationArtifact",

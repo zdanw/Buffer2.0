@@ -120,6 +120,10 @@ class Settings(BaseSettings):
     # Phase 3A deterministic quality protection. Default off: no new blocking.
     # off | studio | manual_automation | all
     quality_protection_mode: str = "off"
+    # Product Fidelity Guard v1 checkpoint A. off | studio | all
+    product_fidelity_prevention_mode: str = "off"
+    # Product Fidelity Guard v1 checkpoint B. off | studio | auto_publish | all
+    visual_fidelity_qa_mode: str = "off"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
@@ -174,6 +178,24 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_quality_protection_mode(cls, value: str) -> str:
         allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("product_fidelity_prevention_mode", mode="before")
+    @classmethod
+    def normalize_product_fidelity_prevention_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("visual_fidelity_qa_mode", mode="before")
+    @classmethod
+    def normalize_visual_fidelity_qa_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "auto_publish", "all"}
         mode = str(value or "off").strip().lower()
         if mode not in allowed:
             return "off"

@@ -82,3 +82,5 @@ def test_env_example_documents_grounded_rollout_default_off():
         assert value in text
     assert "ASSET_INTELLIGENCE_MODE=off" in text
     assert "QUALITY_PROTECTION_MODE=off" in text
+    assert "PRODUCT_FIDELITY_PREVENTION_MODE=off" in text
+    assert "VISUAL_FIDELITY_QA_MODE=off" in text

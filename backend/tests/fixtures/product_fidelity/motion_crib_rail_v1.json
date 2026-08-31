@@ -1,0 +1,23 @@
+{
+  "schema_version": "visual_fidelity_v1",
+  "notes": "Synthetic structure-equivalent fixture. No customer or brand-asset bytes. Mimics the Motion crib-rail distortion class: redesigned base, extra control, unsupported crib-rail mount, wrong wordmark case, CGI lighting. A crib or child in scene must not by itself cause rejection.",
+  "plan": {
+    "capture_style": "realistic_photography",
+    "placement": {
+      "instruction": "Place the product fully on its original base on a dresser or shelf."
+    },
+    "subject": { "primary_subject_count": 1 }
+  },
+  "expected_hard_fail": [
+    "base_or_housing_redesign",
+    "control_layout_mismatch",
+    "unsupported_mount_or_attachment",
+    "logo_spelling_or_case_mismatch",
+    "major_proportion_mismatch"
+  ],
+  "expected_warning": [
+    "strong_cgi_render_appearance",
+    "excessive_golden_or_magical_lighting"
+  ],
+  "must_not_hard_fail": ["severe_scene_mismatch"]
+}

@@ -281,6 +281,11 @@ def _record_studio_generation_run(
         POLICY_VERSION,
         quality_protection_mode,
     )
+    from bebcare.services.product_fidelity_rollout import (
+        VISUAL_POLICY_VERSION,
+        product_fidelity_prevention_mode,
+        visual_fidelity_qa_mode,
+    )
 
     provenance = product_info.get("generation_provenance") or {}
     run = create_generation_run(
@@ -305,6 +310,9 @@ def _record_studio_generation_run(
         image_provider_mode=product_info.get("image_provider_mode"),
         quality_protection_mode=quality_protection_mode(),
         quality_policy_version=POLICY_VERSION,
+        product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
+        visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
+        visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
     )
     product_info["generation_run_id"] = run.run_id
     product_info["owner_user_id"] = product.owner_user_id
