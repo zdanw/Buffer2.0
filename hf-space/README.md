@@ -54,7 +54,8 @@ Secrets / Variables 配置环境变量后等待构建；探活：`GET /health`�
 | `AUTO_MIGRATE` | `true`（单实例）；多实例用 CI 跑迁移 |
 | `MAX_CONCURRENT_JOBS` | `1` |
 | `SCHEDULER_MAX_WORKERS` | `2` |
-| `DB_POOL_SIZE` | `3` |
+| `DB_POOL_SIZE` | `16`（对比模式并行轮询；Supabase 仍须留余量） |
+| `DB_MAX_OVERFLOW` | `16` |
 | `ENABLE_CLIP` | `false`（开启需额外依赖与 Long-CLIP） |
 | `LOG_LEVEL` | `INFO` |
 | `ALLOWED_ORIGINS` | 前端域名白名单（逗号分隔，禁止 `*`） |
