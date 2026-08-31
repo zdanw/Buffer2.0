@@ -14,6 +14,7 @@ import { BrandProvider, useBrandContext } from './context/BrandContext';
 import { getCurrentUser, getToken, claimOnboardingReward } from './api/auth';
 import type { UserResponse } from './api/auth';
 import { toast } from './lib/feedback';
+import { showsBrandSelector } from './lib/brandSelectorVisibility';
 
 const BrandManagement = lazy(() => import('./pages/BrandManagement'));
 const AssetManagement = lazy(() => import('./pages/AssetManagement'));
@@ -257,7 +258,7 @@ function AppContent() {
             <div className="hidden lg:block flex-1" aria-hidden />
             <TopBarActions />
           </div>
-          <BrandSelectorBar />
+          {showsBrandSelector(activeTab) ? <BrandSelectorBar /> : null}
         </div>
         {loadError === 'connection' && (
           <ApiConnectionBanner onRetry={() => void refreshBrands()} loading={brandsLoading} />
