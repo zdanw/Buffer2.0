@@ -11,8 +11,11 @@ import {
   aggregateGenerateProgress,
   buildGenerateProgressLayout,
   fetchGenerateStatuses,
+  POLL_INTERVAL_DEGRADED_MS,
+  POLL_INTERVAL_MS,
   POLL_STALL_CONSECUTIVE_FAILURES,
   POLL_WARN_CONSECUTIVE_FAILURES,
+  POLL_INTERVAL_STALLED_MS,
   resolveReferenceSelection,
   type GenerateRequest,
   type GenerateStatus,
@@ -257,7 +260,12 @@ const saveStateToStorage = (userId: string | null, state: PreviewState) => {
   }
 };
 
-export default function Studio() {
+interface StudioProps {
+  /** False when another sidebar tab is active (Studio stays mounted but hidden). */
+  isPageActive?: boolean;
+}
+
+export default function Studio({ isPageActive = true }: StudioProps) {
   const { t, locale } = useI18n();
   const { activeBrandId, activeBrand, brands } = useBrandContext();
   const userId = getAuthUserId();
@@ -319,6 +327,7 @@ export default function Studio() {
   const monotonicProgressRef = useRef(0);
   const taskStatusesRef = useRef<GenerateStatus[]>([]);
   const consecutivePollFailuresRef = useRef(0);
+  const pollInFlightRef = useRef(false);
   const [pollHealth, setPollHealth] = useState<PollHealth>('ok');
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
@@ -818,33 +827,61 @@ export default function Studio() {
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
-    if (!isGenerating || activeTaskIds.length === 0) {
+    if (!isGenerating || activeTaskIds.length === 0 || !isPageActive) {
       return () => {
         if (interval) clearInterval(interval);
       };
     }
 
+    const pollIntervalMs =
+      pollHealth === 'stalled'
+        ? POLL_INTERVAL_STALLED_MS
+        : pollHealth === 'degraded'
+          ? POLL_INTERVAL_DEGRADED_MS
+          : POLL_INTERVAL_MS;
+
     const checkStatus = async () => {
+      if (!isPageActive || pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
       try {
         const done = await runStatusPoll();
         if (done && interval) clearInterval(interval);
       } catch (error) {
         recordPollOutcome(false);
         console.error('Failed to check status:', error);
+      } finally {
+        pollInFlightRef.current = false;
       }
     };
 
     void checkStatus();
-    interval = setInterval(checkStatus, 1000);
+    interval = setInterval(checkStatus, pollIntervalMs);
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [
     activeTaskIds,
     isGenerating,
+    isPageActive,
+    pollHealth,
     runStatusPoll,
     recordPollOutcome,
   ]);
+
+  // One immediate poll when returning to Studio while a task is still in flight.
+  useEffect(() => {
+    if (!isPageActive || !isGenerating || activeTaskIds.length === 0) return;
+    if (pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
+    void runStatusPoll()
+      .catch((error) => {
+        recordPollOutcome(false);
+        console.error('Failed to refresh status on tab focus:', error);
+      })
+      .finally(() => {
+        pollInFlightRef.current = false;
+      });
+  }, [isPageActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProducts = async (force = false) => {
     if (!force) setProductsLoading(true);

@@ -53,7 +53,8 @@ axiosInstance.interceptors.response.use(
       error.response?.status === 502 ||
       error.response?.status === 503 ||
       error.response?.status === 504;
-    const maxRetries = config.url?.includes('/generate/status/') ? 5 : 2;
+    // Status polls retry at most once — overlapping retries exhaust browser connections.
+    const maxRetries = config.url?.includes('/generate/status/') ? 1 : 2;
 
     if ((isRetryableStatus || isTimeout) && (config.retry ?? 0) < maxRetries) {
       console.log(`Retry attempt ${(config.retry ?? 0) + 1} for ${config.url}`);

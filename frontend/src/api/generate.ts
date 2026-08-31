@@ -89,12 +89,19 @@ export const resolveReferenceSelection = async (
   return response.data;
 };
 
+/** Status polls use a short timeout so hung Vercel→HF proxies do not starve other API calls. */
+export const STATUS_POLL_REQUEST_TIMEOUT_MS = 12_000;
+
 export const getGenerateStatus = async (taskId: string): Promise<GenerateStatus> => {
-  const response = await axiosInstance.get(`/generate/status/${taskId}`);
+  const response = await axiosInstance.get(`/generate/status/${taskId}`, {
+    timeout: STATUS_POLL_REQUEST_TIMEOUT_MS,
+  });
   return response.data;
 };
 
-const POLL_INTERVAL_MS = 1000;
+export const POLL_INTERVAL_MS = 1000;
+export const POLL_INTERVAL_DEGRADED_MS = 3000;
+export const POLL_INTERVAL_STALLED_MS = 5000;
 /** Keep polling through ~2 minutes of consecutive transient errors. */
 const MAX_CONSECUTIVE_POLL_ERRORS = 120;
 /** ~5s of all polls failing — show connection warning in UI. */
