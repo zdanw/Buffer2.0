@@ -80,6 +80,12 @@ def test_c4d_terms_removed_in_realistic_mode():
     assert "c4d" not in cleaned.lower()
     assert "3d render" not in cleaned.lower()
     assert "octane" not in cleaned.lower()
+    extra, extra_changed = sanitize_realistic_photo_style(
+        "8K ultra-high-definition pristine flawless dreamy airy bokeh high-end e-commerce"
+    )
+    assert extra_changed
+    assert "pristine" not in extra.lower()
+    assert "8k ultra-high-definition" not in extra.lower()
 
 
 def test_graphic_mode_keeps_render_language():
@@ -106,6 +112,19 @@ def test_unsupported_mount_simplified_supported_mount_kept():
     assert not detect_unsupported_installations(
         "attached using an unsupported clip mount",
         {"clip"},
+    )
+    stroller = "monitor clipped to the stroller near the handlebar"
+    assert "stroller_mount" in detect_unsupported_installations(stroller, set())
+    assert "stroller_mount" not in detect_unsupported_installations(stroller, {"stroller_mount"})
+    assert not detect_unsupported_installations(
+        "Includes a stroller attachment for travel",
+        set(),
+        product_info={"offering_type": "physical_product"},
+    )
+    assert not detect_unsupported_installations(
+        "Baby monitor mounted on a stroller",
+        set(),
+        product_info={"offering_type": "stroller"},
     )
 
 

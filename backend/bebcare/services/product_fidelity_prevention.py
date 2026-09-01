@@ -15,8 +15,16 @@ from bebcare.services.product_fidelity_rollout import (
 
 RENDER_RE = re.compile(
     r"\bc4d\b|cinema\s*4d|octane\s*render|blender\s*render|unreal\s*engine\s*render|"
-    r"\b3d\s*render\b|cgi\s*product\s*render|perfect\s*ray[-\s]*traced|"
-    r"protective\s*halo|magical\s*product\s*glow",
+    r"\b3d\s*render\b|cgi(?:\s+product)?\s*render|cgi\s+render|"
+    r"perfect\s*ray[-\s]*traced|protective\s*halo|magical\s*(?:product\s*)?(?:glow|light)|"
+    r"8k\s*ultra[-\s]*high[-\s]*definition|\bpristine\b|\bflawless\b|"
+    r"dreamy\s*airy\s*bokeh|high[-\s]*end\s*e[-\s]*commerce|meticulous\s*rendering|"
+    r"perfect\s*diffused\s*lighting",
+    re.IGNORECASE,
+)
+
+FLOATING_SYMBOL_RE = re.compile(
+    r"\bfloating\s+(?:icons?|symbols?|hearts?|sparkles?|badges?|pictograms?)\b",
     re.IGNORECASE,
 )
 
@@ -86,6 +94,11 @@ UNSUPPORTED_INSTALL_PATTERNS: tuple[tuple[str, str], ...] = (
         r"invented\s+(?:mounting\s+)?accessory",
         "accessory",
     ),
+    (
+        r"stroller[-\s]?mount(?:ed|ing)?|mounted\s+on\s+(?:a\s+|the\s+)?stroller|"
+        r"clipped\s+to\s+(?:a\s+|the\s+)?stroller|attached\s+to\s+(?:a\s+|the\s+)?stroller",
+        "stroller_mount",
+    ),
 )
 
 STABLE_SURFACE_INSTRUCTION = (
@@ -124,7 +137,8 @@ def sanitize_realistic_photo_style(text: str) -> tuple[str, bool]:
     if not text:
         return text, False
     cleaned, n = RENDER_RE.subn("lifestyle photograph", text)
-    return cleaned, n > 0
+    cleaned2, n2 = FLOATING_SYMBOL_RE.subn("incidental background object", cleaned)
+    return cleaned2, (n + n2) > 0
 
 
 def _corpus(product_info: dict, extra: str = "") -> str:
@@ -251,6 +265,10 @@ def detect_unsupported_installations(
     for pattern, code in UNSUPPORTED_INSTALL_PATTERNS:
         if skip_packaging and code == "packaging":
             continue
+        if code == "stroller_mount":
+            kind = _offering_kind(product_info or {})
+            if "stroller" in kind:
+                continue
         if not re.search(pattern, text or "", re.IGNORECASE):
             continue
         alias = code.replace("_mount", "")
@@ -394,6 +412,17 @@ def fidelity_prompt_prefix(plan_dict: dict) -> str:
     ]
     if simplifications:
         parts.append("Placement simplified: " + "; ".join(simplifications))
+    coverage = str(plan_dict.get("reference_coverage") or "")
+    if coverage in ("limited", "insufficient") and not plan_dict.get("coverage_constraints"):
+        from bebcare.services.quality_diversity_policy import coverage_prompt
+
+        extra = coverage_prompt(coverage)  # type: ignore[arg-type]
+        if extra:
+            parts.append(extra)
+    if style == "realistic_photography" and plan_dict.get("selector_trace"):
+        from bebcare.services.quality_diversity_policy import VARIETY_PROMPT
+
+        parts.append(VARIETY_PROMPT)
     return " ".join(parts)
 
 
@@ -449,14 +478,48 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
         "fidelity_simplifications": simplifications,
         "fidelity_policy_version": PREVENTION_POLICY_VERSION,
     }
+    provenance = info.get("generation_provenance") or {}
+    trace = provenance.get("selector_trace") if isinstance(provenance.get("selector_trace"), dict) else {}
+    coverage = str(trace.get("coverage") or "")
+    if coverage:
+        from bebcare.services.quality_diversity_policy import COVERAGE_CONSTRAINTS
+
+        overlay["reference_coverage"] = coverage
+        overlay["coverage_constraints"] = list(COVERAGE_CONSTRAINTS.get(coverage) or [])
+        overlay["selector_trace"] = {
+            "coverage": coverage,
+            "selection_reason": trace.get("selection_reason"),
+            "diversity_applied": bool(trace.get("diversity_applied")),
+            "selected_ids": trace.get("selected_ids"),
+            "selector_policy_version": trace.get("selector_policy_version"),
+            "selection_seed": trace.get("selection_seed"),
+        }
+        overlay["diversity_fingerprint"] = trace.get("fingerprint")
+        if coverage in ("limited", "insufficient"):
+            overlay["transformation_policy"] = coverage
+            dumped_constraints = list((dump_generation_plan(plan) if plan else {}).get("constraints") or [])
+            dumped_constraints.append("coverage_" + coverage)
+            overlay["extra_constraints"] = dumped_constraints
     dumped = dump_generation_plan(plan) if plan else {}
     dumped.update(overlay)
+    if coverage:
+        from bebcare.services.quality_diversity_policy import apply_coverage_to_plan_dict
+
+        dumped = apply_coverage_to_plan_dict(dumped, coverage)
     info["generation_plan"] = dumped
     info["fidelity_guard"] = overlay
-    provenance = info.get("generation_provenance") or {}
     provenance["generation_plan"] = dumped
     provenance["fidelity_simplifications"] = simplifications
     provenance["product_fidelity_prevention_mode"] = product_fidelity_prevention_mode()
+    if coverage in ("limited", "insufficient"):
+        info["reference_quality_notice"] = True
+        from bebcare.services.quality_diversity_policy import user_facing_selector_reason
+
+        info["reference_diagnostics"] = {
+            "coverage": coverage,
+            "reason": user_facing_selector_reason(trace),
+            "diversity_applied": bool(trace.get("weighted_rotation_enabled")),
+        }
     info["generation_provenance"] = provenance
     return info
 

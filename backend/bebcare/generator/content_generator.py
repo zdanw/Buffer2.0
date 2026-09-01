@@ -1201,6 +1201,19 @@ class ContentGenerator:
             )
         if warnings:
             result["warning"] = " ".join(warnings)
+        notice = product_info.get("reference_quality_notice")
+        diagnostics = product_info.get("reference_diagnostics")
+        if isinstance(diagnostics, dict):
+            result["reference_diagnostics"] = {
+                "coverage": diagnostics.get("coverage"),
+                "reason": diagnostics.get("reason"),
+                "diversity_applied": bool(diagnostics.get("diversity_applied")),
+            }
+        if notice and not result.get("warning"):
+            from bebcare.services.quality_diversity_policy import USER_LIMITED_REFERENCE
+
+            result["warning"] = USER_LIMITED_REFERENCE
+            result["warning_code"] = result.get("warning_code") or "limited_reference"
         if progress_callback:
             progress_callback("finalizing", 0.95)
         return result

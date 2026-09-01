@@ -204,6 +204,7 @@ def resolve_generate_references(
     pinned_product_image_ids: list[str] | None = None,
     pinned_scene_image_ids: list[str] | None = None,
     requested_experiment: str | None = None,
+    selector_context=None,
 ):
     """Single selection entry for Studio and automation.
 
@@ -345,6 +346,9 @@ def resolve_generate_references(
                     pinned_product_image_ids=product_ids,
                     pinned_scene_image_ids=scene_ids,
                     intelligence_by_image=intelligence_by_image,
+                    source=source,
+                    task_mode=task_mode,
+                    selector_context=selector_context,
                 ),
                 requested_experiment=requested,
             )

@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     product_fidelity_prevention_mode: str = "off"
     # Product Fidelity Guard v1 checkpoint B. off | studio | auto_publish | all
     visual_fidelity_qa_mode: str = "off"
+    # Quality and Diversity Selector. Default off. off | studio | all
+    quality_diversity_selector_mode: str = "off"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
@@ -196,6 +198,15 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_visual_fidelity_qa_mode(cls, value: str) -> str:
         allowed = {"off", "studio", "auto_publish", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("quality_diversity_selector_mode", mode="before")
+    @classmethod
+    def normalize_quality_diversity_selector_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "all"}
         mode = str(value or "off").strip().lower()
         if mode not in allowed:
             return "off"

@@ -444,6 +444,30 @@ class APSchedulerService:
         self, session, product, task_id, reference_image_count, use_scene_reference, platforms
     ):
         task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+        from bebcare.services.asset_intelligence import load_usable_analyses
+        from bebcare.services.quality_diversity_context import build_selector_context
+
+        intel = {}
+        try:
+            intel = load_usable_analyses(
+                session,
+                owner_user_id=product.owner_user_id,
+                product_id=str(product.product_id),
+            )
+        except Exception:
+            intel = {}
+        brand = getattr(product, "brand", None)
+        selector_ctx = build_selector_context(
+            source="automation",
+            product=product,
+            task_mode=getattr(task_cfg, "mode", None) if task_cfg else None,
+            image_size=getattr(task_cfg, "image_size", None) if task_cfg else None,
+            use_scene_reference=use_scene_reference,
+            realistic_placement=bool(getattr(task_cfg, "realistic_placement", True)) if task_cfg else True,
+            reference_count=reference_image_count,
+            logo_mode=getattr(brand, "logo_in_images", None) if brand is not None else None,
+            intelligence_by_image=intel,
+        )
         selected = resolve_generate_references(
             session,
             product_id=product.product_id,
@@ -453,6 +477,7 @@ class APSchedulerService:
             source="automation",
             task_mode=getattr(task_cfg, "mode", None) if task_cfg else None,
             image_size=getattr(task_cfg, "image_size", None) if task_cfg else None,
+            selector_context=selector_ctx,
         )
         reference_image_urls = selected.reference_images
         effective_scene = selected.use_scene_reference

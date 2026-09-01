@@ -53,6 +53,13 @@ export interface DimensionInfo {
   lighting: string;
 }
 
+export interface ReferenceDiagnostics {
+  coverage?: string;
+  reason?: string;
+  diversity_applied?: boolean;
+  selected_reference_id?: string | null;
+}
+
 export interface GenerateResult {
   success?: boolean;
   text?: string;
@@ -65,6 +72,7 @@ export interface GenerateResult {
   warning?: string;
   warning_code?: string;
   logo_mode?: string;
+  reference_diagnostics?: ReferenceDiagnostics;
 }
 
 export interface GenerateStatus {

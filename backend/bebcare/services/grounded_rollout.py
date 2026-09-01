@@ -76,6 +76,7 @@ def selection_provenance(selection, *, source: str) -> dict:
         "grounded_phase1b_enabled": eligible,
         "deterministic_metadata": getattr(selection, "deterministic_metadata", None),
         "asset_intelligence": getattr(selection, "asset_intelligence", None),
+        "selector_trace": getattr(selection, "selector_trace", None),
     }
 
 

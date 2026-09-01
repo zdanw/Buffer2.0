@@ -56,6 +56,26 @@ def attach_generation_plan(product_info: dict) -> GenerationPlan | None:
         logger.exception("Failed to build GenerationPlan")
         return None
     dumped = dump_generation_plan(plan)
+    trace = provenance.get("selector_trace") if isinstance(provenance.get("selector_trace"), dict) else None
+    if trace:
+        dumped["diversity_fingerprint"] = trace.get("fingerprint")
+        dumped["reference_coverage"] = trace.get("coverage")
+        dumped["selector_policy_version"] = trace.get("selector_policy_version")
+        dumped["selection_seed"] = trace.get("selection_seed")
+        dumped["selector_trace"] = trace
+        coverage = str(trace.get("coverage") or "")
+        from bebcare.services.quality_diversity_policy import apply_coverage_to_plan_dict
+
+        dumped = apply_coverage_to_plan_dict(dumped, coverage)
+        from bebcare.services.quality_diversity_policy import user_facing_selector_reason
+
+        product_info["reference_diagnostics"] = {
+            "coverage": coverage or None,
+            "reason": user_facing_selector_reason(trace),
+            "diversity_applied": bool(trace.get("weighted_rotation_enabled")),
+        }
+        if coverage in ("limited", "insufficient"):
+            product_info["reference_quality_notice"] = True
     product_info["generation_plan"] = dumped
     provenance["generation_plan"] = dumped
     product_info["generation_provenance"] = provenance

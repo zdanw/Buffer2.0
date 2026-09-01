@@ -57,6 +57,7 @@ class GroundedSelection:
     requested_experiment_variant: Optional[str] = None
     deterministic_metadata: Optional[dict] = None
     asset_intelligence: Optional[dict] = None
+    selector_trace: Optional[dict] = None
 
 
 def _legacy_manifest_from_urls(
@@ -220,6 +221,10 @@ def select_grounded_references(
     pinned_product_image_ids: list[str] | None = None,
     pinned_scene_image_ids: list[str] | None = None,
     intelligence_by_image: dict | None = None,
+    source: str = "studio",
+    task_mode: str | None = None,
+    selection_seed: str | None = None,
+    selector_context: dict | None = None,
 ) -> GroundedSelection:
     count = max(int(reference_count or 1), 1)
     products = [img for img in _owned_images(session, product_id, owner_user_id, "product") if _valid_candidate(img)]
@@ -276,112 +281,150 @@ def select_grounded_references(
 
     items: list[ManifestItem] = []
     selected_products: list[tuple[ProductImage, str, dict]] = []
+    selector_trace: dict | None = None
+    qds_scene: tuple[ProductImage, str, dict] | None = None
 
     if pinned_products is not None:
         for index, image in enumerate(pinned_products[:count]):
             role = "primary_subject" if index == 0 else "supporting_subject"
             selected_products.append((image, "explicit_pin", {"score": None, "pin_order": index}))
     else:
-        preferred = next(
-            (
-                img
-                for img in products
-                if img.is_preferred and img.image_type == "product" and _valid_candidate(img)
-            ),
-            None,
+        from bebcare.services.quality_diversity_rollout import quality_diversity_enabled
+        from bebcare.services.quality_diversity_select import (
+            load_generation_history,
+            new_selection_seed,
+            run_grounded_quality_diversity,
         )
-        pool = list(products)
-        if preferred:
-            selected_products.append(
-                (
-                    preferred,
-                    "preferred",
-                    {
-                        "score": suitability_score(
-                            width=preferred.width,
-                            height=preferred.height,
-                            target_aspect=None,
-                            image_type="product",
-                            apply_diversity=False,
-                        ),
-                        "diversity_skipped": True,
-                    },
-                )
+
+        if quality_diversity_enabled(source=source, task_mode=task_mode, grounded=True):
+            seed = (selection_seed or "").strip() or new_selection_seed()
+            history = load_generation_history(
+                session, product_id=product_id, owner_user_id=owner_user_id
             )
-            pool = _exclude_near_duplicates(preferred, pool)
+            hint = selector_context
+            if hint is not None and hasattr(hint, "to_risk_hint"):
+                hint = hint.to_risk_hint()
+            qds = run_grounded_quality_diversity(
+                products=products,
+                scenes=scenes,
+                intel_by_id=intel,
+                target_aspect=parse_target_aspect(image_size),
+                count=count,
+                use_scene=bool(use_scene_reference),
+                seed=seed,
+                source=source,
+                task_mode=task_mode,
+                history=history,
+                risk_hint=hint if isinstance(hint, dict) else None,
+                repeats=repeats,
+            )
+            selected_products = qds.selected
+            qds_scene = qds.scene
+            selector_trace = qds.trace
         else:
-            target_aspect = parse_target_aspect(image_size)
-            ranked = sorted(
-                pool,
-                key=lambda img: rank_key(
-                    img,
-                    suitability_score(
-                        width=img.width,
-                        height=img.height,
-                        target_aspect=target_aspect,
-                        image_type="product",
-                        primary_repeat_count=repeats.get(img.image_id, 0),
-                        apply_diversity=True,
-                    ),
-                ),
-            )
-            if not ranked:
-                raise RuntimeError("no_valid_product_references")
-            primary = ranked[0]
-            selected_products.append(
+            preferred = next(
                 (
-                    primary,
-                    "suitability",
-                    {
-                        "score": suitability_score(
-                            width=primary.width,
-                            height=primary.height,
+                    img
+                    for img in products
+                    if img.is_preferred and img.image_type == "product" and _valid_candidate(img)
+                ),
+                None,
+            )
+            pool = list(products)
+            if preferred:
+                selected_products.append(
+                    (
+                        preferred,
+                        "preferred",
+                        {
+                            "score": suitability_score(
+                                width=preferred.width,
+                                height=preferred.height,
+                                target_aspect=None,
+                                image_type="product",
+                                apply_diversity=False,
+                            ),
+                            "diversity_skipped": True,
+                        },
+                    )
+                )
+                pool = _exclude_near_duplicates(preferred, pool)
+            else:
+                target_aspect = parse_target_aspect(image_size)
+                ranked = sorted(
+                    pool,
+                    key=lambda img: rank_key(
+                        img,
+                        suitability_score(
+                            width=img.width,
+                            height=img.height,
                             target_aspect=target_aspect,
                             image_type="product",
-                            primary_repeat_count=repeats.get(primary.image_id, 0),
-                        )
-                    },
-                )
-            )
-            pool = _exclude_near_duplicates(primary, ranked[1:])
-
-        target = parse_target_aspect(image_size)
-        while len(selected_products) < count and pool:
-            ranked_support = sorted(
-                pool,
-                key=lambda img: rank_key(
-                    img,
-                    suitability_score(
-                        width=img.width,
-                        height=img.height,
-                        target_aspect=target,
-                        image_type="product",
-                        apply_diversity=False,
+                            primary_repeat_count=repeats.get(img.image_id, 0),
+                            apply_diversity=True,
+                        ),
                     ),
-                ),
-            )
-            nxt = ranked_support[0]
-            selected_products.append(
-                (
-                    nxt,
-                    "suitability",
-                    {
-                        "score": suitability_score(
-                            width=nxt.width,
-                            height=nxt.height,
+                )
+                if not ranked:
+                    raise RuntimeError("no_valid_product_references")
+                primary = ranked[0]
+                selected_products.append(
+                    (
+                        primary,
+                        "suitability",
+                        {
+                            "score": suitability_score(
+                                width=primary.width,
+                                height=primary.height,
+                                target_aspect=target_aspect,
+                                image_type="product",
+                                primary_repeat_count=repeats.get(primary.image_id, 0),
+                            )
+                        },
+                    )
+                )
+                pool = _exclude_near_duplicates(primary, ranked[1:])
+
+            target = parse_target_aspect(image_size)
+            while len(selected_products) < count and pool:
+                ranked_support = sorted(
+                    pool,
+                    key=lambda img: rank_key(
+                        img,
+                        suitability_score(
+                            width=img.width,
+                            height=img.height,
                             target_aspect=target,
                             image_type="product",
                             apply_diversity=False,
-                        )
-                    },
+                        ),
+                    ),
                 )
-            )
-            pool = _exclude_near_duplicates(nxt, ranked_support[1:])
+                nxt = ranked_support[0]
+                selected_products.append(
+                    (
+                        nxt,
+                        "suitability",
+                        {
+                            "score": suitability_score(
+                                width=nxt.width,
+                                height=nxt.height,
+                                target_aspect=target,
+                                image_type="product",
+                                apply_diversity=False,
+                            )
+                        },
+                    )
+                )
+                pool = _exclude_near_duplicates(nxt, ranked_support[1:])
 
     target = parse_target_aspect(image_size)
     scene_choice: tuple[ProductImage, str, dict] | None = None
     effective_scene = bool(use_scene_reference)
-    if use_scene_reference:
+    if qds_scene is not None:
+        scene_choice = qds_scene
+        effective_scene = True
+    elif use_scene_reference:
         if pinned_scenes is not None:
             if pinned_scenes:
                 scene = pinned_scenes[0]
@@ -483,6 +526,7 @@ def select_grounded_references(
         fallback_path=None,
         experiment_variant=EXPERIMENT_DETERMINISTIC,
         grounded=True,
+        selector_trace=selector_trace,
     )
 
 

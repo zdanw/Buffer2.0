@@ -209,6 +209,20 @@ def test_attach_skips_plan_when_rollout_ineligible():
 
 
 def test_prompt_uses_stored_plan_dump():
+    from bebcare.config.settings import settings
+
+    original_prevention = settings.product_fidelity_prevention_mode
+    original_qds = settings.quality_diversity_selector_mode
+    settings.product_fidelity_prevention_mode = "off"
+    settings.quality_diversity_selector_mode = "off"
+    try:
+        _assert_prompt_uses_stored_plan_dump()
+    finally:
+        settings.product_fidelity_prevention_mode = original_prevention
+        settings.quality_diversity_selector_mode = original_qds
+
+
+def _assert_prompt_uses_stored_plan_dump():
     from bebcare.prompt_builder.prompt_engine import PromptEngine
     from bebcare.services.generation_plan import attach_generation_plan, dump_generation_plan
 

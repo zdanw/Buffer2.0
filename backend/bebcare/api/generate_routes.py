@@ -53,6 +53,31 @@ def _image_progress_callback(task_id: str, start: int, end: int):
     return callback
 
 
+def _studio_selector_context(product, request, db, *, source: str = SOURCE_STUDIO):
+    from bebcare.services.asset_intelligence import load_usable_analyses
+    from bebcare.services.quality_diversity_context import build_selector_context
+
+    intel = {}
+    try:
+        intel = load_usable_analyses(
+            db, owner_user_id=product.owner_user_id, product_id=str(product.product_id)
+        )
+    except Exception:
+        intel = {}
+    brand = getattr(product, "brand", None)
+    return build_selector_context(
+        source=source,
+        product=product,
+        image_size=getattr(request, "image_size", None),
+        use_scene_reference=bool(getattr(request, "use_scene_reference", False)),
+        realistic_placement=bool(getattr(request, "realistic_placement", True)),
+        style_hint=getattr(request, "style_hint", None),
+        reference_count=getattr(request, "reference_count", 1) or 1,
+        logo_mode=getattr(brand, "logo_in_images", None) if brand is not None else None,
+        intelligence_by_image=intel,
+    )
+
+
 def _build_product_info(
     product, request: GenerateRequest, db: Session, *, source: str = SOURCE_STUDIO
 ) -> dict:
@@ -70,6 +95,7 @@ def _build_product_info(
             pinned_product_image_ids=request.reference_product_image_ids,
             pinned_scene_image_ids=request.reference_scene_image_ids,
             requested_experiment=request.experiment_variant,
+            selector_context=_studio_selector_context(product, request, db, source=source),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -150,6 +176,7 @@ def resolve_reference_selection(
             image_size=request.image_size,
             pinned_product_image_ids=request.reference_product_image_ids,
             pinned_scene_image_ids=request.reference_scene_image_ids,
+            selector_context=_studio_selector_context(product, request, db),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

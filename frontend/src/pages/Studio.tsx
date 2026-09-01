@@ -21,6 +21,7 @@ import {
   type GenerateRequest,
   type GenerateStatus,
   type DimensionInfo,
+  type ReferenceDiagnostics,
 } from '@/api/generate';
 import { publishContent } from '@/api/publish';
 import { createDraft } from '@/api/tasks';
@@ -55,6 +56,7 @@ interface ScenePipelineSlot {
   dimensions?: DimensionInfo;
   warning?: string;
   warning_code?: string;
+  reference_diagnostics?: ReferenceDiagnostics;
   reference_product_images?: string[];
   reference_scene_images?: string[];
   error?: string;
@@ -72,6 +74,17 @@ const OPTIMISTIC_GENERATE_STATUS: GenerateStatus = {
   progress: 2,
   stage: 'starting',
 };
+
+function compactSelectorReason(
+  reason: string | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (!reason) return '';
+  if (reason === 'limited_references') return t('preview.selectorReasonLimited');
+  if (reason === 'stable_primary') return t('preview.selectorReasonStable');
+  if (reason === 'safe_rotation') return t('preview.selectorReasonRotated');
+  return reason;
+}
 
 function optimisticStatusForStage(
   stage: string,
@@ -109,6 +122,7 @@ function slotFromStatus(status: GenerateStatus): ScenePipelineSlot | null {
     dimensions: result.dimensions,
     warning: result.warning,
     warning_code: result.warning_code,
+    reference_diagnostics: result.reference_diagnostics,
     reference_product_images: result.reference_product_images,
     reference_scene_images: result.reference_scene_images,
   };
@@ -217,6 +231,7 @@ interface PreviewState {
     warning?: string;
     warning_code?: string;
     logo_mode?: string;
+    reference_diagnostics?: ReferenceDiagnostics;
   } | null;
   taskId: string | null;
   taskIds?: string[];
@@ -317,6 +332,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
     warning?: string;
     warning_code?: string;
     logo_mode?: string;
+    reference_diagnostics?: ReferenceDiagnostics;
   } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
@@ -447,6 +463,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           warning: s.result?.warning ?? prev?.warning,
           warning_code: s.result?.warning_code ?? prev?.warning_code,
           logo_mode: s.result?.logo_mode ?? prev?.logo_mode,
+          reference_diagnostics: s.result?.reference_diagnostics ?? prev?.reference_diagnostics,
         }));
       }
     },
@@ -533,6 +550,8 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           warning: status.result?.warning ?? prev?.warning,
           warning_code: status.result?.warning_code ?? prev?.warning_code,
           logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
+          reference_diagnostics:
+            status.result?.reference_diagnostics ?? prev?.reference_diagnostics,
         }));
         finishGeneration('SUCCESS', { taskId: status.task_id });
         window.dispatchEvent(new Event('pulseforge:refresh-user'));
@@ -1652,6 +1671,8 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                           ? t('preview.fidelityPublishPaused')
                           : generatedContent.warning_code === 'fidelity_product'
                             ? t('preview.fidelityProduct')
+                            : generatedContent.warning_code === 'limited_reference'
+                              ? t('preview.limitedReference')
                   : String(generatedContent.warning).includes('Unsupported product placement')
                     ? t('preview.fidelityPlacement')
                     : String(generatedContent.warning).includes('Branding could not be verified')
@@ -1665,7 +1686,36 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                             : t('preview.qualityNotice')}
               </p>
               <p className="text-sm text-amber-700 mt-1">{generatedContent.warning}</p>
+              {generatedContent.reference_diagnostics?.coverage && (
+                <details className="mt-2 text-sm text-amber-800">
+                  <summary>{t('preview.referenceDetails')}</summary>
+                  <p className="mt-1">
+                    {t('preview.referenceCoverage')}: {generatedContent.reference_diagnostics.coverage}
+                    {compactSelectorReason(generatedContent.reference_diagnostics.reason, t)
+                      ? ` · ${compactSelectorReason(generatedContent.reference_diagnostics.reason, t)}`
+                      : ''}
+                    {generatedContent.reference_diagnostics.diversity_applied
+                      ? ` · ${t('preview.diversityRotated')}`
+                      : ''}
+                  </p>
+                </details>
+              )}
             </div>
+          )}
+
+          {generatedContent?.reference_diagnostics?.coverage && !generatedContent?.warning && (
+            <details className="p-3 rounded-lg border border-slate-200 text-sm text-slate-600">
+              <summary>{t('preview.referenceDetails')}</summary>
+              <p className="mt-1">
+                {t('preview.referenceCoverage')}: {generatedContent.reference_diagnostics.coverage}
+                {compactSelectorReason(generatedContent.reference_diagnostics.reason, t)
+                  ? ` · ${compactSelectorReason(generatedContent.reference_diagnostics.reason, t)}`
+                  : ''}
+                {generatedContent.reference_diagnostics.diversity_applied
+                  ? ` · ${t('preview.diversityRotated')}`
+                  : ''}
+              </p>
+            </details>
           )}
 
           {saveDraftStatus && (
