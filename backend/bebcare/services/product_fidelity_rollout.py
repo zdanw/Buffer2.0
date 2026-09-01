@@ -15,8 +15,8 @@ from bebcare.services.grounded_rollout import SOURCE_AUTOMATION, SOURCE_STUDIO
 
 PREVENTION_MODES = ("off", "studio", "all")
 VISUAL_MODES = ("off", "studio", "auto_publish", "all")
-PREVENTION_POLICY_VERSION = "product_fidelity_prevention_v2"
-VISUAL_POLICY_VERSION = "visual_fidelity_qa_v2"
+PREVENTION_POLICY_VERSION = "product_fidelity_prevention_v3"
+VISUAL_POLICY_VERSION = "visual_fidelity_qa_v3"
 LEGACY_NULL = "off"
 _UNSET = object()
 

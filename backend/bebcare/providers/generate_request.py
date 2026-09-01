@@ -14,7 +14,7 @@ from bebcare.schemas.reference_manifest import (
 ROLE_LABELS = {
     "primary_subject": "primary subject",
     "supporting_subject": "supporting subject (same offering)",
-    "scene": "scene context",
+    "scene": "scene context (environment only; not a product)",
     "legacy_reference": "legacy reference",
 }
 

@@ -499,8 +499,8 @@ def test_plan_matches_sanitized_prompt_contract():
         apply_product_fidelity_prevention(info)
         contract = executed_plan_contract(info)
         prompt = sanitize_final_image_prompt("golden hour on crib-rail C4D", info)
-        assert "Image 1 is the primary" in contract
-        assert "Image 1 is the primary" in prompt
+        assert "Image 1 is the product-geometry and identity authority" in prompt
+        assert "Image 1:" in contract or "primary_subject" in contract
     finally:
         settings.product_fidelity_prevention_mode = original
 

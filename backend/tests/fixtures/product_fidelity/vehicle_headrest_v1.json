@@ -1,0 +1,21 @@
+{
+  "schema_version": "visual_fidelity_v1",
+  "notes": "Structure-equivalent fixture. Original product base replaced by an invented headrest bracket beside a child seat; console presentation and unsupported pouch. A vehicle or child seat in scene is not itself a failure.",
+  "observation": {
+    "invented_mount": true,
+    "invented_bracket": true,
+    "headrest_mount": true,
+    "base_redesigned": true,
+    "invented_pouch": true,
+    "active_driving": true,
+    "usage_confidence": "high",
+    "vehicle_present": true
+  },
+  "expected_hard_fail": [
+    "unsupported_mount_or_attachment",
+    "base_or_housing_redesign",
+    "unsupported_accessory",
+    "unsafe_or_misleading_usage_setup"
+  ],
+  "must_not_hard_fail": ["severe_scene_mismatch"]
+}

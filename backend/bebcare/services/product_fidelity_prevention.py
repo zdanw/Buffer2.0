@@ -19,7 +19,8 @@ RENDER_RE = re.compile(
     r"perfect\s*ray[-\s]*traced|protective\s*halo|magical\s*(?:product\s*)?(?:glow|light)|"
     r"\b8k\b|\bpristine\b|\bflawless\b|"
     r"dreamy\s*airy\s*bokeh|high[-\s]*end\s*e[-\s]*commerce|meticulous\s*rendering|"
-    r"perfect\s*diffused\s*lighting",
+    r"perfect\s*diffused\s*lighting|picture[-\s]*perfect|exaggerated\s+golden[-\s]*hour|"
+    r"perfectly\s+(?:centred|centered)\s+(?:and\s+)?symmetrical",
     re.IGNORECASE,
 )
 
@@ -33,7 +34,10 @@ PHOTOGRAPHIC_CONTRACT = (
     "perspective; moderate depth of field; ordinary lens and sensor imperfections; "
     "restrained highlights; environment-specific reflections; scene-consistent grain, "
     "sharpness, exposure, and white balance; real molded-plastic, metal, glass, fabric, "
-    "or screen behavior; no synthetic render finish"
+    "or screen behavior; no synthetic render finish; do not perfectly centre the product; "
+    "avoid spotless showroom staging; do not make the product much sharper or cleaner than "
+    "the environment; avoid exaggerated golden-hour; do not add carry pouches or accessory "
+    "props unless they are clearly evidenced in Image 1"
 )
 
 # Phrase-level physical installation only. Isolated verbs/nouns (stands, clip, case) are not matches.
@@ -99,12 +103,72 @@ UNSUPPORTED_INSTALL_PATTERNS: tuple[tuple[str, str], ...] = (
         r"clipped\s+to\s+(?:a\s+|the\s+)?stroller|attached\s+to\s+(?:a\s+|the\s+)?stroller",
         "stroller_mount",
     ),
+    (
+        r"headrest[-\s]?mount(?:ed|ing)?|mounted\s+(?:to|on|beside)\s+(?:the\s+)?headrest|"
+        r"attached\s+(?:to|beside)\s+(?:the\s+)?(?:front\s+)?(?:seat\s+)?headrest",
+        "headrest_mount",
+    ),
+    (
+        r"child[-\s]?seat\s+mount|attached\s+beside\s+(?:a\s+|the\s+)?child\s+seat|"
+        r"installed\s+by\s+the\s+child\s+seat|fixed\s+to\s+the\s+stroller",
+        "child_seat_mount",
+    ),
+    (
+        r"center\s+console\s+(?:mount|monitor)|mounted\s+on\s+(?:the\s+)?center\s+console",
+        "console_mount",
+    ),
+    (
+        r"\bclamped\s+to\b|mounting\s+clamp|spring\s+clamp\s+mount",
+        "clamp",
+    ),
+    (
+        r"placed\s+using\s+an?\s+(?:suitable\s+)?holder|product[-\s]specific\s+holder|"
+        r"invented\s+holder",
+        "holder",
+    ),
+    (
+        r"carry(?:ing)?\s+pouch|travel\s+pouch|invented\s+(?:carry\s+)?pouch",
+        "pouch",
+    ),
+    (
+        r"seat\s+tray|lap\s+desk|wooden\s+tray\s+(?:across|on)|invented\s+tray",
+        "tray",
+    ),
+)
+
+VAGUE_MOUNT_RE = re.compile(
+    r"mounted\s+on\s+a\s+stable\s+support|securely\s+positioned\s+beside|"
+    r"attached\s+near|placed\s+using\s+a\s+suitable\s+holder|"
+    r"scene[-\s]consistent\s+stable\s+support(?:\s+already\s+evidenced)?",
+    re.IGNORECASE,
+)
+
+USAGE_PLAUSIBILITY_PATTERNS: tuple[tuple[str, str], ...] = (
+    (
+        r"while\s+driving|active\s+driving|for\s+(?:the\s+)?driver(?:'s)?\s+view(?:ing)?|"
+        r"presented\s+for\s+active\s+driver",
+        "active_driving",
+    ),
+    (
+        r"cables?\s+routed\s+into\s+(?:a\s+|the\s+)?(?:crib|child[-\s]?restraint|car\s+seat)",
+        "child_area_cables",
+    ),
 )
 
 STABLE_SURFACE_INSTRUCTION = (
-    "Place the product fully on its original base on a dresser, shelf, table, or counter. "
-    "Do not invent mounting hardware, clips, brackets, docks, straps, or product cables. "
-    "Do not route cables inside or immediately beside a crib."
+    "Place the complete original product, including its original base, fully on a "
+    "dresser, shelf, table, or counter. Do not invent mounting hardware, clamps, "
+    "brackets, clips, straps, docks, stands, cases, pouches, holders, cables, or adapters. "
+    "Do not attach the product to a headrest, child seat, crib, stroller, or wall unless "
+    "that exact configuration is clearly visible in Image 1. Do not add trays, boards, or "
+    "platforms that are not the product's original base."
+)
+
+USAGE_INSTRUCTION = (
+    "If a vehicle appears, keep it parked and stationary. Vehicle, child-seat, crib, "
+    "stroller, or child presence in the scene is allowed. Displays and controls must stay "
+    "incidental and must not be presented for active driving. Do not route cables into a "
+    "crib or child-restraint area. Do not imply a certified installation."
 )
 
 GRAPHIC_HINTS = re.compile(
@@ -261,6 +325,9 @@ def detect_unsupported_installations(
     product_info: dict | None = None,
 ) -> list[str]:
     hits: list[str] = []
+    kind = _offering_kind(product_info or {})
+    if kind in NON_PHYSICAL_OFFERING_KINDS:
+        return hits
     skip_packaging = packaging_is_the_offering(product_info or {})
     for pattern, code in UNSUPPORTED_INSTALL_PATTERNS:
         if skip_packaging and code == "packaging":
@@ -268,6 +335,14 @@ def detect_unsupported_installations(
         if code == "stroller_mount":
             kind = _offering_kind(product_info or {})
             if "stroller" in kind:
+                continue
+        if code == "child_seat_mount":
+            kind = _offering_kind(product_info or {})
+            if "child_seat" in kind or "car_seat" in kind:
+                continue
+        if code == "headrest_mount":
+            kind = _offering_kind(product_info or {})
+            if "headrest" in kind:
                 continue
         if not re.search(pattern, text or "", re.IGNORECASE):
             continue
@@ -279,11 +354,99 @@ def detect_unsupported_installations(
 
 
 def simplify_unsupported_placement(text: str) -> str:
-    stripped = text or ""
+    stripped = rewrite_vague_mount_language(text or "")
     for pattern, _code in UNSUPPORTED_INSTALL_PATTERNS:
         stripped = re.sub(pattern, "stable surface", stripped, flags=re.IGNORECASE)
+    for pattern, _code in USAGE_PLAUSIBILITY_PATTERNS:
+        stripped = re.sub(pattern, "parked stationary vehicle context", stripped, flags=re.IGNORECASE)
     stripped = re.sub(r"\s+", " ", stripped).strip()
-    return f"{STABLE_SURFACE_INSTRUCTION} Scene purpose preserved where possible. {stripped}".strip()
+    return (
+        f"{STABLE_SURFACE_INSTRUCTION} {USAGE_INSTRUCTION} "
+        f"Scene purpose preserved where possible. {stripped}"
+    ).strip()
+
+
+def rewrite_vague_mount_language(text: str) -> str:
+    if not text:
+        return text
+    return VAGUE_MOUNT_RE.sub("resting on its original base on a table or shelf", text)
+
+
+def detect_usage_violations(text: str, *, product_info: dict | None = None) -> list[str]:
+    if not physical_placement_sanitization_applies(product_info or {}, [text or ""]):
+        return []
+    hits: list[str] = []
+    for pattern, code in USAGE_PLAUSIBILITY_PATTERNS:
+        if re.search(pattern, text or "", re.IGNORECASE):
+            hits.append(code)
+    return hits
+
+
+def redact_prohibited_wordmark(text: str, product_info: dict | None) -> str:
+    """Remove stored wordmark/brand tokens from model-facing physical generation text."""
+    from bebcare.services.logo_placement import identity_from_product_info, include_wordmark_in_generation_prompt
+
+    if not text or include_wordmark_in_generation_prompt(product_info):
+        return text
+    identity = identity_from_product_info(product_info)
+    tokens = []
+    for raw in (identity.wordmark, (product_info or {}).get("brand_name"), (product_info or {}).get("brand_wordmark")):
+        token = str(raw or "").strip()
+        if len(token) >= 4:
+            tokens.append(token)
+    cleaned = text
+    for token in sorted(set(tokens), key=len, reverse=True):
+        cleaned = re.sub(rf"\b{re.escape(token)}\b", "the product", cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
+def provider_image_order_from_plan(plan_dict: dict | None) -> list[dict[str, Any]]:
+    from bebcare.services.logo_placement import model_facing_provider_labels, _item_value
+
+    items = list(((plan_dict or {}).get("reference_manifest") or {}).get("items") or [])
+    rows = []
+    for index, item in model_facing_provider_labels(items):
+        rows.append(
+            {
+                "image_n": index,
+                "stored_order": int(_item_value(item, "order", 0) or 0),
+                "role": _item_value(item, "role"),
+                "image_id": _item_value(item, "image_id"),
+                "image_type": _item_value(item, "image_type"),
+            }
+        )
+    return rows
+
+
+def evaluate_physical_scene(observation: dict[str, Any]) -> list:
+    """Deterministic geometry/usage conflicts. Does not call a model."""
+    from bebcare.schemas.visual_fidelity import VisualFidelityCheck
+
+    def _check(code: str, status: str, confidence: str, reason: str) -> VisualFidelityCheck:
+        return VisualFidelityCheck(
+            check_code=code,
+            status=status,  # type: ignore[arg-type]
+            confidence=confidence,  # type: ignore[arg-type]
+            short_reason=reason,
+        )
+
+    checks = []
+    if observation.get("invented_mount") or observation.get("headrest_mount") or observation.get("invented_bracket"):
+        checks.append(_check("unsupported_mount_or_attachment", "hard_fail", "high", "invented mount or bracket"))
+    if observation.get("base_redesigned"):
+        checks.append(_check("base_or_housing_redesign", "hard_fail", "high", "original base replaced"))
+    if observation.get("invented_pouch") or observation.get("invented_accessory"):
+        checks.append(_check("unsupported_accessory", "hard_fail", "high", "unsupported accessory or pouch"))
+    driving = observation.get("active_driving")
+    if driving:
+        conf = str(observation.get("usage_confidence") or "high")
+        status = "hard_fail" if conf in ("high", "medium") else "warning"
+        checks.append(_check("unsafe_or_misleading_usage_setup", status, conf, "presented for active driving"))
+    if observation.get("child_area_cables"):
+        checks.append(_check("implausible_cable_routing", "hard_fail", "high", "cables in child-restraint area"))
+    if observation.get("vehicle_present") and not driving and not observation.get("invented_mount"):
+        pass
+    return checks
 
 
 def identity_contract_from_evidence(product_info: dict) -> dict[str, Any]:
@@ -351,24 +514,35 @@ def logo_protection_contract(product_info: dict) -> dict[str, Any]:
 
 
 def reference_authority_block(plan_dict: dict | None) -> str:
-    from bebcare.services.logo_placement import model_facing_provider_labels
+    from bebcare.services.logo_placement import model_facing_provider_labels, _item_value
 
     items = list(((plan_dict or {}).get("reference_manifest") or {}).get("items") or [])
     labeled = model_facing_provider_labels(items)
-    roles = "; ".join(
-        f"Image {index}: {item.get('role') if isinstance(item, dict) else getattr(item, 'role', None)}"
-        for index, item in labeled
-        if (item.get("role") if isinstance(item, dict) else getattr(item, "role", None))
-    )
+    roles = []
+    scene_line = ""
+    for index, item in labeled:
+        role = _item_value(item, "role")
+        itype = _item_value(item, "image_type")
+        if role == "scene" or itype == "scene":
+            scene_line = (
+                f"Image {index} is the scene/environment reference, not a second product."
+            )
+            roles.append(f"Image {index}: scene (environment only)")
+        elif role:
+            roles.append(f"Image {index}: {role}")
     lines = [
-        "Image 1 is the primary geometry and identity authority.",
-        "Supporting references provide alternate detail or view evidence only.",
-        "Supporting references must not create extra visible products unless the GenerationPlan explicitly allows a supported group.",
+        "Image 1 is the product-geometry and identity authority.",
+        "Supporting product images provide structural or detail evidence only and must not appear as extra visible products.",
+        "Logo placement must be copied only from a clearly evidenced visible region on that same component.",
+        "No branding may be added to another surface. If location or legibility is uncertain, omit branding.",
+        "Product description and brand name are not placement evidence.",
         "If a surface or accessory is not visible or supported, do not invent it.",
         "Preserve uncertainty rather than creating detailed unsupported geometry.",
     ]
+    if scene_line:
+        lines.append(scene_line)
     if roles:
-        lines.append(f"Stored roles: {roles}.")
+        lines.append(f"Stored roles: {'; '.join(roles)}.")
     return " ".join(lines)
 
 
@@ -412,15 +586,15 @@ def fidelity_prompt_prefix(plan_dict: dict) -> str:
     simplifications = plan_dict.get("fidelity_simplifications") or []
     parts = [
         "1. Output type and purpose: commercial social still; product-accurate marketing image.",
-        "2. Reference authority: Image 1 is the product-geometry authority. "
+        "2. Reference authority: "
         f"{reference_authority_block(plan_dict)}",
-        f"3. Subject/configuration: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION}",
+        f"3. Subject/configuration: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION} {USAGE_INSTRUCTION}",
         "4. Product identity: preserve verified visible attributes from Image 1 only "
         f"(silhouette, major component relationship, controls, base, antenna if visible, "
         f"trim, indicators, color divisions, logo region). Evidence: {identity.get('visible_labels') or 'Image 1'}. "
         "Do not reconstruct hidden geometry from marketing copy.",
         f"5. Valid placement: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION}",
-        f"6. Logo/screen: {_logo_section(logo)}",
+        f"6. Logo/screen: {_logo_section(logo)} Branding on every visible physical component follows the same rule.",
         "7. Camera and lighting: compact, scene-consistent; keep cinematic language short.",
         f"8. Material/photographic treatment: {photo or PHOTOGRAPHIC_CONTRACT}."
         if style == "realistic_photography"
@@ -468,10 +642,18 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
             _corpus(info, dim_blob), evidenced, product_info=info
         )
     simplifications: list[str] = []
-    placement_instruction = "Use a scene-consistent stable support already evidenced."
+    placement_instruction = f"{STABLE_SURFACE_INSTRUCTION} {USAGE_INSTRUCTION}"
+    if apply_place:
+        vague = bool(VAGUE_MOUNT_RE.search(_corpus(info, dim_blob)))
+        usage_hits = detect_usage_violations(_corpus(info, dim_blob), product_info=info)
+        if vague:
+            simplifications.append("vague_mount_language_rewritten")
+        if usage_hits:
+            simplifications.append("usage_plausibility_simplified:" + ",".join(usage_hits))
+            unsupported.extend(usage_hits)
     if unsupported:
         simplifications.append("unsupported_installation_simplified:" + ",".join(unsupported))
-        placement_instruction = STABLE_SURFACE_INSTRUCTION
+        placement_instruction = f"{STABLE_SURFACE_INSTRUCTION} {USAGE_INSTRUCTION}"
         if isinstance(dims, dict):
             updated = dict(dims)
             for key, value in list(updated.items()):
@@ -495,6 +677,13 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
         "identity_contract": identity_contract_from_evidence(info),
         "logo_policy": logo_policy,
         "logo_placement": logo_policy.get("logo_placement"),
+        "usage_policy": {
+            "vehicle_must_be_stationary": True,
+            "active_driving_presentation": "prohibited",
+            "child_area_cables": "prohibited",
+            "certified_install_claims": "prohibited",
+        },
+        "provider_image_order": provider_image_order_from_plan(dump_generation_plan(plan) if plan else {}),
         "fidelity_simplifications": simplifications,
         "fidelity_policy_version": PREVENTION_POLICY_VERSION,
     }
@@ -561,11 +750,15 @@ def sanitize_final_image_prompt(prompt: str, product_info: dict) -> str:
     text = prompt or ""
     if capture == "realistic_photography":
         text, _changed = sanitize_realistic_photo_style(text)
+    text = rewrite_vague_mount_language(text)
     evidenced = evidence_installations(info)
-    if physical_placement_sanitization_applies(info, [text]) and detect_unsupported_installations(
-        text, evidenced, product_info=info
+    physical = physical_placement_sanitization_applies(info, [text])
+    if physical and (
+        detect_unsupported_installations(text, evidenced, product_info=info)
+        or detect_usage_violations(text, product_info=info)
     ):
         text = simplify_unsupported_placement(text)
+    text = redact_prohibited_wordmark(text, info)
     prefix = fidelity_prompt_prefix(plan) if plan else ""
     if prefix:
         return f"{prefix}\n{text}".strip()

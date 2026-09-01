@@ -56,7 +56,8 @@ def test_generate_request_labels_match_payload_order():
         ),
     )
     labeled = req.prompt_with_role_labels()
-    assert labeled.startswith("Image 1 (primary subject). Image 2 (scene context).")
+    assert labeled.startswith("Image 1 (primary subject). Image 2 (scene context")
+    assert "environment only" in labeled
     assert "Image 0" not in labeled
 
 
@@ -386,7 +387,7 @@ def test_sanitized_prompt_roles_match_provider_order():
         )
         assert "Image 1: primary_subject" in prompt
         assert "Image 2: supporting_subject" in prompt
-        assert "Image 1 is the product-geometry authority" in prompt
+        assert "Image 1 is the product-geometry and identity authority" in prompt
         assert "Stored roles: Image 2: primary_subject" not in prompt
         assert "AcmeCam" not in prompt
         assert "Image 0" not in prompt
