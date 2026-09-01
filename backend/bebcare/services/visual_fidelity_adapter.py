@@ -78,28 +78,30 @@ def _safe_vision_url(url: str) -> str | None:
 
 
 def _vision_user_content(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    labels = payload.get("reference_labels") or {}
+    candidate_label = labels.get("candidate") or "Candidate image"
+    primary_label = labels.get("primary") or "Primary reference, Image 1"
+    logo_label = labels.get("approved_logo") or "Approved logo asset"
+    supporting_labels = list(labels.get("supporting") or [])
+    image_roles = [candidate_label, primary_label, *supporting_labels, logo_label]
     parts: list[dict[str, Any]] = [
         {"type": "text", "text": json.dumps({
-            "task": "Compare generated candidate to primary product reference.",
+            "task": "Compare generated candidate to primary product reference. "
+            "Candidate image is not a provider reference number.",
             "generation_plan_summary": payload.get("plan_summary") or {},
             "logo_policy": payload.get("logo_policy") or {},
             "placement_policy": payload.get("placement_policy") or {},
             "offering_type": payload.get("offering_type") or "unknown",
             "check_codes": list(ALL_CHECK_CODES),
             "asset_intelligence": payload.get("asset_intelligence") or [],
-            "image_roles": [
-                "candidate",
-                "primary_product_reference",
-                "supporting_product_reference",
-                "approved_logo",
-            ],
-            "reference_labels": payload.get("reference_labels") or {},
+            "image_roles": image_roles,
+            "reference_labels": labels,
         }, ensure_ascii=False)[:12000]}
     ]
     labeled = [
-        ("candidate", payload.get("candidate_url")),
-        ("primary_product_reference", payload.get("primary_reference_url")),
-        ("approved_logo", payload.get("approved_logo_url")),
+        (candidate_label, payload.get("candidate_url")),
+        (primary_label, payload.get("primary_reference_url")),
+        (logo_label, payload.get("approved_logo_url")),
     ]
     for label, url in labeled:
         safe = _safe_vision_url(str(url or ""))
@@ -107,11 +109,16 @@ def _vision_user_content(payload: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         parts.append({"type": "text", "text": f"Image role: {label}"})
         parts.append({"type": "image_url", "image_url": {"url": safe}})
-    for url in payload.get("supporting_reference_urls") or []:
+    for index, url in enumerate(payload.get("supporting_reference_urls") or []):
         safe = _safe_vision_url(str(url or ""))
         if not safe:
             continue
-        parts.append({"type": "text", "text": "Image role: supporting_product_reference"})
+        label = (
+            supporting_labels[index]
+            if index < len(supporting_labels)
+            else f"Supporting reference, Image {index + 2}"
+        )
+        parts.append({"type": "text", "text": f"Image role: {label}"})
         parts.append({"type": "image_url", "image_url": {"url": safe}})
     return parts
 

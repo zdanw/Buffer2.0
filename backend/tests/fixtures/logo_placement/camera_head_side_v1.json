@@ -1,0 +1,25 @@
+{
+  "schema_version": "visual_fidelity_v1",
+  "notes": "Structure-equivalent fixture. A correct wordmark on an unevidenced camera-head side must hard-fail. Evidence supports only base-front. No customer bytes.",
+  "evidence": {
+    "product_region": "base_front",
+    "visibility_class": "clearly_visible",
+    "confidence": "high",
+    "logo_present": "present",
+    "candidate_view_supports_region": true
+  },
+  "observation": {
+    "present": true,
+    "product_region": "left_side",
+    "count": 1,
+    "spelling": "AcmeCam",
+    "generated_mark": true,
+    "mirrored": false
+  },
+  "wordmark": "AcmeCam",
+  "expected_hard_fail": [
+    "logo_on_unsupported_surface",
+    "invented_logo"
+  ],
+  "must_not_rescue": ["correct_wordmark_spelling"]
+}

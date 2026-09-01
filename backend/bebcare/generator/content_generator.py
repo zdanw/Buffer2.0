@@ -13,7 +13,6 @@ from bebcare.utils.image_utils import persist_image_url_to_cdn
 from bebcare.utils.progress_heartbeat import ProgressHeartbeat
 from bebcare.services.logo_policy import (
     resolve_effective_logo_mode,
-    should_composite_logo,
     sanitize_dimension_text,
 )
 
@@ -1077,6 +1076,8 @@ class ContentGenerator:
             progress_callback("image_generation", 0.75)
 
         qa_session, qa_own = self._db_session(db)
+        qa_summary: dict = {}
+        visual_summary: dict = {}
         try:
             qa_summary = validate_post_generation(
                 qa_session,
@@ -1124,11 +1125,42 @@ class ContentGenerator:
         cdn_urls = []
         cdn_upload_failed = False
         effective_logo_mode = resolve_effective_logo_mode(product_info)
+        from bebcare.services.logo_placement import should_overlay_approved_logo
+
+        overlay_ok, overlay_reason = should_overlay_approved_logo(
+            product_info,
+            generated_branding_conflict=bool(visual_summary.get("hard_fail")),
+        )
+        plan_blob = product_info.get("generation_plan") if isinstance(product_info.get("generation_plan"), dict) else {}
+        logo_policy = plan_blob.get("logo_policy") if isinstance(plan_blob.get("logo_policy"), dict) else {}
+        placement = plan_blob.get("logo_placement") if isinstance(plan_blob.get("logo_placement"), dict) else {}
+        product_info["_logo_overlay"] = {
+            "attempted": overlay_ok,
+            "succeeded": False,
+            "reason": overlay_reason,
+            "qa_evaluated": "pre_composite",
+            "composited_output_checked": False,
+            "generated_branding_prohibited": bool(logo_policy.get("generated_branding_prohibited")),
+            "generated_mark_detected": bool(visual_summary.get("hard_fail")),
+            "evidenced_region": placement.get("product_region") or "unknown",
+            "publication_eligible": not bool(visual_summary.get("hard_fail")),
+        }
+        if (
+            effective_logo_mode == "composite"
+            and overlay_reason in ("placement_unreliable", "unapproved_or_foreign_logo")
+            and not qa_summary.get("warning")
+        ):
+            from bebcare.schemas.visual_fidelity import user_message_for_visual
+
+            qa_summary["warning"] = user_message_for_visual("approved_logo_unavailable")
+            qa_summary["warning_code"] = "fidelity_branding"
         composite_logo_url = (
             (product_info.get("logo_url") or "").strip()
-            if should_composite_logo(product_info)
+            if overlay_ok
             else None
         )
+        if resolve_effective_logo_mode(product_info) == "composite" and not overlay_ok:
+            logger.info("skipping logo overlay reason=%s", overlay_reason)
         if (
             effective_logo_mode == "composite"
             and not composite_logo_url
@@ -1171,11 +1203,20 @@ class ContentGenerator:
                 )
                 cdn_urls.append(url)
 
+        overlay_meta = product_info.get("_logo_overlay")
+        if isinstance(overlay_meta, dict):
+            overlay_meta["succeeded"] = bool(overlay_ok and not cdn_upload_failed)
+            overlay_meta["composited_output_checked"] = False
+            product_info["_logo_overlay"] = overlay_meta
+            if isinstance(product_info.get("generation_plan"), dict):
+                product_info["generation_plan"]["logo_overlay"] = overlay_meta
+
         result = {
             "image_urls": cdn_urls,
             "dimensions": selected_dimensions,
             "image_prompt": image_prompt,
             "logo_mode": effective_logo_mode,
+            "logo_overlay": product_info.get("_logo_overlay"),
             "quality_hard_fail": bool(qa_summary.get("hard_fail")),
             "warning_code": qa_summary.get("warning_code"),
         }

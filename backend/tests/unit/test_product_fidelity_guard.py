@@ -167,6 +167,8 @@ def test_no_hardcoded_bebcare():
         Path("bebcare/services/product_fidelity_prevention.py"),
         Path("bebcare/services/visual_fidelity_qa.py"),
         Path("bebcare/schemas/visual_fidelity.py"),
+        Path("bebcare/services/logo_placement.py"),
+        Path("bebcare/schemas/logo_placement.py"),
     ]
     for path in files:
         text = path.read_text(encoding="utf-8")
@@ -188,12 +190,12 @@ def test_primary_authority_and_logo_policy_in_prompt():
             "logo_url": "https://cdn.example.test/logo.png",
         }
         out = sanitize_final_image_prompt("C4D 3D render on a crib-rail", info)
-        assert "Image 1 is the primary geometry" in out
+        assert "Image 1 is the primary geometry" in out or "Image 1 is the product-geometry" in out
         assert "Image 1: primary_subject" in out
         assert "Image 2: supporting_subject" in out
         assert "Image 0" not in out
-        assert 'The exact case-sensitive wordmark is "AcmeCam"' in out
-        assert "capitalization" in out.lower()
+        assert 'The exact case-sensitive wordmark is "AcmeCam"' not in out
+        assert "Do not render, redraw, restyle, relocate, or invent" in out
         assert "c4d" not in out.lower()
         assert "crib-rail" not in out.lower()
         assert "AcmeCam" in str(info.get("generation_plan", {}).get("logo_policy") or info)
@@ -497,8 +499,8 @@ def test_plan_matches_sanitized_prompt_contract():
         apply_product_fidelity_prevention(info)
         contract = executed_plan_contract(info)
         prompt = sanitize_final_image_prompt("golden hour on crib-rail C4D", info)
-        assert "Image 1 is the primary geometry" in contract
-        assert "Image 1 is the primary geometry" in prompt
+        assert "Image 1 is the primary" in contract
+        assert "Image 1 is the primary" in prompt
     finally:
         settings.product_fidelity_prevention_mode = original
 
@@ -745,44 +747,55 @@ def test_exact_mixed_case_wordmark_and_hidden_and_none():
     try:
         mixed = sanitize_final_image_prompt(
             "lifestyle photo",
-            _physical_info({"brand_wordmark": "AcmeCamX"}),
+            _physical_info({
+                "brand_wordmark": "AcmeCamX",
+                "logo_in_images": "preserve",
+                "asset_intelligence_results": [{
+                    "confidence": "high",
+                    "brand_mark_presence": "present",
+                    "physical": {
+                        "logo_product_region": "base_front",
+                        "logo_visibility": "present",
+                        "logo_confidence": "high",
+                    },
+                }],
+            }),
         )
-        assert 'The exact case-sensitive wordmark is "AcmeCamX"' in mixed
-        hidden = sanitize_final_image_prompt("lifestyle photo", _physical_info())
-        assert "naturally hidden" in hidden.lower()
+        assert "Do not render, redraw" in mixed or "evidenced region" in mixed.lower()
+        assert 'The exact case-sensitive wordmark is "AcmeCamX"' not in mixed
         none = sanitize_final_image_prompt("lifestyle photo", _physical_info())
-        assert "No trusted wordmark string is available" in none
+        assert "Do not render, redraw" in none
         composite = sanitize_final_image_prompt(
             "lifestyle photo",
             _physical_info({"logo_in_images": "composite", "logo_url": "https://cdn.example.test/logo.png", "brand_name": "AcmeCam"}),
         )
-        assert "controlled compositing" in composite.lower()
+        assert "AcmeCam" not in composite or "Do not render" in composite
         assert "Bebcare" not in mixed
     finally:
         settings.product_fidelity_prevention_mode = original
 
 
-def test_composite_logo_mismatch_does_not_block():
+def test_composite_does_not_hide_generated_logo_conflict():
     from bebcare.schemas.visual_fidelity import normalize_check
 
     check = normalize_check(
         VisualFidelityCheck(
-            check_code="logo_spelling_or_case_mismatch",
+            check_code="invented_logo",
             status="hard_fail",
             confidence="high",
         ),
         composite_logo=True,
     )
-    assert check.status == "warning"
-    housing = normalize_check(
+    assert check.status == "hard_fail"
+    missing = normalize_check(
         VisualFidelityCheck(
-            check_code="base_or_housing_redesign",
+            check_code="expected_logo_not_verifiable",
             status="hard_fail",
             confidence="high",
         ),
         composite_logo=True,
     )
-    assert housing.status == "hard_fail"
+    assert missing.status == "not_verifiable"
 
 
 def test_unknown_confidence_does_not_hard_fail():

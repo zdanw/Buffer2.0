@@ -34,7 +34,14 @@ PHYSICAL_CODES = (
     "prominent_screen_corruption",
     "logo_spelling_or_case_mismatch",
     "logo_shape_or_placement_mismatch",
+    "logo_shape_mismatch",
+    "logo_placement_mismatch",
     "invented_logo",
+    "duplicated_logo",
+    "mirrored_logo",
+    "unexpected_product_text",
+    "logo_on_unsupported_surface",
+    "expected_logo_not_verifiable",
 )
 SOFTWARE_CODES = (
     "primary_interface_corruption",
@@ -65,7 +72,26 @@ LOGO_CHECK_CODES = frozenset(
     {
         "logo_spelling_or_case_mismatch",
         "logo_shape_or_placement_mismatch",
+        "logo_shape_mismatch",
+        "logo_placement_mismatch",
         "invented_logo",
+        "duplicated_logo",
+        "mirrored_logo",
+        "unexpected_product_text",
+        "logo_on_unsupported_surface",
+        "expected_logo_not_verifiable",
+    }
+)
+GENERATED_BRANDING_HARD_CODES = frozenset(
+    {
+        "invented_logo",
+        "logo_on_unsupported_surface",
+        "duplicated_logo",
+        "mirrored_logo",
+        "unexpected_product_text",
+        "logo_shape_mismatch",
+        "logo_placement_mismatch",
+        "logo_spelling_or_case_mismatch",
     }
 )
 HIGH_CERTAINTY = frozenset({"high", "medium"})
@@ -79,6 +105,12 @@ HARD_FAIL_CODES = frozenset(
         "major_proportion_mismatch",
         "logo_spelling_or_case_mismatch",
         "invented_logo",
+        "duplicated_logo",
+        "mirrored_logo",
+        "unexpected_product_text",
+        "logo_on_unsupported_surface",
+        "logo_shape_mismatch",
+        "logo_placement_mismatch",
         "unsupported_mount_or_attachment",
         "unsupported_packaging_or_accessory",
         "display_orientation_mismatch",
@@ -110,7 +142,15 @@ USER_MESSAGE = {
     "implausible_cable_routing": "Unsupported product placement detected",
     "logo_spelling_or_case_mismatch": "Branding could not be verified",
     "logo_shape_or_placement_mismatch": "Branding could not be verified",
-    "invented_logo": "Branding could not be verified",
+    "logo_shape_mismatch": "Branding could not be verified",
+    "logo_placement_mismatch": "Branding appeared in an unsupported location",
+    "invented_logo": "Branding appeared in an unsupported location",
+    "duplicated_logo": "Branding appeared in an unsupported location",
+    "mirrored_logo": "Branding appeared in an unsupported location",
+    "unexpected_product_text": "Branding appeared in an unsupported location",
+    "logo_on_unsupported_surface": "Branding appeared in an unsupported location",
+    "expected_logo_not_verifiable": "Branding could not be verified",
+    "approved_logo_unavailable": "Approved logo placement was unavailable",
     "strong_cgi_render_appearance": "Image appears heavily rendered",
     "excessive_golden_or_magical_lighting": "Image appears heavily rendered",
     "publish_blocked": "Automatic publishing paused",
@@ -165,7 +205,15 @@ WARNING_CODE_BY_CHECK = {
     "implausible_cable_routing": "fidelity_placement",
     "logo_spelling_or_case_mismatch": "fidelity_branding",
     "logo_shape_or_placement_mismatch": "fidelity_branding",
+    "logo_shape_mismatch": "fidelity_branding",
+    "logo_placement_mismatch": "fidelity_branding",
     "invented_logo": "fidelity_branding",
+    "duplicated_logo": "fidelity_branding",
+    "mirrored_logo": "fidelity_branding",
+    "unexpected_product_text": "fidelity_branding",
+    "logo_on_unsupported_surface": "fidelity_branding",
+    "expected_logo_not_verifiable": "fidelity_branding",
+    "approved_logo_unavailable": "fidelity_branding",
     "strong_cgi_render_appearance": "fidelity_rendered",
     "excessive_golden_or_magical_lighting": "fidelity_rendered",
     "publish_blocked": "fidelity_publish_paused",
@@ -192,9 +240,14 @@ def normalize_check(
     if check.status == "not_verifiable":
         check.publication_effect = "none"
         return check
+    if check.check_code == "expected_logo_not_verifiable" and check.status == "hard_fail":
+        check.status = "not_verifiable"
+        check.publication_effect = "none"
+        return check
     if (
         composite_logo
         and check.check_code in LOGO_CHECK_CODES
+        and check.check_code not in GENERATED_BRANDING_HARD_CODES
         and check.status == "hard_fail"
     ):
         check.status = "warning"

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from bebcare.models.generation_quality_finding import GenerationArtifactQualityFinding
 from bebcare.models.generation_run import GenerationArtifact, GenerationRun
 from bebcare.schemas.visual_fidelity import (
+    GENERATED_BRANDING_HARD_CODES,
     LOGO_CHECK_CODES,
     VisualFidelityAssessment,
     normalize_check,
@@ -20,7 +21,7 @@ from bebcare.schemas.visual_fidelity import (
     warning_code_for_visual,
 )
 from bebcare.services.asset_intelligence_policy import AnalysisFailure
-from bebcare.services.product_fidelity_prevention import model_facing_image_label
+from bebcare.services.logo_placement import model_facing_provider_index
 from bebcare.services.product_fidelity_rollout import (
     PREVENTION_POLICY_VERSION,
     VISUAL_POLICY_VERSION,
@@ -87,6 +88,7 @@ def cache_material(
     product_info: dict,
     model_version: str,
     prompt_hash: str | None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     manifest = (plan.get("reference_manifest") or {}) if isinstance(plan, dict) else {}
     items = list(manifest.get("items") or [])
@@ -94,7 +96,8 @@ def cache_material(
     supporting = [i for i in items if i.get("role") == "supporting_subject"]
     supporting.sort(key=lambda row: int(row.get("order") or 0))
     logo = plan.get("logo_policy") or {}
-    return {
+    placement = plan.get("logo_placement") or logo.get("logo_placement") or {}
+    material = {
         "candidate_sha256": candidate_hash or "",
         "primary": _ref_entry(primary),
         "supporting": [_ref_entry(row) for row in supporting],
@@ -106,7 +109,12 @@ def cache_material(
             "wordmark": logo.get("wordmark_authority"),
             "version": logo.get("brand_logo_version"),
             "composite": bool(logo.get("use_controlled_compositing")),
+            "identity": logo.get("logo_identity") or {},
+            "placement_digest": canonical_digest(placement),
+            "generated_branding_prohibited": bool(logo.get("generated_branding_prohibited")),
         },
+        "composite_state": "planned" if logo.get("use_controlled_compositing") else "none",
+        "qa_stage": "pre_composite",
         "plan_version": plan.get("version"),
         "plan_digest": canonical_digest(
             {
@@ -123,6 +131,9 @@ def cache_material(
         "visual_schema": plan.get("fidelity_policy_version") or VISUAL_POLICY_VERSION,
         "model_version": model_version,
     }
+    if extra:
+        material.update(extra)
+    return material
 
 
 def cache_identity_from_material(material: dict[str, Any]) -> str:
@@ -201,9 +212,13 @@ def persist_assessment(
             "completion_tokens": assessment.completion_tokens,
             "provider": assessment.provider,
             "pre_composite": pre_composite,
-            "composited_output_checked": False,
+            "composited_output_checked": bool(not pre_composite),
         }
-        if composite_logo and check.check_code in LOGO_CHECK_CODES:
+        if (
+            composite_logo
+            and check.check_code in LOGO_CHECK_CODES
+            and check.check_code not in GENERATED_BRANDING_HARD_CODES
+        ):
             details["publication_note"] = "logo mismatch warned; overlay not yet applied"
         record_finding(
             db,
@@ -317,12 +332,17 @@ def run_visual_fidelity_qa(
             "supporting_reference_urls": [s.get("cdn_url") for s in supporting if s.get("cdn_url")],
             "approved_logo_url": product_info.get("logo_url") or product_info.get("brand_logo_url"),
             "reference_labels": {
-                "primary": model_facing_image_label(int((primary or {}).get("order") or 0))
-                if primary
-                else None,
+                "candidate": "Candidate image",
+                "primary": (
+                    f"Primary reference, Image {model_facing_provider_index(primary, manifest_items)}"
+                    if primary
+                    else None
+                ),
                 "supporting": [
-                    model_facing_image_label(int(row.get("order") or 0)) for row in supporting
+                    f"Supporting reference, Image {model_facing_provider_index(row, manifest_items)}"
+                    for row in supporting
                 ],
+                "approved_logo": "Approved logo asset",
             },
             "plan_summary": {
                 "placement": plan.get("placement"),

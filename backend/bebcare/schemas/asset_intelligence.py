@@ -51,6 +51,9 @@ class PhysicalModule(BaseModel):
     visible_display_orientation: str = "unknown"
     transparency_or_reflectivity_risk: str = "unknown"
     interaction_risk: str = "unknown"
+    logo_product_region: str = "unknown"
+    logo_visibility: str = "unknown"
+    logo_confidence: str = "unknown"
 
 
 class SoftwareSaasModule(BaseModel):

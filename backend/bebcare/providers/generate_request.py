@@ -35,9 +35,9 @@ class GenerateImageRequest(BaseModel):
         if not self.annotate_roles or not self.references.items:
             return body
         lines = []
-        for item in sorted(self.references.items, key=lambda i: i.order):
+        for index, item in enumerate(sorted(self.references.items, key=lambda i: i.order), start=1):
             label = ROLE_LABELS.get(item.role, item.role)
-            lines.append(f"Image {item.order + 1} ({label}).")
+            lines.append(f"Image {index} ({label}).")
         prefix = " ".join(lines)
         return f"{prefix}\n\n{body}" if body else prefix
 

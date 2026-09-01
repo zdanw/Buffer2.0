@@ -481,7 +481,7 @@ def select_grounded_references(
             else:
                 effective_scene = False
 
-    order = 1
+    order = 0
     for index, (image, authority, meta) in enumerate(selected_products):
         items.append(
             ManifestItem(

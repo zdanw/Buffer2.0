@@ -256,12 +256,13 @@ def render_generation_plan_contract(plan: GenerationPlan, locale: str = "en") ->
     """Model-facing contract built only from the stored GenerationPlan."""
     spec = plan.subject_spec or plan.subject
     display = plan.display_configuration or plan.display_config
+    from bebcare.services.logo_placement import model_facing_provider_labels
+
     items = (plan.reference_manifest or {}).get("items") or []
-    ordered = sorted(items, key=lambda item: item.get("order", 0))
     role_line = "; ".join(
-        f"Image {int(item.get('order', 0)) + 1}={item.get('role')}"
-        for item in ordered
-        if item.get("cdn_url")
+        f"Image {index}={item.get('role')}"
+        for index, item in model_facing_provider_labels(items)
+        if isinstance(item, dict) and item.get("cdn_url")
     )
     allowed = ", ".join(plan.allowed_changes)
     forbidden = ", ".join(plan.forbidden_changes)

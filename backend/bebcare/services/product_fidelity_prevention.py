@@ -314,12 +314,20 @@ def identity_contract_from_evidence(product_info: dict) -> dict[str, Any]:
 
 
 def logo_protection_contract(product_info: dict) -> dict[str, Any]:
+    from bebcare.services.logo_placement import (
+        NO_GENERATE_BRANDING,
+        identity_from_product_info,
+        include_wordmark_in_generation_prompt,
+        placement_from_product_info,
+        placement_strongly_evidenced,
+    )
     from bebcare.services.logo_policy import resolve_effective_logo_mode, should_composite_logo
 
     mode = resolve_effective_logo_mode(product_info)
     composite = bool(should_composite_logo(product_info))
-    approved = (product_info.get("logo_url") or product_info.get("brand_logo_url") or "").strip()
-    spelling = str(product_info.get("brand_wordmark") or product_info.get("brand_name") or "").strip()
+    identity = identity_from_product_info(product_info)
+    placement = placement_from_product_info(product_info)
+    insert_wordmark = include_wordmark_in_generation_prompt(product_info)
     return {
         "exact_case_sensitive": True,
         "if_visible": (
@@ -329,20 +337,28 @@ def logo_protection_contract(product_info: dict) -> dict[str, Any]:
         "if_hidden_or_too_small": "logo may be absent or unobtrusive; do not invent lettering",
         "if_cannot_preserve": "prefer a clean unobtrusive region for later compositing; never approximate lettering",
         "use_controlled_compositing": composite and mode == "composite",
-        "approved_logo_asset_present": bool(approved),
-        "wordmark_authority": spelling or None,
+        "approved_logo_asset_present": bool(identity.approved_logo_url),
+        "wordmark_authority": identity.wordmark,
+        "insert_wordmark_in_prompt": insert_wordmark,
+        "generated_branding_prohibited": not insert_wordmark or mode in ("composite", "omit"),
         "logo_mode": mode,
-        "brand_logo_version": product_info.get("brand_logo_version") or product_info.get("logo_version"),
+        "brand_logo_version": identity.version,
+        "logo_identity": identity.model_dump(),
+        "logo_placement": placement.model_dump(),
+        "placement_strongly_evidenced": placement_strongly_evidenced(placement),
+        "no_generate_branding": NO_GENERATE_BRANDING,
     }
 
 
 def reference_authority_block(plan_dict: dict | None) -> str:
+    from bebcare.services.logo_placement import model_facing_provider_labels
+
     items = list(((plan_dict or {}).get("reference_manifest") or {}).get("items") or [])
-    ordered = sorted(items, key=lambda item: item.get("order", 0))
+    labeled = model_facing_provider_labels(items)
     roles = "; ".join(
-        f"{model_facing_image_label(int(item.get('order', 0)))}: {item.get('role')}"
-        for item in ordered
-        if item.get("role")
+        f"Image {index}: {item.get('role') if isinstance(item, dict) else getattr(item, 'role', None)}"
+        for index, item in labeled
+        if (item.get("role") if isinstance(item, dict) else getattr(item, "role", None))
     )
     lines = [
         "Image 1 is the primary geometry and identity authority.",
@@ -357,33 +373,34 @@ def reference_authority_block(plan_dict: dict | None) -> str:
 
 
 def _logo_section(logo: dict) -> str:
-    wordmark = str(logo.get("wordmark_authority") or "").strip()
+    from bebcare.services.logo_placement import NO_GENERATE_BRANDING
+
     hidden = (
         "A naturally hidden, cropped, tiny, oblique, or blurred logo may be absent. "
         "Do not invent a sharper logo. Do not force a logo onto a surface where the "
-        "selected view does not support it."
+        "selected view does not support it. Never add a second logo. "
+        "Product description and brand name are not placement evidence."
     )
-    if wordmark:
+    insert = bool(logo.get("insert_wordmark_in_prompt"))
+    wordmark = str(logo.get("wordmark_authority") or "").strip()
+    region = ((logo.get("logo_placement") or {}) if isinstance(logo.get("logo_placement"), dict) else {}).get(
+        "product_region"
+    ) or "unknown"
+    if insert and wordmark:
         visible = (
-            f'The exact case-sensitive wordmark is "{wordmark}". '
-            "Preserve this spelling, capitalization, shape, spacing, and placement "
-            "only when the referenced view makes the mark visible."
+            f'If and only if Image 1 already shows the mark on an evidenced region ({region}), '
+            f'preserve the visible mark without redrawing or relocating it. '
+            "Do not reproduce stored capitalization as generated lettering."
         )
     else:
-        visible = (
-            "No trusted wordmark string is available. Do not invent lettering. "
-            f"{logo.get('if_visible')}"
-        )
+        visible = NO_GENERATE_BRANDING
     composite = (
-        "When exact reproduction is unreliable, leave a clean unobtrusive region "
-        "for controlled compositing."
+        "Approved logo compositing is preferred over generated typography. "
+        "Leave product surfaces clean for a later overlay only on an evidenced region."
         if logo.get("use_controlled_compositing")
-        else logo.get("if_cannot_preserve")
+        else str(logo.get("if_cannot_preserve") or "")
     )
-    return (
-        f"{visible} {hidden} {composite} "
-        "Do not reinterpret capitalization or typography."
-    )
+    return f"{visible} {hidden} {composite} Logo placement must be copied only from a clearly evidenced visible region."
 
 
 def fidelity_prompt_prefix(plan_dict: dict) -> str:
@@ -395,7 +412,8 @@ def fidelity_prompt_prefix(plan_dict: dict) -> str:
     simplifications = plan_dict.get("fidelity_simplifications") or []
     parts = [
         "1. Output type and purpose: commercial social still; product-accurate marketing image.",
-        f"2. Reference authority: {reference_authority_block(plan_dict)}",
+        "2. Reference authority: Image 1 is the product-geometry authority. "
+        f"{reference_authority_block(plan_dict)}",
         f"3. Subject/configuration: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION}",
         "4. Product identity: preserve verified visible attributes from Image 1 only "
         f"(silhouette, major component relationship, controls, base, antenna if visible, "
@@ -463,6 +481,7 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
                     updated[key] = simplify_unsupported_placement(value)
             info["dimensions"] = updated
             info["selected_dimensions"] = updated
+    logo_policy = logo_protection_contract(info)
     overlay = {
         "capture_style": capture,
         "photographic_treatment": PHOTOGRAPHIC_CONTRACT if capture == "realistic_photography" else None,
@@ -474,7 +493,8 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
             "simplified_from": unsupported or None,
         },
         "identity_contract": identity_contract_from_evidence(info),
-        "logo_policy": logo_protection_contract(info),
+        "logo_policy": logo_policy,
+        "logo_placement": logo_policy.get("logo_placement"),
         "fidelity_simplifications": simplifications,
         "fidelity_policy_version": PREVENTION_POLICY_VERSION,
     }
