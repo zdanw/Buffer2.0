@@ -435,7 +435,7 @@ def evaluate_physical_scene(observation: dict[str, Any]) -> list:
         checks.append(_check("unsupported_mount_or_attachment", "hard_fail", "high", "invented mount or bracket"))
     if observation.get("base_redesigned"):
         checks.append(_check("base_or_housing_redesign", "hard_fail", "high", "original base replaced"))
-    if observation.get("invented_pouch") or observation.get("invented_accessory"):
+    if observation.get("invented_pouch") or observation.get("invented_accessory") or observation.get("invented_tray"):
         checks.append(_check("unsupported_accessory", "hard_fail", "high", "unsupported accessory or pouch"))
     driving = observation.get("active_driving")
     if driving:
@@ -530,12 +530,25 @@ def reference_authority_block(plan_dict: dict | None) -> str:
             roles.append(f"Image {index}: scene (environment only)")
         elif role:
             roles.append(f"Image {index}: {role}")
+    logo = (plan_dict or {}).get("logo_policy") or {}
+    branding_prohibited = bool(logo.get("generated_branding_prohibited")) or not bool(
+        logo.get("insert_wordmark_in_prompt")
+    )
+    if branding_prohibited:
+        brand_lines = [
+            "Do not copy or redraw printed branding from references.",
+            "Product description and brand name are not placement evidence.",
+        ]
+    else:
+        brand_lines = [
+            "Logo placement must be copied only from a clearly evidenced visible region on that same component.",
+            "No branding may be added to another surface. If location or legibility is uncertain, omit branding.",
+            "Product description and brand name are not placement evidence.",
+        ]
     lines = [
         "Image 1 is the product-geometry and identity authority.",
         "Supporting product images provide structural or detail evidence only and must not appear as extra visible products.",
-        "Logo placement must be copied only from a clearly evidenced visible region on that same component.",
-        "No branding may be added to another surface. If location or legibility is uncertain, omit branding.",
-        "Product description and brand name are not placement evidence.",
+        *brand_lines,
         "If a surface or accessory is not visible or supported, do not invent it.",
         "Preserve uncertainty rather than creating detailed unsupported geometry.",
     ]
@@ -574,12 +587,43 @@ def _logo_section(logo: dict) -> str:
         if logo.get("use_controlled_compositing")
         else str(logo.get("if_cannot_preserve") or "")
     )
-    return f"{visible} {hidden} {composite} Logo placement must be copied only from a clearly evidenced visible region."
+    copy_or_omit = (
+        "Logo placement must be copied only from a clearly evidenced visible region."
+        if insert
+        else "Do not copy branding from reference photos."
+    )
+    return f"{visible} {hidden} {composite} {copy_or_omit}"
+
+
+def _identity_preservation_clause(plan_dict: dict) -> str:
+    """Geometry from Image 1; do not ask the model to copy printed marks when branding is prohibited."""
+    identity = plan_dict.get("identity_contract") or {}
+    logo = plan_dict.get("logo_policy") or {}
+    evidence = identity.get("visible_labels") or "Image 1"
+    geometry = (
+        "silhouette, major component relationship, controls, base, antenna if visible, "
+        "trim, indicators, color divisions"
+    )
+    prohibited = bool(logo.get("generated_branding_prohibited")) or not bool(
+        logo.get("insert_wordmark_in_prompt")
+    )
+    if prohibited:
+        return (
+            "4. Product identity: preserve verified visible attributes from Image 1 only "
+            f"({geometry}). Evidence: {evidence}. "
+            "Do not reconstruct hidden geometry from marketing copy. "
+            "Do not copy printed letters, icons, wordmarks, or brand marks from any reference "
+            "onto generated product surfaces; keep those surfaces unlettered."
+        )
+    return (
+        "4. Product identity: preserve verified visible attributes from Image 1 only "
+        f"({geometry}, logo region). Evidence: {evidence}. "
+        "Do not reconstruct hidden geometry from marketing copy."
+    )
 
 
 def fidelity_prompt_prefix(plan_dict: dict) -> str:
     placement = plan_dict.get("placement") or {}
-    identity = plan_dict.get("identity_contract") or {}
     logo = plan_dict.get("logo_policy") or {}
     style = plan_dict.get("capture_style") or "realistic_photography"
     photo = plan_dict.get("photographic_treatment") or ""
@@ -589,10 +633,7 @@ def fidelity_prompt_prefix(plan_dict: dict) -> str:
         "2. Reference authority: "
         f"{reference_authority_block(plan_dict)}",
         f"3. Subject/configuration: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION} {USAGE_INSTRUCTION}",
-        "4. Product identity: preserve verified visible attributes from Image 1 only "
-        f"(silhouette, major component relationship, controls, base, antenna if visible, "
-        f"trim, indicators, color divisions, logo region). Evidence: {identity.get('visible_labels') or 'Image 1'}. "
-        "Do not reconstruct hidden geometry from marketing copy.",
+        _identity_preservation_clause(plan_dict),
         f"5. Valid placement: {placement.get('instruction') or STABLE_SURFACE_INSTRUCTION}",
         f"6. Logo/screen: {_logo_section(logo)} Branding on every visible physical component follows the same rule.",
         "7. Camera and lighting: compact, scene-consistent; keep cinematic language short.",

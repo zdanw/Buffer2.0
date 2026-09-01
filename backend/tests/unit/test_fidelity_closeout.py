@@ -100,6 +100,25 @@ def test_vehicle_headrest_fixture():
     assert publication_decision_from_checks(checks) == "blocked"
     parked = evaluate_physical_scene({"vehicle_present": True, "active_driving": False})
     assert parked == []
+    tray = evaluate_physical_scene({"invented_tray": True})
+    assert any(c.check_code == "unsupported_accessory" and c.status == "hard_fail" for c in tray)
+
+
+def test_no_generate_branding_does_not_preserve_logo_region():
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        info = _physical(brand_wordmark="AcmeCam", logo_in_images="composite")
+        out = sanitize_final_image_prompt("lifestyle photo on a dresser", info)
+        assert "AcmeCam" not in out
+        assert "logo region" not in out.lower()
+        assert "keep those surfaces unlettered" in out
+        assert "Do not copy printed letters" in out
+        assert "Do not copy branding from reference photos" in out
+        assert "Logo placement must be copied" not in out
+        assert "Do not render, redraw, restyle, relocate, or invent" in out
+    finally:
+        settings.product_fidelity_prevention_mode = original
 
 
 def test_wordmark_redacted_from_physical_prompt_kept_for_qa():
@@ -168,3 +187,68 @@ def test_vague_language_rewritten_without_hardware_noun():
     )
     assert "securely positioned beside" not in cleaned.lower()
     assert "original base" in cleaned.lower()
+
+
+def test_visual_qa_system_prompt_treats_copied_branding_as_fail():
+    from bebcare.services.visual_fidelity_adapter import SYSTEM_PROMPT
+
+    assert "generated_branding_prohibited" in SYSTEM_PROMPT
+    assert "Correct spelling does not rescue unsupported placement" in SYSTEM_PROMPT
+
+
+def test_visual_qa_compacts_data_urls():
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    from bebcare.services.visual_fidelity_adapter import _compact_data_image
+
+    im = Image.new("RGB", (2000, 1500), (12, 34, 56))
+    buf = BytesIO()
+    im.save(buf, format="JPEG", quality=95)
+    raw = buf.getvalue()
+    url = "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii")
+    compact = _compact_data_image(url, max_side=256, quality=70)
+    assert compact.startswith("data:image/jpeg;base64,")
+    out = base64.b64decode(compact.split(",", 1)[1])
+    assert len(out) < len(raw)
+    opened = Image.open(BytesIO(out))
+    assert max(opened.size) <= 256
+
+
+def test_visual_qa_transport_pairing_and_google_opt_in():
+    from bebcare.services.visual_fidelity_adapter import (
+        GOOGLE_QA_PROVIDER,
+        resolve_visual_qa_transport,
+    )
+
+    orig = (
+        settings.visual_fidelity_qa_transport,
+        settings.vision_api_key,
+        settings.vision_api_url,
+        settings.visual_fidelity_qa_google_api_key,
+        settings.visual_fidelity_qa_google_model,
+    )
+    try:
+        settings.visual_fidelity_qa_transport = "platform"
+        settings.vision_api_key = None
+        settings.vision_api_url = "https://api.agnes-ai.cn/v1"
+        platform = resolve_visual_qa_transport()
+        assert platform["mode"] == "platform"
+        assert "agnes-ai.cn" not in platform["url"]
+        settings.visual_fidelity_qa_transport = "google_openai_compat"
+        settings.visual_fidelity_qa_google_api_key = "test-not-a-real-key"
+        settings.visual_fidelity_qa_google_model = "gemini-2.5-flash"
+        google = resolve_visual_qa_transport()
+        assert google["mode"] == "google_openai_compat"
+        assert "generativelanguage.googleapis.com" in google["url"]
+        assert google["provider"] == GOOGLE_QA_PROVIDER
+        assert google["model"] == "gemini-2.5-flash"
+    finally:
+        (
+            settings.visual_fidelity_qa_transport,
+            settings.vision_api_key,
+            settings.vision_api_url,
+            settings.visual_fidelity_qa_google_api_key,
+            settings.visual_fidelity_qa_google_model,
+        ) = orig
+

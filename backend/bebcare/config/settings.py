@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     product_fidelity_prevention_mode: str = "off"
     # Product Fidelity Guard v1 checkpoint B. off | studio | auto_publish | all
     visual_fidelity_qa_mode: str = "off"
+    # platform = existing vision/deepseek OpenAI-compatible URL. google_openai_compat is
+    # opt-in (local benchmark / explicit env); it is not the production default.
+    visual_fidelity_qa_transport: str = "platform"
+    visual_fidelity_qa_google_api_key: str | None = None
+    visual_fidelity_qa_google_model: str = "gemini-2.5-flash"
     # Quality and Diversity Selector. Default off. off | studio | all
     quality_diversity_selector_mode: str = "off"
 
@@ -202,6 +207,13 @@ class Settings(BaseSettings):
         if mode not in allowed:
             return "off"
         return mode
+
+    @field_validator("visual_fidelity_qa_transport", mode="before")
+    @classmethod
+    def normalize_visual_fidelity_qa_transport(cls, value: str) -> str:
+        allowed = {"platform", "google_openai_compat"}
+        mode = str(value or "platform").strip().lower()
+        return mode if mode in allowed else "platform"
 
     @field_validator("quality_diversity_selector_mode", mode="before")
     @classmethod
