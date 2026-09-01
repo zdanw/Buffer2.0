@@ -76,6 +76,7 @@ class GenerationRun(OwnedMixin, Base):
     requested_selector_strategy = Column(String(64), nullable=True)
     executed_selector_strategy = Column(String(64), nullable=True)
     selection_seed = Column(String(64), nullable=True)
+    output_snapshot = Column(JSON, nullable=True)
 
     artifacts = relationship(
         "GenerationArtifact",

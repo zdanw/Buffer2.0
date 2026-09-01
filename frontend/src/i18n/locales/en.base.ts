@@ -32,6 +32,7 @@ export const en: TranslationTree = {
     account: 'Account',
     systemImage: 'Platform Image',
     users: 'Users',
+    generationHistory: 'Generation History',
     visionPlayground: 'Agnes Playground',
     help: 'Help',
     userMenu: 'Account menu for {{name}}',

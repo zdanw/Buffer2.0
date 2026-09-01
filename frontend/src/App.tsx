@@ -24,6 +24,7 @@ const PendingRelease = lazy(() => import('./pages/PendingRelease'));
 const Studio = lazy(() => import('./pages/Studio'));
 const PublishCalendar = lazy(() => import('./pages/PublishCalendar'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const GenerationHistory = lazy(() => import('./pages/GenerationHistory'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const ImageProviderSettings = lazy(() => import('./pages/ImageProviderSettings'));
 const SystemImageProviderSettings = lazy(() => import('./pages/SystemImageProviderSettings'));
@@ -49,6 +50,7 @@ const TAB_ROUTES: Record<string, string> = {
   help: '/help',
   'system-image': '/system-image',
   users: '/users',
+  'generation-history': '/generation-history',
   ...(import.meta.env.DEV ? { 'vision-playground': '/vision-playground' } : {}),
 };
 
@@ -71,6 +73,7 @@ const ROUTE_TABS: Record<string, string> = {
   '/help': 'help',
   '/system-image': 'system-image',
   '/users': 'users',
+  '/generation-history': 'generation-history',
   ...(import.meta.env.DEV ? { '/vision-playground': 'vision-playground' } : {}),
 };
 
@@ -82,7 +85,7 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   '/pending': '/review',
 };
 
-const ADMIN_TABS = new Set(['system-image', 'users']);
+const ADMIN_TABS = new Set(['system-image', 'users', 'generation-history']);
 
 function PageFallback() {
   return (
@@ -284,6 +287,9 @@ function AppContent() {
             : null}
           {currentUser?.is_admin
             ? lazyPanel('users', activeTab, mountedTabs, UserManagement)
+            : null}
+          {currentUser?.is_admin
+            ? lazyPanel('generation-history', activeTab, mountedTabs, GenerationHistory)
             : null}
           {import.meta.env.DEV
             ? lazyPanel('vision-playground', activeTab, mountedTabs, VisionModelPlayground)

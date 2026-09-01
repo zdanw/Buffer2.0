@@ -9,6 +9,35 @@ from bebcare.models.image_credit import ImageCreditReservation
 from bebcare.services.ownership import stamp_owner
 
 
+def build_output_snapshot(result: Any) -> Optional[dict]:
+    """Extract durable display fields from a generate task or generator result."""
+    if not isinstance(result, dict):
+        return None
+    snapshot: dict[str, Any] = {}
+    image_prompt = result.get("image_prompt")
+    if image_prompt:
+        snapshot["image_prompt"] = image_prompt
+    copywriting = result.get("text") or result.get("copywriting")
+    if copywriting:
+        snapshot["copywriting"] = copywriting
+    dimensions = result.get("dimensions")
+    if dimensions:
+        snapshot["dimensions"] = dimensions
+    warning = result.get("warning")
+    if warning:
+        snapshot["warning"] = warning
+    error = result.get("error")
+    if error:
+        snapshot["error"] = error
+    product_refs = result.get("reference_product_images")
+    if product_refs:
+        snapshot["reference_product_images"] = product_refs
+    scene_refs = result.get("reference_scene_images")
+    if scene_refs:
+        snapshot["reference_scene_images"] = scene_refs
+    return snapshot or None
+
+
 def create_generation_run(
     db: Session,
     *,
@@ -125,6 +154,7 @@ def finish_generation_run(
     persistence_warning: Optional[str] = None,
     provider_usage: Optional[dict] = None,
     retry_count: Optional[int] = None,
+    output_snapshot: Optional[dict] = None,
 ) -> None:
     run.status = status
     run.completed_at = datetime.utcnow()
@@ -136,6 +166,8 @@ def finish_generation_run(
         run.provider_usage = provider_usage
     if retry_count is not None:
         run.retry_count = retry_count
+    if output_snapshot is not None:
+        run.output_snapshot = output_snapshot
     run.credits_charged = credits_charged_for_task(db, run.generate_task_id)
     if image_urls:
         add_artifacts(db, run, image_urls, persistence_warning=persistence_warning)
@@ -178,10 +210,13 @@ def sync_runs_for_generate_task(
             error_category = "generate_task_failed"
     if mapped is None:
         return
+    output_snapshot = build_output_snapshot(result) if isinstance(result, dict) else None
     for run in rows:
         if run.status in ("succeeded", "failed", "cancelled") and mapped == run.status:
             if image_urls:
                 add_artifacts(db, run, image_urls, persistence_warning=warning)
+            if output_snapshot and not run.output_snapshot:
+                run.output_snapshot = output_snapshot
             continue
         finish_generation_run(
             db,
@@ -190,6 +225,7 @@ def sync_runs_for_generate_task(
             error_category=error_category,
             image_urls=image_urls,
             persistence_warning=warning,
+            output_snapshot=output_snapshot,
         )
 
 

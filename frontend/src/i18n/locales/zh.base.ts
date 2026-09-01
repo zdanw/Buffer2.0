@@ -31,6 +31,7 @@ export const zh: TranslationTree = {
     account: '个人信息',
     systemImage: '平台图像',
     users: '用户管理',
+    generationHistory: '生成历史',
     visionPlayground: 'Agnes 测试',
     help: '帮助',
     userMenu: '{{name}} 的账户菜单',

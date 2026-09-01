@@ -1,4 +1,4 @@
-import { Calendar, Image, Settings, Clock, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, Bot } from 'lucide-react';
+import { Calendar, Image, Settings, Clock, Users, Palette, Cpu, X, Layers, Package, PenLine, Share2, Bot, History } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import BrandLogo from './BrandLogo';
@@ -46,6 +46,7 @@ const settingsItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { id: 'system-image', labelKey: 'nav.systemImage', icon: Cpu },
   { id: 'users', labelKey: 'nav.users', icon: Users },
+  { id: 'generation-history', labelKey: 'nav.generationHistory', icon: History },
 ];
 
 const devItems: NavItem[] = [

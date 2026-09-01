@@ -61,6 +61,7 @@ def _run_platform_image_generation(
     """Reserve one platform credit around a single image generation when mode=platform."""
     from bebcare.models.generation_run import GenerationRun
     from bebcare.services.generation_run_store import (
+        build_output_snapshot,
         create_generation_run,
         finish_generation_run,
     )
@@ -177,6 +178,7 @@ def _run_platform_image_generation(
                         status="succeeded",
                         image_urls=list(image_urls or []),
                         persistence_warning=warning,
+                        output_snapshot=build_output_snapshot(result) if isinstance(result, dict) else None,
                     )
                     session.commit()
             finally:
