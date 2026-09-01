@@ -244,11 +244,12 @@ def _protections_from_run(run: GenerationRun, events: list[GenerationDecisionEve
     logo = overlay.get("logo") if isinstance(overlay.get("logo"), dict) else {}
     items: list[DiagnosticsItem] = []
     mode = run.product_fidelity_prevention_mode
+    extra = list(plan.get("extra_constraints") or []) + list(overlay.get("extra_constraints") or [])
+    contradiction = plan.get("prompt_contradiction") if isinstance(plan.get("prompt_contradiction"), dict) else {}
     if not mode or mode == "off":
         items.append(_item("fidelity_off", "off"))
     else:
         items.append(_item("fidelity_active", "active"))
-        extra = list(plan.get("extra_constraints") or []) + list(overlay.get("extra_constraints") or [])
         if "unsupported_mount_removed" in types or any("unsupported_mount" in str(x) for x in extra):
             items.append(_item("unsupported_mount_removed", "applied"))
         if "stable_surface_fallback" in types or any("stable_surface" in str(x) for x in extra):
@@ -257,6 +258,10 @@ def _protections_from_run(run: GenerationRun, events: list[GenerationDecisionEve
             items.append(_item("realistic_photo_sanitizer", "applied"))
         if not any(i.code in ("unsupported_mount_removed", "stable_surface_fallback") for i in items):
             items.append(_item("fidelity_no_rewrite", "passed"))
+    if contradiction.get("applied") or "prompt_contradiction_resolved" in types:
+        items.append(_item("prompt_contradiction_resolved", "applied"))
+    elif contradiction.get("evaluated") or "prompt_contradiction_evaluated" in types:
+        items.append(_item("prompt_contradiction_active", "active"))
     if logo.get("generated_branding_prohibited") or "generated_branding_prohibited" in types:
         items.append(_item("generated_branding_prohibited", "applied"))
     if logo.get("insert_wordmark_in_prompt") is False or "wordmark_withheld" in types:
@@ -390,7 +395,10 @@ def build_planned_diagnostics(
         diversity_msg = "qds_skipped"
         diversity_status = "skipped"
     groups["intelligence"] = _group("active", [_item("intelligence_planned", "active")])
-    groups["protections"] = _group("active", [_item("fidelity_planned", "active")])
+    groups["protections"] = _group(
+        "active",
+        [_item("fidelity_planned", "active"), _item("prompt_contradiction_planned", "active")],
+    )
     groups["quality"] = _group("active", [_item("quality_checks_active", "active")])
     groups["delivery"] = _group("active", [_item("delivery_planned", "active")])
     summary = [
@@ -488,6 +496,9 @@ def build_run_diagnostics(
                     "selector": trace.get("selector_policy_version"),
                     "quality": run.quality_policy_version,
                     "visual": run.visual_fidelity_policy_version,
+                    "contradiction": (plan.get("prompt_contradiction") or {}).get("policy_version")
+                    if isinstance(plan.get("prompt_contradiction"), dict)
+                    else None,
                 },
                 "event_codes": sorted(_event_types(events)),
                 "effective_weights": (selection.candidate_summary or {}).get("effective_weights") if selection and isinstance(selection.candidate_summary, dict) else None,

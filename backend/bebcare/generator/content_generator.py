@@ -990,6 +990,29 @@ class ContentGenerator:
             product_info["_sanitized_prompt_hash"] = hashlib.sha256(
                 positive_prompt.encode("utf-8")
             ).hexdigest()
+            try:
+                from bebcare.services.prompt_contradiction_guard import persist_prompt_contradiction
+
+                persist_session, persist_own = self._db_session(db)
+                try:
+                    persist_prompt_contradiction(persist_session, product_info)
+                    persist_session.commit()
+                finally:
+                    if persist_own:
+                        persist_session.close()
+            except Exception:
+                logger.warning(
+                    "prompt_contradiction_persist_failed",
+                    extra={
+                        "generation_run_id": product_info.get("generation_run_id"),
+                        "event": "prompt_contradiction_persist_failed",
+                        "stage": "pre_provider",
+                        "outcome": "error",
+                        "policy_version": "prompt_contradiction_guard_v1",
+                        "product_id": product_info.get("product_id"),
+                        "error_category": "observability_persist",
+                    },
+                )
 
         from bebcare.services.quality_protection import (
             QualityProtectionError,

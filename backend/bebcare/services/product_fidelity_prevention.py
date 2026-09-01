@@ -725,13 +725,17 @@ def fidelity_prompt_prefix(plan_dict: dict) -> str:
     if simplifications:
         parts.append("Placement simplified: " + "; ".join(simplifications))
     coverage = str(plan_dict.get("reference_coverage") or "")
-    if coverage in ("limited", "insufficient") and not plan_dict.get("coverage_constraints"):
+    if coverage in ("limited", "insufficient"):
         from bebcare.services.quality_diversity_policy import coverage_prompt
 
         extra = coverage_prompt(coverage)  # type: ignore[arg-type]
         if extra:
             parts.append(extra)
-    if style == "realistic_photography" and plan_dict.get("selector_trace"):
+    if (
+        style == "realistic_photography"
+        and plan_dict.get("selector_trace")
+        and coverage not in ("limited", "insufficient")
+    ):
         from bebcare.services.quality_diversity_policy import VARIETY_PROMPT
 
         parts.append(VARIETY_PROMPT)
@@ -854,15 +858,22 @@ def apply_product_fidelity_prevention(product_info: dict) -> dict:
 
 
 def sanitize_final_image_prompt(prompt: str, product_info: dict) -> str:
-    info = product_info or {}
+    original = product_info if isinstance(product_info, dict) else {}
+    info = original
     source = (
         (info.get("generation_provenance") or {}).get("source")
         or info.get("source")
         or SOURCE_STUDIO
     )
+    from bebcare.services.prompt_contradiction_guard import apply_prompt_contradiction_guard
+
     if not prevention_enabled(source=source):
-        return (prompt or "").strip()
-    info = apply_product_fidelity_prevention(dict(info))
+        text, _report = apply_prompt_contradiction_guard((prompt or "").strip(), original)
+        return text.strip()
+    info = apply_product_fidelity_prevention(dict(original))
+    info["generation_run_id"] = original.get("generation_run_id")
+    info["product_id"] = original.get("product_id")
+    info["owner_user_id"] = original.get("owner_user_id")
     plan = info.get("generation_plan") or {}
     capture = detect_capture_style(info, [prompt or "", _corpus(info)])
     if plan.get("capture_style") == "graphic_or_illustrated":
@@ -892,5 +903,20 @@ def sanitize_final_image_prompt(prompt: str, product_info: dict) -> str:
     text = redact_prohibited_wordmark(text, info)
     prefix = fidelity_prompt_prefix(plan) if plan else ""
     if prefix:
-        return f"{prefix}\n{text}".strip()
+        text = f"{prefix}\n{text}".strip()
+    text, _report = apply_prompt_contradiction_guard(text, info)
+    report = None
+    if isinstance(info.get("generation_plan"), dict):
+        report = info["generation_plan"].get("prompt_contradiction")
+    if not isinstance(report, dict) and isinstance(info.get("generation_provenance"), dict):
+        report = info["generation_provenance"].get("prompt_contradiction")
+    if isinstance(report, dict) and report.get("evaluated"):
+        provenance = original.get("generation_provenance")
+        if not isinstance(provenance, dict):
+            provenance = {}
+        provenance["prompt_contradiction"] = report
+        original["generation_provenance"] = provenance
+        existing_plan = original.get("generation_plan")
+        if isinstance(existing_plan, dict):
+            existing_plan["prompt_contradiction"] = report
     return text.strip()
