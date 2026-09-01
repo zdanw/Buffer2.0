@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance';
 import type { ExecutionDimensions } from './tasks';
+import type { GenerationDiagnostics } from './generate';
 
 export interface GenerationHistoryUser {
   user_id: string;
@@ -144,6 +145,7 @@ export interface GenerationHistoryDetail {
   qa_summary: GenerationHistoryQaSummary;
   diagnosis_line: string;
   compare_siblings: GenerationHistoryCompareSibling[];
+  generation_diagnostics?: GenerationDiagnostics | null;
 }
 
 export interface GenerationHistoryListParams {

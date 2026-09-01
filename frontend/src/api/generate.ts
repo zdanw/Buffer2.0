@@ -28,6 +28,26 @@ export interface ReferenceSelectionRequest {
   image_size?: string;
 }
 
+export interface GenerationDiagnostics {
+  state: 'planned' | 'running' | 'completed' | 'failed';
+  run_id?: string | null;
+  has_history?: boolean;
+  summary: Array<{
+    key: string;
+    status: string;
+    message_key: string;
+    params?: Record<string, string | number>;
+  }>;
+  groups: Record<
+    string,
+    {
+      status: string;
+      items: Array<{ code: string; status: string; params?: Record<string, string | number> }>;
+    }
+  >;
+  technical?: Record<string, unknown> | null;
+}
+
 export interface ReferenceSelectionResponse {
   reference_images: string[];
   reference_product_images: string[];
@@ -36,6 +56,7 @@ export interface ReferenceSelectionResponse {
   reference_product_image_ids?: string[];
   reference_scene_image_ids?: string[];
   reference_manifest?: Record<string, unknown>;
+  generation_diagnostics?: GenerationDiagnostics;
 }
 
 export interface GenerateResponse {
@@ -73,6 +94,7 @@ export interface GenerateResult {
   warning_code?: string;
   logo_mode?: string;
   reference_diagnostics?: ReferenceDiagnostics;
+  generation_diagnostics?: GenerationDiagnostics;
 }
 
 export interface GenerateStatus {

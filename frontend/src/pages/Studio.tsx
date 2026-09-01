@@ -22,6 +22,7 @@ import {
   type GenerateStatus,
   type DimensionInfo,
   type ReferenceDiagnostics,
+  type GenerationDiagnostics,
 } from '@/api/generate';
 import { publishContent } from '@/api/publish';
 import { createDraft } from '@/api/tasks';
@@ -59,6 +60,7 @@ interface ScenePipelineSlot {
   reference_diagnostics?: ReferenceDiagnostics;
   reference_product_images?: string[];
   reference_scene_images?: string[];
+  generation_diagnostics?: GenerationDiagnostics;
   error?: string;
 }
 
@@ -125,6 +127,7 @@ function slotFromStatus(status: GenerateStatus): ScenePipelineSlot | null {
     reference_diagnostics: result.reference_diagnostics,
     reference_product_images: result.reference_product_images,
     reference_scene_images: result.reference_scene_images,
+    generation_diagnostics: result.generation_diagnostics,
   };
 }
 
@@ -232,6 +235,7 @@ interface PreviewState {
     warning_code?: string;
     logo_mode?: string;
     reference_diagnostics?: ReferenceDiagnostics;
+    generation_diagnostics?: GenerationDiagnostics;
   } | null;
   taskId: string | null;
   taskIds?: string[];
@@ -333,6 +337,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
     warning_code?: string;
     logo_mode?: string;
     reference_diagnostics?: ReferenceDiagnostics;
+    generation_diagnostics?: GenerationDiagnostics;
   } | null>(savedState.generatedContent);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
@@ -464,6 +469,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           warning_code: s.result?.warning_code ?? prev?.warning_code,
           logo_mode: s.result?.logo_mode ?? prev?.logo_mode,
           reference_diagnostics: s.result?.reference_diagnostics ?? prev?.reference_diagnostics,
+          generation_diagnostics: s.result?.generation_diagnostics ?? prev?.generation_diagnostics,
         }));
       }
     },
@@ -507,6 +513,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
             reference_scene_images: primary.reference_scene_images,
             warning: primary.warning,
             logo_mode: undefined,
+            generation_diagnostics: primary.generation_diagnostics,
           }));
           setActivePipeline(primaryKey);
         } else if (copyText) {
@@ -552,6 +559,8 @@ export default function Studio({ isPageActive = true }: StudioProps) {
           logo_mode: status.result?.logo_mode ?? prev?.logo_mode,
           reference_diagnostics:
             status.result?.reference_diagnostics ?? prev?.reference_diagnostics,
+          generation_diagnostics:
+            status.result?.generation_diagnostics ?? prev?.generation_diagnostics,
         }));
         finishGeneration('SUCCESS', { taskId: status.task_id });
         window.dispatchEvent(new Event('pulseforge:refresh-user'));
@@ -963,6 +972,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
       reference_scene_images: slot.reference_scene_images,
       warning: slot.warning,
       logo_mode: undefined,
+      generation_diagnostics: slot.generation_diagnostics,
     }));
     setActivePipeline(pipeline);
   };
@@ -988,6 +998,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
       image: prev?.image || '',
       reference_product_images: refs.reference_product_images,
       reference_scene_images: refs.reference_scene_images,
+      generation_diagnostics: refs.generation_diagnostics,
     }));
 
     setGenerateStatus((prev) => optimisticStatusForStage('starting', 5, prev));
@@ -1774,7 +1785,10 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                       {pipelineLabel(key)}
                     </p>
                     {slot.dimensions && !areDimensionsAllNull(slot.dimensions) && (
-                      <DimensionInfoDisplay dimensions={slot.dimensions} />
+                      <DimensionInfoDisplay
+                        dimensions={slot.dimensions}
+                        diagnostics={slot.generation_diagnostics}
+                      />
                     )}
                     {slot.image_prompt && (
                       <CopyablePromptBlock
@@ -1796,7 +1810,10 @@ export default function Studio({ isPageActive = true }: StudioProps) {
             (generatedContent.dimensions || generatedContent.image_prompt) && (
               <div className="border-2 border-red-400 rounded-xl p-4 bg-white">
                 {generatedContent.dimensions && (
-                  <DimensionInfoDisplay dimensions={generatedContent.dimensions} />
+                  <DimensionInfoDisplay
+                    dimensions={generatedContent.dimensions}
+                    diagnostics={generatedContent.generation_diagnostics}
+                  />
                 )}
 
                 {generatedContent.image_prompt && (

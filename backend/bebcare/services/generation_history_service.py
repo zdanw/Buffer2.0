@@ -421,6 +421,9 @@ def get_generation_run_detail(db: Session, run_id: str) -> Optional[GenerationHi
         for artifact in sorted(run.artifacts or [], key=lambda row: row.candidate_index)
     ]
 
+    from bebcare.services.generation_diagnostics import diagnostics_for_run
+
+    diag = diagnostics_for_run(db, run, include_technical=True)
     return GenerationHistoryDetail(
         run_id=run.run_id,
         owner_user_id=run.owner_user_id,
@@ -474,4 +477,5 @@ def get_generation_run_detail(db: Session, run_id: str) -> Optional[GenerationHi
             ref_count=_ref_count(run),
         ),
         compare_siblings=compare_siblings,
+        generation_diagnostics=diag.model_dump(),
     )

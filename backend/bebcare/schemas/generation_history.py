@@ -139,3 +139,4 @@ class GenerationHistoryDetail(BaseModel):
     qa_summary: GenerationHistoryQaSummary = Field(default_factory=GenerationHistoryQaSummary)
     diagnosis_line: str = ""
     compare_siblings: list[GenerationHistoryCompareSibling] = Field(default_factory=list)
+    generation_diagnostics: Optional[dict[str, Any]] = None

@@ -42,6 +42,7 @@ class ReferenceSelectionResponse(BaseModel):
     reference_product_image_ids: List[str] = []
     reference_scene_image_ids: List[str] = []
     reference_manifest: Optional[Dict] = None
+    generation_diagnostics: Optional[Dict] = None
 
 class CompareSelectionRequest(BaseModel):
     compare_group_id: str
@@ -70,3 +71,4 @@ class GenerateResult(BaseModel):
     reference_scene_images: Optional[list] = None
     warning: Optional[str] = None
     logo_mode: Optional[str] = None
+    generation_diagnostics: Optional[Dict] = None

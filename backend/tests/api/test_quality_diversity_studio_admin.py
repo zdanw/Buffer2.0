@@ -204,6 +204,17 @@ def test_studio_reference_selection_and_admin_history(full_client, auth_headers)
         assert "foreign_owner_leak" not in types
         assert all(e.get("summary") != "LEAK" for e in compact_body.get("events") or [])
         assert compact_body.get("coverage")
+        detail = full_client.get(f"/v1/admin/generation-runs/{run_id}", headers=auth_headers)
+        assert detail.status_code == 200
+        diag = detail.json().get("generation_diagnostics") or {}
+        assert diag.get("run_id") == run_id
+        assert diag.get("has_history") is True
+        keys = {row["key"] for row in diag.get("summary") or []}
+        assert "diversity" in keys
+        assert diag.get("technical")
+        blob = str(diag)
+        assert "api_key" not in blob.lower()
+        assert "sk-" not in blob
         assert expanded.json().get("expanded") is True
         assert all(
             e.get("event_type") != "foreign_owner_leak"

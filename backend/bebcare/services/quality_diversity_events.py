@@ -36,7 +36,7 @@ REDACT_KEYS = frozenset(
         "image_bytes",
     }
 )
-EVENT_LIMIT = 12
+EVENT_LIMIT = 20
 DETAIL_CAP = 4000
 
 
@@ -191,6 +191,17 @@ def persist_selection_observability(
             stamp_owner(rec, _owner(run))
             db.add(rec)
         nested.commit()
+        logger.info(
+            "generation_diagnostics",
+            extra={
+                "generation_run_id": run.run_id,
+                "event": "selector_observability_persisted",
+                "stage": "select",
+                "outcome": "ok",
+                "policy_version": SELECTOR_POLICY_VERSION,
+                "product_id": getattr(run, "product_id", None),
+            },
+        )
     except Exception:
         logger.warning("qds_observability_persist_failed", extra={"run_id": getattr(run, "run_id", None)})
 
@@ -300,6 +311,26 @@ def _events_from_trace(
                 "details": {"shot_family": trace.get("shot_family")},
             }
         )
+    if qds_ran and trace.get("weighted_rotation_enabled") is False:
+        events.append(
+            {
+                "event_type": "qds_rotation_disabled",
+                "summary": "Weighted rotation disabled",
+                "details": {"reason": trace.get("weighted_rotation_disabled_reason")},
+            }
+        )
+    usable = int(trace.get("usable_semantic_count") or 0)
+    if qds_ran and usable == 0:
+        events.append(
+            {
+                "event_type": "intelligence_unavailable",
+                "severity": "warning",
+                "summary": "Asset intelligence unavailable",
+            }
+        )
+    selected_ids = list(trace.get("selected_ids") or [])
+    if qds_ran and len(selected_ids) <= 1:
+        events.append({"event_type": "support_reference_omitted", "summary": "No supporting reference selected"})
     if fallback_reason:
         events.append(
             {

@@ -215,7 +215,10 @@ export default function GenerationRunDetail({ detail, loading }: GenerationRunDe
       ) : null}
 
       {dimensions && typeof dimensions === 'object' ? (
-        <DimensionInfoDisplay dimensions={dimensions as unknown as DimensionInfo} />
+        <DimensionInfoDisplay
+          dimensions={dimensions as unknown as DimensionInfo}
+          diagnostics={detail.generation_diagnostics}
+        />
       ) : null}
 
       <ReferenceImagesDisplay

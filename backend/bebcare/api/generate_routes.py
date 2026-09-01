@@ -162,6 +162,8 @@ def resolve_reference_selection(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    from bebcare.services.generation_diagnostics import build_planned_diagnostics
+
     product = get_owned_or_404(
         db, Product, request.product_id, current_user, id_attr="product_id"
     )
@@ -200,6 +202,16 @@ def resolve_reference_selection(
         ]
         or [],
         reference_manifest=selected.manifest,
+        generation_diagnostics=build_planned_diagnostics(
+            selection_payload={
+                "selector_trace": selected.selector_trace,
+                "executed_selector_strategy": selected.executed_selector_strategy,
+                "requested_selector_strategy": selected.requested_selector_strategy,
+                "selection_seed": selected.selection_seed,
+                "manifest": selected.manifest,
+            },
+            include_technical=bool(current_user.is_admin),
+        ).model_dump(),
     )
 
 
@@ -663,10 +675,23 @@ def get_generate_status(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    from bebcare.services.generation_diagnostics import diagnostics_for_task
+
+    result = task.get("result")
+    if isinstance(result, dict):
+        result = dict(result)
+        diag = diagnostics_for_task(db, task_id, viewer=current_user)
+        if diag is not None:
+            result["generation_diagnostics"] = diag.model_dump()
+    elif result is None:
+        diag = diagnostics_for_task(db, task_id, viewer=current_user)
+        if diag is not None:
+            result = {"generation_diagnostics": diag.model_dump()}
+
     return {
         "task_id": task_id,
         "status": task["status"],
         "progress": task.get("progress", 0),
         "stage": task.get("stage"),
-        "result": task.get("result"),
+        "result": result,
     }
