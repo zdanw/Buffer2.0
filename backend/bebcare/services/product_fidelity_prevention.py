@@ -17,7 +17,7 @@ RENDER_RE = re.compile(
     r"\bc4d\b|cinema\s*4d|octane\s*render|blender\s*render|unreal\s*engine\s*render|"
     r"\b3d\s*render\b|cgi(?:\s+product)?\s*render|cgi\s+render|"
     r"perfect\s*ray[-\s]*traced|protective\s*halo|magical\s*(?:product\s*)?(?:glow|light)|"
-    r"8k\s*ultra[-\s]*high[-\s]*definition|\bpristine\b|\bflawless\b|"
+    r"\b8k\b|\bpristine\b|\bflawless\b|"
     r"dreamy\s*airy\s*bokeh|high[-\s]*end\s*e[-\s]*commerce|meticulous\s*rendering|"
     r"perfect\s*diffused\s*lighting",
     re.IGNORECASE,

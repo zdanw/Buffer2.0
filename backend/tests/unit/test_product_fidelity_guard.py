@@ -86,6 +86,14 @@ def test_c4d_terms_removed_in_realistic_mode():
     assert extra_changed
     assert "pristine" not in extra.lower()
     assert "8k ultra-high-definition" not in extra.lower()
+    brief, brief_changed = sanitize_realistic_photo_style("8K ultra detail, commercial still")
+    assert brief_changed
+    assert "8k" not in brief.lower()
+    lone, lone_changed = sanitize_realistic_photo_style("shot on 8k with natural light")
+    assert lone_changed
+    assert "8k" not in lone.lower()
+    gold, gold_changed = sanitize_realistic_photo_style("18k gold trim on the bezel")
+    assert "18k" in gold.lower()
 
 
 def test_graphic_mode_keeps_render_language():

@@ -316,6 +316,7 @@ def test_stroller_mount_and_style_sanitizer():
     lower = cleaned.lower()
     assert "c4d" not in lower
     assert "8k ultra-high-definition" not in lower
+    assert "8k" not in lower
     assert "pristine" not in lower
     assert "flawless" not in lower
     assert "dreamy airy bokeh" not in lower
