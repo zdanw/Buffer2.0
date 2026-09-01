@@ -97,3 +97,4 @@ class QDSSelection(BaseModel):
     fallback_reason: Optional[str] = None
     requested_strategy: str = "off"
     executed_strategy: str = "off"
+    history_snapshot: dict[str, Any] = Field(default_factory=dict)

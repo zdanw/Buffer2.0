@@ -229,6 +229,8 @@ def select_grounded_references(
     task_mode: str | None = None,
     selection_seed: str | None = None,
     selector_context: dict | None = None,
+    history: list | None = None,
+    history_snapshot: dict | list | None = None,
 ) -> GroundedSelection:
     count = max(int(reference_count or 1), 1)
     products = [img for img in _owned_images(session, product_id, owner_user_id, "product") if _valid_candidate(img)]
@@ -298,6 +300,7 @@ def select_grounded_references(
         quality_diversity_selector_mode,
     )
     from bebcare.services.quality_diversity_select import (
+        history_from_snapshot,
         load_generation_history,
         new_selection_seed,
         run_grounded_quality_diversity,
@@ -309,9 +312,12 @@ def select_grounded_references(
     if qds_on:
         seed = (selection_seed or "").strip() or new_selection_seed()
         used_seed = seed
-        history = load_generation_history(
-            session, product_id=product_id, owner_user_id=owner_user_id
-        )
+        if history_snapshot is not None:
+            history = history_from_snapshot(history_snapshot)
+        elif history is None:
+            history = load_generation_history(
+                session, product_id=product_id, owner_user_id=owner_user_id
+            )
         hint = selector_context
         if hint is not None and hasattr(hint, "to_risk_hint"):
             hint = hint.to_risk_hint()

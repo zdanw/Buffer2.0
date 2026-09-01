@@ -30,6 +30,10 @@ os.environ.update(
         "ALLOWED_ORIGINS": "http://localhost:5174",
         "ENABLE_CLIP": "false",
         "LOG_LEVEL": "WARNING",
+        "QUALITY_DIVERSITY_SELECTOR_MODE": "off",
+        "QUALITY_PROTECTION_MODE": "off",
+        "PRODUCT_FIDELITY_PREVENTION_MODE": "off",
+        "VISUAL_FIDELITY_QA_MODE": "off",
     }
 )
 

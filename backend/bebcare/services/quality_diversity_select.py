@@ -80,6 +80,30 @@ def rng_from_seed(seed: str) -> random.Random:
     return random.Random(n)
 
 
+def freeze_history_snapshot(history: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Replay identity includes this snapshot, not seed alone."""
+    rows = list(history or [])
+    run_ids = [str(row.get("run_id") or "") for row in rows if row.get("run_id")]
+    return {
+        "run_ids": run_ids,
+        "cutoff_run_id": run_ids[0] if run_ids else None,
+        "entry_count": len(rows),
+        "entries": rows,
+    }
+
+
+def history_from_snapshot(snapshot: dict | list | None) -> list[dict[str, Any]]:
+    if snapshot is None:
+        return []
+    if isinstance(snapshot, list):
+        return list(snapshot)
+    if isinstance(snapshot, dict):
+        entries = snapshot.get("entries")
+        if isinstance(entries, list):
+            return list(entries)
+    return []
+
+
 def new_selection_seed() -> str:
     return secrets.token_hex(8)
 
@@ -348,7 +372,7 @@ def load_generation_history(
             GenerationRun.owner_user_id == owner_user_id,
             GenerationRun.status.in_(tuple(SUCCESS_STATUSES)),
         )
-        .order_by(GenerationRun.created_at.desc())
+        .order_by(GenerationRun.created_at.desc(), GenerationRun.run_id.desc())
         .limit(limit * 2)
         .all()
     )
@@ -376,6 +400,7 @@ def load_generation_history(
         history.append(
             {
                 "run_id": run.run_id,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
                 "primary_reference_id": fp.get("primary_reference_id") or primary,
                 "primary_view_class": fp.get("primary_view_class") or view,
                 "combination": "|".join(combo),
@@ -416,6 +441,30 @@ def score_images(
             ScoredCandidate(image=image, verdict=verdict, is_preferred=bool(image.is_preferred))
         )
     return scored
+
+
+def _geometry_pool_observability(
+    scored: list[ScoredCandidate],
+    *,
+    history: list[dict[str, Any]],
+    preferred: ProductImage | None,
+    risk: RiskBand,
+    source: str,
+    task_mode: str | None,
+) -> tuple[list[ScoredCandidate], dict, dict[str, float], dict[str, float]]:
+    pool, floor_info = eligible_pool(
+        scored,
+        require_semantic=True,
+        max_size=MAX_WEIGHTED_PRIMARY_POOL,
+        role=GEOMETRY_PRIMARY,
+    )
+    penalties = cooldown_penalties(history, preferred_id=preferred.image_id if preferred else None)
+    weights = (
+        _effective_weights(pool, penalties=penalties, risk=risk, source=source, task_mode=task_mode)
+        if pool
+        else {}
+    )
+    return pool, floor_info, penalties, weights
 
 
 def select_weighted(
@@ -630,15 +679,23 @@ def run_grounded_quality_diversity(
                 ),
                 is_preferred=bool(pin_primary.is_preferred),
             )
+        _, floor_info, penalties, weights = _geometry_pool_observability(
+            primary_scores,
+            history=history,
+            preferred=preferred,
+            risk=risk,
+            source=source,
+            task_mode=task_mode,
+        )
         primary_trace = {
             "role": GEOMETRY_PRIMARY,
             "selection_reason": "explicit_pin",
             "diversity_applied": False,
             "weighted_rotation_enabled": False,
             "weighted_rotation_disabled_reason": "explicit_pin",
-            "quality_floor": {"eligible_ids": [primary.image_id], "pool_cap": 1},
-            "effective_weights": {},
-            "diversity_penalties": cooldown_penalties(history, preferred_id=preferred.image_id if preferred else None),
+            "quality_floor": floor_info,
+            "effective_weights": weights,
+            "diversity_penalties": penalties,
             "raw_scores": {
                 c.image_id: {
                     "score": c.score,
@@ -673,15 +730,23 @@ def run_grounded_quality_diversity(
                 ),
                 is_preferred=bool(picked_img.is_preferred),
             )
+        _, floor_info, penalties, weights = _geometry_pool_observability(
+            primary_scores,
+            history=history,
+            preferred=preferred,
+            risk=risk,
+            source=source,
+            task_mode=task_mode,
+        )
         primary_trace = {
             "role": GEOMETRY_PRIMARY,
             "selection_reason": "preferred_authority" if preferred and primary.image_id == preferred.image_id else "conservative_top",
             "diversity_applied": False,
             "weighted_rotation_enabled": False,
             "weighted_rotation_disabled_reason": rotate_block or ("conservative_risk" if risk == "conservative" else None),
-            "quality_floor": {"eligible_ids": [primary.image_id], "pool_cap": 1},
-            "effective_weights": {},
-            "diversity_penalties": cooldown_penalties(history, preferred_id=preferred.image_id if preferred else None),
+            "quality_floor": floor_info,
+            "effective_weights": weights,
+            "diversity_penalties": penalties,
             "raw_scores": {
                 c.image_id: {
                     "score": c.score,
@@ -874,6 +939,7 @@ def run_grounded_quality_diversity(
         "shot_family": shot_family,
         "fingerprint": fp_parts,
         "intentional_reuse": primary_trace.get("selection_reason") == "intentional_reuse",
+        "history_snapshot": freeze_history_snapshot(history),
         "steps": traces,
         "preferred_limited": bool(preferred and pref_verdict and not pref_verdict.eligible),
         "selector_context": {k: hint.get(k) for k in (

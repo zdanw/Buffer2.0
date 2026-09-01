@@ -70,20 +70,21 @@ def upgrade() -> None:
         "product_images",
         ["analysis_status", "deterministic_metadata_version"],
     )
-    op.create_foreign_key(
-        "fk_product_images_near_duplicate",
-        "product_images",
-        "product_images",
-        ["near_duplicate_of_image_id"],
-        ["image_id"],
-        ondelete="SET NULL",
-    )
+    with op.batch_alter_table("product_images") as batch_op:
+        batch_op.create_foreign_key(
+            "fk_product_images_near_duplicate",
+            "product_images",
+            ["near_duplicate_of_image_id"],
+            ["image_id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_product_images_near_duplicate", "product_images", type_="foreignkey"
-    )
+    with op.batch_alter_table("product_images") as batch_op:
+        batch_op.drop_constraint(
+            "fk_product_images_near_duplicate", type_="foreignkey"
+        )
     op.drop_index("ix_product_images_lazy_status_version", table_name="product_images")
     op.drop_index("ix_product_images_analysis_status", table_name="product_images")
     op.drop_index("ix_product_images_content_hash", table_name="product_images")

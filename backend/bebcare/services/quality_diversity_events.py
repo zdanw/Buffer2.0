@@ -153,6 +153,13 @@ def persist_selection_observability(
                     "exclusions": (trace.get("exclusion_reasons") or [])[:20],
                     "selection_reason": trace.get("selection_reason"),
                     "weighted_rotation_enabled": trace.get("weighted_rotation_enabled"),
+                    "effective_weights": trace.get("effective_weights"),
+                    "history_snapshot": {
+                        "run_ids": ((trace.get("history_snapshot") or {}).get("run_ids") or [])[:12],
+                        "cutoff_run_id": (trace.get("history_snapshot") or {}).get("cutoff_run_id"),
+                        "entry_count": (trace.get("history_snapshot") or {}).get("entry_count"),
+                        "entries": ((trace.get("history_snapshot") or {}).get("entries") or [])[:12],
+                    },
                 }
             ),
             selected_manifest=_safe_details(manifest) if manifest else None,

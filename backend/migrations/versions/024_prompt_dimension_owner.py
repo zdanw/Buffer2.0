@@ -21,7 +21,7 @@ OWNER_TABLES = (
 )
 
 
-def _earliest_admin_id(bind) -> str:
+def _earliest_admin_id(bind):
     if bind.dialect.name == "postgresql":
         sql = (
             "SELECT user_id FROM users WHERE is_admin IS TRUE "
@@ -32,10 +32,19 @@ def _earliest_admin_id(bind) -> str:
             "SELECT user_id FROM users WHERE is_admin = 1 "
             "ORDER BY created_at ASC LIMIT 1"
         )
-    admin_id = bind.execute(sa.text(sql)).scalar()
-    if admin_id is None:
-        raise RuntimeError("Cannot backfill owner_user_id without an admin user")
-    return admin_id
+    return bind.execute(sa.text(sql)).scalar()
+
+
+def _null_owner_rows(bind) -> int:
+    total = 0
+    for table in OWNER_TABLES:
+        total += int(
+            bind.execute(
+                sa.text(f"SELECT COUNT(*) FROM {table} WHERE owner_user_id IS NULL")
+            ).scalar()
+            or 0
+        )
+    return total
 
 
 def upgrade() -> None:
@@ -50,12 +59,16 @@ def upgrade() -> None:
 
     bind = op.get_bind()
     admin_id = _earliest_admin_id(bind)
-    for table in OWNER_TABLES:
-        op.execute(
-            sa.text(
-                f"UPDATE {table} SET owner_user_id = :aid WHERE owner_user_id IS NULL"
-            ).bindparams(aid=admin_id)
-        )
+    nulls = _null_owner_rows(bind)
+    if nulls and admin_id is None:
+        raise RuntimeError("Cannot backfill owner_user_id without an admin user")
+    if admin_id is not None:
+        for table in OWNER_TABLES:
+            op.execute(
+                sa.text(
+                    f"UPDATE {table} SET owner_user_id = :aid WHERE owner_user_id IS NULL"
+                ).bindparams(aid=admin_id)
+            )
 
     for table in OWNER_TABLES:
         with op.batch_alter_table(table, schema=None) as batch_op:
