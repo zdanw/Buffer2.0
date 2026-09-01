@@ -340,9 +340,15 @@ def _record_studio_generation_run(
         product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
         visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
         visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
+        requested_selector_strategy=provenance.get("requested_selector_strategy"),
+        executed_selector_strategy=provenance.get("executed_selector_strategy"),
+        selection_seed=provenance.get("selection_seed"),
     )
     product_info["generation_run_id"] = run.run_id
     product_info["owner_user_id"] = product.owner_user_id
+    from bebcare.services.quality_diversity_events import attach_from_product_info
+
+    attach_from_product_info(db, run, product_info, source=SOURCE_STUDIO)
     db.commit()
 
 

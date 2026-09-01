@@ -73,6 +73,9 @@ class GenerationRun(OwnedMixin, Base):
     product_fidelity_prevention_mode = Column(String(32), nullable=True)
     visual_fidelity_qa_mode = Column(String(32), nullable=True)
     visual_fidelity_policy_version = Column(String(32), nullable=True)
+    requested_selector_strategy = Column(String(64), nullable=True)
+    executed_selector_strategy = Column(String(64), nullable=True)
+    selection_seed = Column(String(64), nullable=True)
 
     artifacts = relationship(
         "GenerationArtifact",

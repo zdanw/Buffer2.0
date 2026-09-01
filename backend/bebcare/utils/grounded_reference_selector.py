@@ -25,6 +25,7 @@ from bebcare.services.grounded_rollout import (
     GROUNDED_EXECUTED_VERSIONS,
     PIPELINE_GROUNDED_V1,
 )
+from bebcare.services.quality_diversity_rollout import STRATEGY_FALLBACK
 from bebcare.utils.reference_selector import select_reference_images
 from bebcare.utils.reference_suitability import (
     has_valid_dimensions,
@@ -58,6 +59,9 @@ class GroundedSelection:
     deterministic_metadata: Optional[dict] = None
     asset_intelligence: Optional[dict] = None
     selector_trace: Optional[dict] = None
+    requested_selector_strategy: Optional[str] = None
+    executed_selector_strategy: Optional[str] = None
+    selection_seed: Optional[str] = None
 
 
 def _legacy_manifest_from_urls(
@@ -283,140 +287,155 @@ def select_grounded_references(
     selected_products: list[tuple[ProductImage, str, dict]] = []
     selector_trace: dict | None = None
     qds_scene: tuple[ProductImage, str, dict] | None = None
+    requested_selector = None
+    executed_selector = None
+    used_seed = None
 
-    if pinned_products is not None:
+    from bebcare.services.quality_diversity_rollout import (
+        STRATEGY_GROUNDED,
+        STRATEGY_QDS,
+        quality_diversity_enabled,
+        quality_diversity_selector_mode,
+    )
+    from bebcare.services.quality_diversity_select import (
+        load_generation_history,
+        new_selection_seed,
+        run_grounded_quality_diversity,
+    )
+
+    qds_on = quality_diversity_enabled(source=source, task_mode=task_mode, grounded=True)
+    requested_selector = quality_diversity_selector_mode()
+
+    if qds_on:
+        seed = (selection_seed or "").strip() or new_selection_seed()
+        used_seed = seed
+        history = load_generation_history(
+            session, product_id=product_id, owner_user_id=owner_user_id
+        )
+        hint = selector_context
+        if hint is not None and hasattr(hint, "to_risk_hint"):
+            hint = hint.to_risk_hint()
+        qds = run_grounded_quality_diversity(
+            products=products,
+            scenes=scenes,
+            intel_by_id=intel,
+            target_aspect=parse_target_aspect(image_size),
+            count=count,
+            use_scene=bool(use_scene_reference),
+            seed=seed,
+            source=source,
+            task_mode=task_mode,
+            history=history,
+            risk_hint=hint if isinstance(hint, dict) else None,
+            repeats=repeats,
+            explicit_pins=pinned_products,
+        )
+        selected_products = qds.selected
+        qds_scene = qds.scene
+        selector_trace = qds.trace
+        executed_selector = STRATEGY_QDS
+    elif pinned_products is not None:
         for index, image in enumerate(pinned_products[:count]):
             role = "primary_subject" if index == 0 else "supporting_subject"
             selected_products.append((image, "explicit_pin", {"score": None, "pin_order": index}))
+        executed_selector = STRATEGY_GROUNDED
     else:
-        from bebcare.services.quality_diversity_rollout import quality_diversity_enabled
-        from bebcare.services.quality_diversity_select import (
-            load_generation_history,
-            new_selection_seed,
-            run_grounded_quality_diversity,
+        executed_selector = STRATEGY_GROUNDED
+        preferred = next(
+            (
+                img
+                for img in products
+                if img.is_preferred and img.image_type == "product" and _valid_candidate(img)
+            ),
+            None,
         )
-
-        if quality_diversity_enabled(source=source, task_mode=task_mode, grounded=True):
-            seed = (selection_seed or "").strip() or new_selection_seed()
-            history = load_generation_history(
-                session, product_id=product_id, owner_user_id=owner_user_id
-            )
-            hint = selector_context
-            if hint is not None and hasattr(hint, "to_risk_hint"):
-                hint = hint.to_risk_hint()
-            qds = run_grounded_quality_diversity(
-                products=products,
-                scenes=scenes,
-                intel_by_id=intel,
-                target_aspect=parse_target_aspect(image_size),
-                count=count,
-                use_scene=bool(use_scene_reference),
-                seed=seed,
-                source=source,
-                task_mode=task_mode,
-                history=history,
-                risk_hint=hint if isinstance(hint, dict) else None,
-                repeats=repeats,
-            )
-            selected_products = qds.selected
-            qds_scene = qds.scene
-            selector_trace = qds.trace
-        else:
-            preferred = next(
+        pool = list(products)
+        if preferred:
+            selected_products.append(
                 (
-                    img
-                    for img in products
-                    if img.is_preferred and img.image_type == "product" and _valid_candidate(img)
-                ),
-                None,
-            )
-            pool = list(products)
-            if preferred:
-                selected_products.append(
-                    (
-                        preferred,
-                        "preferred",
-                        {
-                            "score": suitability_score(
-                                width=preferred.width,
-                                height=preferred.height,
-                                target_aspect=None,
-                                image_type="product",
-                                apply_diversity=False,
-                            ),
-                            "diversity_skipped": True,
-                        },
-                    )
-                )
-                pool = _exclude_near_duplicates(preferred, pool)
-            else:
-                target_aspect = parse_target_aspect(image_size)
-                ranked = sorted(
-                    pool,
-                    key=lambda img: rank_key(
-                        img,
-                        suitability_score(
-                            width=img.width,
-                            height=img.height,
-                            target_aspect=target_aspect,
-                            image_type="product",
-                            primary_repeat_count=repeats.get(img.image_id, 0),
-                            apply_diversity=True,
-                        ),
-                    ),
-                )
-                if not ranked:
-                    raise RuntimeError("no_valid_product_references")
-                primary = ranked[0]
-                selected_products.append(
-                    (
-                        primary,
-                        "suitability",
-                        {
-                            "score": suitability_score(
-                                width=primary.width,
-                                height=primary.height,
-                                target_aspect=target_aspect,
-                                image_type="product",
-                                primary_repeat_count=repeats.get(primary.image_id, 0),
-                            )
-                        },
-                    )
-                )
-                pool = _exclude_near_duplicates(primary, ranked[1:])
-
-            target = parse_target_aspect(image_size)
-            while len(selected_products) < count and pool:
-                ranked_support = sorted(
-                    pool,
-                    key=lambda img: rank_key(
-                        img,
-                        suitability_score(
-                            width=img.width,
-                            height=img.height,
-                            target_aspect=target,
+                    preferred,
+                    "preferred",
+                    {
+                        "score": suitability_score(
+                            width=preferred.width,
+                            height=preferred.height,
+                            target_aspect=None,
                             image_type="product",
                             apply_diversity=False,
                         ),
+                        "diversity_skipped": True,
+                    },
+                )
+            )
+            pool = _exclude_near_duplicates(preferred, pool)
+        else:
+            target_aspect = parse_target_aspect(image_size)
+            ranked = sorted(
+                pool,
+                key=lambda img: rank_key(
+                    img,
+                    suitability_score(
+                        width=img.width,
+                        height=img.height,
+                        target_aspect=target_aspect,
+                        image_type="product",
+                        primary_repeat_count=repeats.get(img.image_id, 0),
+                        apply_diversity=True,
                     ),
+                ),
+            )
+            if not ranked:
+                raise RuntimeError("no_valid_product_references")
+            primary = ranked[0]
+            selected_products.append(
+                (
+                    primary,
+                    "suitability",
+                    {
+                        "score": suitability_score(
+                            width=primary.width,
+                            height=primary.height,
+                            target_aspect=target_aspect,
+                            image_type="product",
+                            primary_repeat_count=repeats.get(primary.image_id, 0),
+                        )
+                    },
                 )
-                nxt = ranked_support[0]
-                selected_products.append(
-                    (
-                        nxt,
-                        "suitability",
-                        {
-                            "score": suitability_score(
-                                width=nxt.width,
-                                height=nxt.height,
-                                target_aspect=target,
-                                image_type="product",
-                                apply_diversity=False,
-                            )
-                        },
-                    )
+            )
+            pool = _exclude_near_duplicates(primary, ranked[1:])
+
+        target = parse_target_aspect(image_size)
+        while len(selected_products) < count and pool:
+            ranked_support = sorted(
+                pool,
+                key=lambda img: rank_key(
+                    img,
+                    suitability_score(
+                        width=img.width,
+                        height=img.height,
+                        target_aspect=target,
+                        image_type="product",
+                        apply_diversity=False,
+                    ),
+                ),
+            )
+            nxt = ranked_support[0]
+            selected_products.append(
+                (
+                    nxt,
+                    "suitability",
+                    {
+                        "score": suitability_score(
+                            width=nxt.width,
+                            height=nxt.height,
+                            target_aspect=target,
+                            image_type="product",
+                            apply_diversity=False,
+                        )
+                    },
                 )
-                pool = _exclude_near_duplicates(nxt, ranked_support[1:])
+            )
+            pool = _exclude_near_duplicates(nxt, ranked_support[1:])
 
     target = parse_target_aspect(image_size)
     scene_choice: tuple[ProductImage, str, dict] | None = None
@@ -527,6 +546,9 @@ def select_grounded_references(
         experiment_variant=EXPERIMENT_DETERMINISTIC,
         grounded=True,
         selector_trace=selector_trace,
+        requested_selector_strategy=requested_selector,
+        executed_selector_strategy=executed_selector,
+        selection_seed=used_seed,
     )
 
 
@@ -563,4 +585,7 @@ def fallback_legacy_selection(
         fallback_path=FALLBACK_PATH_LEGACY_RANDOM,
         experiment_variant=EXPERIMENT_DETERMINISTIC,
         grounded=False,
+        requested_selector_strategy=None,
+        executed_selector_strategy=STRATEGY_FALLBACK,
+        selection_seed=None,
     )

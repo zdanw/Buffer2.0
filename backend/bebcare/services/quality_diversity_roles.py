@@ -143,7 +143,10 @@ def evaluate_role(
     }
 
     edge = min(int(width or 0), int(height or 0))
-    severe_crop = edge < 256
+    if int(width or 0) <= 0 or int(height or 0) <= 0:
+        reasons.append("zero_dimensions")
+        signals["zero_dimensions"] = True
+    severe_crop = edge < 256 and "zero_dimensions" not in reasons
     if severe_crop:
         signals["severe_crop"] = True
         if role in GEOMETRY_ROLES:
@@ -262,6 +265,27 @@ def evaluate_role(
     if role == "style_reference":
         if result is not None and result.broad_lighting not in ("unknown",):
             score += 0.05
+
+    if role == "packaging_reference":
+        if image_type == "scene":
+            reasons.append("scene_not_packaging")
+        if packaging_dom:
+            score += 0.12
+        elif result is not None and not packaging_dom:
+            score -= 0.10
+
+    if role == "software_interface_reference":
+        if image_type == "scene":
+            reasons.append("scene_not_interface")
+        if result is not None and (
+            getattr(result, "is_screenshot", lambda: False)()
+            or str(getattr(result, "asset_source_type", "") or "") == "screenshot"
+        ):
+            score += 0.10
+        if severe_crop:
+            reasons.append("interface_cropped")
+        if result is not None and "sensitive" in " ".join(str(w) for w in (result.warnings or [])).lower():
+            reasons.append("sensitive_information")
 
     if packaging_required and role in GEOMETRY_ROLES and not packaging_dom:
         score -= 0.06

@@ -83,6 +83,10 @@ def test_rollout_default_off():
         settings.quality_diversity_selector_mode = "studio"
         assert quality_diversity_enabled(source=SOURCE_STUDIO, grounded=True) is True
         assert quality_diversity_enabled(source=SOURCE_AUTOMATION, task_mode="auto", grounded=True) is False
+        settings.quality_diversity_selector_mode = "manual_automation"
+        assert quality_diversity_enabled(source=SOURCE_STUDIO, grounded=True) is True
+        assert quality_diversity_enabled(source=SOURCE_AUTOMATION, task_mode="manual", grounded=True) is True
+        assert quality_diversity_enabled(source=SOURCE_AUTOMATION, task_mode="auto", grounded=True) is False
         settings.quality_diversity_selector_mode = "all"
         assert quality_diversity_enabled(source=SOURCE_AUTOMATION, grounded=True) is True
         assert quality_diversity_enabled(source=SOURCE_STUDIO, grounded=False) is False
@@ -196,6 +200,7 @@ def test_eval_modes_do_not_call_providers():
     assert report["A_current_selector"]["image_id"] == "a"
     assert report["B_quality_floor_top_one"]["image_id"] == "a"
     assert report["C_quality_floor_weighted"]["image_id"] in {"a", "b"}
+    assert report["modes"]["qds_off"]["image_id"] == "a"
     assert report["weighted_rotation_enabled"] is True
 
 
@@ -431,7 +436,7 @@ def test_history_from_generation_run_not_product(client):
     )
     db = SessionLocal()
     try:
-        create_generation_run(
+        run = create_generation_run(
             db,
             owner_user_id=owner.user_id,
             source="studio",
@@ -466,6 +471,7 @@ def test_history_from_generation_run_not_product(client):
             image_size="1024x1024",
             image_provider_mode="platform",
         )
+        run.status = "succeeded"
         db.commit()
         original = settings.quality_diversity_selector_mode
         settings.quality_diversity_selector_mode = "studio"
@@ -1287,3 +1293,66 @@ def test_generate_request_cannot_enable_qds():
         assert quality_diversity_enabled(source=SOURCE_STUDIO, grounded=True) is False
     finally:
         settings.quality_diversity_selector_mode = original
+
+
+def test_zero_dimensions_and_software_packaging_roles():
+    zero = evaluate_role("primary_geometry", width=0, height=0)
+    assert zero.eligible is False
+    assert "zero_dimensions" in zero.exclusion_reasons
+    pack = evaluate_role(
+        "packaging_reference",
+        width=1200,
+        height=1200,
+        intel=AssetIntelligenceResult(
+            asset_source_type="packaging",
+            packaging_presence="present",
+            physical=PhysicalModule(packaging_role="primary"),
+        ),
+    )
+    assert pack.eligible is True
+    geo = evaluate_role(
+        "primary_geometry",
+        width=1200,
+        height=1200,
+        intel=AssetIntelligenceResult(
+            asset_source_type="packaging",
+            packaging_presence="present",
+            physical=PhysicalModule(packaging_role="primary"),
+        ),
+    )
+    assert geo.eligible is False
+    soft = evaluate_role(
+        "software_interface_reference",
+        width=1400,
+        height=1400,
+        intel=AssetIntelligenceResult(asset_source_type="screenshot"),
+    )
+    assert soft.eligible is True
+    assert "packaging_dominated" not in soft.exclusion_reasons
+
+
+def test_dock_cradle_and_shared_plate_removed():
+    assert "dock" in detect_unsupported_installations("camera in a charging cradle on the table", set())
+    assert "tray" in detect_unsupported_installations("units on a shared white base plate", set())
+    from bebcare.services.product_fidelity_prevention import evaluate_physical_scene
+
+    checks = evaluate_physical_scene({"invented_dock": True, "invented_shared_plate": True})
+    assert any(c.check_code == "unsupported_accessory" for c in checks)
+
+
+def test_shot_family_not_prompt_fingerprint():
+    from bebcare.services.quality_diversity_policy import choose_shot_family, fingerprint_from_parts
+
+    fp = fingerprint_from_parts({"scene_family": "kitchen", "shot_family": "functional_medium", "prompt": "secret"})
+    assert "prompt" not in fp
+    assert fp["shot_family"] == "functional_medium"
+    family = choose_shot_family(
+        coverage="limited",
+        risk="conservative",
+        capture_style="realistic_photography",
+        offering_kind="physical_product",
+        history=[],
+        seed="abc123",
+        auto_publish=True,
+    )
+    assert family in ("functional_medium", "editorial_still_life", "restrained_detail")

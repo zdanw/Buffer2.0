@@ -20,6 +20,7 @@ from .stripe_checkout import StripeCheckoutSession
 from .stripe_subscription import StripeSubscription
 from .generation_run import GenerationRun, GenerationArtifact
 from .generation_quality_finding import GenerationArtifactQualityFinding
+from .generation_qds import GenerationDecisionEvent, GenerationReferenceSelection
 from .product_image_analysis import ProductImageAnalysis
 
 __all__ = [
@@ -50,5 +51,7 @@ __all__ = [
     "GenerationRun",
     "GenerationArtifact",
     "GenerationArtifactQualityFinding",
+    "GenerationDecisionEvent",
+    "GenerationReferenceSelection",
     "ProductImageAnalysis",
 ]

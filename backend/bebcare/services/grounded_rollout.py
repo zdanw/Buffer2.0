@@ -77,6 +77,9 @@ def selection_provenance(selection, *, source: str) -> dict:
         "deterministic_metadata": getattr(selection, "deterministic_metadata", None),
         "asset_intelligence": getattr(selection, "asset_intelligence", None),
         "selector_trace": getattr(selection, "selector_trace", None),
+        "requested_selector_strategy": getattr(selection, "requested_selector_strategy", None),
+        "executed_selector_strategy": getattr(selection, "executed_selector_strategy", None),
+        "selection_seed": getattr(selection, "selection_seed", None),
     }
 
 

@@ -132,11 +132,24 @@ def _run_platform_image_generation(
                 product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
                 visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
                 visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
+                requested_selector_strategy=provenance.get("requested_selector_strategy"),
+                executed_selector_strategy=provenance.get("executed_selector_strategy"),
+                selection_seed=provenance.get("selection_seed"),
             )
             session.commit()
             run_id = run.run_id
             if ctx.get("product_info") is not None:
                 ctx["product_info"]["generation_run_id"] = run_id
+                from bebcare.services.quality_diversity_events import attach_from_product_info
+
+                attach_from_product_info(
+                    session,
+                    run,
+                    ctx.get("product_info"),
+                    source=SOURCE_AUTOMATION,
+                    task_mode=ctx.get("task_mode"),
+                )
+                session.commit()
                 ctx["product_info"]["owner_user_id"] = owner_user_id
         finally:
             session.close()

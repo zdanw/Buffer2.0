@@ -37,6 +37,9 @@ def create_generation_run(
     product_fidelity_prevention_mode: Optional[str] = None,
     visual_fidelity_qa_mode: Optional[str] = None,
     visual_fidelity_policy_version: Optional[str] = None,
+    requested_selector_strategy: Optional[str] = None,
+    executed_selector_strategy: Optional[str] = None,
+    selection_seed: Optional[str] = None,
 ) -> GenerationRun:
     run = GenerationRun(
         source=source,
@@ -65,6 +68,9 @@ def create_generation_run(
         product_fidelity_prevention_mode=product_fidelity_prevention_mode,
         visual_fidelity_qa_mode=visual_fidelity_qa_mode,
         visual_fidelity_policy_version=visual_fidelity_policy_version,
+        requested_selector_strategy=requested_selector_strategy,
+        executed_selector_strategy=executed_selector_strategy,
+        selection_seed=selection_seed,
     )
     stamp_owner(run, type("Owner", (), {"user_id": owner_user_id})())
     db.add(run)

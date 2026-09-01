@@ -13,14 +13,57 @@ from bebcare.services.product_fidelity_rollout import (
     product_fidelity_prevention_mode,
 )
 
+SANITIZER_POLICY_VERSION = "realistic_photo_sanitizer_v1"
+
+# Category regexes catch phrase variants; not a single word blacklist.
+SANITIZE_CATEGORIES: tuple[tuple[str, str, str], ...] = (
+    (
+        "render_engines",
+        r"\bc4d\b|cinema\s*4d|octane\s*render|blender\s*render|unreal\s*engine\s*render",
+        "lifestyle photograph",
+    ),
+    (
+        "cgi_3d",
+        r"\b3d\s*render\b|\b3d\s*cgi\b|cgi(?:\s+product)?\s*render|cgi\s+render|"
+        r"computer[-\s]*generated(?:\s+imagery)?|cgi\s+product\s+shot",
+        "lifestyle photograph",
+    ),
+    (
+        "ultra_resolution_marketing",
+        r"\b8k\b|\b16k\b|ultra[-\s]*resolution|ultra\s+detail",
+        "lifestyle photograph",
+    ),
+    (
+        "perfection_language",
+        r"\bpristine\b|\bflawless\b|picture[-\s]*perfect|perfect\s*ray[-\s]*traced",
+        "lifestyle photograph",
+    ),
+    (
+        "magical_lighting",
+        r"protective\s*halo|magical\s*(?:product\s*)?(?:glow|light)",
+        "lifestyle photograph",
+    ),
+    (
+        "extreme_dreamy_bokeh",
+        r"dreamy\s*airy\s*bokeh|extreme\s+dreamy\s+bokeh",
+        "lifestyle photograph",
+    ),
+    (
+        "studio_perfect_diffusion",
+        r"perfect\s*diffused\s*lighting",
+        "lifestyle photograph",
+    ),
+    (
+        "ecommerce_perfection",
+        r"high[-\s]*end\s*e[-\s]*commerce|meticulous\s*rendering|"
+        r"exaggerated\s+golden[-\s]*hour|"
+        r"perfectly\s+(?:centred|centered)\s+(?:and\s+)?symmetrical",
+        "lifestyle photograph",
+    ),
+)
+
 RENDER_RE = re.compile(
-    r"\bc4d\b|cinema\s*4d|octane\s*render|blender\s*render|unreal\s*engine\s*render|"
-    r"\b3d\s*render\b|cgi(?:\s+product)?\s*render|cgi\s+render|"
-    r"perfect\s*ray[-\s]*traced|protective\s*halo|magical\s*(?:product\s*)?(?:glow|light)|"
-    r"\b8k\b|\bpristine\b|\bflawless\b|"
-    r"dreamy\s*airy\s*bokeh|high[-\s]*end\s*e[-\s]*commerce|meticulous\s*rendering|"
-    r"perfect\s*diffused\s*lighting|picture[-\s]*perfect|exaggerated\s+golden[-\s]*hour|"
-    r"perfectly\s+(?:centred|centered)\s+(?:and\s+)?symmetrical",
+    "|".join(f"(?:{pattern})" for _cat, pattern, _rep in SANITIZE_CATEGORIES),
     re.IGNORECASE,
 )
 
@@ -62,7 +105,8 @@ UNSUPPORTED_INSTALL_PATTERNS: tuple[tuple[str, str], ...] = (
     ),
     (
         r"invented\s+charging\s+dock|placed\s+in\s+an?\s+invented\s+charging\s+dock|"
-        r"charging\s+dock",
+        r"charging\s+dock|charging\s+cradle|\bin\s+a\s+charging\s+cradle\b|"
+        r"\bcradle\s+on\s+the\s+table\b",
         "dock",
     ),
     (
@@ -131,7 +175,8 @@ UNSUPPORTED_INSTALL_PATTERNS: tuple[tuple[str, str], ...] = (
         "pouch",
     ),
     (
-        r"seat\s+tray|lap\s+desk|wooden\s+tray\s+(?:across|on)|invented\s+tray",
+        r"seat\s+tray|lap\s+desk|wooden\s+tray\s+(?:across|on)|invented\s+tray|"
+        r"shared\s+(?:white\s+)?base\s+plate|shared\s+plate|invented\s+shared\s+plate",
         "tray",
     ),
 )
@@ -198,11 +243,43 @@ def detect_capture_style(product_info: dict, texts: Iterable[str]) -> str:
 
 
 def sanitize_realistic_photo_style(text: str) -> tuple[str, bool]:
-    if not text:
-        return text, False
-    cleaned, n = RENDER_RE.subn("lifestyle photograph", text)
+    report = sanitize_realistic_photo_report(text)
+    return report["text"], bool(report["categories_removed"] or report["categories_rewritten"])
+
+
+def sanitize_realistic_photo_report(text: str) -> dict[str, Any]:
+    """Category-based sanitizer. Does not store the full prompt in the report."""
+    original = text or ""
+    if not original:
+        return {
+            "text": original,
+            "policy_version": SANITIZER_POLICY_VERSION,
+            "categories_detected": [],
+            "categories_removed": [],
+            "categories_rewritten": [],
+            "style_contract": PHOTOGRAPHIC_CONTRACT,
+        }
+    detected: list[str] = []
+    rewritten: list[str] = []
+    cleaned = original
+    for category, pattern, replacement in SANITIZE_CATEGORIES:
+        if re.search(pattern, cleaned, re.IGNORECASE):
+            detected.append(category)
+            cleaned, n = re.subn(pattern, replacement, cleaned, flags=re.IGNORECASE)
+            if n:
+                rewritten.append(category)
     cleaned2, n2 = FLOATING_SYMBOL_RE.subn("incidental background object", cleaned)
-    return cleaned2, (n + n2) > 0
+    if n2:
+        detected.append("floating_symbols")
+        rewritten.append("floating_symbols")
+    return {
+        "text": cleaned2,
+        "policy_version": SANITIZER_POLICY_VERSION,
+        "categories_detected": detected,
+        "categories_removed": [],
+        "categories_rewritten": rewritten,
+        "style_contract": PHOTOGRAPHIC_CONTRACT,
+    }
 
 
 def _corpus(product_info: dict, extra: str = "") -> str:
@@ -437,6 +514,8 @@ def evaluate_physical_scene(observation: dict[str, Any]) -> list:
         checks.append(_check("base_or_housing_redesign", "hard_fail", "high", "original base replaced"))
     if observation.get("invented_pouch") or observation.get("invented_accessory") or observation.get("invented_tray"):
         checks.append(_check("unsupported_accessory", "hard_fail", "high", "unsupported accessory or pouch"))
+    if observation.get("invented_dock") or observation.get("invented_cradle") or observation.get("invented_shared_plate"):
+        checks.append(_check("unsupported_accessory", "hard_fail", "high", "unsupported dock, cradle, or shared plate"))
     driving = observation.get("active_driving")
     if driving:
         conf = str(observation.get("usage_confidence") or "high")
@@ -790,7 +869,18 @@ def sanitize_final_image_prompt(prompt: str, product_info: dict) -> str:
         capture = "graphic_or_illustrated"
     text = prompt or ""
     if capture == "realistic_photography":
-        text, _changed = sanitize_realistic_photo_style(text)
+        report = sanitize_realistic_photo_report(text)
+        text = report["text"]
+        if report["categories_rewritten"] or report["categories_detected"]:
+            provenance = info.setdefault("generation_provenance", {})
+            if isinstance(provenance, dict):
+                provenance["realistic_photo_sanitizer"] = {
+                    "policy_version": report["policy_version"],
+                    "categories_detected": report["categories_detected"],
+                    "categories_removed": report["categories_removed"],
+                    "categories_rewritten": report["categories_rewritten"],
+                    "style_contract": report["style_contract"],
+                }
     text = rewrite_vague_mount_language(text)
     evidenced = evidence_installations(info)
     physical = physical_placement_sanitization_applies(info, [text])

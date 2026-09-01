@@ -8,9 +8,10 @@ examples in the iteration brief.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Literal
+from hashlib import sha256
+from typing import Literal
 
-SELECTOR_POLICY_VERSION = "quality_diversity_selector_v2"
+SELECTOR_POLICY_VERSION = "quality_diversity_selector_v3"
 
 ReferenceRole = Literal[
     "primary_geometry",
@@ -19,6 +20,8 @@ ReferenceRole = Literal[
     "interaction_reference",
     "scene_reference",
     "style_reference",
+    "software_interface_reference",
+    "packaging_reference",
 ]
 
 ROLES: tuple[ReferenceRole, ...] = (
@@ -28,7 +31,44 @@ ROLES: tuple[ReferenceRole, ...] = (
     "interaction_reference",
     "scene_reference",
     "style_reference",
+    "software_interface_reference",
+    "packaging_reference",
 )
+
+# Provider-facing manifest roles stay concise.
+ROLE_TO_MANIFEST = {
+    "primary_geometry": "primary_subject",
+    "secondary_structure": "supporting_subject",
+    "scene_reference": "scene",
+    "logo_reference": "supporting_subject",
+    "interaction_reference": "supporting_subject",
+    "style_reference": "scene",
+    "software_interface_reference": "primary_subject",
+    "packaging_reference": "supporting_subject",
+}
+
+SHOT_FAMILIES: tuple[str, ...] = (
+    "environmental_wide",
+    "functional_medium",
+    "restrained_detail",
+    "editorial_still_life",
+    "contextual_routine",
+    "casual_creator_style",
+    "graphic_caption_space",
+)
+
+# Role floors on 0–1 semantic/role scores. Primary stays conservative vs observed
+# 10-point suitability mapped to 0–1 (severe undersize ~0.50).
+ROLE_ABSOLUTE_MIN: dict[str, float] = {
+    "primary_geometry": 0.58,
+    "secondary_structure": 0.52,
+    "scene_reference": 0.50,
+    "logo_reference": 0.48,
+    "interaction_reference": 0.50,
+    "style_reference": 0.45,
+    "software_interface_reference": 0.52,
+    "packaging_reference": 0.55,
+}
 
 CoverageClass = Literal["strong", "moderate", "limited", "insufficient"]
 RiskBand = Literal["conservative", "balanced", "exploratory"]
@@ -48,6 +88,7 @@ SEMANTIC_EVIDENCE_CLASSES = frozenset({"usable", "partial_useful"})
 FAILED_INTEL_STATUSES = frozenset({"failed", "stale"})
 SCENE_FINGERPRINT_KEYS = (
     "scene_family",
+    "shot_family",
     "capture_style",
     "camera_distance",
     "composition",
@@ -80,6 +121,7 @@ FINGERPRINT_KEYS = (
     "display_configuration",
     "content_purpose",
     "scene_family",
+    "shot_family",
     "capture_style",
     "camera_distance",
     "composition",
@@ -329,3 +371,46 @@ def scene_fingerprint_similarity(a: dict[str, str], b: dict[str, str]) -> float:
         if left and left == right:
             matched += 1
     return matched / len(SCENE_FINGERPRINT_KEYS)
+
+
+def role_absolute_min(role: str) -> float:
+    return float(ROLE_ABSOLUTE_MIN.get(role) or ABSOLUTE_MIN_SCORE)
+
+
+def choose_shot_family(
+    *,
+    coverage: CoverageClass,
+    risk: RiskBand,
+    capture_style: str | None,
+    offering_kind: str | None,
+    history: list[dict[str, Any]] | None,
+    seed: str,
+    auto_publish: bool = False,
+) -> str:
+    """Internal shot family. Not a user-facing selector."""
+    style = (capture_style or "").strip().lower()
+    kind = (offering_kind or "").strip().lower()
+    last = ""
+    for row in history or []:
+        fp = row.get("fingerprint") if isinstance(row.get("fingerprint"), dict) else {}
+        last = str(fp.get("shot_family") or "")
+        if last:
+            break
+    if style in ("graphic_or_illustrated", "graphic", "illustrated", "conceptual"):
+        return "graphic_caption_space"
+    if auto_publish or risk == "conservative":
+        pick = "restrained_detail" if coverage == "strong" else "functional_medium"
+        return pick if pick != last else "editorial_still_life"
+    allowed = ["functional_medium", "editorial_still_life", "contextual_routine"]
+    if coverage == "strong":
+        allowed = ["environmental_wide", "functional_medium", "restrained_detail", "editorial_still_life", "contextual_routine"]
+        if kind in ("service", "event", "software"):
+            allowed.append("casual_creator_style")
+    elif coverage == "moderate":
+        allowed = ["functional_medium", "editorial_still_life", "contextual_routine", "environmental_wide"]
+    else:
+        allowed = ["functional_medium", "editorial_still_life"]
+    allowed = [item for item in allowed if item != last] or allowed
+    digest = sha256((seed or "0").encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(allowed)
+    return allowed[idx]

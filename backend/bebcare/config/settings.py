@@ -129,7 +129,7 @@ class Settings(BaseSettings):
     visual_fidelity_qa_transport: str = "platform"
     visual_fidelity_qa_google_api_key: str | None = None
     visual_fidelity_qa_google_model: str = "gemini-2.5-flash"
-    # Quality and Diversity Selector. Default off. off | studio | all
+    # Quality and Diversity Selector. Default off. off | studio | manual_automation | all
     quality_diversity_selector_mode: str = "off"
 
     model_config = SettingsConfigDict(
@@ -218,7 +218,7 @@ class Settings(BaseSettings):
     @field_validator("quality_diversity_selector_mode", mode="before")
     @classmethod
     def normalize_quality_diversity_selector_mode(cls, value: str) -> str:
-        allowed = {"off", "studio", "all"}
+        allowed = {"off", "studio", "manual_automation", "all"}
         mode = str(value or "off").strip().lower()
         if mode not in allowed:
             return "off"

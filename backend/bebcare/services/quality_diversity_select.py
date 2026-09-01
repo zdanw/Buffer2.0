@@ -31,9 +31,11 @@ from bebcare.services.quality_diversity_policy import (
     TEMPERATURE,
     CoverageClass,
     RiskBand,
+    choose_shot_family,
     coverage_from_score,
     fingerprint_from_parts,
     quality_mix_for,
+    role_absolute_min,
     scene_fingerprint_similarity,
 )
 from bebcare.services.quality_diversity_roles import RoleVerdict, evaluate_role
@@ -85,11 +87,14 @@ def new_selection_seed() -> str:
 def eligible_pool(
     scored: list[ScoredCandidate],
     *,
-    absolute_min: float = ABSOLUTE_MIN_SCORE,
+    absolute_min: float | None = None,
     relative_band: float = RELATIVE_BAND,
     require_semantic: bool = False,
     max_size: int | None = None,
+    role: str | None = None,
 ) -> tuple[list[ScoredCandidate], dict]:
+    if absolute_min is None:
+        absolute_min = role_absolute_min(role or GEOMETRY_PRIMARY)
     eligible = [c for c in scored if c.eligible]
     excluded = [
         {"image_id": c.image_id, "reasons": list(c.verdict.exclusion_reasons), "score": c.score}
@@ -335,18 +340,24 @@ def load_generation_history(
     owner_user_id: str,
     limit: int = LOOKBACK_RUNS,
 ) -> list[dict[str, Any]]:
+    SUCCESS_STATUSES = frozenset({"succeeded", "success", "published", "selected"})
     rows = (
         session.query(GenerationRun)
         .filter(
             GenerationRun.product_id == product_id,
             GenerationRun.owner_user_id == owner_user_id,
+            GenerationRun.status.in_(tuple(SUCCESS_STATUSES)),
         )
         .order_by(GenerationRun.created_at.desc())
-        .limit(limit)
+        .limit(limit * 2)
         .all()
     )
     history: list[dict[str, Any]] = []
     for run in rows:
+        if run.fallback_path or run.fallback_reason:
+            continue
+        if (run.executed_selector_strategy or "") == "selector_fallback":
+            continue
         plan = run.generation_plan if isinstance(run.generation_plan, dict) else {}
         fp = plan.get("diversity_fingerprint") if isinstance(plan.get("diversity_fingerprint"), dict) else {}
         manifest_raw = run.reference_manifest
@@ -375,7 +386,7 @@ def load_generation_history(
                 "source": run.source,
             }
         )
-    return history
+    return history[:limit]
 
 
 def score_images(
@@ -452,6 +463,8 @@ def select_weighted(
         scored,
         require_semantic=require_semantic,
         max_size=cap,
+        role=role,
+        absolute_min=role_absolute_min(role),
     )
     preferred_forced = False
     if preferred and any(c.image_id == preferred.image_id for c in scored):
@@ -480,7 +493,10 @@ def select_weighted(
             reason = "preferred_authority"
         elif conservative or len(pool) == 1:
             chosen = conservative_choice(pool)
-            reason = "conservative_top" if conservative else "single_eligible"
+            if len(pool) == 1:
+                reason = "intentional_reuse" if history else "single_eligible"
+            else:
+                reason = "conservative_top"
         else:
             chosen = weighted_choice(pool, weights, rng_from_seed(seed + ":" + role))
             diversity_applied = chosen.image_id != conservative_choice(pool).image_id
@@ -515,6 +531,7 @@ def run_grounded_quality_diversity(
     intended_component: str | None = None,
     packaging_required: bool = False,
     repeats: dict[str, int] | None = None,
+    explicit_pins: list[ProductImage] | None = None,
 ) -> SelectorResult:
     from bebcare.services.quality_diversity_policy import resolve_risk_band
 
@@ -524,6 +541,7 @@ def run_grounded_quality_diversity(
         img for img in products if (getattr(img, "image_type", None) or "product") != "scene"
     ]
     preferred = next((img for img in products if img.is_preferred), None)
+    pin_primary = (explicit_pins or [None])[0]
     primary_scores = score_images(
         products,
         role=GEOMETRY_PRIMARY,
@@ -539,11 +557,19 @@ def run_grounded_quality_diversity(
     availability = "usable" if rotate_ok else (rotate_block or "insufficient_role_intelligence")
     best_eligible = max((c.score for c in primary_scores if c.eligible), default=0.0)
     pref_verdict = next((c.verdict for c in primary_scores if preferred and c.image_id == preferred.image_id), None)
+    pin_verdict = next((c.verdict for c in primary_scores if pin_primary and c.image_id == pin_primary.image_id), None)
+    score_for_cov = best_eligible
+    if pref_verdict:
+        score_for_cov = pref_verdict.score
+    if pin_verdict:
+        score_for_cov = pin_verdict.score
     coverage = coverage_from_score(
-        pref_verdict.score if pref_verdict else best_eligible,
-        eligible=True if preferred else any(c.eligible for c in primary_scores),
+        score_for_cov,
+        eligible=True if (pin_primary or preferred) else any(c.eligible for c in primary_scores),
     )
     if preferred and pref_verdict and not pref_verdict.eligible:
+        coverage = "limited"
+    if pin_primary and pin_verdict and not pin_verdict.eligible:
         coverage = "limited"
     if rotate_block == "insufficient_role_intelligence":
         coverage = "limited"
@@ -566,6 +592,15 @@ def run_grounded_quality_diversity(
         safety_placement_risk=bool(hint.get("safety_placement_risk")),
         insufficient_role_intelligence=not rotate_ok,
     )
+    shot_family = choose_shot_family(
+        coverage=coverage,
+        risk=risk,
+        capture_style=hint.get("capture_style"),
+        offering_kind=hint.get("offering_kind"),
+        history=history,
+        seed=seed,
+        auto_publish=bool(hint.get("auto_publish")),
+    )
     fp_parts = fingerprint_from_parts(
         {
             "content_purpose": hint.get("content_purpose"),
@@ -574,12 +609,47 @@ def run_grounded_quality_diversity(
             "aspect_ratio": hint.get("aspect_ratio"),
             "display_configuration": hint.get("display_configuration"),
             "scene_family": hint.get("scene_family") or hint.get("dimension_text"),
+            "shot_family": shot_family,
         }
     )
     selected: list[tuple[ProductImage, str, dict]] = []
     traces: list[dict] = []
     force_primary_top = (not rotate_ok) or risk == "conservative"
-    if force_primary_top:
+    if pin_primary is not None:
+        primary = next((c for c in primary_scores if c.image_id == pin_primary.image_id), None)
+        if primary is None:
+            primary = ScoredCandidate(
+                image=pin_primary,
+                verdict=evaluate_role(
+                    GEOMETRY_PRIMARY,
+                    width=pin_primary.width,
+                    height=pin_primary.height,
+                    image_type=pin_primary.image_type,
+                    intel=(intel_by_id or {}).get(pin_primary.image_id),
+                    analysis_status=getattr(pin_primary, "analysis_status", None),
+                ),
+                is_preferred=bool(pin_primary.is_preferred),
+            )
+        primary_trace = {
+            "role": GEOMETRY_PRIMARY,
+            "selection_reason": "explicit_pin",
+            "diversity_applied": False,
+            "weighted_rotation_enabled": False,
+            "weighted_rotation_disabled_reason": "explicit_pin",
+            "quality_floor": {"eligible_ids": [primary.image_id], "pool_cap": 1},
+            "effective_weights": {},
+            "diversity_penalties": cooldown_penalties(history, preferred_id=preferred.image_id if preferred else None),
+            "raw_scores": {
+                c.image_id: {
+                    "score": c.score,
+                    "eligible": c.eligible,
+                    "reasons": c.verdict.exclusion_reasons,
+                    "evidence_class": c.verdict.evidence_class,
+                }
+                for c in primary_scores
+            },
+        }
+    elif force_primary_top:
         picked_img = phase1a_primary(
             products,
             intel_by_id=intel_by_id,
@@ -647,7 +717,12 @@ def run_grounded_quality_diversity(
         primary_trace["selection_reason"] = "insufficient_fallback"
     if primary is None:
         raise RuntimeError("no_valid_product_references")
-    authority = "preferred" if preferred and primary.image_id == preferred.image_id else "suitability"
+    if pin_primary and primary.image_id == pin_primary.image_id:
+        authority = "explicit_pin"
+    elif preferred and primary.image_id == preferred.image_id:
+        authority = "preferred"
+    else:
+        authority = "suitability"
     selected.append(
         (
             primary.image,
@@ -662,6 +737,20 @@ def run_grounded_quality_diversity(
     )
     remaining = [img for img in products if img.image_id != primary.image_id]
     support_slots = max(int(count or 1), 1)
+    for extra in (explicit_pins or [])[1:]:
+        if len(selected) >= support_slots:
+            break
+        if extra.image_id == primary.image_id:
+            continue
+        selected.append(
+            (
+                extra,
+                "explicit_pin",
+                {"score": None, "role": GEOMETRY_SUPPORT, "selector": SELECTOR_POLICY_VERSION},
+            )
+        )
+        remaining = [img for img in remaining if img.image_id != extra.image_id]
+    primary_view = str((primary.verdict.signals or {}).get("view_class") or "")
     while len(selected) < support_slots and remaining:
         nxt, tr = select_weighted(
             remaining,
@@ -684,6 +773,34 @@ def run_grounded_quality_diversity(
         traces.append(tr)
         if nxt is None:
             break
+        nxt_view = str((nxt.verdict.signals or {}).get("view_class") or "")
+        same_view = (
+            primary_view
+            and nxt_view
+            and primary_view not in ("unknown", "")
+            and nxt_view == primary_view
+        )
+        has_other_view = any(
+            str(
+                (
+                    evaluate_role(
+                        GEOMETRY_SUPPORT,
+                        width=img.width,
+                        height=img.height,
+                        image_type=img.image_type,
+                        intel=(intel_by_id or {}).get(img.image_id),
+                    ).signals
+                    or {}
+                ).get("view_class")
+                or ""
+            )
+            not in ("", "unknown", primary_view)
+            for img in remaining
+            if img.image_id != nxt.image_id
+        )
+        if same_view and primary.eligible and has_other_view:
+            remaining = [img for img in remaining if img.image_id != nxt.image_id]
+            continue
         selected.append(
             (
                 nxt.image,
@@ -754,7 +871,9 @@ def run_grounded_quality_diversity(
         "selection_reason": primary_trace.get("selection_reason"),
         "diversity_applied": diversity_applied,
         "primary_view_class": view,
+        "shot_family": shot_family,
         "fingerprint": fp_parts,
+        "intentional_reuse": primary_trace.get("selection_reason") == "intentional_reuse",
         "steps": traces,
         "preferred_limited": bool(preferred and pref_verdict and not pref_verdict.eligible),
         "selector_context": {k: hint.get(k) for k in (

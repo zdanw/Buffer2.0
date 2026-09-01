@@ -119,6 +119,8 @@ def _build_full_test_app() -> FastAPI:
     api.include_router(auth_router)
     api.include_router(credit_grant_router)
     api.include_router(billing_router)
+    from bebcare.api.admin_generation_routes import router as admin_generation_router
+    api.include_router(admin_generation_router)
     api.include_router(brand_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(product_router, dependencies=[Depends(get_current_active_user)])
     api.include_router(task_router, dependencies=[Depends(get_current_active_user)])

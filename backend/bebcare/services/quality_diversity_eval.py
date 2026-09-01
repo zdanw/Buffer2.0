@@ -111,6 +111,11 @@ def compare_selector_modes(
         "selector_policy_version": SELECTOR_POLICY_VERSION,
         "seed": use_seed,
         "risk": risk,
+        "modes": {
+            "qds_off": _row(current),
+            "qds_quality_top_one": _row(top_one),
+            "qds_weighted_diversity": _row(weighted),
+        },
         "pinned": {k: pinned.get(k) for k in (
             "product_id", "provider", "model", "aspect_ratio", "content_purpose", "quality_policy", "source", "task_mode"
         )},
@@ -134,3 +139,17 @@ def compare_selector_modes(
         "note": "Manual local experiment only. Does not call paid providers.",
         "auto_provider_calls": False,
     }
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="QDS dry-run comparison. No provider calls.")
+    parser.add_argument("--seed", default="eval-1")
+    parser.add_argument("--risk", default="balanced", choices=["conservative", "balanced", "exploratory"])
+    args = parser.parse_args()
+    raise SystemExit(
+        "Pass ScoredCandidate rows via compare_selector_modes() in a notebook or test. "
+        f"Pinned dry-run helper is ready (seed={args.seed}, risk={args.risk}). "
+        "This CLI refuses paid provider calls."
+    )

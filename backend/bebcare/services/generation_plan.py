@@ -63,6 +63,8 @@ def attach_generation_plan(product_info: dict) -> GenerationPlan | None:
         dumped["selector_policy_version"] = trace.get("selector_policy_version")
         dumped["selection_seed"] = trace.get("selection_seed")
         dumped["selector_trace"] = trace
+        if trace.get("shot_family"):
+            dumped["shot_family"] = trace.get("shot_family")
         coverage = str(trace.get("coverage") or "")
         from bebcare.services.quality_diversity_policy import apply_coverage_to_plan_dict
 
