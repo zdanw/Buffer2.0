@@ -92,6 +92,20 @@ def test_gemini_response_schema_keeps_phase2b_enums():
     assert "$ref" not in json.dumps(schema)
 
 
+def test_analysis_provider_name_follows_transport():
+    from bebcare.services.asset_intelligence_adapter import analysis_provider_name
+    from bebcare.services.gemini_native_multimodal import OWNER_GEMINI_PROVIDER
+
+    original = settings.asset_intelligence_transport
+    try:
+        settings.asset_intelligence_transport = "platform"
+        assert analysis_provider_name() == "platform_vision"
+        settings.asset_intelligence_transport = "owner_gemini_byok"
+        assert analysis_provider_name() == OWNER_GEMINI_PROVIDER
+    finally:
+        settings.asset_intelligence_transport = original
+
+
 def test_coerce_intelligence_payload_maps_gemini_free_text():
     from bebcare.services.asset_intelligence_adapter import coerce_intelligence_payload
 
@@ -115,6 +129,9 @@ def test_coerce_intelligence_payload_maps_gemini_free_text():
     assert out["dominant_offering_evidence"] == "physical_product"
     assert out["broad_composition"] == "wide"
     assert out["broad_lighting"] == "other"
+
+
+def test_byok_transport_is_env_only_and_off_by_default():
     original = settings.asset_intelligence_transport
     try:
         settings.asset_intelligence_transport = "platform"

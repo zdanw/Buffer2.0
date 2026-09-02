@@ -482,6 +482,8 @@ def test_https_only_image_urls():
     except AnalysisFailure as exc:
         assert exc.error_category == "unsupported_image_destination"
     assert assert_analysis_image_url("https://cdn.test/a.png").startswith("https://")
+    data = "data:image/jpeg;base64,AAAA"
+    assert assert_analysis_image_url(data) == data
 
 
 def test_unique_constraint_race_no_second_call(client):

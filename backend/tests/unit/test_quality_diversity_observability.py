@@ -9,6 +9,7 @@ from bebcare.models.generation_run import GenerationRun
 from bebcare.models.user import User
 from bebcare.services.generation_run_store import create_generation_run
 from bebcare.services.quality_diversity_events import attach_from_product_info, persist_selection_observability
+from bebcare.services.quality_diversity_policy import SELECTOR_POLICY_VERSION
 from bebcare.services.quality_diversity_rollout import STRATEGY_QDS
 from bebcare.services.grounded_rollout import SOURCE_STUDIO
 
@@ -54,7 +55,7 @@ def test_persist_qds_events_idempotent_and_redacts_secrets():
             qds_ran=True,
             seed="deadbeef",
             trace={
-                "selector_policy_version": "quality_diversity_selector_v3",
+    "selector_policy_version": SELECTOR_POLICY_VERSION,
                 "selection_reason": "weighted_eligible_pool",
                 "eligible_candidate_ids": ["a", "b"],
                 "exclusion_reasons": [{"image_id": "c", "reasons": ["severe_crop"]}],

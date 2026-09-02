@@ -12,51 +12,113 @@ from bebcare.schemas.asset_intelligence import AssetIntelligenceResult, Physical
 def geometry_high(*, view="front"):
     return AssetIntelligenceResult(
         confidence="high",
+        evidence_confidence="high",
         asset_source_type="product",
         generation_suitability="primary_subject",
         packaging_presence="absent",
         people_or_hands_presence="absent",
         broad_composition="centered",
         subject_or_scene="subject",
-        physical=PhysicalModule(support_surface="table", broad_view_class=view, packaging_role="unknown"),
+        dominant_subject_kind="single_product",
+        product_prominence="high",
+        packaging_prominence="low",
+        person_prominence="low",
+        lifestyle_context_dominance="low",
+        kit_or_group_image="no",
+        geometry_reference_suitability="strong",
+        secondary_structure_suitability="moderate",
+        physical=PhysicalModule(
+            support_surface="table",
+            broad_view_class=view,
+            packaging_role="unknown",
+            complete_silhouette_visible="complete",
+            complete_original_base_visible="complete",
+            major_component_relationships_visible="complete",
+            major_occlusion="absent",
+            fine_detail_visibility="complete",
+        ),
     )
 
 
 def geometry_mid(*, view="side"):
     return AssetIntelligenceResult(
         confidence="high",
+        evidence_confidence="high",
         asset_source_type="product",
         generation_suitability="supporting_subject",
         packaging_presence="absent",
         people_or_hands_presence="absent",
         broad_composition="centered",
         subject_or_scene="subject",
-        physical=PhysicalModule(support_surface="table", broad_view_class=view, packaging_role="unknown"),
+        dominant_subject_kind="single_product",
+        product_prominence="medium",
+        packaging_prominence="low",
+        person_prominence="low",
+        lifestyle_context_dominance="low",
+        kit_or_group_image="no",
+        geometry_reference_suitability="moderate",
+        secondary_structure_suitability="strong",
+        physical=PhysicalModule(
+            support_surface="table",
+            broad_view_class=view,
+            packaging_role="unknown",
+            complete_silhouette_visible="complete",
+            complete_original_base_visible="partial",
+            major_component_relationships_visible="partial",
+            major_occlusion="absent",
+            fine_detail_visibility="partial",
+        ),
     )
 
 
 def geometry_low(*, view="three_quarter"):
     return AssetIntelligenceResult(
         confidence="medium",
+        evidence_confidence="medium",
         asset_source_type="product",
         generation_suitability="supporting_subject",
         packaging_presence="absent",
         people_or_hands_presence="absent",
         broad_composition="close_up",
         subject_or_scene="subject",
-        physical=PhysicalModule(support_surface="unknown", broad_view_class=view, packaging_role="unknown"),
+        dominant_subject_kind="single_product",
+        product_prominence="medium",
+        packaging_prominence="low",
+        person_prominence="low",
+        lifestyle_context_dominance="low",
+        kit_or_group_image="no",
+        geometry_reference_suitability="weak",
+        secondary_structure_suitability="moderate",
+        physical=PhysicalModule(
+            support_surface="unknown",
+            broad_view_class=view,
+            packaging_role="unknown",
+            complete_silhouette_visible="partial",
+            complete_original_base_visible="unknown",
+            major_occlusion="absent",
+        ),
     )
 
 
 def lifestyle_excluded():
     return AssetIntelligenceResult(
         confidence="high",
+        evidence_confidence="high",
         asset_source_type="scene",
         generation_suitability="scene",
         packaging_presence="absent",
-        people_or_hands_presence="absent",
+        people_or_hands_presence="present",
         broad_composition="wide",
         subject_or_scene="scene",
+        dominant_subject_kind="scene",
+        product_prominence="low",
+        packaging_prominence="low",
+        person_prominence="high",
+        lifestyle_context_dominance="dominant",
+        kit_or_group_image="no",
+        geometry_reference_suitability="unsuitable",
+        scene_reference_suitability="strong",
+        interaction_reference_suitability="strong",
         physical=PhysicalModule(support_surface="unknown", broad_view_class="wide", packaging_role="unknown"),
     )
 
@@ -64,12 +126,21 @@ def lifestyle_excluded():
 def packaging_excluded():
     return AssetIntelligenceResult(
         confidence="high",
+        evidence_confidence="high",
         asset_source_type="packaging",
         generation_suitability="avoid_as_primary",
         packaging_presence="present",
         people_or_hands_presence="absent",
         broad_composition="centered",
         subject_or_scene="subject",
+        dominant_subject_kind="packaging",
+        product_prominence="low",
+        packaging_prominence="dominant",
+        person_prominence="low",
+        lifestyle_context_dominance="low",
+        kit_or_group_image="yes",
+        geometry_reference_suitability="unsuitable",
+        packaging_reference_suitability="strong",
         physical=PhysicalModule(support_surface="unknown", broad_view_class="front", packaging_role="primary"),
     )
 

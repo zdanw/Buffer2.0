@@ -571,3 +571,21 @@ def test_no_phase3_qa_or_regeneration_symbols():
     assert "regenerat" not in source.lower()
     assert "visual_qa" not in source.lower()
     assert "shotplan" not in source.lower()
+
+
+def test_sem_v2_normalizes_case_hyphen_and_numeric_confidence():
+    from bebcare.schemas.asset_intelligence import parse_intelligence_result
+
+    result = parse_intelligence_result(
+        {
+            "geometry_reference_suitability": "STRONG",
+            "kit_or_group_image": "NO",
+            "confidence": 0.91,
+            "physical": {"complete_silhouette_visible": "complete", "major_occlusion": "ABSENT"},
+        }
+    )
+    assert result.geometry_reference_suitability == "strong"
+    assert result.kit_or_group_image == "no"
+    assert result.confidence == "high"
+    assert result.physical.major_occlusion == "absent"
+    assert SYSTEM_PROMPT.count("Resolution alone does not establish geometry suitability") == 1

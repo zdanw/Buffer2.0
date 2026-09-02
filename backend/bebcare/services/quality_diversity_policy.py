@@ -11,7 +11,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Literal
 
-SELECTOR_POLICY_VERSION = "quality_diversity_selector_v3"
+SELECTOR_POLICY_VERSION = "quality_diversity_selector_v4"
 
 ReferenceRole = Literal[
     "primary_geometry",
@@ -101,6 +101,28 @@ SCENE_FINGERPRINT_KEYS = (
 COVERAGE_STRONG = 0.80
 COVERAGE_MODERATE = 0.65
 COVERAGE_LIMITED = 0.52
+
+# Role-score deltas. Resolution remains the base; these separate geometry from packaging.
+PRIMARY_GEOMETRY_WEIGHTS = {
+    "geometry_strong": 0.18,
+    "geometry_moderate": 0.05,
+    "geometry_weak": -0.16,
+    "silhouette_complete": 0.10,
+    "base_complete": 0.10,
+    "relationships_visible": 0.07,
+    "detail_complete": 0.04,
+    "prominence_high": 0.06,
+    "prominence_dominant": 0.08,
+    "occlusion_present": -0.18,
+    "kit_penalty": -0.16,
+    "primary_subject": 0.04,
+    "support_visible": 0.03,
+}
+SECONDARY_STRUCTURE_WEIGHTS = {
+    "structure_strong": 0.14,
+    "structure_moderate": 0.06,
+    "same_as_primary_view": -0.08,
+}
 
 LOOKBACK_RUNS = 12
 COOLDOWN_DECAY = 0.72

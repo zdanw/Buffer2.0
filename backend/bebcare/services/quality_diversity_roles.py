@@ -9,6 +9,8 @@ from bebcare.schemas.asset_intelligence import AssetIntelligenceResult, parse_in
 from bebcare.services.quality_diversity_policy import (
     FAILED_INTEL_STATUSES,
     GEOMETRY_ROLES,
+    PRIMARY_GEOMETRY_WEIGHTS,
+    SECONDARY_STRUCTURE_WEIGHTS,
     USABLE_INTEL_CONFIDENCE,
     ReferenceRole,
     coverage_from_score,
@@ -85,24 +87,37 @@ def classify_intelligence(intel: Any, *, analysis_status: str | None = None) -> 
     result = _intel(intel)
     if result is None:
         return "missing"
-    conf = str(result.confidence or "unknown").strip().lower()
-    discriminating = (
-        result.generation_suitability not in ("", "unknown")
-        or result.asset_source_type not in ("", "unknown")
-        or result.is_packaging()
-        or result.people_or_hands_presence in PRESENT
-    )
+    conf = str(result.confidence or result.evidence_confidence or "unknown").strip().lower()
+    discriminating = _has_discriminating_role_evidence(result)
     if conf in USABLE_INTEL_CONFIDENCE and discriminating:
         return "usable"
-    if conf in USABLE_INTEL_CONFIDENCE:
-        return "partial_useful"
-    if conf == "low" and discriminating:
-        return "partial_useful"
-    if conf == "low":
-        return "low_confidence"
     if discriminating:
         return "partial_useful"
+    if conf in USABLE_INTEL_CONFIDENCE:
+        return "missing"
+    if conf == "low":
+        return "low_confidence"
     return "missing"
+
+
+def _has_discriminating_role_evidence(result: AssetIntelligenceResult) -> bool:
+    bands = (
+        result.geometry_reference_suitability,
+        result.secondary_structure_suitability,
+        result.generation_suitability,
+        result.asset_source_type,
+        result.dominant_subject_kind,
+        result.packaging_prominence,
+        result.lifestyle_context_dominance,
+    )
+    if any(str(v or "unknown") not in ("", "unknown") for v in bands):
+        return True
+    if result.is_packaging() or result.people_or_hands_presence in PRESENT:
+        return True
+    physical = _physical(result)
+    if str(physical.get("complete_silhouette_visible") or "unknown") not in ("", "unknown"):
+        return True
+    return False
 
 
 def evaluate_role(
@@ -118,6 +133,7 @@ def evaluate_role(
     observed_component: str | None = None,
     warnings: list[str] | None = None,
     analysis_status: str | None = None,
+    system_group_required: bool = False,
 ) -> RoleVerdict:
     """Score one asset for one role. Does not infer unseen structure."""
     result = _intel(intel)
@@ -128,6 +144,9 @@ def evaluate_role(
     score = base_quality_01(
         width=width, height=height, image_type=image_type, target_aspect=target_aspect
     )
+    if semantic:
+        # Keep headroom so role evidence can separate high-resolution catalog shots.
+        score = 0.50 + (0.12 * score)
     reasons: list[str] = []
     signals: dict[str, Any] = {
         "base_quality": round(score, 4),
@@ -154,17 +173,18 @@ def evaluate_role(
 
     packaging_dom = False
     if result is not None:
-        packaging_dom = result.is_packaging() or str(physical.get("packaging_role") or "").lower() in PACKAGING_DOMINANT
+        pack_prom = str(getattr(result, "packaging_prominence", "unknown") or "unknown").lower()
+        packaging_dom = (
+            result.is_packaging()
+            or pack_prom in ("high", "dominant")
+            or str(physical.get("packaging_role") or "").lower() in PACKAGING_DOMINANT
+        )
     signals["packaging_dominated"] = packaging_dom
 
     person_dom = False
     if result is not None:
-        prominence = str(service.get("person_prominence") or "").lower()
-        person_dom = result.asset_source_type == "person" or (
-            result.people_or_hands_presence in PRESENT and prominence in PERSON_DOMINANT
-        ) or prominence in PERSON_DOMINANT
-        if not person_dom and result.asset_source_type == "person":
-            person_dom = True
+        prominence = str(service.get("person_prominence") or getattr(result, "person_prominence", "") or "").lower()
+        person_dom = result.asset_source_type == "person" or prominence in PERSON_DOMINANT | {"high", "dominant"}
         if (
             not person_dom
             and result.people_or_hands_presence in PRESENT
@@ -176,7 +196,8 @@ def evaluate_role(
 
     lifestyle_dom = False
     if result is not None:
-        lifestyle_dom = (
+        life = str(getattr(result, "lifestyle_context_dominance", "unknown") or "unknown").lower()
+        lifestyle_dom = life in ("high", "dominant") or (
             result.subject_or_scene == "scene"
             and result.broad_composition in ("wide", "other")
             and result.generation_suitability in ("scene", "avoid_as_primary")
@@ -188,11 +209,8 @@ def evaluate_role(
     if result is not None:
         warn_list.extend(result.warnings or [])
     joined = " ".join(str(w) for w in warn_list).lower()
-    if "occlu" in joined or str(physical.get("interaction_risk") or "").lower() in (
-        "major_occlusion",
-        "occluded",
-        "high",
-    ):
+    occ = str(physical.get("major_occlusion") or "").lower()
+    if "occlu" in joined or occ in ("present", "likely", "major_occlusion", "occluded", "high"):
         occluded = True
     signals["major_occlusion"] = occluded
 
@@ -205,6 +223,8 @@ def evaluate_role(
     signals["wrong_component"] = wrong_component
 
     if role in GEOMETRY_ROLES:
+        w = PRIMARY_GEOMETRY_WEIGHTS
+        geo = str(getattr(result, "geometry_reference_suitability", "unknown") if result else "unknown").lower()
         if image_type == "scene":
             reasons.append("scene_not_geometry")
         if packaging_dom and not packaging_required:
@@ -213,6 +233,8 @@ def evaluate_role(
             reasons.append("person_dominated")
         if occluded:
             reasons.append("major_occlusion")
+        if geo == "unsuitable" and role == "primary_geometry" and not packaging_required:
+            reasons.append("low_geometry_suitability")
         if result is not None and result.generation_suitability == "avoid_as_primary" and role == "primary_geometry":
             if not packaging_required:
                 reasons.append("avoid_as_primary")
@@ -223,6 +245,45 @@ def evaluate_role(
             and not packaging_required
         ):
             reasons.append("not_structure_evidence")
+        if result is not None and str(getattr(result, "intended_component_match", "unknown")) == "mismatch":
+            reasons.append("wrong_component")
+        if geo == "strong":
+            score += w["geometry_strong"]
+        elif geo == "moderate":
+            score += w["geometry_moderate"]
+        elif geo == "weak":
+            score += w["geometry_weak"]
+        sil = str(physical.get("complete_silhouette_visible") or "unknown")
+        base = str(physical.get("complete_original_base_visible") or "unknown")
+        rel = str(physical.get("major_component_relationships_visible") or "unknown")
+        detail = str(physical.get("fine_detail_visibility") or "unknown")
+        if sil == "complete":
+            score += w["silhouette_complete"]
+            signals["complete_silhouette"] = True
+        elif sil == "partial" and role == "primary_geometry":
+            score -= 0.08
+        if base == "complete":
+            score += w["base_complete"]
+            signals["complete_base"] = True
+        elif str(physical.get("support_surface") or "") not in ("", "unknown", "absent"):
+            score += w["support_visible"]
+            signals["complete_base"] = True
+        if rel == "complete":
+            score += w["relationships_visible"]
+        if detail == "complete":
+            score += w["detail_complete"]
+        prom = str(getattr(result, "product_prominence", "unknown") if result else "unknown").lower()
+        if prom == "dominant":
+            score += w["prominence_dominant"]
+        elif prom == "high":
+            score += w["prominence_high"]
+        if occluded:
+            score += w["occlusion_present"]
+        kit = str(getattr(result, "kit_or_group_image", "unknown") if result else "unknown").lower()
+        signals["kit_or_group_image"] = kit
+        if kit == "yes" and not system_group_required and role == "primary_geometry":
+            score += w["kit_penalty"]
+            signals["kit_not_single_geometry"] = True
         if result is not None and result.broad_composition == "wide" and role == "primary_geometry":
             score -= 0.12
             signals["subject_too_small"] = True
@@ -230,15 +291,20 @@ def evaluate_role(
             score -= 0.08
             signals["insufficient_detail"] = True
         if result is not None and result.generation_suitability == "primary_subject":
-            score += 0.06
-        if str(physical.get("support_surface") or "") not in ("", "unknown", "absent"):
-            score += 0.04
-            signals["complete_base"] = True
-        # unknown support is not treated as missing — do not infer hidden geometry
+            score += w["primary_subject"]
         if lifestyle_dom:
             score -= 0.10
             if role == "primary_geometry":
                 reasons.append("lifestyle_context_dominated")
+        if role == "secondary_structure":
+            sw = SECONDARY_STRUCTURE_WEIGHTS
+            struct = str(getattr(result, "secondary_structure_suitability", "unknown") if result else "unknown").lower()
+            if struct == "strong":
+                score += sw["structure_strong"]
+            elif struct == "moderate":
+                score += sw["structure_moderate"]
+            elif geo == "strong" and struct in ("unknown", "weak"):
+                score += sw["same_as_primary_view"]
 
     if role == "logo_reference":
         if result is not None and result.brand_mark_presence in PRESENT:

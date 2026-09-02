@@ -252,3 +252,82 @@ def test_visual_qa_transport_pairing_and_owner_gemini_opt_in():
             settings.owner_gemini_analysis_model,
         ) = orig
 
+
+def test_normalize_visual_qa_payload_keeps_strict_codes():
+    from bebcare.services.visual_fidelity_adapter import normalize_visual_qa_payload
+
+    parsed = normalize_visual_qa_payload(
+        {
+            "assessment": {
+                "checks": [
+                    {"check_code": "silhouette-mismatch", "status": "OK", "confidence": 0.9},
+                    {"check_code": "made_up_code", "status": "fail"},
+                    {"check_code": "product_silhouette_mismatch", "status": "pass"},
+                ]
+            }
+        }
+    )
+    codes = [row["check_code"] for row in parsed["checks"]]
+    assert "product_silhouette_mismatch" in codes
+    assert "made_up_code" not in codes
+    assert parsed["checks"][0]["status"] in ("pass",)
+    assert parsed["checks"][0]["confidence"] == "high"
+
+
+def test_visual_qa_correction_bounded_once(monkeypatch):
+    from bebcare.services import visual_fidelity_adapter as adapter
+
+    calls = {"n": 0}
+
+    def fake_complete(messages, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "not-json", {"usage": {}}
+        body = {
+            "schema_version": "visual_fidelity_v1",
+            "checks": [
+                {
+                    "check_code": "product_silhouette_mismatch",
+                    "status": "pass",
+                    "confidence": "medium",
+                    "short_reason": "outline matches",
+                }
+            ],
+            "overall_publication_decision": "eligible",
+            "confidence": "medium",
+        }
+        return json.dumps(body), {"usage": {}}
+
+    monkeypatch.setattr(
+        "bebcare.services.gemini_native_multimodal.gemini_messages_complete",
+        fake_complete,
+    )
+    orig = settings.visual_fidelity_qa_transport
+    settings.visual_fidelity_qa_transport = "owner_gemini_byok"
+    try:
+        assessment = adapter.assess_visual_fidelity(
+            {
+                "candidate_index": 0,
+                "candidate_url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
+                "primary_reference_url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
+                "owner_user_id": "owner-test",
+            }
+        )
+        assert calls["n"] == 2
+        assert assessment.correction_used is True
+        assert any(c.check_code == "product_silhouette_mismatch" for c in assessment.checks)
+        assert assessment.provider == "owner_gemini_byok"
+    finally:
+        settings.visual_fidelity_qa_transport = orig
+
+
+def test_visual_qa_schema_uses_strict_check_enums():
+    from bebcare.schemas.visual_fidelity import ALL_CHECK_CODES
+    from bebcare.services.visual_fidelity_adapter import visual_qa_response_schema
+
+    schema = visual_qa_response_schema()
+    codes = schema["properties"]["checks"]["items"]["properties"]["check_code"]["enum"]
+    assert "product_silhouette_mismatch" in codes
+    assert "made_up_code" not in codes
+    assert set(codes) == set(ALL_CHECK_CODES)
+

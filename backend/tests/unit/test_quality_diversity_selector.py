@@ -1356,3 +1356,61 @@ def test_shot_family_not_prompt_fingerprint():
         auto_publish=True,
     )
     assert family in ("functional_medium", "editorial_still_life", "restrained_detail")
+
+
+def test_semantic_role_scores_spread_and_exclude_packaging():
+    from tests.unit.qds_semantic_fixtures import geometry_high, geometry_mid, packaging_excluded
+
+    hi = evaluate_role("primary_geometry", width=2000, height=2000, intel=geometry_high())
+    mid = evaluate_role("primary_geometry", width=2000, height=2000, intel=geometry_mid())
+    pack = evaluate_role("primary_geometry", width=2000, height=2000, intel=packaging_excluded())
+    assert hi.eligible is True
+    assert mid.eligible is True
+    assert pack.eligible is False
+    assert hi.score - mid.score >= 0.08
+    assert hi.score_confidence == "semantic"
+
+
+def test_high_confidence_unknown_fields_are_not_semantic():
+    empty = evaluate_role(
+        "primary_geometry",
+        width=2000,
+        height=2000,
+        intel=AssetIntelligenceResult(confidence="high"),
+    )
+    assert empty.evidence_class == "missing"
+    assert empty.score_confidence == "resolution_only"
+
+
+def test_kit_view_is_not_best_single_component_primary():
+    kit = evaluate_role(
+        "primary_geometry",
+        width=2000,
+        height=2000,
+        intel=AssetIntelligenceResult(
+            confidence="high",
+            evidence_confidence="high",
+            asset_source_type="product",
+            generation_suitability="supporting_subject",
+            dominant_subject_kind="kit",
+            kit_or_group_image="yes",
+            geometry_reference_suitability="moderate",
+            product_prominence="medium",
+            packaging_prominence="low",
+            person_prominence="low",
+            lifestyle_context_dominance="low",
+            physical=PhysicalModule(
+                complete_silhouette_visible="complete",
+                complete_original_base_visible="partial",
+                major_occlusion="absent",
+            ),
+        ),
+        system_group_required=False,
+    )
+    from tests.unit.qds_semantic_fixtures import geometry_high
+
+    geo = evaluate_role("primary_geometry", width=2000, height=2000, intel=geometry_high())
+    assert geo.eligible is True
+    assert geo.score - kit.score >= 0.08
+
+

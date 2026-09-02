@@ -144,6 +144,41 @@ def test_visual_qa_unavailable_not_passed():
     assert quality.message_key == "visual_qa_unavailable"
 
 
+def test_visual_qa_malformed_copy_not_passed():
+    diag = build_run_diagnostics(
+        _run(quality_protection_mode="studio", visual_fidelity_qa_mode="studio"),
+        events=[_event("qds_skipped")],
+        selection=None,
+        findings=[_finding(check_code="visual_qa_malformed", severity="info", passed=True, qa_kind="visual_fidelity")],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    quality = next(row for row in diag.summary if row.key == "quality")
+    assert quality.status == "unavailable"
+    assert quality.message_key == "visual_qa_malformed"
+
+
+def test_visual_qa_ran_uses_visual_fidelity_kind():
+    diag = build_run_diagnostics(
+        _run(quality_protection_mode="studio", visual_fidelity_qa_mode="studio"),
+        events=[_event("qds_skipped")],
+        selection=None,
+        findings=[
+            _finding(
+                check_code="product_silhouette_mismatch",
+                severity="info",
+                passed=True,
+                qa_kind="visual_fidelity",
+            )
+        ],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    codes = {item.code for item in diag.groups["quality"].items}
+    assert "visual_qa_ran" in codes
+    assert "visual_qa_malformed" not in codes
+
+
 def test_hard_fail_blocks_and_cdn_is_warning():
     blocked = build_run_diagnostics(
         _run(quality_protection_mode="all"),

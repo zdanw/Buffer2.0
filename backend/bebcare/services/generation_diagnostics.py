@@ -311,13 +311,19 @@ def _quality_from_run(
     codes = _finding_codes(findings)
     hard = [f for f in findings if f.severity == "hard_fail" and not f.passed]
     warns = [f for f in findings if f.severity == "warning" and not f.passed]
-    visual_unavail = any(c in ("visual_qa_unavailable", "visual_qa_transport", "candidate_retrieval") for c in codes)
+    if any(c == "visual_qa_malformed" for c in codes):
+        items.append(_item("visual_qa_malformed", "unavailable"))
+        return "unavailable", items, "visual_qa_malformed"
+    visual_unavail = any(
+        c in ("visual_qa_unavailable", "visual_qa_transport", "candidate_retrieval")
+        for c in codes
+    )
     if visual_unavail:
         items.append(_item("visual_qa_unavailable", "unavailable"))
         return "unavailable", items, "visual_qa_unavailable"
     elif vmode in (None, "", "off"):
         items.append(_item("visual_qa_off", "off"))
-    elif any(f.qa_kind == "visual" for f in findings):
+    elif any((f.qa_kind or "") in ("visual", "visual_fidelity") for f in findings):
         items.append(_item("visual_qa_ran", "passed" if not hard else "blocked"))
     if hard:
         items.append(_item("hard_quality_fail", "blocked", reason=hard[0].check_code))

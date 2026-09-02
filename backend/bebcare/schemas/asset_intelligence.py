@@ -7,10 +7,25 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SEMANTIC_SCHEMA_VERSION = "sem_v1"
+SEMANTIC_SCHEMA_VERSION = "sem_v2"
 OFFERING_CONTEXT_PREFIX = "offering_v1"
 Presence = Literal["unknown", "absent", "present", "likely"]
 Confidence = Literal["unknown", "low", "medium", "high"]
+VisibilityEvidence = Literal["unknown", "absent", "partial", "complete"]
+SuitabilityBand = Literal["unknown", "strong", "moderate", "weak", "unsuitable"]
+ProminenceBand = Literal["unknown", "low", "medium", "high", "dominant"]
+MatchBand = Literal["unknown", "match", "mismatch", "not_applicable"]
+YesNoUnknown = Literal["unknown", "yes", "no"]
+DominantSubjectKind = Literal[
+    "unknown",
+    "single_product",
+    "product_group",
+    "kit",
+    "packaging",
+    "person",
+    "scene",
+    "mixed",
+]
 AssetSourceType = Literal[
     "unknown",
     "product",
@@ -54,6 +69,12 @@ class PhysicalModule(BaseModel):
     logo_product_region: str = "unknown"
     logo_visibility: str = "unknown"
     logo_confidence: str = "unknown"
+    control_or_screen_visibility: VisibilityEvidence = "unknown"
+    complete_silhouette_visible: VisibilityEvidence = "unknown"
+    complete_original_base_visible: VisibilityEvidence = "unknown"
+    major_component_relationships_visible: VisibilityEvidence = "unknown"
+    major_occlusion: Presence = "unknown"
+    fine_detail_visibility: VisibilityEvidence = "unknown"
 
 
 class SoftwareSaasModule(BaseModel):
@@ -91,6 +112,19 @@ class AssetIntelligenceResult(BaseModel):
     dominant_offering_evidence: DominantOffering = "unknown"
     generation_suitability: GenerationSuitability = "unknown"
     confidence: Confidence = "unknown"
+    dominant_subject_kind: DominantSubjectKind = "unknown"
+    intended_component_match: MatchBand = "unknown"
+    product_prominence: ProminenceBand = "unknown"
+    packaging_prominence: ProminenceBand = "unknown"
+    person_prominence: ProminenceBand = "unknown"
+    lifestyle_context_dominance: ProminenceBand = "unknown"
+    kit_or_group_image: YesNoUnknown = "unknown"
+    geometry_reference_suitability: SuitabilityBand = "unknown"
+    secondary_structure_suitability: SuitabilityBand = "unknown"
+    interaction_reference_suitability: SuitabilityBand = "unknown"
+    scene_reference_suitability: SuitabilityBand = "unknown"
+    packaging_reference_suitability: SuitabilityBand = "unknown"
+    evidence_confidence: Confidence = "unknown"
     warnings: list[str] = Field(default_factory=list)
     physical: Optional[PhysicalModule] = None
     software_saas: Optional[SoftwareSaasModule] = None
@@ -208,6 +242,44 @@ def offering_context_for_product(product: Any, offering_type: str | None = None)
     )
 
 
+_CONFIDENCE_NUMERIC = (
+    (0.8, "high"),
+    (0.5, "medium"),
+    (0.2, "low"),
+    (0.0, "unknown"),
+)
+
+
+def _normalize_token(value: Any) -> Any:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+        if 0.0 <= number <= 1.0:
+            for threshold, label in _CONFIDENCE_NUMERIC:
+                if number >= threshold:
+                    return label
+        return value
+    if not isinstance(value, str):
+        return value
+    text = value.strip().replace("-", "_").replace(" ", "_")
+    return text.lower() if text else value
+
+
+def normalize_intelligence_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Safe formatting only: case, hyphen/underscore, numeric confidence, nested dicts."""
+    out: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, dict):
+            out[key] = normalize_intelligence_payload(value)
+        elif isinstance(value, list):
+            out[key] = value
+        else:
+            out[key] = _normalize_token(value)
+    if not out.get("evidence_confidence") or out.get("evidence_confidence") == "unknown":
+        if out.get("confidence") in ("low", "medium", "high"):
+            out["evidence_confidence"] = out["confidence"]
+    return out
+
+
 def parse_intelligence_result(payload: Any) -> AssetIntelligenceResult:
     if isinstance(payload, AssetIntelligenceResult):
         return payload
@@ -217,4 +289,4 @@ def parse_intelligence_result(payload: Any) -> AssetIntelligenceResult:
         payload = json.loads(payload)
     if not isinstance(payload, dict):
         raise ValueError("intelligence_result_not_object")
-    return AssetIntelligenceResult.model_validate(payload)
+    return AssetIntelligenceResult.model_validate(normalize_intelligence_payload(payload))

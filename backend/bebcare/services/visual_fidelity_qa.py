@@ -370,7 +370,9 @@ def run_visual_fidelity_qa(
                 db,
                 run=run,
                 stage=STAGE_POST,
-                check_code="visual_qa_unavailable",
+                check_code="visual_qa_malformed"
+                if exc.error_category == "visual_qa_malformed"
+                else "visual_qa_unavailable",
                 severity=SEV_INFO,
                 passed=True,
                 details={
@@ -378,6 +380,9 @@ def run_visual_fidelity_qa(
                     "qa_kind": QA_KIND_VISUAL,
                     "reason": exc.error_category,
                     "cache_key": key,
+                    "provider": "owner_gemini_byok"
+                    if "gemini" in str(exc.error_category)
+                    else None,
                 },
                 artifact_id=(_artifact_for(db, run, index).artifact_id if _artifact_for(db, run, index) else None),
                 qa_kind=QA_KIND_VISUAL,
@@ -411,6 +416,8 @@ def run_visual_fidelity_qa(
             if warn:
                 summary["warning"] = warn
                 summary["warning_code"] = code
+        if assessment.provider == "owner_gemini_byok":
+            summary["byok"] = True
         product_info.setdefault("_visual_fidelity_usage", []).append(
             {
                 "candidate_index": index,

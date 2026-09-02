@@ -23,9 +23,9 @@ from bebcare.schemas.asset_intelligence import (
     parse_intelligence_result,
 )
 from bebcare.services.asset_intelligence_adapter import (
-    ANALYSIS_PROVIDER,
     ANALYSIS_PURPOSE,
     analysis_model_version,
+    analysis_provider_name,
     analyze_reference_image,
 )
 from bebcare.services.asset_intelligence_policy import (
@@ -184,7 +184,7 @@ def provenance_summary(
         "cached_image_ids": used,
         "scheduled_image_ids": scheduled_ids,
         "fallback_reason": fallback_reason,
-        "provider": ANALYSIS_PROVIDER if semantic_analysis_enabled(source=source) else None,
+        "provider": analysis_provider_name() if semantic_analysis_enabled(source=source) else None,
         "results": results,
     }
 
@@ -400,7 +400,7 @@ def _analyze_one(
         usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
         usage = dict(usage)
         usage.setdefault("purpose", ANALYSIS_PURPOSE)
-        usage.setdefault("provider", payload.get("provider") or ANALYSIS_PROVIDER)
+        usage.setdefault("provider", payload.get("provider") or analysis_provider_name())
         usage.setdefault("model", payload.get("model") or _model_version())
         usage["attempt_count"] = row.attempt_count
         usage["cache_hit"] = False
@@ -448,7 +448,7 @@ def _analyze_one(
         usage.update(
             {
                 "purpose": ANALYSIS_PURPOSE,
-                "provider": ANALYSIS_PROVIDER,
+                "provider": analysis_provider_name(),
                 "model": _model_version(),
                 "cache_hit": False,
                 "status": "failed",

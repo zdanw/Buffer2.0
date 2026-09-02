@@ -197,7 +197,7 @@ def inline_image_part(url: str) -> dict[str, Any]:
     if text.startswith("https://"):
         from bebcare.utils.image_utils import download_image_bytes
 
-        raw = download_image_bytes(text)
+        raw = download_image_bytes(text, timeout=(5, 20), max_retries=1)
         mime, data = _resize_bytes(raw)
         return {"type": "image", "mime_type": mime, "data": data}
     raise AnalysisFailure(FAILURE_PERMANENT, "invalid_image_input")
