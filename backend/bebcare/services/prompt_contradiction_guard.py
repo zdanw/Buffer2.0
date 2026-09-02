@@ -711,6 +711,14 @@ def persist_prompt_contradiction(db: Any, product_info: dict | None) -> None:
         events: list[dict[str, Any]] = []
         applied = bool(report.get("changed") or report.get("applied"))
         allowed = report.get("provider_request_allowed", True)
+        if "final_prompt_validation_started" not in existing_types:
+            events.append(
+                {
+                    "event_type": "final_prompt_validation_started",
+                    "outcome": "active",
+                    "summary": "Final prompt validation started",
+                }
+            )
         if applied and "final_prompt_conflict_detected" not in existing_types:
             events.append(
                 {
@@ -744,7 +752,7 @@ def persist_prompt_contradiction(db: Any, product_info: dict | None) -> None:
                     "summary": "Conflicting prompt instructions removed" if applied else "Final prompt checked",
                 }
             )
-        for event in events[:12]:
+        for event in events[:16]:
             rec = GenerationDecisionEvent(
                 generation_run_id=run.run_id,
                 sequence_number=sequence,

@@ -404,3 +404,26 @@ def test_legacy_rollout_off_without_plan_not_claimed():
     finally:
         settings.product_fidelity_prevention_mode = original
 
+
+def test_provider_bound_prompt_hash_equals_validated_hash():
+    from bebcare.providers.generate_request import GenerateImageRequest
+    from bebcare.services.prompt_contradiction_guard import (
+        prepare_validated_image_request,
+        prompt_digest,
+    )
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        draft = GenerateImageRequest(
+            prompt="A naturally captured lifestyle photograph of the product on a dresser.",
+            annotate_roles=False,
+        )
+        frozen, result = prepare_validated_image_request(draft, _physical_info())
+        assert result.provider_request_allowed is True
+        assert frozen.validated_prompt_hash == result.validated_prompt_hash
+        assert prompt_digest(frozen.prompt) == result.validated_prompt_hash
+        assert prompt_digest(frozen.prompt_with_role_labels()) == result.validated_prompt_hash
+    finally:
+        settings.product_fidelity_prevention_mode = original
+
