@@ -215,18 +215,15 @@ def test_visual_qa_compacts_data_urls():
     assert max(opened.size) <= 256
 
 
-def test_visual_qa_transport_pairing_and_google_opt_in():
-    from bebcare.services.visual_fidelity_adapter import (
-        GOOGLE_QA_PROVIDER,
-        resolve_visual_qa_transport,
-    )
+def test_visual_qa_transport_pairing_and_owner_gemini_opt_in():
+    from bebcare.services.gemini_native_multimodal import OWNER_GEMINI_PROVIDER
+    from bebcare.services.visual_fidelity_adapter import resolve_visual_qa_transport
 
     orig = (
         settings.visual_fidelity_qa_transport,
         settings.vision_api_key,
         settings.vision_api_url,
-        settings.visual_fidelity_qa_google_api_key,
-        settings.visual_fidelity_qa_google_model,
+        settings.owner_gemini_analysis_model,
     )
     try:
         settings.visual_fidelity_qa_transport = "platform"
@@ -235,20 +232,23 @@ def test_visual_qa_transport_pairing_and_google_opt_in():
         platform = resolve_visual_qa_transport()
         assert platform["mode"] == "platform"
         assert "agnes-ai.cn" not in platform["url"]
-        settings.visual_fidelity_qa_transport = "google_openai_compat"
-        settings.visual_fidelity_qa_google_api_key = "test-not-a-real-key"
-        settings.visual_fidelity_qa_google_model = "gemini-2.5-flash"
+        settings.visual_fidelity_qa_transport = "owner_gemini_byok"
+        settings.owner_gemini_analysis_model = "gemini-2.0-flash"
         google = resolve_visual_qa_transport()
-        assert google["mode"] == "google_openai_compat"
-        assert "generativelanguage.googleapis.com" in google["url"]
-        assert google["provider"] == GOOGLE_QA_PROVIDER
-        assert google["model"] == "gemini-2.5-flash"
+        assert google["mode"] == "owner_gemini_byok"
+        assert google["url"] == "native:gemini-multimodal"
+        assert "/openai" not in google["url"]
+        assert "chat/completions" not in google["url"]
+        assert google["provider"] == OWNER_GEMINI_PROVIDER
+        settings.visual_fidelity_qa_transport = "google_openai_compat"
+        alias = resolve_visual_qa_transport()
+        assert alias["mode"] == "owner_gemini_byok"
+        assert "/openai" not in alias["url"]
     finally:
         (
             settings.visual_fidelity_qa_transport,
             settings.vision_api_key,
             settings.vision_api_url,
-            settings.visual_fidelity_qa_google_api_key,
-            settings.visual_fidelity_qa_google_model,
+            settings.owner_gemini_analysis_model,
         ) = orig
 

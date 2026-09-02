@@ -55,8 +55,104 @@ USER_PROMPT = (
 
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
+_LITERAL_ALIASES = {
+    "asset_source_type": {
+        "user_photo": "product",
+        "photo": "product",
+        "catalog": "product",
+        "product_photo": "product",
+    },
+    "people_or_hands_presence": {
+        "none": "absent",
+        "no": "absent",
+        "yes": "present",
+        "reflection_only": "likely",
+    },
+    "text_presence": {"none": "absent", "no": "absent", "yes": "present"},
+    "brand_mark_presence": {"none": "absent", "no": "absent", "yes": "present"},
+    "screenshot_or_interface_presence": {"none": "absent", "no": "absent", "yes": "present"},
+    "packaging_presence": {"none": "absent", "no": "absent", "yes": "present"},
+    "broad_composition": {"wide_angle_tabletop": "wide", "tabletop": "other"},
+    "broad_lighting": {"indoor_ambient": "other", "indoor": "other"},
+    "generation_suitability": {
+        "usable_with_caveats": "primary_subject",
+        "usable": "primary_subject",
+        "good": "primary_subject",
+        "avoid": "avoid_as_primary",
+    },
+    "dominant_offering_evidence": {
+        "product": "physical_product",
+        "physical": "physical_product",
+    },
+    "subject_or_scene": {"product": "subject", "object": "subject"},
+}
+
+
+def coerce_intelligence_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Map Gemini free-text labels onto the existing Phase 2B literals."""
+    from typing import Literal, Union, get_args, get_origin
+
+    from bebcare.schemas.asset_intelligence import AssetIntelligenceResult
+
+    data = dict(payload)
+    for name, field in AssetIntelligenceResult.model_fields.items():
+        if name not in data:
+            continue
+        annotation = field.annotation
+        origin = get_origin(annotation)
+        allowed: tuple[Any, ...] = ()
+        if origin is Literal:
+            allowed = get_args(annotation)
+        elif origin is Union:
+            for arg in get_args(annotation):
+                if get_origin(arg) is Literal:
+                    allowed = get_args(arg)
+                    break
+        if not allowed:
+            continue
+        value = data[name]
+        if value in allowed:
+            continue
+        if not isinstance(value, str):
+            data[name] = "unknown" if "unknown" in allowed else value
+            continue
+        mapped = _LITERAL_ALIASES.get(name, {}).get(value) or _LITERAL_ALIASES.get(name, {}).get(
+            value.lower()
+        )
+        if mapped in allowed:
+            data[name] = mapped
+            continue
+        lowered = value.lower()
+        if name == "subject_or_scene" and len(value) > 24 and "subject" in allowed:
+            data[name] = "subject"
+            continue
+        if name == "dominant_offering_evidence" and len(value) > 24 and "physical_product" in allowed:
+            data[name] = "physical_product"
+            continue
+        if name == "generation_suitability" and "primary" in lowered and "primary_subject" in allowed:
+            data[name] = "primary_subject"
+            continue
+        data[name] = "unknown" if "unknown" in allowed else value
+    return data
+
+
+def _parse_intelligence_json(raw: str):
+    from bebcare.services.gemini_native_multimodal import owner_gemini_intelligence_enabled
+
+    obj = json.loads(_extract_json_text(raw))
+    if owner_gemini_intelligence_enabled() and isinstance(obj, dict):
+        obj = coerce_intelligence_payload(obj)
+    return parse_intelligence_result(obj)
+
 
 def analysis_model_version() -> str:
+    from bebcare.services.gemini_native_multimodal import (
+        cached_analysis_model,
+        owner_gemini_intelligence_enabled,
+    )
+
+    if owner_gemini_intelligence_enabled():
+        return cached_analysis_model() or "owner_gemini_byok"
     return (settings.vision_model or "unknown").strip() or "unknown"
 
 
@@ -207,17 +303,36 @@ def _platform_vision_complete(messages: list[dict], *, max_tokens: int = 1024) -
     return str(content).strip(), payload if isinstance(payload, dict) else {}
 
 
+def _default_complete(owner_user_id: str | None):
+    from bebcare.services.gemini_native_multimodal import (
+        gemini_messages_complete,
+        owner_gemini_intelligence_enabled,
+    )
+
+    if owner_gemini_intelligence_enabled():
+        def _gemini(messages, max_tokens: int = 1024):
+            return gemini_messages_complete(
+                messages,
+                owner_user_id=owner_user_id,
+                max_tokens=max_tokens,
+            )
+
+        return _gemini
+    return _platform_vision_complete
+
+
 def analyze_reference_image(
     *,
     image_url: str,
     offering_type: str = "unknown",
     catalog_context: str | None = None,
     complete: Optional[Callable[..., tuple[str, dict]]] = None,
+    owner_user_id: str | None = None,
 ) -> dict[str, Any]:
     """At most two provider calls: initial analysis, then one correction with the image."""
     started = time.perf_counter()
     safe_url = assert_analysis_image_url(image_url)
-    fn = complete or _platform_vision_complete
+    fn = complete or _default_complete(owner_user_id)
     notes = catalog_context
     initial_messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -241,7 +356,7 @@ def analyze_reference_image(
     try:
         last_raw, _payload = _call(initial_messages)
         try:
-            parsed = parse_intelligence_result(json.loads(_extract_json_text(last_raw)))
+            parsed = _parse_intelligence_json(last_raw)
         except (json.JSONDecodeError, ValidationError, ValueError, TypeError) as exc:
             correction_used = True
             validation_detail = _cap_validation_error(exc)
@@ -258,7 +373,7 @@ def analyze_reference_image(
             ]
             last_raw, _payload = _call(correction_messages)
             try:
-                parsed = parse_intelligence_result(json.loads(_extract_json_text(last_raw)))
+                parsed = _parse_intelligence_json(last_raw)
             except (json.JSONDecodeError, ValidationError, ValueError, TypeError) as exc2:
                 latency_ms = int((time.perf_counter() - started) * 1000)
                 raise AnalysisFailure(

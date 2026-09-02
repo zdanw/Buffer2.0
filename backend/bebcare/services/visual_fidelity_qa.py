@@ -360,6 +360,7 @@ def run_visual_fidelity_qa(
             "offering_type": product_info.get("offering_type") or "unknown",
             "asset_intelligence": product_info.get("asset_intelligence_results") or [],
             "composite_logo": composite,
+            "owner_user_id": owner,
         }
         try:
             assessment = assess(payload)

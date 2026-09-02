@@ -392,6 +392,7 @@ def _analyze_one(
                 getattr(product, "selling_points", None),
             ),
             complete=complete,
+            owner_user_id=owner_user_id,
         )
         result: AssetIntelligenceResult = payload["result"]
         row.normalized_result = result.model_dump()

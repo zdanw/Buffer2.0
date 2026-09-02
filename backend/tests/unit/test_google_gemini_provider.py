@@ -107,3 +107,63 @@ def test_list_models_parses_native_gemini_payload():
     assert get.call_args.args[0] == "https://generativelanguage.googleapis.com/v1beta/models"
     ids = [m["id"] for m in models]
     assert ids == ["gemini-3-pro-image", "gemini-3.1-flash-image"]
+
+
+def test_complete_multimodal_posts_interactions_not_openai():
+    text_response = {
+        "status": "completed",
+        "steps": [
+            {
+                "type": "model_output",
+                "content": [{"type": "text", "text": '{"ok": true}'}],
+            }
+        ],
+    }
+    provider = GoogleGeminiImageProvider(
+        api_key="AIza-test",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+        default_model="gemini-3.1-flash-image",
+    )
+    with patch(
+        "bebcare.providers.google_gemini.requests.post",
+        return_value=_ok(text_response),
+    ) as post:
+        result = provider.complete_multimodal(
+            model="gemini-2.0-flash",
+            input_parts=[
+                {"type": "text", "text": "hi"},
+                {"type": "image", "data": "QQ==", "mime_type": "image/jpeg"},
+            ],
+        )
+    url = post.call_args.args[0]
+    body = post.call_args.kwargs["json"]
+    assert url == "https://generativelanguage.googleapis.com/v1beta/interactions"
+    assert "/openai" not in url
+    assert "chat/completions" not in url
+    assert body["model"] == "gemini-2.0-flash"
+    assert body["input"][1]["type"] == "image"
+    assert "image_config" not in (body.get("generation_config") or {})
+    assert result["_text"] == '{"ok": true}'
+
+
+def test_generate_content_posts_native_model_url():
+    payload = {
+        "candidates": [{"content": {"parts": [{"text": '{"ok": true}'}]}}],
+        "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2},
+    }
+    provider = GoogleGeminiImageProvider(
+        api_key="AIza-test",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+    )
+    with patch(
+        "bebcare.providers.google_gemini.requests.post",
+        return_value=_ok(payload),
+    ) as post:
+        result = provider.generate_content(
+            model="gemini-3.7-flash",
+            body={"contents": [{"role": "user", "parts": [{"text": "hi"}]}]},
+        )
+    url = post.call_args.args[0]
+    assert url == "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
+    assert "/openai" not in url
+    assert result["candidates"]

@@ -1,4 +1,4 @@
-"""Platform-vision adapter for product-fidelity QA. Never BYOK, never image-generation credits."""
+"""Vision adapter for product-fidelity QA. Production default is platform vision."""
 
 from __future__ import annotations
 
@@ -39,9 +39,7 @@ RAW_CAP = 8000
 HTTP_TIMEOUT = httpx.Timeout(connect=5.0, read=60.0, write=30.0, pool=5.0)
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 QA_PURPOSE = "visual_fidelity_qa"
-GOOGLE_OPENAI_COMPAT_CHAT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 PLATFORM_PROVIDER = ANALYSIS_PROVIDER
-GOOGLE_QA_PROVIDER = "google_openai_compat_benchmark"
 
 SYSTEM_PROMPT = """You compare a generated marketing image to product reference images.
 Return ONLY JSON matching VisualFidelityAssessment. No markdown.
@@ -66,20 +64,20 @@ def visual_qa_model_version() -> str:
 
 def resolve_visual_qa_transport() -> dict[str, str]:
     """HTTP target for visual QA. Default remains platform vision, not owner BYOK."""
-    mode = (getattr(settings, "visual_fidelity_qa_transport", None) or "platform").strip().lower()
-    if mode == "google_openai_compat":
-        key = (
-            getattr(settings, "visual_fidelity_qa_google_api_key", None)
-            or settings.vision_api_key
-            or ""
-        ).strip()
-        model = (getattr(settings, "visual_fidelity_qa_google_model", None) or "gemini-2.5-flash").strip()
+    from bebcare.services.gemini_native_multimodal import (
+        OWNER_GEMINI_PROVIDER,
+        cached_analysis_model,
+        visual_qa_transport_mode,
+    )
+
+    if visual_qa_transport_mode() == "owner_gemini_byok":
         return {
-            "mode": "google_openai_compat",
-            "url": GOOGLE_OPENAI_COMPAT_CHAT,
-            "key": key,
-            "model": model,
-            "provider": GOOGLE_QA_PROVIDER,
+            "mode": "owner_gemini_byok",
+            "url": "native:gemini-multimodal",
+            "key": "owner_byok",
+            "model": cached_analysis_model()
+            or (getattr(settings, "owner_gemini_analysis_model", None) or "owner_gemini_byok"),
+            "provider": OWNER_GEMINI_PROVIDER,
         }
     vision_key = (settings.vision_api_key or "").strip()
     if vision_key:
@@ -112,6 +110,15 @@ def _extract_json_text(raw: str) -> str:
     if start >= 0 and end > start:
         return text[start : end + 1]
     return text
+
+
+def _require_known_checks(parsed: dict[str, Any]) -> None:
+    rows = parsed.get("checks") or []
+    if not any(
+        isinstance(row, dict) and str(row.get("check_code") or "") in ALL_CHECK_CODES
+        for row in rows
+    ):
+        raise ValueError("visual_qa_checks_missing")
 
 
 def _compact_data_image(url: str, *, max_side: int = 1024, quality: int = 80) -> str:
@@ -266,26 +273,42 @@ def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
     parsed: dict[str, Any] | None = None
     usage = None
     last_error: Exception | None = None
+
+    def _post_platform(body: dict[str, Any]):
+        poster = _http_post
+        if poster is None:
+            with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+                return client.post(
+                    transport["url"],
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=body,
+                )
+        return poster(body)
+
     for attempt in range(2):
         try:
+            if transport["mode"] == "owner_gemini_byok":
+                from bebcare.services.gemini_native_multimodal import gemini_messages_complete
+
+                content, payload_json = gemini_messages_complete(
+                    messages,
+                    owner_user_id=payload.get("owner_user_id"),
+                )
+                usage = payload_json.get("usage")
+                parsed = json.loads(_extract_json_text(content))
+                if not isinstance(parsed, dict):
+                    raise ValueError("not an object")
+                _require_known_checks(parsed)
+                break
             body = {
                 "model": transport["model"],
                 "messages": messages,
                 "temperature": 0,
             }
-            poster = _http_post
-            if poster is None:
-                with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-                    response = client.post(
-                        transport["url"],
-                        headers={
-                            "Authorization": f"Bearer {key}",
-                            "Content-Type": "application/json",
-                        },
-                        json=body,
-                    )
-            else:
-                response = poster(body)
+            response = _post_platform(body)
             status = int(getattr(response, "status_code", 200) or 200)
             if status in (401, 403):
                 logger.warning("visual fidelity QA HTTP auth status=%s", status)
@@ -307,6 +330,7 @@ def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
             parsed = json.loads(_extract_json_text(content))
             if not isinstance(parsed, dict):
                 raise ValueError("not an object")
+            _require_known_checks(parsed)
             break
         except (json.JSONDecodeError, ValueError, ValidationError) as exc:
             last_error = exc

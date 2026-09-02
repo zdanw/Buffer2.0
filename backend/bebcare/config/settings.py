@@ -124,11 +124,15 @@ class Settings(BaseSettings):
     product_fidelity_prevention_mode: str = "off"
     # Product Fidelity Guard v1 checkpoint B. off | studio | auto_publish | all
     visual_fidelity_qa_mode: str = "off"
-    # platform = existing vision/deepseek OpenAI-compatible URL. google_openai_compat is
-    # opt-in (local benchmark / explicit env); it is not the production default.
+    # platform = existing vision/deepseek OpenAI-compatible URL.
+    # owner_gemini_byok = local owner-scoped native Gemini Interactions (dev/benchmark).
+    # google_openai_compat is a legacy alias for owner_gemini_byok; it does not call /openai.
     visual_fidelity_qa_transport: str = "platform"
     visual_fidelity_qa_google_api_key: str | None = None
     visual_fidelity_qa_google_model: str = "gemini-2.5-flash"
+    asset_intelligence_transport: str = "platform"
+    owner_gemini_analysis_model: str | None = None
+    owner_gemini_byok_vpn_profile: str | None = None
     # Quality and Diversity Selector. Default off. off | studio | manual_automation | all
     quality_diversity_selector_mode: str = "off"
 
@@ -211,7 +215,14 @@ class Settings(BaseSettings):
     @field_validator("visual_fidelity_qa_transport", mode="before")
     @classmethod
     def normalize_visual_fidelity_qa_transport(cls, value: str) -> str:
-        allowed = {"platform", "google_openai_compat"}
+        allowed = {"platform", "owner_gemini_byok", "google_openai_compat"}
+        mode = str(value or "platform").strip().lower()
+        return mode if mode in allowed else "platform"
+
+    @field_validator("asset_intelligence_transport", mode="before")
+    @classmethod
+    def normalize_asset_intelligence_transport(cls, value: str) -> str:
+        allowed = {"platform", "owner_gemini_byok", "google_openai_compat"}
         mode = str(value or "platform").strip().lower()
         return mode if mode in allowed else "platform"
 
