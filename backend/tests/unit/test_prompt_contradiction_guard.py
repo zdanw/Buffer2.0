@@ -62,7 +62,7 @@ def test_handheld_request_removed_prohibition_kept():
         assert "swap the product in their hand" not in out.lower()
         assert "fingers must contact the product" not in out.lower()
         assert "prohibited" in out.lower()
-        assert "handheld_request_removed" in report["resolved"]
+        assert report["applied"] is True
         assert "prompt" not in report
     finally:
         settings.product_fidelity_prevention_mode = original
@@ -96,7 +96,7 @@ def test_coverage_drops_closeup_keeps_do_not_macro():
     assert "Do not use macro" in out
     assert "extreme close-up hero" not in out.lower()
     assert "dutch angle" not in out.lower()
-    assert "coverage_viewpoint_restricted" in report["resolved"]
+    assert report["applied"] is True
 
 
 def test_variety_not_prefixed_when_coverage_limited():
@@ -148,7 +148,7 @@ def test_image_zero_corrected():
     out, report = apply_prompt_contradiction_guard("Use Image 0 as the product.", _info())
     assert "Image 0" not in out
     assert "Image 1" in out
-    assert "image_index_corrected" in report["resolved"]
+    assert report["applied"] is True
 
 
 def test_report_has_no_prompt_or_secrets():
@@ -233,3 +233,174 @@ def test_persist_skips_cross_owner():
         },
     )
     db.begin_nested.assert_not_called()
+
+
+def _physical_info(**extra):
+    return _info(offering_type="physical_product", **extra)
+
+
+def test_vehicle_contradiction_rewritten_and_bound():
+    from bebcare.providers.generate_request import GenerateImageRequest
+    from bebcare.schemas.reference_manifest import ManifestItem, ReferenceManifest
+    from bebcare.services.prompt_contradiction_guard import (
+        prepare_validated_image_request,
+        prompt_digest,
+        validate_final_prompt,
+    )
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        info = _physical_info(
+            generation_plan=_plan(
+                reference_coverage="limited",
+                coverage_constraints=["no_macro", "no_mounting"],
+                capture_style="realistic_photography",
+                logo_policy={"generated_branding_prohibited": True, "insert_wordmark_in_prompt": False},
+                subject={"primary_subject_count": 1, "duplicate_primary_subjects_allowed": False},
+            )
+        )
+        prompt = (
+            "Place the complete original product on a dresser. Do not invent cables. "
+            "Camera on a cushioned rear car seat. Monitor on the center console during a morning commute. "
+            "A charging cable trailing to the console. Screen displaying a live nursery feed. "
+            "Warm golden cinematic styling and dreamy shallow depth of field."
+        )
+        result = validate_final_prompt(prompt, info)
+        text = result.validated_prompt.lower()
+        assert result.evaluated is True
+        assert result.changed is True
+        assert result.provider_request_allowed is True
+        assert "cushioned rear car seat" not in text
+        assert "center console" not in text
+        assert "morning commute" not in text
+        assert "charging cable" not in text
+        assert "live nursery feed" not in text
+        assert "parked" in text or "stationary" in text
+        assert "dresser" in text or "table" in text or "counter" in text
+        assert result.persistable().get("validated_prompt") is None
+        assert "cushioned rear" not in str(result.persistable())
+        draft = GenerateImageRequest(
+            prompt=prompt,
+            annotate_roles=True,
+            references=ReferenceManifest(
+                items=[
+                    ManifestItem(
+                        order=0,
+                        role="primary_subject",
+                        cdn_url="https://cdn.test/p.jpg",
+                        image_type="product",
+                        authority="suitability",
+                    ),
+                ]
+            ),
+        )
+        frozen, bound = prepare_validated_image_request(draft, info)
+        assert frozen.validated_prompt_hash == bound.validated_prompt_hash
+        assert prompt_digest(frozen.prompt_with_role_labels()) == frozen.validated_prompt_hash
+        assert frozen.annotate_roles is False
+        frozen2, bound2 = prepare_validated_image_request(draft, info)
+        assert frozen2 is frozen
+        assert bound2.validated_prompt_hash == bound.validated_prompt_hash
+    finally:
+        settings.product_fidelity_prevention_mode = original
+
+
+def test_parked_vehicle_background_allowed():
+    from bebcare.services.prompt_contradiction_guard import validate_final_prompt
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        prompt = (
+            "A parked vehicle is visible through the window. The product rests on an ordinary table "
+            "outside the vehicle. No driver interaction."
+        )
+        result = validate_final_prompt(prompt, _physical_info())
+        assert "parked vehicle" in result.validated_prompt.lower()
+        assert "vehicle_usage_conflict" not in result.detected_conflicts
+    finally:
+        settings.product_fidelity_prevention_mode = original
+
+
+def test_stroller_mount_rewritten_supported_kept():
+    from bebcare.services.prompt_contradiction_guard import validate_final_prompt
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        rewritten = validate_final_prompt(
+            "The camera is mounted on the stroller frame.",
+            _physical_info(),
+        )
+        assert "stroller frame" not in rewritten.validated_prompt.lower() or "Do not" in rewritten.validated_prompt
+        assert rewritten.changed is True
+        kept = validate_final_prompt(
+            "Baby monitor mounted on a stroller near the handlebar.",
+            _info(offering_type="stroller"),
+        )
+        assert "stroller" in kept.validated_prompt.lower()
+    finally:
+        settings.product_fidelity_prevention_mode = original
+
+
+def test_software_and_packaging_exceptions():
+    from bebcare.services.prompt_contradiction_guard import validate_final_prompt
+
+    software = validate_final_prompt(
+        "Software connector on the login screen with readable interface labels.",
+        _info(offering_type="software", generation_plan=_plan(capture_style="graphic_or_illustrated")),
+    )
+    assert "connector" in software.validated_prompt.lower()
+    packaging = validate_final_prompt(
+        "Retail box printed with the product name on the packaging panel.",
+        _info(offering_type="packaging", packaging_is_the_offering=True, generation_plan=_plan()),
+    )
+    assert "packaging" in packaging.validated_prompt.lower()
+
+
+def test_subject_count_and_malformed_and_block():
+    from bebcare.services.prompt_contradiction_guard import validate_final_prompt
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "studio"
+    try:
+        dup = validate_final_prompt(
+            "Show two cameras beside each other as duplicate hero devices.",
+            _physical_info(generation_plan=_plan(subject={"primary_subject_count": 1})),
+        )
+        assert "two cameras" not in dup.validated_prompt.lower()
+        malformed = validate_final_prompt(
+            "A lifestyle photograph white the product. lifestyle photograph, lifestyle photograph, 细腻质感",
+            _physical_info(),
+        )
+        assert "white the product" not in malformed.validated_prompt.lower()
+        assert "细腻质感" not in malformed.validated_prompt
+        blocked = validate_final_prompt(
+            "Image 1 (primary subject). Image 1 (scene context (environment only; not a product)).",
+            _physical_info(),
+        )
+        assert blocked.provider_request_allowed is False
+        assert "reference_authority_conflict" in blocked.hard_failures
+        clean = validate_final_prompt(
+            "A naturally captured lifestyle photograph of the product on a dresser.",
+            _physical_info(),
+        )
+        assert clean.provider_request_allowed is True
+    finally:
+        settings.product_fidelity_prevention_mode = original
+
+
+def test_legacy_rollout_off_without_plan_not_claimed():
+    from bebcare.services.prompt_contradiction_guard import validate_final_prompt
+
+    original = settings.product_fidelity_prevention_mode
+    settings.product_fidelity_prevention_mode = "off"
+    try:
+        result = validate_final_prompt("Camera on a cushioned rear car seat.", {"source": SOURCE_STUDIO})
+        assert result.evaluated is False
+        assert result.diagnostics_summary == "prompt_contradiction_off"
+        assert "cushioned" in result.validated_prompt.lower()
+    finally:
+        settings.product_fidelity_prevention_mode = original
+

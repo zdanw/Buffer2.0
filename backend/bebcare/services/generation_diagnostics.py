@@ -256,17 +256,41 @@ def _protections_from_run(run: GenerationRun, events: list[GenerationDecisionEve
             items.append(_item("stable_surface_fallback", "applied"))
         if overlay.get("realistic_photo_sanitizer") or "realistic_photo_sanitizer" in types:
             items.append(_item("realistic_photo_sanitizer", "applied"))
-        if not any(i.code in ("unsupported_mount_removed", "stable_surface_fallback") for i in items):
+        contradiction_applied = contradiction.get("applied") or contradiction.get("changed") or "prompt_contradiction_resolved" in types or "final_prompt_conflict_detected" in types
+        if not contradiction_applied and not any(
+            i.code in ("unsupported_mount_removed", "stable_surface_fallback") for i in items
+        ):
             items.append(_item("fidelity_no_rewrite", "passed"))
-    if contradiction.get("applied") or "prompt_contradiction_resolved" in types:
-        items.append(_item("prompt_contradiction_resolved", "applied"))
-    elif contradiction.get("evaluated") or "prompt_contradiction_evaluated" in types:
-        items.append(_item("prompt_contradiction_active", "active"))
+    if contradiction.get("applied") or contradiction.get("changed") or "prompt_contradiction_resolved" in types or "final_prompt_conflict_detected" in types:
+        summary_code = contradiction.get("diagnostics_summary") or "prompt_contradiction_resolved"
+        items.append(_item(str(summary_code), "applied"))
+    elif contradiction.get("evaluated") or "prompt_contradiction_evaluated" in types or "final_prompt_validation_passed" in types:
+        items.append(_item("prompt_contradiction_passed", "passed"))
+    if "final_prompt_validation_blocked" in types:
+        items.append(_item("final_prompt_blocked", "blocked"))
     if logo.get("generated_branding_prohibited") or "generated_branding_prohibited" in types:
         items.append(_item("generated_branding_prohibited", "applied"))
     if logo.get("insert_wordmark_in_prompt") is False or "wordmark_withheld" in types:
         items.append(_item("wordmark_withheld", "applied"))
+    blocked = [i for i in items if i.status == "blocked"]
+    if blocked:
+        return "blocked", items, blocked[0].code
     applied = [i for i in items if i.status == "applied"]
+    contradiction_applied_items = [
+        i
+        for i in applied
+        if i.code
+        in (
+            "prompt_contradiction_resolved",
+            "prompt_placement_corrected",
+            "prompt_cable_accessory_corrected",
+            "prompt_screen_restricted",
+            "prompt_realism_corrected",
+        )
+        or str(i.code).startswith("prompt_")
+    ]
+    if contradiction_applied_items:
+        return "applied", items, contradiction_applied_items[0].code
     if applied:
         return "applied", items, applied[0].code
     if any(i.code == "fidelity_off" for i in items) and len(items) == 1:
@@ -496,9 +520,11 @@ def build_run_diagnostics(
                     "selector": trace.get("selector_policy_version"),
                     "quality": run.quality_policy_version,
                     "visual": run.visual_fidelity_policy_version,
-                    "contradiction": (plan.get("prompt_contradiction") or {}).get("policy_version")
-                    if isinstance(plan.get("prompt_contradiction"), dict)
-                    else None,
+      "contradiction": (
+                    (plan.get("final_prompt_validation") or plan.get("prompt_contradiction") or {}).get("policy_version")
+                    if isinstance(plan.get("final_prompt_validation") or plan.get("prompt_contradiction"), dict)
+                    else None
+                ),
                 },
                 "event_codes": sorted(_event_types(events)),
                 "effective_weights": (selection.candidate_summary or {}).get("effective_weights") if selection and isinstance(selection.candidate_summary, dict) else None,

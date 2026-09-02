@@ -990,32 +990,10 @@ class ContentGenerator:
             product_info["_sanitized_prompt_hash"] = hashlib.sha256(
                 positive_prompt.encode("utf-8")
             ).hexdigest()
-            try:
-                from bebcare.services.prompt_contradiction_guard import persist_prompt_contradiction
-
-                persist_session, persist_own = self._db_session(db)
-                try:
-                    persist_prompt_contradiction(persist_session, product_info)
-                    persist_session.commit()
-                finally:
-                    if persist_own:
-                        persist_session.close()
-            except Exception:
-                logger.warning(
-                    "prompt_contradiction_persist_failed",
-                    extra={
-                        "generation_run_id": product_info.get("generation_run_id"),
-                        "event": "prompt_contradiction_persist_failed",
-                        "stage": "pre_provider",
-                        "outcome": "error",
-                        "policy_version": "prompt_contradiction_guard_v1",
-                        "product_id": product_info.get("product_id"),
-                        "error_category": "observability_persist",
-                    },
-                )
 
         from bebcare.services.quality_protection import (
             QualityProtectionError,
+            user_message_for,
             validate_post_generation,
             validate_pre_generation,
         )
@@ -1039,43 +1017,76 @@ class ContentGenerator:
             if qa_own:
                 qa_session.close()
 
-        async def make_image_request():
-            from bebcare.providers.generate_request import GenerateImageRequest
-            from bebcare.schemas.reference_manifest import ReferenceManifest
-            from bebcare.services.grounded_rollout import grounded_role_transport_enabled
+        from bebcare.providers.generate_request import GenerateImageRequest
+        from bebcare.schemas.reference_manifest import ReferenceManifest
+        from bebcare.services.grounded_rollout import grounded_role_transport_enabled
+        from bebcare.services.prompt_contradiction_guard import (
+            persist_prompt_contradiction,
+            prepare_validated_image_request,
+        )
 
-            annotate = grounded_role_transport_enabled(product_info)
-            from bebcare.services.generation_plan import plan_from_product_info
+        annotate = grounded_role_transport_enabled(product_info)
+        from bebcare.services.generation_plan import plan_from_product_info
 
-            plan = plan_from_product_info(product_info)
-            raw_manifest = (plan.reference_manifest if plan else None) or (
-                product_info.get("generation_provenance") or {}
-            ).get("reference_manifest")
-            request_obj = None
-            if raw_manifest:
-                try:
-                    request_obj = GenerateImageRequest(
-                        prompt=positive_prompt,
-                        negative_prompt=negative_prompt,
-                        size=size,
-                        model=resolved_model,
-                        references=ReferenceManifest.model_validate(raw_manifest),
-                        annotate_roles=annotate,
-                    )
-                except Exception:
-                    request_obj = None
-            if request_obj is None:
-                request_obj = GenerateImageRequest.from_legacy(
-                    positive_prompt,
-                    negative_prompt,
-                    size,
-                    resolved_model,
-                    reference_images if reference_images else None,
+        plan = plan_from_product_info(product_info)
+        raw_manifest = (plan.reference_manifest if plan else None) or (
+            product_info.get("generation_provenance") or {}
+        ).get("reference_manifest")
+        request_obj = None
+        if raw_manifest:
+            try:
+                request_obj = GenerateImageRequest(
+                    prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
+                    size=size,
+                    model=resolved_model,
+                    references=ReferenceManifest.model_validate(raw_manifest),
                     annotate_roles=annotate,
                 )
-            return await asyncio.to_thread(
-                lambda: provider.generate(request=request_obj)
+            except Exception:
+                request_obj = None
+        if request_obj is None:
+            request_obj = GenerateImageRequest.from_legacy(
+                positive_prompt,
+                negative_prompt,
+                size,
+                resolved_model,
+                reference_images if reference_images else None,
+                annotate_roles=annotate,
             )
+        frozen_request, validation = prepare_validated_image_request(request_obj, product_info)
+        persist_session, persist_own = self._db_session(db)
+        try:
+            persist_prompt_contradiction(persist_session, product_info)
+            persist_session.commit()
+        except Exception:
+            logger.warning(
+                "prompt_contradiction_persist_failed",
+                extra={
+                    "generation_run_id": product_info.get("generation_run_id"),
+                    "event": "prompt_contradiction_persist_failed",
+                    "stage": "pre_provider",
+                    "outcome": "error",
+                    "policy_version": validation.policy_version,
+                    "product_id": product_info.get("product_id"),
+                    "error_category": "observability_persist",
+                },
+            )
+        finally:
+            if persist_own:
+                persist_session.close()
+        if not validation.provider_request_allowed:
+            raise QualityProtectionError(
+                user_message_for("final_prompt_validation_blocked"),
+                check_code="final_prompt_validation_blocked",
+                error_category="final_prompt_validation_blocked",
+            )
+        if validation.evaluated:
+            positive_prompt = validation.validated_prompt
+            image_prompt = validation.validated_prompt
+
+        async def make_image_request():
+            return await asyncio.to_thread(lambda: provider.generate(request=frozen_request))
 
         try:
             if progress_callback:

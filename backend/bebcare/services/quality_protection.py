@@ -74,6 +74,7 @@ USER_MESSAGE = {
     "publish_blocked": "Automatic publishing paused",
     "candidate_retrieval": "Image could not be retrieved for quality checks",
     "flat_color": "Image has very little color variation",
+    "final_prompt_validation_blocked": "The final image prompt still conflicted with product protections",
 }
 
 

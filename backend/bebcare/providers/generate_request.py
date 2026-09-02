@@ -26,12 +26,15 @@ class GenerateImageRequest(BaseModel):
     model: Optional[str] = None
     references: ReferenceManifest = Field(default_factory=ReferenceManifest)
     annotate_roles: bool = False
+    validated_prompt_hash: Optional[str] = None
 
     def ordered_urls(self) -> list[str]:
         return self.references.ordered_urls()
 
     def prompt_with_role_labels(self) -> str:
         body = (self.prompt or "").strip()
+        if self.validated_prompt_hash:
+            return body
         if not self.annotate_roles or not self.references.items:
             return body
         lines = []
