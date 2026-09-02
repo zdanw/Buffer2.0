@@ -21,7 +21,12 @@ from bebcare.services.asset_intelligence import (
     load_usable_analyses,
     run_intelligence_job,
 )
-from bebcare.services.asset_intelligence_adapter import SYSTEM_PROMPT, analyze_reference_image
+from bebcare.services.asset_intelligence_adapter import (
+    SYSTEM_PROMPT,
+    analyze_reference_image,
+    resolve_platform_vision_credentials,
+)
+from bebcare.services.asset_intelligence_policy import AnalysisFailure, FAILURE_PERMANENT
 from bebcare.services.asset_intelligence_rollout import semantic_analysis_enabled
 from bebcare.services.deterministic_metadata import content_hash_bytes
 from bebcare.utils.reference_selector import resolve_generate_references
@@ -171,6 +176,38 @@ def test_client_requested_mode_cannot_bypass_off():
         ) == []
     finally:
         settings.asset_intelligence_mode = original
+
+
+def test_platform_vision_does_not_reuse_deepseek_key_on_vision_host():
+    orig = (
+        settings.vision_api_key,
+        settings.vision_api_url,
+        settings.deepseek_api_key,
+        settings.deepseek_api_url,
+    )
+    try:
+        settings.vision_api_url = "https://vision.example.test/v1"
+        settings.vision_api_key = None
+        settings.deepseek_api_key = "deepseek-not-for-vision"
+        settings.deepseek_api_url = "https://api.deepseek.com/v1"
+        try:
+            resolve_platform_vision_credentials()
+            raise AssertionError("expected invalid_analysis_configuration")
+        except AnalysisFailure as exc:
+            assert exc.failure_type == FAILURE_PERMANENT
+            assert exc.error_category == "invalid_analysis_configuration"
+        settings.vision_api_key = "vision-key"
+        key, url = resolve_platform_vision_credentials()
+        assert key == "vision-key"
+        assert url.endswith("/chat/completions")
+        assert "vision.example.test" in url
+    finally:
+        (
+            settings.vision_api_key,
+            settings.vision_api_url,
+            settings.deepseek_api_key,
+            settings.deepseek_api_url,
+        ) = orig
 
 
 def test_cache_hit_avoids_second_call(client):

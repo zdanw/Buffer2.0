@@ -60,6 +60,21 @@ def analysis_model_version() -> str:
     return (settings.vision_model or "unknown").strip() or "unknown"
 
 
+def resolve_platform_vision_credentials() -> tuple[str, str]:
+    """Pair vision URL with vision key. Do not send the DeepSeek key to a different host."""
+    vision_key = (settings.vision_api_key or "").strip()
+    vision_url = (settings.vision_api_url or "").strip()
+    deepseek_key = (settings.deepseek_api_key or "").strip()
+    deepseek_url = (settings.deepseek_api_url or "").strip()
+    if vision_url:
+        if not vision_key:
+            raise AnalysisFailure(FAILURE_PERMANENT, "invalid_analysis_configuration")
+        return vision_key, deepseek_chat_completions_url(vision_url)
+    if deepseek_key and deepseek_url:
+        return deepseek_key, deepseek_chat_completions_url(deepseek_url)
+    raise AnalysisFailure(FAILURE_PERMANENT, "invalid_analysis_configuration")
+
+
 def assert_analysis_image_url(url: str) -> str:
     """Allow HTTPS catalog CDN URLs; reject local/private/unsupported schemes."""
     text = (url or "").strip()
@@ -154,10 +169,7 @@ def _user_content(
 
 def _platform_vision_complete(messages: list[dict], *, max_tokens: int = 1024) -> tuple[str, dict]:
     """OpenAI-compatible chat via platform vision settings. Not BYOK."""
-    api_key = (settings.vision_api_key or settings.deepseek_api_key or "").strip()
-    if not api_key:
-        raise AnalysisFailure(FAILURE_PERMANENT, "invalid_analysis_configuration")
-    url = deepseek_chat_completions_url(settings.vision_api_url or settings.deepseek_api_url)
+    api_key, url = resolve_platform_vision_credentials()
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
