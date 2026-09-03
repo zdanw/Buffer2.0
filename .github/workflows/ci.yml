@@ -27,8 +27,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      # Calendar API tests that create enabled tasks need APScheduler started so
+      # Job.next_run_time exists (3.10.4 pin). TestClient skips FastAPI lifespan;
+      # tests/api/test_calendar_routes.py starts the scheduler paused. Do not
+      # ignore that file. Owner: remove the paused-start fixture if full_client
+      # runs app lifespan. Do not upgrade APScheduler past 3.10.4 without
+      # re-checking Job.next_run_time.
       - name: Pytest (API + unit)
-        run: pytest -q
+        run: pytest -q --strict-markers
 
       - name: Docker production source is backend/
         working-directory: .

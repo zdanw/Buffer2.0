@@ -2,9 +2,28 @@
 
 from datetime import datetime
 
+import pytest
+
 from bebcare.database import SessionLocal
 from bebcare.models import ManualTaskDraft, ScheduledTask, TaskExecution
+from bebcare.scheduler.apscheduler_service import scheduler_service
 from bebcare.services.ownership import stamp_owner
+
+
+@pytest.fixture(scope="module", autouse=True)
+def apscheduler_paused_for_job_metadata():
+    """Populate Job.next_run_time without changing scheduler product code.
+
+    FastAPI TestClient never runs main.py startup, so BackgroundScheduler is
+    not started. APScheduler 3.10.4 leaves Job.next_run_time unset until
+    start(); production assigns it after scheduler_service.start().
+    Start paused so cron does not fire. Do not shutdown: the singleton is
+    shared and APScheduler cannot restart after shutdown.
+    """
+    sched = scheduler_service.scheduler
+    if not sched.running:
+        sched.start(paused=True)
+    yield
 
 
 def _create_task(full_client, headers, name="Daily post", mode="auto"):
@@ -25,6 +44,7 @@ def _create_task(full_client, headers, name="Daily post", mode="auto"):
     return resp.json()
 
 
+@pytest.mark.apscheduler_job_runtime
 def test_calendar_month_scoped_and_execution_detail(full_client, auth_headers):
     me = full_client.get("/v1/auth/me", headers=auth_headers).json()
     owner = type("Owner", (), {"user_id": me["user_id"]})()
@@ -73,6 +93,7 @@ def test_calendar_month_scoped_and_execution_detail(full_client, auth_headers):
     assert detail.json()["platform_posts"][0]["platform"] == "instagram"
 
 
+@pytest.mark.apscheduler_job_runtime
 def test_calendar_includes_manual_drafts(full_client, auth_headers):
     me = full_client.get("/v1/auth/me", headers=auth_headers).json()
     owner = type("Owner", (), {"user_id": me["user_id"]})()
