@@ -357,6 +357,17 @@ def _map_http_error(exc: requests.exceptions.HTTPError) -> AnalysisFailure:
     return AnalysisFailure(failure_type, category)
 
 
+def _alternate_vision_model(owner_user_id: str | None, current: str) -> str | None:
+    try:
+        provider = load_owner_gemini_provider(owner_user_id=owner_user_id)
+        raw = provider.list_raw_models()
+        vision = filter_gemini_vision_models(raw)
+        ids = [row.get("id") for row in vision if row.get("id") and row.get("id") != current]
+        return ids[0] if ids else None
+    except Exception:
+        return None
+
+
 def gemini_generate_content(
     *,
     owner_user_id: str | None,
@@ -366,6 +377,7 @@ def gemini_generate_content(
     protocol: str | None = None,
     max_tokens: int = 1024,
     response_schema: dict[str, Any] | None = None,
+    allow_model_fallback: bool = True,
 ) -> dict[str, Any]:
     assert_owner_gemini_vpn()
     provider = load_owner_gemini_provider(owner_user_id=owner_user_id)
@@ -418,6 +430,23 @@ def gemini_generate_content(
                     payload = _via_interactions()
                 set_cached_native_protocol(PROTOCOL_INTERACTIONS)
                 return payload
+            if mapped.error_category in ("http_404", "http_400") and allow_model_fallback:
+                alternate = _alternate_vision_model(owner_user_id, model_id)
+                if alternate:
+                    from bebcare.services.provider_request_budget import provider_request_reason
+
+                    set_cached_analysis_model(alternate)
+                    with provider_request_reason("fallback"):
+                        return gemini_generate_content(
+                            owner_user_id=owner_user_id,
+                            model_id=alternate,
+                            body=body,
+                            timeout=timeout,
+                            protocol=cached_native_protocol(),
+                            max_tokens=max_tokens,
+                            response_schema=response_schema,
+                            allow_model_fallback=False,
+                        )
             raise mapped from exc
     except AnalysisFailure:
         raise

@@ -124,7 +124,8 @@ def test_protocol_fallback_consumes_separate_slot():
     snap = active_provider_request_budget().snapshot()
     assert posts["n"] == 2
     assert snap["attempted"][KIND_QA] == 2
-    assert snap["retried"][KIND_QA] == 1
+    assert snap["fallback"][KIND_QA] == 1
+    assert snap["retried"].get(KIND_QA, 0) == 0
     assert snap["failed"][KIND_QA] == 1
     assert snap["succeeded"][KIND_QA] == 1
     set_cached_native_protocol(None)
@@ -164,3 +165,50 @@ def test_budget_exhausted_is_analysis_failure():
     with pytest.raises(AnalysisFailure) as exc:
         reserved_provider_call(lambda: None, kind=KIND_SEMANTIC)
     assert exc.value.error_category == "provider_budget_exhausted"
+
+
+def test_snapshot_and_remaining_do_not_reset_counters():
+    budget = install_provider_request_budget({KIND_QA: 4})
+    reserved_provider_call(lambda: None, kind=KIND_QA, reason="initial")
+    first = budget.snapshot()
+    budget.remaining(KIND_QA)
+    budget.snapshot()
+    second = budget.snapshot()
+    assert first["attempted"][KIND_QA] == second["attempted"][KIND_QA] == 1
+    assert "fallback" in second
+
+
+def test_model_fallback_consumes_separate_slot():
+    install_provider_request_budget({KIND_QA: 2})
+    provider = GoogleGeminiImageProvider(api_key="AIza-test", base_url="https://example.test/v1beta")
+    posts = []
+
+    def fake_post(url, *args, **kwargs):
+        posts.append(str(url))
+        if "gemini-test" in str(url):
+            return _http_error(400)
+        return _ok({"candidates": [{"content": {"parts": [{"text": "{}"}]}}]})
+
+    set_cached_native_protocol(PROTOCOL_GENERATE_CONTENT)
+    with provider_request_context(KIND_QA, reason="initial"):
+        with patch("bebcare.services.gemini_native_multimodal.assert_owner_gemini_vpn"):
+            with patch(
+                "bebcare.services.gemini_native_multimodal.load_owner_gemini_provider",
+                return_value=provider,
+            ):
+                with patch(
+                    "bebcare.services.gemini_native_multimodal._alternate_vision_model",
+                    return_value="gemini-alt",
+                ):
+                    with patch("bebcare.providers.google_gemini.requests.post", side_effect=fake_post):
+                        gemini_generate_content(
+                            owner_user_id="owner-1",
+                            model_id="gemini-test",
+                            body={"input": [{"type": "text", "text": "x"}]},
+                            protocol=PROTOCOL_GENERATE_CONTENT,
+                        )
+    snap = active_provider_request_budget().snapshot()
+    assert len(posts) == 2
+    assert snap["attempted"][KIND_QA] == 2
+    assert snap["fallback"][KIND_QA] == 1
+    set_cached_native_protocol(None)

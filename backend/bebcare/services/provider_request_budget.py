@@ -7,6 +7,7 @@ Counters live on one process-wide object and are not reset by helpers.
 
 from __future__ import annotations
 
+import os
 import threading
 from collections import Counter
 from contextlib import contextmanager
@@ -55,6 +56,7 @@ class ProviderRequestBudget:
         self.failed: Counter[str] = Counter()
         self.corrected: Counter[str] = Counter()
         self.retried: Counter[str] = Counter()
+        self.fallback: Counter[str] = Counter()
         self.blocked_by_budget: Counter[str] = Counter()
 
     def remaining(self, kind: str) -> int | None:
@@ -78,8 +80,10 @@ class ProviderRequestBudget:
             self.attempted[key] += 1
             if why == "correction":
                 self.corrected[key] += 1
-            elif why in ("retry", "fallback"):
+            elif why == "retry":
                 self.retried[key] += 1
+            elif why == "fallback":
+                self.fallback[key] += 1
 
     def record_success(self, kind: str) -> None:
         with self._lock:
@@ -98,6 +102,7 @@ class ProviderRequestBudget:
                 "failed": dict(self.failed),
                 "corrected": dict(self.corrected),
                 "retried": dict(self.retried),
+                "fallback": dict(self.fallback),
                 "blocked_by_budget": dict(self.blocked_by_budget),
             }
 
@@ -111,6 +116,9 @@ def install_provider_request_budget(caps: dict[str, int]) -> ProviderRequestBudg
 
 
 def clear_provider_request_budget() -> None:
+    """Test-only reset. Live/benchmark helpers cannot clear production counters."""
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        return
     global _active
     with _lock:
         _active = None

@@ -177,7 +177,20 @@ def test_dark_incidental_screen_passes_with_weak_evidence():
     assert check.status == "pass"
 
 
-def test_low_confidence_branding_becomes_warning():
+def test_correct_wordmark_on_unsupported_surface_hard_fails():
+    policy = {"generated_branding_prohibited": True}
+    check = normalize_check(
+        VisualFidelityCheck(
+            check_code="logo_on_unsupported_surface",
+            status="hard_fail",
+            confidence="high",
+            short_reason="wordmark on dresser front",
+            observed_evidence="brand letters on furniture",
+        ),
+        policy=policy,
+    )
+    assert check.status == "hard_fail"
+    assert check.publication_effect == "block"
     policy = {"generated_branding_prohibited": True}
     check = normalize_check(
         VisualFidelityCheck(

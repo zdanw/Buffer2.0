@@ -38,6 +38,7 @@ from bebcare.services.provider_request_budget import (
     provider_request_context,
     reserved_provider_call,
 )
+from bebcare.services.visual_qa_policy import POLICY_BUILDER_ID, build_visual_qa_policy, qa_payload_from_policy
 
 logger = logging.getLogger(__name__)
 RAW_CAP = 8000
@@ -414,8 +415,33 @@ def _coerce_assessment(
 _http_post: Callable[..., Any] | None = None
 
 
+def _with_production_qa_policy(payload: dict[str, Any]) -> dict[str, Any]:
+    existing = payload.get("executed_qa_policy")
+    if isinstance(existing, dict) and existing.get("policy_builder") == POLICY_BUILDER_ID:
+        return payload
+    policy = build_visual_qa_policy(payload)
+    supporting = [{"cdn_url": url} for url in (payload.get("supporting_reference_urls") or []) if url]
+    built = qa_payload_from_policy(
+        policy=policy,
+        candidate_index=int(payload.get("candidate_index") or 0),
+        candidate_url=payload.get("candidate_url"),
+        primary={"cdn_url": payload.get("primary_reference_url")},
+        supporting=supporting,
+        reference_labels=payload.get("reference_labels") or {},
+        composite_logo=bool(payload.get("composite_logo")),
+        owner_user_id=payload.get("owner_user_id"),
+        approved_logo_url=payload.get("approved_logo_url"),
+        asset_intelligence=payload.get("asset_intelligence") or [],
+    )
+    merged = {**built, **payload}
+    merged["executed_qa_policy"] = policy
+    merged["policy_builder"] = POLICY_BUILDER_ID
+    return merged
+
+
 def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
     """One QA call + at most one JSON-correction call. Tests may patch this function."""
+    payload = _with_production_qa_policy(payload)
     candidate_index = int(payload.get("candidate_index") or 0)
     transport = resolve_visual_qa_transport()
     key = transport["key"]
@@ -450,7 +476,7 @@ def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
                 return reserved_provider_call(_post, kind=KIND_QA)
         return reserved_provider_call(lambda: poster(body), kind=KIND_QA)
 
-    qa_policy = payload.get("executed_qa_policy") if isinstance(payload.get("executed_qa_policy"), dict) else payload
+    qa_policy = payload.get("executed_qa_policy") if isinstance(payload.get("executed_qa_policy"), dict) else {}
     for attempt in range(2):
         try:
             reason = "correction" if attempt else "initial"
