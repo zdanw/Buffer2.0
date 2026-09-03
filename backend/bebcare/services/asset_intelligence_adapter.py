@@ -24,6 +24,11 @@ from bebcare.services.asset_intelligence_policy import (
     AnalysisFailure,
     classify_analysis_failure,
 )
+from bebcare.services.provider_request_budget import (
+    KIND_SEMANTIC,
+    provider_request_context,
+    reserved_provider_call,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -382,14 +387,19 @@ def _platform_vision_complete(messages: list[dict], *, max_tokens: int = 1024) -
     }
     try:
         with httpx.Client(timeout=HTTP_TIMEOUT, follow_redirects=False) as client:
-            response = client.post(url, headers=headers, json=data)
-            length = response.headers.get("Content-Length")
-            if length and length.isdigit() and int(length) > MAX_RESPONSE_BYTES:
-                raise AnalysisFailure(FAILURE_PERMANENT, "provider_response_too_large")
-            body = response.content
-            if len(body) > MAX_RESPONSE_BYTES:
-                raise AnalysisFailure(FAILURE_PERMANENT, "provider_response_too_large")
-            response.raise_for_status()
+
+            def _post():
+                posted = client.post(url, headers=headers, json=data)
+                length = posted.headers.get("Content-Length")
+                if length and length.isdigit() and int(length) > MAX_RESPONSE_BYTES:
+                    raise AnalysisFailure(FAILURE_PERMANENT, "provider_response_too_large")
+                body = posted.content
+                if len(body) > MAX_RESPONSE_BYTES:
+                    raise AnalysisFailure(FAILURE_PERMANENT, "provider_response_too_large")
+                posted.raise_for_status()
+                return posted
+
+            response = reserved_provider_call(_post, kind=KIND_SEMANTIC)
             payload = response.json()
     except AnalysisFailure:
         raise
@@ -450,15 +460,16 @@ def analyze_reference_image(
     correction_used = False
     last_raw = ""
 
-    def _call(messages: list[dict]) -> tuple[str, dict]:
+    def _call(messages: list[dict], *, reason: str = "initial") -> tuple[str, dict]:
         nonlocal request_count
         request_count += 1
-        raw, payload = fn(messages)
+        with provider_request_context(KIND_SEMANTIC, reason=reason):
+            raw, payload = fn(messages)
         usages.append(_usage_from_payload(payload if isinstance(payload, dict) else {}))
         return raw or "", payload if isinstance(payload, dict) else {}
 
     try:
-        last_raw, _payload = _call(initial_messages)
+        last_raw, _payload = _call(initial_messages, reason="initial")
         try:
             parsed = _parse_intelligence_json(last_raw)
         except (json.JSONDecodeError, ValidationError, ValueError, TypeError) as exc:
@@ -475,7 +486,7 @@ def analyze_reference_image(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": _user_content(safe_url, offering_type, extra, notes)},
             ]
-            last_raw, _payload = _call(correction_messages)
+            last_raw, _payload = _call(correction_messages, reason="correction")
             try:
                 parsed = _parse_intelligence_json(last_raw)
             except (json.JSONDecodeError, ValidationError, ValueError, TypeError) as exc2:

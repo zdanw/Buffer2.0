@@ -33,6 +33,11 @@ from bebcare.services.asset_intelligence_policy import (
     FAILURE_TRANSIENT,
     AnalysisFailure,
 )
+from bebcare.services.provider_request_budget import (
+    KIND_QA,
+    provider_request_context,
+    reserved_provider_call,
+)
 
 logger = logging.getLogger(__name__)
 RAW_CAP = 8000
@@ -55,10 +60,14 @@ Hard-fail only when candidate evidence clearly conflicts with reference evidence
 If a logo, antenna, or screen is hidden, distant, off, reflective, or not in view, use not_verifiable.
 Invented mounts, brackets, pouches, or cables are hard-fails when clearly present.
 Active-driving presentation of a control or display is a usage failure; a parked vehicle is allowed.
-If generated_branding_prohibited is true, visible product letters, wordmarks, or brand icons on the candidate are invented_logo or unexpected_product_text hard-fails even when they match a reference. Absence of branding is pass. Correct spelling does not rescue unsupported placement.
-Include a checks array with at least these codes when offering_type is physical_product:
-product_silhouette_mismatch, base_or_housing_redesign, unsupported_mount_or_attachment,
-implausible_cable_routing, invented_logo, strong_cgi_render_appearance.
+If generated_branding_prohibited is true, visible product letters, wordmarks, or brand icons on the candidate are invented_logo or unexpected_product_text hard-fails even when they match a reference. Absence of branding is pass. Correct spelling does not rescue unsupported placement or generated branding.
+Dark or incidental screens with weak screen evidence are pass. Invented live feeds, readable UI, or unsupported on-screen controls are prominent_ui_text_corruption or prominent_screen_corruption hard-fails at medium or high confidence.
+Include a checks array covering at least these codes:
+unexpected_product_text, invented_logo, logo_spelling_or_case_mismatch, logo_placement_mismatch,
+logo_on_unsupported_surface, prominent_screen_corruption, prominent_ui_text_corruption,
+unsupported_accessory, unsupported_mount_or_attachment, base_or_housing_redesign,
+unexpected_primary_duplicate, product_silhouette_mismatch, implausible_cable_routing,
+strong_cgi_render_appearance.
 Example:
 {"schema_version":"visual_fidelity_v1","candidate_index":0,"checks":[{"check_code":"product_silhouette_mismatch","status":"pass","confidence":"medium","short_reason":"outline matches"}],"overall_publication_decision":"eligible","confidence":"medium"}
 """
@@ -291,16 +300,38 @@ def _vision_user_content(payload: dict[str, Any]) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = [
         {"type": "text", "text": json.dumps({
             "task": "Compare generated candidate to primary product reference. "
-            "Candidate image is not a provider reference number.",
+            "Candidate image is not a provider reference number. "
+            "Use executed_qa_policy as the complete production policy. "
+            "approved_wordmark_for_comparison is for QA comparison only.",
+            "executed_qa_policy": payload.get("executed_qa_policy") or {},
+            "generation_plan": payload.get("generation_plan") or payload.get("plan_summary") or {},
+            "reference_manifest": payload.get("reference_manifest") or {},
+            "validated_final_prompt_hash": payload.get("validated_final_prompt_hash"),
+            "reference_coverage": payload.get("reference_coverage"),
+            "offering_type": payload.get("offering_type") or "unknown",
+            "subject_count_policy": payload.get("subject_count_policy"),
+            "generated_branding_prohibited": payload.get("generated_branding_prohibited"),
+            "logo_mode": payload.get("logo_mode"),
+            "approved_wordmark_for_comparison": payload.get("approved_wordmark_for_comparison"),
+            "logo_placement_evidence": payload.get("logo_placement_evidence"),
+            "screen_evidence_strength": payload.get("screen_evidence_strength"),
+            "screen_content_policy": payload.get("screen_content_policy"),
+            "unsupported_mount_accessory_cable_policy": payload.get(
+                "unsupported_mount_accessory_cable_policy"
+            ),
+            "compositing_state": payload.get("compositing_state"),
+            "qa_stage": payload.get("qa_stage"),
+            "provider_image_labels": payload.get("provider_image_labels"),
+            "required_check_codes": payload.get("required_check_codes") or list(ALL_CHECK_CODES),
             "generation_plan_summary": payload.get("plan_summary") or {},
             "logo_policy": payload.get("logo_policy") or {},
             "placement_policy": payload.get("placement_policy") or {},
-            "offering_type": payload.get("offering_type") or "unknown",
             "check_codes": list(ALL_CHECK_CODES),
             "asset_intelligence": payload.get("asset_intelligence") or [],
             "image_roles": image_roles,
             "reference_labels": labels,
-        }, ensure_ascii=False)[:12000]}
+            "policy_builder": payload.get("policy_builder"),
+        }, ensure_ascii=False)[:16000]}
     ]
     labeled = [
         (candidate_label, payload.get("candidate_url")),
@@ -350,6 +381,7 @@ def _coerce_assessment(
     correction_used: bool,
     composite_logo: bool = False,
     provider: str | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> VisualFidelityAssessment:
     checks = []
     for row in data.get("checks") or []:
@@ -361,6 +393,7 @@ def _coerce_assessment(
         check = normalize_check(
             VisualFidelityCheck.model_validate(row),
             composite_logo=composite_logo,
+            policy=policy,
         )
         checks.append(check)
     assessment = VisualFidelityAssessment.model_validate(
@@ -403,40 +436,47 @@ def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
         poster = _http_post
         if poster is None:
             with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-                return client.post(
-                    transport["url"],
-                    headers={
-                        "Authorization": f"Bearer {key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=body,
-                )
-        return poster(body)
 
+                def _post():
+                    return client.post(
+                        transport["url"],
+                        headers={
+                            "Authorization": f"Bearer {key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=body,
+                    )
+
+                return reserved_provider_call(_post, kind=KIND_QA)
+        return reserved_provider_call(lambda: poster(body), kind=KIND_QA)
+
+    qa_policy = payload.get("executed_qa_policy") if isinstance(payload.get("executed_qa_policy"), dict) else payload
     for attempt in range(2):
         try:
-            if transport["mode"] == "owner_gemini_byok":
-                from bebcare.services.gemini_native_multimodal import gemini_messages_complete
+            reason = "correction" if attempt else "initial"
+            with provider_request_context(KIND_QA, reason=reason):
+                if transport["mode"] == "owner_gemini_byok":
+                    from bebcare.services.gemini_native_multimodal import gemini_messages_complete
 
-                content, payload_json = gemini_messages_complete(
-                    messages,
-                    owner_user_id=payload.get("owner_user_id"),
-                    max_tokens=2048,
-                    response_schema=visual_qa_response_schema(),
-                )
-                usage = payload_json.get("usage")
-                parsed = json.loads(_extract_json_text(content))
-                if not isinstance(parsed, dict):
-                    raise ValueError("not an object")
-                parsed = normalize_visual_qa_payload(parsed)
-                _require_known_checks(parsed)
-                break
-            body = {
-                "model": transport["model"],
-                "messages": messages,
-                "temperature": 0,
-            }
-            response = _post_platform(body)
+                    content, payload_json = gemini_messages_complete(
+                        messages,
+                        owner_user_id=payload.get("owner_user_id"),
+                        max_tokens=2048,
+                        response_schema=visual_qa_response_schema(),
+                    )
+                    usage = payload_json.get("usage")
+                    parsed = json.loads(_extract_json_text(content))
+                    if not isinstance(parsed, dict):
+                        raise ValueError("not an object")
+                    parsed = normalize_visual_qa_payload(parsed)
+                    _require_known_checks(parsed)
+                    break
+                body = {
+                    "model": transport["model"],
+                    "messages": messages,
+                    "temperature": 0,
+                }
+                response = _post_platform(body)
             status = int(getattr(response, "status_code", 200) or 200)
             if status in (401, 403):
                 logger.warning("visual fidelity QA HTTP auth status=%s", status)
@@ -496,6 +536,7 @@ def assess_visual_fidelity(payload: dict[str, Any]) -> VisualFidelityAssessment:
         correction_used=correction_used,
         composite_logo=bool(payload.get("composite_logo")),
         provider=transport.get("provider"),
+        policy=qa_policy if isinstance(qa_policy, dict) else None,
     )
     assessment.latency_ms = int((time.monotonic() - started) * 1000)
     pt, ct = _parse_usage(usage if isinstance(usage, dict) else None)

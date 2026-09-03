@@ -412,7 +412,10 @@ def gemini_generate_content(
         except requests.exceptions.HTTPError as exc:
             mapped = _map_http_error(exc)
             if mapped.error_category == "http_404" and cached_native_protocol() is None:
-                payload = _via_interactions()
+                from bebcare.services.provider_request_budget import provider_request_reason
+
+                with provider_request_reason("fallback"):
+                    payload = _via_interactions()
                 set_cached_native_protocol(PROTOCOL_INTERACTIONS)
                 return payload
             raise mapped from exc

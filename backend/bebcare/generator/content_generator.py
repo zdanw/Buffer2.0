@@ -167,7 +167,10 @@ class ContentGenerator:
 
         for attempt in range(max_retries):
             try:
-                return await func()
+                from bebcare.services.provider_request_budget import provider_request_reason
+
+                with provider_request_reason("initial" if attempt == 0 else "retry"):
+                    return await func()
             except Exception as e:
                 last_exception = e
                 logger.warning(

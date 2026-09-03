@@ -217,17 +217,26 @@ class GoogleGeminiImageProvider:
         for key in _DROP_KEYS:
             payload.pop(key, None)
 
-        response = requests.post(
-            self._interactions_url(),
-            headers=self._headers(),
-            json=payload,
-            timeout=180,
+        from bebcare.services.provider_request_budget import (
+            KIND_IMAGE,
+            reserved_provider_call,
         )
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            detail = response.text[:500] if response.text else str(e)
-            raise Exception(f"Google image generation HTTP error: {detail}") from e
+
+        def _post():
+            posted = requests.post(
+                self._interactions_url(),
+                headers=self._headers(),
+                json=payload,
+                timeout=180,
+            )
+            try:
+                posted.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                detail = posted.text[:500] if posted.text else str(e)
+                raise Exception(f"Google image generation HTTP error: {detail}") from e
+            return posted
+
+        response = reserved_provider_call(_post, kind=KIND_IMAGE)
 
         result = response.json()
         if not isinstance(result, dict):
@@ -260,13 +269,19 @@ class GoogleGeminiImageProvider:
         if "/openai" in url or url.rstrip("/").endswith("/chat/completions"):
             raise ValueError("refusing OpenAI-compatible Gemini URL")
         payload = {"model": model_id, "input": input_parts}
-        response = requests.post(
-            url,
-            headers=self._headers(),
-            json=payload,
-            timeout=timeout,
-        )
-        response.raise_for_status()
+        from bebcare.services.provider_request_budget import reserved_provider_call
+
+        def _post():
+            posted = requests.post(
+                url,
+                headers=self._headers(),
+                json=payload,
+                timeout=timeout,
+            )
+            posted.raise_for_status()
+            return posted
+
+        response = reserved_provider_call(_post)
         result = response.json()
         if not isinstance(result, dict):
             raise Exception("Google multimodal returned a non-object payload")
@@ -291,13 +306,19 @@ class GoogleGeminiImageProvider:
         url = f"{self._root()}/models/{model_id}:generateContent"
         if "/openai" in url or url.rstrip("/").endswith("/chat/completions"):
             raise ValueError("refusing OpenAI-compatible Gemini URL")
-        response = requests.post(
-            url,
-            headers=self._headers(),
-            json=body,
-            timeout=timeout,
-        )
-        response.raise_for_status()
+        from bebcare.services.provider_request_budget import reserved_provider_call
+
+        def _post():
+            posted = requests.post(
+                url,
+                headers=self._headers(),
+                json=body,
+                timeout=timeout,
+            )
+            posted.raise_for_status()
+            return posted
+
+        response = reserved_provider_call(_post)
         result = response.json()
         if not isinstance(result, dict):
             raise Exception("Google generateContent returned a non-object payload")

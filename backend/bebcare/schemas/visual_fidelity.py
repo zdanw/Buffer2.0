@@ -236,10 +236,58 @@ def user_message_for_visual(check_code: str) -> str:
     return USER_MESSAGE.get(check_code, USER_MESSAGE["default"])
 
 
+SCREEN_HARD_CODES = frozenset(
+    {
+        "prominent_screen_corruption",
+        "prominent_ui_text_corruption",
+        "primary_interface_corruption",
+    }
+)
+INVENTED_UI_MARKERS = (
+    "live feed",
+    "live-feed",
+    "invented",
+    "readable ui",
+    "on-screen text",
+    "dashboard",
+    "control panel",
+    "osd",
+    "status bar",
+    "ui chrome",
+)
+WEAK_SCREEN_EVIDENCE = frozenset({"weak", "none", "unknown", "incidental", "dark", "off"})
+
+
+def apply_executed_visual_qa_policy(
+    check: VisualFidelityCheck,
+    policy: dict[str, Any] | None = None,
+) -> VisualFidelityCheck:
+    """Publication overlay from executed Studio policy. Does not invent findings."""
+    if not policy:
+        return check
+    if check.check_code in GENERATED_BRANDING_HARD_CODES:
+        if policy.get("generated_branding_prohibited") and check.status == "hard_fail":
+            if check.confidence in HIGH_CERTAINTY:
+                check.publication_effect = "block"
+        return check
+    if check.check_code in SCREEN_HARD_CODES:
+        strength = str(policy.get("screen_evidence_strength") or "unknown").lower()
+        evidence = f"{check.observed_evidence or ''} {check.short_reason or ''}".lower()
+        invented = any(marker in evidence for marker in INVENTED_UI_MARKERS)
+        if strength in WEAK_SCREEN_EVIDENCE and check.status == "hard_fail" and not invented:
+            check.status = "pass"
+            check.publication_effect = "none"
+            return check
+        if invented and check.status == "hard_fail" and check.confidence in HIGH_CERTAINTY:
+            check.publication_effect = "block"
+    return check
+
+
 def normalize_check(
     check: VisualFidelityCheck,
     *,
     composite_logo: bool = False,
+    policy: dict[str, Any] | None = None,
 ) -> VisualFidelityCheck:
     """Style/logo-composite/low/unknown cannot hard-fail. not_verifiable never hard-fails."""
     if check.check_code in STYLE_WARNING_CODES and check.status == "hard_fail":
@@ -272,4 +320,4 @@ def normalize_check(
         check.publication_effect = "block"
     elif check.status == "warning":
         check.publication_effect = "warn"
-    return check
+    return apply_executed_visual_qa_policy(check, policy)

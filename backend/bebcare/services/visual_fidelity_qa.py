@@ -21,6 +21,7 @@ from bebcare.schemas.visual_fidelity import (
     warning_code_for_visual,
 )
 from bebcare.services.asset_intelligence_policy import AnalysisFailure
+from bebcare.services.provider_request_budget import BudgetExhausted
 from bebcare.services.logo_placement import model_facing_provider_index
 from bebcare.services.product_fidelity_rollout import (
     PREVENTION_POLICY_VERSION,
@@ -39,6 +40,11 @@ from bebcare.services.quality_protection import (
 from bebcare.services.visual_fidelity_adapter import (
     assess_visual_fidelity,
     visual_qa_model_version,
+)
+from bebcare.services.visual_qa_policy import (
+    REQUIRED_QA_CHECK_CODES,
+    build_visual_qa_policy,
+    qa_payload_from_policy,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,7 +194,7 @@ def persist_assessment(
 ) -> None:
     artifact = _artifact_for(db, run, assessment.candidate_index)
     for check in assessment.checks:
-        check = normalize_check(check, composite_logo=composite_logo)
+        check = normalize_check(check, composite_logo=composite_logo, policy=None)
         if check.status == "pass":
             severity, passed = SEV_INFO, True
         elif check.status == "warning":
@@ -316,6 +322,11 @@ def run_visual_fidelity_qa(
     hashes = product_info.get("_qa_candidate_hashes") or []
     prompt_hash = product_info.get("_sanitized_prompt_hash")
     composite = _composite_logo(plan)
+    qa_policy = build_visual_qa_policy(product_info)
+    if qa_policy.get("executed_generation_plan"):
+        plan = qa_policy["executed_generation_plan"]
+        product_info["generation_plan"] = plan
+    composite = _composite_logo(plan)
     for index, url in enumerate(image_urls or []):
         cand_hash = hashes[index] if index < len(hashes) else None
         material = cache_material(
@@ -325,18 +336,26 @@ def run_visual_fidelity_qa(
             product_info=product_info,
             model_version=visual_qa_model_version(),
             prompt_hash=prompt_hash,
+            extra={
+                "qa_policy_builder": qa_policy.get("policy_builder"),
+                "generated_branding_prohibited": qa_policy.get("generated_branding_prohibited"),
+                "screen_evidence_strength": qa_policy.get("screen_evidence_strength"),
+                "screen_content_policy": qa_policy.get("screen_content_policy"),
+                "qa_stage": qa_policy.get("qa_stage"),
+                "required_check_codes": list(REQUIRED_QA_CHECK_CODES),
+            },
         )
         key = cache_identity_from_material(material)
         if key in existing:
             summary["cache_hits"] += 1
             continue
-        payload = {
-            "candidate_index": index,
-            "candidate_url": url,
-            "primary_reference_url": (primary or {}).get("cdn_url"),
-            "supporting_reference_urls": [s.get("cdn_url") for s in supporting if s.get("cdn_url")],
-            "approved_logo_url": product_info.get("logo_url") or product_info.get("brand_logo_url"),
-            "reference_labels": {
+        payload = qa_payload_from_policy(
+            policy=qa_policy,
+            candidate_index=index,
+            candidate_url=url,
+            primary=primary,
+            supporting=supporting,
+            reference_labels={
                 "candidate": "Candidate image",
                 "primary": (
                     f"Primary reference, Image {model_facing_provider_index(primary, manifest_items)}"
@@ -349,21 +368,35 @@ def run_visual_fidelity_qa(
                 ],
                 "approved_logo": "Approved logo asset",
             },
-            "plan_summary": {
-                "placement": plan.get("placement"),
-                "subject": plan.get("subject"),
-                "capture_style": plan.get("capture_style"),
-                "constraints": plan.get("constraints"),
-            },
-            "logo_policy": plan.get("logo_policy") or {},
-            "placement_policy": plan.get("placement"),
-            "offering_type": product_info.get("offering_type") or "unknown",
-            "asset_intelligence": product_info.get("asset_intelligence_results") or [],
-            "composite_logo": composite,
-            "owner_user_id": owner,
-        }
+            composite_logo=composite,
+            owner_user_id=owner,
+            approved_logo_url=product_info.get("logo_url") or product_info.get("brand_logo_url"),
+            asset_intelligence=product_info.get("asset_intelligence_results") or [],
+        )
         try:
             assessment = assess(payload)
+        except BudgetExhausted as exc:
+            logger.warning("visual fidelity QA blocked by budget run=%s idx=%s", run.run_id, index)
+            record_finding(
+                db,
+                run=run,
+                stage=STAGE_POST,
+                check_code="provider_budget_exhausted",
+                severity=SEV_INFO,
+                passed=True,
+                details={
+                    "candidate_index": index,
+                    "qa_kind": QA_KIND_VISUAL,
+                    "reason": "provider_budget_exhausted",
+                    "kind": getattr(exc, "kind", "qa"),
+                    "cache_key": key,
+                },
+                artifact_id=(_artifact_for(db, run, index).artifact_id if _artifact_for(db, run, index) else None),
+                qa_kind=QA_KIND_VISUAL,
+                cache_key=key,
+                policy_version=VISUAL_POLICY_VERSION,
+            )
+            continue
         except AnalysisFailure as exc:
             logger.warning("visual fidelity QA skipped (adapter failure) run=%s idx=%s", run.run_id, index)
             record_finding(
@@ -391,7 +424,8 @@ def run_visual_fidelity_qa(
             )
             continue
         assessment.checks = [
-            normalize_check(check, composite_logo=composite) for check in assessment.checks
+            normalize_check(check, composite_logo=composite, policy=qa_policy)
+            for check in assessment.checks
         ]
         assessment.overall_publication_decision = publication_decision_from_checks(assessment.checks)
         summary["calls"] += 1

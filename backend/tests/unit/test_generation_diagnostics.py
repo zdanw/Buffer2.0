@@ -177,6 +177,84 @@ def test_visual_qa_ran_uses_visual_fidelity_kind():
     codes = {item.code for item in diag.groups["quality"].items}
     assert "visual_qa_ran" in codes
     assert "visual_qa_malformed" not in codes
+    assert "candidate_eligible" in codes
+
+
+def test_generated_branding_and_screen_and_budget_diagnostics():
+    branding = build_run_diagnostics(
+        _run(quality_protection_mode="studio", visual_fidelity_qa_mode="studio"),
+        events=[_event("qds_skipped")],
+        selection=None,
+        findings=[
+            _finding(
+                check_code="invented_logo",
+                severity="hard_fail",
+                passed=False,
+                qa_kind="visual_fidelity",
+            )
+        ],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    codes = {item.code for item in branding.groups["quality"].items}
+    assert "visual_qa_ran" in codes
+    assert "generated_branding_detected" in codes
+    assert "candidate_blocked" in codes
+    assert branding.groups["quality"].status != "passed"
+
+    screen = build_run_diagnostics(
+        _run(quality_protection_mode="studio", visual_fidelity_qa_mode="studio"),
+        events=[_event("qds_skipped")],
+        selection=None,
+        findings=[
+            _finding(
+                check_code="prominent_ui_text_corruption",
+                severity="hard_fail",
+                passed=False,
+                qa_kind="visual_fidelity",
+            )
+        ],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    assert "unsupported_screen_content_detected" in {item.code for item in screen.groups["quality"].items}
+
+    budget = build_run_diagnostics(
+        _run(quality_protection_mode="studio", visual_fidelity_qa_mode="studio"),
+        events=[_event("qds_skipped")],
+        selection=None,
+        findings=[
+            _finding(
+                check_code="provider_budget_exhausted",
+                severity="info",
+                passed=True,
+                qa_kind="visual_fidelity",
+            )
+        ],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    assert budget.groups["quality"].status == "unavailable"
+    quality_row = next(row for row in budget.summary if row.key == "quality")
+    assert quality_row.message_key == "provider_request_blocked_by_budget"
+    assert "visual_qa_ran" not in {item.code for item in budget.groups["quality"].items}
+
+
+def test_qds_rotation_disabled_reports_one_geometry():
+    diag = build_run_diagnostics(
+        _run(requested_selector_strategy=STRATEGY_QDS, executed_selector_strategy=STRATEGY_QDS),
+        events=[
+            _event("qds_enabled"),
+            _event("qds_rotation_disabled", details={"reason": "insufficient_role_intelligence"}),
+        ],
+        selection=SimpleNamespace(coverage_class="moderate", candidate_summary={"eligible_ids": ["p1"]}),
+        findings=[],
+        artifacts=[_artifact()],
+        include_technical=False,
+    )
+    codes = {item.code for item in diag.groups["diversity"].items}
+    assert "qds_conservative_one_geometry" in codes
+    assert "qds_weighted_rotation_enabled" not in codes
 
 
 def test_hard_fail_blocks_and_cdn_is_warning():

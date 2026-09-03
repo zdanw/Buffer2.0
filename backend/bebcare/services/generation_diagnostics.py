@@ -144,18 +144,33 @@ def _diversity_from_run(
             if selection and isinstance(selection.candidate_summary, dict):
                 pool = len(selection.candidate_summary.get("eligible_ids") or [])
             items.append(_item("weighted_selection", "applied", pool=pool or None))
+            items.append(_item("qds_weighted_rotation_enabled", "applied", pool=pool or None))
             if "cooldown_applied" in types or "diversity_penalty_applied" in types:
                 items.append(_item("cooldown_applied", "applied"))
             return "applied", items, "weighted_selection"
         if "conservative_top_selection" in types:
             items.append(_item("conservative_top", "applied"))
+            items.append(_item("qds_conservative_one_geometry", "skipped"))
             return "applied", items, "conservative_top"
         if "intentional_reference_reuse" in types:
             items.append(_item("intentional_reuse", "applied"))
             return "applied", items, "intentional_reuse"
         if "qds_rotation_disabled" in types:
-            items.append(_item("qds_rotation_disabled", "skipped"))
-            return "active", items, "qds_active"
+            reason = None
+            for event in events:
+                details = event.details if isinstance(getattr(event, "details", None), dict) else {}
+                if event.event_type == "qds_rotation_disabled":
+                    reason = details.get("reason")
+                    break
+            items.append(_item("qds_rotation_disabled", "skipped", reason=reason))
+            items.append(
+                _item(
+                    "qds_conservative_one_geometry",
+                    "skipped",
+                    reason=reason or "insufficient_role_intelligence",
+                )
+            )
+            return "active", items, "qds_conservative_one_geometry"
         return "active", items, "qds_active"
     if executed == STRATEGY_FALLBACK or run.fallback_path:
         items.append(_item("selector_fallback", "fallback", reason=run.fallback_reason))
@@ -321,10 +336,36 @@ def _quality_from_run(
     if visual_unavail:
         items.append(_item("visual_qa_unavailable", "unavailable"))
         return "unavailable", items, "visual_qa_unavailable"
+    if any(c == "provider_budget_exhausted" for c in codes):
+        items.append(_item("provider_request_blocked_by_budget", "blocked"))
+        items.append(_item("visual_qa_unavailable", "unavailable"))
+        return "unavailable", items, "provider_request_blocked_by_budget"
     elif vmode in (None, "", "off"):
         items.append(_item("visual_qa_off", "off"))
     elif any((f.qa_kind or "") in ("visual", "visual_fidelity") for f in findings):
-        items.append(_item("visual_qa_ran", "passed" if not hard else "blocked"))
+        items.append(_item("visual_qa_ran", "applied" if not hard else "blocked"))
+    branding_codes = {
+        "invented_logo",
+        "unexpected_product_text",
+        "logo_on_unsupported_surface",
+        "logo_spelling_or_case_mismatch",
+        "logo_placement_mismatch",
+    }
+    screen_codes = {
+        "prominent_screen_corruption",
+        "prominent_ui_text_corruption",
+        "primary_interface_corruption",
+    }
+    if any(f.check_code in branding_codes and f.severity == "hard_fail" and not f.passed for f in findings):
+        items.append(_item("generated_branding_detected", "blocked"))
+    if any(f.check_code in screen_codes and f.severity == "hard_fail" and not f.passed for f in findings):
+        items.append(_item("unsupported_screen_content_detected", "blocked"))
+    visual_findings = [f for f in findings if (f.qa_kind or "") in ("visual", "visual_fidelity")]
+    if visual_findings:
+        blocked_vis = any(f.severity == "hard_fail" and not f.passed for f in visual_findings)
+        items.append(
+            _item("candidate_blocked", "blocked") if blocked_vis else _item("candidate_eligible", "applied")
+        )
     if hard:
         items.append(_item("hard_quality_fail", "blocked", reason=hard[0].check_code))
         return "blocked", items, "publish_blocked" if any("publish" in (f.stage or "") for f in hard) else "hard_quality_fail"

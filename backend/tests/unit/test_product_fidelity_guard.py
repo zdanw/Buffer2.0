@@ -450,6 +450,58 @@ def test_cache_hit_and_one_correction_and_no_credits():
         db.close()
 
 
+def test_run_visual_qa_uses_studio_policy_builder_and_zero_credits():
+    _ensure_db()
+    db = SessionLocal()
+    try:
+        user = db.query(User).first()
+        run = _run(db, owner_id=user.user_id, visual_fidelity_qa_mode="studio")
+        add_artifacts(db, run, ["https://cdn.example.test/out.jpg"])
+        captured = {}
+
+        def assess(payload):
+            captured.update(payload)
+            return _assessment(
+                checks=[
+                    VisualFidelityCheck(check_code="invented_logo", status="pass", confidence="high"),
+                    VisualFidelityCheck(check_code="prominent_screen_corruption", status="pass", confidence="medium"),
+                ]
+            )
+
+        original = settings.visual_fidelity_qa_mode
+        settings.visual_fidelity_qa_mode = "studio"
+        try:
+            summary = run_visual_fidelity_qa(
+                db,
+                {
+                    "generation_run_id": run.run_id,
+                    "owner_user_id": user.user_id,
+                    "generation_plan": dump_generation_plan(build_generation_plan(_manifest())),
+                    "generation_provenance": {"source": SOURCE_STUDIO},
+                    "source": SOURCE_STUDIO,
+                    "_sanitized_prompt_hash": "hash-1",
+                    "_qa_candidate_hashes": ["cand-1"],
+                },
+                source=SOURCE_STUDIO,
+                image_urls=["https://cdn.example.test/out.jpg"],
+                assessor=assess,
+            )
+            assert summary["credits_charged"] == 0
+            assert captured.get("policy_builder") == "studio_visual_qa_policy_v1"
+            assert captured.get("executed_qa_policy", {}).get("policy_builder") == "studio_visual_qa_policy_v1"
+            assert "generated_branding_prohibited" in captured
+            assert "approved_wordmark_for_comparison" in captured
+            assert "screen_content_policy" in captured
+            assert "required_check_codes" in captured
+            assert captured.get("insert_wordmark_in_generation_prompt") is False or captured.get(
+                "generated_branding_prohibited"
+            )
+        finally:
+            settings.visual_fidelity_qa_mode = original
+    finally:
+        db.close()
+
+
 def test_tenant_isolation_findings():
     _ensure_db()
     db = SessionLocal()
