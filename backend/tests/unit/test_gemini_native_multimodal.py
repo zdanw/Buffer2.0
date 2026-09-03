@@ -131,6 +131,17 @@ def test_coerce_intelligence_payload_maps_gemini_free_text():
     assert out["broad_lighting"] == "other"
 
 
+def test_coerce_warnings_string_does_not_invalidate_schema():
+    from bebcare.services.asset_intelligence_adapter import _parse_intelligence_json
+
+    result = _parse_intelligence_json(
+        '{"asset_source_type":"product","warnings":"partial occlusion of the base","confidence":"high"}'
+    )
+    assert result.warnings == ["partial occlusion of the base"]
+    assert result.asset_source_type == "product"
+
+
+
 def test_byok_transport_is_env_only_and_off_by_default():
     original = settings.asset_intelligence_transport
     try:

@@ -186,6 +186,14 @@ def coerce_intelligence_payload(payload: dict[str, Any]) -> dict[str, Any]:
             data[name] = "primary_subject"
             continue
         data[name] = "unknown" if "unknown" in allowed else value
+    warnings = data.get("warnings")
+    if isinstance(warnings, str):
+        text = warnings.strip()
+        data["warnings"] = [text[:200]] if text else []
+    elif warnings is None:
+        data["warnings"] = []
+    elif isinstance(warnings, list):
+        data["warnings"] = [str(item)[:200] for item in warnings[:12] if item not in (None, "")]
     physical = data.get("physical")
     if isinstance(physical, dict):
         vis_aliases = {
