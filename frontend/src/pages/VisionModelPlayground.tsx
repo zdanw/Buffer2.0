@@ -9,6 +9,11 @@ import {
   type VisionChatMessage,
 } from '@/api/visionChat';
 
+import { toUserFacingMessage } from '@/lib/apiErrors';
+
+const CONFIG_LOAD_FAILED = '无法加载配置，请稍后重试。';
+const REQUEST_FAILED = '请求失败，请稍后重试。';
+const IMAGE_GENERATION_FAILED = '图像生成失败，请稍后重试。';
 const DEFAULT_SYSTEM_PROMPT =
   '你是一个 helpful 的多模态助手。请用清晰、准确的中文回答用户问题；若用户上传图片，请结合图片内容作答。';
 
@@ -67,10 +72,7 @@ export default function VisionModelPlayground() {
     void getVisionChatConfig()
       .then((res) => setConfig(res))
       .catch((err: unknown) => {
-        const detail =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-          '无法加载配置（仅本地 development 环境可用）';
-        setConfigError(String(detail));
+        setConfigError(toUserFacingMessage(err, CONFIG_LOAD_FAILED));
       });
   }, []);
 
@@ -158,11 +160,7 @@ export default function VisionModelPlayground() {
         { id: newId(), role: 'assistant', content: response.content },
       ]);
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        (err as Error)?.message ||
-        '请求失败';
-      setError(String(detail));
+      setError(toUserFacingMessage(err, REQUEST_FAILED));
     } finally {
       setChatSending(false);
     }
@@ -195,11 +193,7 @@ export default function VisionModelPlayground() {
       setImagePrompt('');
       setImageRefs([]);
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        (err as Error)?.message ||
-        '图像生成失败';
-      setError(String(detail));
+      setError(toUserFacingMessage(err, IMAGE_GENERATION_FAILED));
     } finally {
       setImageGenerating(false);
     }
@@ -207,9 +201,9 @@ export default function VisionModelPlayground() {
 
   const subtitle = config
     ? activeTab === 'chat'
-      ? `${config.chat_model} · ${config.chat_api_url}`
-      : `${config.image_model} · ${config.image_api_url}`
-    : '本地 development 环境专用 playground';
+      ? config.chat_model
+      : config.image_model
+    : '模型测试';
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col px-4 py-6 lg:px-8">

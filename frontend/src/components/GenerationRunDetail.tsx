@@ -4,6 +4,7 @@ import type { GenerationHistoryDetail } from '@/api/generationHistory';
 import type { DimensionInfo } from '@/api/generate';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import DimensionInfoDisplay, { CopyablePromptBlock } from '@/components/DimensionInfoDisplay';
+import { mapErrorCategory, sanitizeMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { formatServerDateTime } from '@/lib/datetime';
 import { refsFromManifest } from '@/lib/generationHistoryUtils';
@@ -280,8 +281,12 @@ export default function GenerationRunDetail({ detail, loading }: GenerationRunDe
 
       {detail.error_category || snapshot.error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {detail.error_category ? <p>{detail.error_category}</p> : null}
-          {snapshot.error ? <p>{snapshot.error}</p> : null}
+          {detail.error_category ? (
+            <p>{mapErrorCategory(detail.error_category, t, t('errors.generic'))}</p>
+          ) : null}
+          {snapshot.error ? (
+            <p>{sanitizeMessage(String(snapshot.error), t('errors.generic'))}</p>
+          ) : null}
         </div>
       ) : null}
 

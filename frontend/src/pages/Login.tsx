@@ -8,6 +8,7 @@ import {
 } from '@/lib/formValidation';
 import { useI18n } from '@/i18n/useI18n';
 import { useValidators } from '@/i18n/helpers';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import AuthLayout from '@/components/AuthLayout';
 import FormLabel from '@/components/FormLabel';
 
@@ -50,15 +51,7 @@ function Login() {
         setError(t('login.responseError'));
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } };
-      const errorDetail = axiosErr.response?.data?.detail;
-      if (errorDetail && Array.isArray(errorDetail)) {
-        setError(errorDetail.map((e) => e.msg).filter(Boolean).join(', ') || t('login.failed'));
-      } else if (typeof errorDetail === 'string') {
-        setError(errorDetail);
-      } else {
-        setError(t('login.failed'));
-      }
+      setError(toUserFacingMessage(err, t('login.failed')));
     } finally {
       setLoading(false);
     }

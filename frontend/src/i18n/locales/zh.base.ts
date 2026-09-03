@@ -75,11 +75,18 @@ export const zh: TranslationTree = {
   },
   api: {
     bannerTitle: '无法连接 PulseForge API',
-    bannerBody: '品牌与产品数据仍在服务端，并未删除。当前无法加载是因为后端未启动，或开发代理指向了错误端口。请启动 API 后刷新。',
-    bannerCommand: '.\\scripts\\backend.ps1 start',
+    bannerBody: '品牌与产品数据仍然保存着。暂时无法连接服务器，请检查网络后重试。',
     retry: '重试连接',
     emptyBrandsTitle: '还没有品牌套件',
     emptyBrandsBody: '一次性设置语气、受众与内容规则，生成帖子时产品会自动继承这些设定。',
+  },
+  errors: {
+    generic: '出了点问题，请重试。',
+    categories: {
+      generateTaskFailed: '生成未能完成',
+      schedulerImageFailed: '定时图片生成失败',
+      qualityPreGeneration: '图片未通过质量检查',
+    },
   },
   login: {
     title: '欢迎回来',

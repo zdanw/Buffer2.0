@@ -41,14 +41,12 @@ export function validateImageFiles(files: File[]): ValidateResult {
   return { ok: true, files };
 }
 
+import { toUserFacingMessage } from './apiErrors';
+
 export function getUploadErrorMessage(error: unknown, fallback: string): string {
-  const response = (error as { response?: { status?: number; data?: { detail?: string } } })?.response;
+  const response = (error as { response?: { status?: number } })?.response;
   if (response?.status === 413) {
     return `Upload too large (max ${MAX_IMAGE_FILE_LABEL} per request).`;
   }
-  const detail = response?.data?.detail;
-  if (typeof detail === 'string' && detail.trim()) {
-    return detail;
-  }
-  return fallback;
+  return toUserFacingMessage(error, fallback);
 }

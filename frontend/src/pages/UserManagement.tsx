@@ -14,6 +14,7 @@ import {
 } from '@/lib/formValidation';
 import { confirmDialog } from '@/lib/feedback';
 import { useValidators } from '@/i18n/helpers';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { formatServerDateTime } from '@/lib/datetime';
 import FormLabel from '@/components/FormLabel';
@@ -72,7 +73,7 @@ function UserManagement() {
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('users.loadFailed'));
+      setError(toUserFacingMessage(err, t('users.loadFailed')));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -114,8 +115,7 @@ function UserManagement() {
       setSuccess(t('users.createSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0].msg : detail || t('users.createFailed'));
+      setError(toUserFacingMessage(err, t('users.createFailed')));
     } finally {
       setSaving(false);
     }
@@ -162,7 +162,7 @@ function UserManagement() {
       setSuccess(t('users.updateSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('users.updateFailed'));
+      setError(toUserFacingMessage(err, t('users.updateFailed')));
     } finally {
       setSaving(false);
     }
@@ -187,7 +187,7 @@ function UserManagement() {
       setSuccess(t('users.deleteSuccess'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('users.deleteFailed'));
+      setError(toUserFacingMessage(err, t('users.deleteFailed')));
     } finally {
       setDeletingId(null);
     }
@@ -579,7 +579,7 @@ function UserManagement() {
                 setGrantUser(null);
                 await fetchUsers({ silent: true });
               } catch (err: any) {
-                setError(err.response?.data?.detail || t('users.grantFailed'));
+                setError(toUserFacingMessage(err, t('users.grantFailed')));
               } finally {
                 setGranting(false);
               }
@@ -733,9 +733,7 @@ function UserManagement() {
                                 await fetchUsers({ silent: true });
                               })
                               .catch((err: any) => {
-                                setError(
-                                  err.response?.data?.detail || t('users.refundFailed')
-                                );
+                                setError(toUserFacingMessage(err, t('users.refundFailed')));
                               })
                               .finally(() => setRefundingId(null));
                           }}

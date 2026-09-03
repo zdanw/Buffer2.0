@@ -12,6 +12,7 @@ import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { toast, confirmDialog } from '@/lib/feedback';
 import PublishProgressOverlay, { usePublishPhaseRunner } from '@/components/PublishProgressOverlay';
@@ -240,8 +241,7 @@ export default function PendingRelease() {
       }
     } catch (error: any) {
       console.error('Failed to publish:', error);
-      const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === 'string' && detail.trim() ? detail : t('pending.publishFailed'));
+      toast.error(toUserFacingMessage(error, t('pending.publishFailed')));
     } finally {
       setLoading(false);
     }

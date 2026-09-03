@@ -18,6 +18,7 @@ from bebcare.schemas.image_provider import (
     resolve_configured_model_id,
 )
 from bebcare.utils.crypto import encrypt_secret, decrypt_secret, mask_secret
+from bebcare.utils.user_errors import user_safe_detail
 from bebcare.providers.registry import (
     list_models_for_config,
     build_provider_from_config,
@@ -101,7 +102,10 @@ def create_system_provider(
             body.supports_list_models,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(e, fallback="Invalid system image provider configuration"),
+        ) from e
     row = ImageProviderConfig(
         id=str(uuid.uuid4()),
         owner_user_id=None,
@@ -148,7 +152,10 @@ def update_system_provider(
                 data.get("supports_list_models", row.supports_list_models),
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(e, fallback="Invalid system image provider configuration"),
+        ) from e
         data["base_url"] = base_url
         data["supports_list_models"] = supports_list_models
     for key, value in data.items():

@@ -17,6 +17,7 @@ from bebcare.schemas.dev_vision_chat import (
     VisionImageResponse,
 )
 from bebcare.services.auth_dependency import get_current_active_user
+from bebcare.utils.user_errors import user_safe_detail
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,10 @@ async def vision_chat(
         raise HTTPException(status_code=502, detail=detail or "Vision model request failed") from exc
     except Exception as exc:
         logger.exception("Vision chat failed")
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=502,
+            detail=user_safe_detail(exc, fallback="Vision chat request failed"),
+        ) from exc
 
     return VisionChatResponse(
         content=content,
@@ -125,7 +129,10 @@ async def vision_image(
         raise HTTPException(status_code=502, detail=detail or "Image generation failed") from exc
     except Exception as exc:
         logger.exception("Agnes image generation failed")
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=502,
+            detail=user_safe_detail(exc, fallback="Vision chat request failed"),
+        ) from exc
 
     return VisionImageResponse(
         model=_generator.vision_image_model,

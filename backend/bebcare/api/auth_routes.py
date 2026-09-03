@@ -37,6 +37,7 @@ from bebcare.services.credit_grant_service import (
     ensure_signup_trial,
     remaining_credits,
 )
+from bebcare.utils.user_errors import user_safe_detail
 from bebcare.config.settings import settings
 from bebcare.billing.packs import is_billing_enabled
 from bebcare.models.image_provider import ImageProviderConfig
@@ -231,8 +232,14 @@ def claim_onboarding_reward_route(
         granted, remaining = claim_onboarding_reward(db, current_user.user_id)
     except CreditError as exc:
         if exc.code == "incomplete":
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=400,
+                detail=user_safe_detail(exc, fallback="Complete onboarding before claiming reward"),
+            ) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(exc, fallback="Could not claim onboarding reward"),
+        ) from exc
     db.commit()
     return OnboardingRewardResponse(
         granted=granted,

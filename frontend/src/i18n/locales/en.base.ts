@@ -76,11 +76,18 @@ export const en: TranslationTree = {
   },
   api: {
     bannerTitle: 'Cannot reach PulseForge API',
-    bannerBody: 'Your brands and products are stored on the server — they are not deleted. The app cannot load them because the backend is not running or the dev proxy points at the wrong port. Start the API, then refresh.',
-    bannerCommand: '.\\scripts\\backend.ps1 start',
+    bannerBody: 'Your brands and products are still saved. We couldn’t reach the server — check your connection or try again in a moment.',
     retry: 'Retry connection',
     emptyBrandsTitle: 'No brand kits yet',
     emptyBrandsBody: 'Set up voice, audience, and content rules once — your products will inherit them when you generate posts.',
+  },
+  errors: {
+    generic: 'Something went wrong. Please try again.',
+    categories: {
+      generateTaskFailed: 'Generation could not complete',
+      schedulerImageFailed: 'Scheduled image generation failed',
+      qualityPreGeneration: 'Image did not pass quality checks',
+    },
   },
   login: {
     title: 'Welcome back',

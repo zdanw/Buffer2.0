@@ -23,6 +23,7 @@ from bebcare.services.generate_task_store import (
     update_generate_task,
 )
 from bebcare.services.credit_grant_service import CreditError, reserve_one
+from bebcare.utils.user_errors import SCHEDULER_IMAGE_FAILED, user_safe_task_error
 from bebcare.services.email_service import send_auto_publish_notification
 from sqlalchemy.orm import Session
 from bebcare.database import engine
@@ -90,7 +91,7 @@ def _run_platform_image_generation(
                 gen_task_id,
                 status="FAILURE",
                 set_result=True,
-                result={"error": str(exc)},
+                result={"error": user_safe_task_error(exc)},
             )
             raise Exception(
                 "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
@@ -190,7 +191,7 @@ def _run_platform_image_generation(
                 gen_task_id,
                 status="FAILURE",
                 set_result=True,
-                result={"error": "scheduler image generation failed"},
+                result={"error": SCHEDULER_IMAGE_FAILED},
             )
         elif run_id:
             session = Session(bind=engine)

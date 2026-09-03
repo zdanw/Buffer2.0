@@ -27,6 +27,7 @@ import SubscribeCreditsModal from '@/components/SubscribeCreditsModal';
 import FormLabel from '@/components/FormLabel';
 import { formatServerDateTime } from '@/lib/datetime';
 import { confirmDialog } from '@/lib/feedback';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 
 function initialsFromUsername(username: string): string {
@@ -114,16 +115,7 @@ export default function AccountSettings() {
       setNewPassword('');
       setSuccess(t('account.profileSaved'));
     } catch (err: unknown) {
-      const detail =
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
-      setError(
-        typeof detail === 'string' && detail
-          ? detail
-          : t('account.profileSaveFailed')
-      );
+      setError(toUserFacingMessage(err, t('account.profileSaveFailed')));
     } finally {
       setSavingProfile(false);
     }

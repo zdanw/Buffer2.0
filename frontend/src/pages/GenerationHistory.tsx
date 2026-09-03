@@ -9,6 +9,7 @@ import {
 } from '@/api/generationHistory';
 import GenerationRunDetail from '@/components/GenerationRunDetail';
 import Pagination from '@/components/Pagination';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { formatServerDateTime } from '@/lib/datetime';
 import { listRunSummary } from '@/lib/generationHistoryUtils';
@@ -100,10 +101,7 @@ export default function GenerationHistory() {
         setTotal(response.total);
         setPage(response.page);
       } catch (err: unknown) {
-        const message =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-          t('generationHistory.loadFailed');
-        setError(String(message));
+        setError(toUserFacingMessage(err, t('generationHistory.loadFailed')));
       } finally {
         if (opts?.silent) setRefreshing(false);
         else setLoading(false);
@@ -119,10 +117,7 @@ export default function GenerationHistory() {
         const data = await getGenerationRun(runId);
         setDetail(data);
       } catch (err: unknown) {
-        const message =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-          t('generationHistory.detailFailed');
-        setError(String(message));
+        setError(toUserFacingMessage(err, t('generationHistory.detailFailed')));
         setDetail(null);
       } finally {
         setDetailLoading(false);

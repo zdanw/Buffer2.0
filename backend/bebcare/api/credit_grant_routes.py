@@ -17,6 +17,7 @@ from bebcare.services.credit_grant_service import (
     revoke_grant,
     CreditError,
 )
+from bebcare.utils.user_errors import user_safe_detail
 
 router = APIRouter(prefix="/auth/users", tags=["credits"])
 
@@ -63,7 +64,10 @@ def grant_user_credits(
         db.commit()
         db.refresh(grant)
     except CreditError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(exc, fallback="Could not grant credits"),
+        ) from exc
     return grant
 
 
@@ -89,5 +93,8 @@ def revoke_user_credit_grant(
         db.commit()
         db.refresh(revoked)
     except CreditError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(exc, fallback="Could not grant credits"),
+        ) from exc
     return revoked

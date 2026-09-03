@@ -13,6 +13,7 @@ import {
   type ImageProviderType,
   type ImageModelInfo,
 } from '@/api/imageProviders';
+import { sanitizeMessage, toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
@@ -60,11 +61,7 @@ export default function SystemImageProviderSettings() {
     try {
       setRows(await listSystemImageProviders());
     } catch (e: unknown) {
-      const detail =
-        e && typeof e === 'object' && 'response' in e
-          ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined;
-      setError(detail || t('systemImageProviders.loadFailed'));
+      setError(toUserFacingMessage(e, t('systemImageProviders.loadFailed')));
     } finally {
       setLoading(false);
     }
@@ -103,7 +100,7 @@ export default function SystemImageProviderSettings() {
       if (res.ok && res.models.length > 0) {
         setDiscoveredModels(res.models);
         setDiscoverStatus('success');
-        setDiscoverMessage(res.message || null);
+        setDiscoverMessage(sanitizeMessage(res.message, '') || null);
         if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
         setForm((f) => {
           const stillValid = res.models.some((m) => m.id === f.default_model);
@@ -114,10 +111,12 @@ export default function SystemImageProviderSettings() {
         setDiscoverStatus('failed');
         setShowManualModel(true);
         setDiscoverMessage(
-          res.message ||
-            (res.models.length === 0
+          sanitizeMessage(
+            res.message,
+            res.models.length === 0
               ? t('imageProviders.discover.emptyList')
-              : t('imageProviders.discover.failed'))
+              : t('imageProviders.discover.failed'),
+          ),
         );
         if (res.base_url) setForm((f) => ({ ...f, base_url: res.base_url! }));
       }
@@ -226,11 +225,7 @@ export default function SystemImageProviderSettings() {
       notifyImageProvidersChanged();
       await load();
     } catch (err: unknown) {
-      const detail =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined;
-      setError(detail || t('systemImageProviders.saveFailed'));
+      setError(toUserFacingMessage(err, t('systemImageProviders.saveFailed')));
     } finally {
       setSaving(false);
     }

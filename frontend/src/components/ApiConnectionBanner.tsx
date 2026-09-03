@@ -17,9 +17,6 @@ export default function ApiConnectionBanner({ onRetry, loading = false }: ApiCon
           <div className="min-w-0">
             <p className="text-sm font-semibold text-amber-900">{t('api.bannerTitle')}</p>
             <p className="text-sm text-amber-800 mt-1 leading-relaxed">{t('api.bannerBody')}</p>
-            <p className="text-xs text-amber-700 mt-2 font-mono bg-amber-100/80 rounded px-2 py-1 inline-block">
-              {t('api.bannerCommand')}
-            </p>
           </div>
         </div>
         {onRetry && (

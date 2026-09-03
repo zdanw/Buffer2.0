@@ -11,6 +11,7 @@ import {
 } from '@/lib/formValidation';
 import Pagination from '@/components/Pagination';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
+import { sanitizeMessage, toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { useDimensionTypeLabel } from '@/i18n/useDimensionTypeLabel';
 import { getDimensionDisplayName } from '@/i18n/dimensionDisplayName';
@@ -433,14 +434,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
       resetForm();
     } catch (error: unknown) {
       console.error('Failed to save dimension:', error);
-      const err = error as { response?: { data?: { detail?: unknown } } };
-      const detail = err.response?.data?.detail;
-      const message = Array.isArray(detail)
-        ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join('; ')
-        : typeof detail === 'string'
-          ? detail
-          : t('dimensionsPage.saveFailed');
-      toast.error(message);
+      toast.error(toUserFacingMessage(error, t('dimensionsPage.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -503,7 +497,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
     try {
       const result = await importVisualStylePack(importAction);
       await reloadAfterPresetChange();
-      toast.success(result.message || t('dimensionsPage.importSuccess'));
+      toast.success(sanitizeMessage(result.message, t('dimensionsPage.importSuccess')));
       setImportAction('');
     } catch (error) {
       console.error('Failed to import visual style pack:', error);
@@ -523,7 +517,7 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
     try {
       const result = await resetVisualStyles('general');
       await reloadAfterPresetChange();
-      toast.success(result.message || t('dimensionsPage.resetSuccess'));
+      toast.success(sanitizeMessage(result.message, t('dimensionsPage.resetSuccess')));
       setImportAction('');
     } catch (error) {
       console.error('Failed to reset visual styles:', error);

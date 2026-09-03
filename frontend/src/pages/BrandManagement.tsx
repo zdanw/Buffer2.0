@@ -25,6 +25,7 @@ import {
 } from '@/lib/formDraft';
 import { LIMITS, alertValidationErrors, createValidators } from '@/lib/formValidation';
 import { toast, confirmDialog } from '@/lib/feedback';
+import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { useBrandContext } from '@/context/BrandContext';
 
@@ -278,14 +279,7 @@ export default function BrandManagement() {
       setShowModal(false);
     } catch (err) {
       console.error(err);
-      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      const message =
-        typeof detail === 'string'
-          ? detail
-          : Array.isArray(detail) && detail[0]?.msg
-            ? String(detail[0].msg)
-            : t('common.saveFailed');
-      toast.error(message);
+      toast.error(toUserFacingMessage(err, t('common.saveFailed')));
     } finally {
       setSaving(false);
     }

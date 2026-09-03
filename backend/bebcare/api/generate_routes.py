@@ -27,6 +27,7 @@ from bebcare.services.generate_task_store import (
     update_generate_task,
 )
 from bebcare.services.ownership import assert_owned_ref, get_owned_or_404
+from bebcare.utils.user_errors import user_safe_detail, user_safe_task_error
 import asyncio
 import logging
 
@@ -98,7 +99,10 @@ def _build_product_info(
             selector_context=_studio_selector_context(product, request, db, source=source),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(exc, fallback="Invalid reference selection"),
+        ) from exc
     if request.use_scene_reference and not selected.use_scene_reference:
         logger.warning(
             "No scene images for product %s, falling back to regular mode",
@@ -181,7 +185,10 @@ def resolve_reference_selection(
             selector_context=_studio_selector_context(product, request, db),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400,
+            detail=user_safe_detail(exc, fallback="Invalid reference selection"),
+        ) from exc
     return ReferenceSelectionResponse(
         reference_images=selected.reference_images,
         reference_product_images=selected.reference_product_images,
@@ -304,7 +311,7 @@ def _create_task_and_maybe_reserve(
             task_id,
             status="FAILURE",
             set_result=True,
-            result={"error": str(exc)},
+            result={"error": user_safe_task_error(exc)},
         )
         raise HTTPException(
             status_code=402,
@@ -463,7 +470,7 @@ def generate_content(
                 task_id,
                 status="FAILURE",
                 set_result=True,
-                result={"error": str(e)},
+                result={"error": user_safe_task_error(e)},
             )
 
     background_tasks.add_task(run_generation, task_id, product_info)
@@ -531,7 +538,7 @@ def generate_copywriting_only(
                 task_id,
                 status="FAILURE",
                 set_result=True,
-                result={"error": str(e)},
+                result={"error": user_safe_task_error(e)},
             )
 
     background_tasks.add_task(run_copywriting_generation, task_id, product_info)
@@ -633,7 +640,7 @@ def generate_image_only(
                 task_id,
                 status="FAILURE",
                 set_result=True,
-                result={"error": str(e)},
+                result={"error": user_safe_task_error(e)},
             )
 
     background_tasks.add_task(run_image_generation, task_id, product_info)

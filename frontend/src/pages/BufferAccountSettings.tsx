@@ -26,6 +26,7 @@ import LabelWithTooltip from '@/components/LabelWithTooltip';
 import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import BufferTokenGuide from '@/components/BufferTokenGuide';
 import { useI18n } from '@/i18n/useI18n';
+import { sanitizeMessage, toUserFacingMessage } from '@/lib/apiErrors';
 import { confirmDialog } from '@/lib/feedback';
 
 const EMPTY_FORM: BufferAccountCreate = {
@@ -33,18 +34,6 @@ const EMPTY_FORM: BufferAccountCreate = {
   api_token: '',
   is_active: true,
 };
-
-function formatApiDetail(detail: unknown, fallback: string): string {
-  if (typeof detail === 'string' && detail.trim()) return detail;
-  if (Array.isArray(detail) && detail.length > 0) {
-    const first = detail[0];
-    if (typeof first === 'string') return first;
-    if (first && typeof first === 'object' && 'msg' in first) {
-      return String((first as { msg: unknown }).msg);
-    }
-  }
-  return fallback;
-}
 
 export default function BufferAccountSettings() {
   const { t } = useI18n();
@@ -76,7 +65,7 @@ export default function BufferAccountSettings() {
       const data = await listBufferAccounts();
       setAccounts(data);
     } catch (err: any) {
-      showAlert(formatApiDetail(err.response?.data?.detail, t('common.loadFailed')));
+      showAlert(toUserFacingMessage(err, t('common.loadFailed')));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -174,7 +163,7 @@ export default function BufferAccountSettings() {
       setTimeout(() => setSuccess(''), 2500);
       void load({ silent: true });
     } catch (err: any) {
-      const message = formatApiDetail(err.response?.data?.detail, t('common.saveFailed'));
+      const message = toUserFacingMessage(err, t('common.saveFailed'));
       setFormError(message);
       showAlert(message);
     } finally {
@@ -193,7 +182,7 @@ export default function BufferAccountSettings() {
       await deleteBufferAccount(id);
       setAccounts((prev) => prev.filter((a) => a.id !== id));
     } catch (err: any) {
-      showAlert(formatApiDetail(err.response?.data?.detail, t('common.deleteFailed')));
+      showAlert(toUserFacingMessage(err, t('common.deleteFailed')));
     } finally {
       setDeletingId(null);
     }
@@ -204,14 +193,14 @@ export default function BufferAccountSettings() {
     try {
       const res = await testBufferAccount(id);
       if (res.ok) {
-        setSuccess(res.message);
+        setSuccess(sanitizeMessage(res.message, t('common.updated')));
         setTimeout(() => setSuccess(''), 4000);
       } else {
-        showAlert(res.message || t('bufferAccounts.test.failed'));
+        showAlert(sanitizeMessage(res.message, t('bufferAccounts.test.failed')));
       }
       void load({ silent: true });
     } catch (err: any) {
-      showAlert(formatApiDetail(err.response?.data?.detail, t('bufferAccounts.test.failed')));
+      showAlert(toUserFacingMessage(err, t('bufferAccounts.test.failed')));
     } finally {
       setTestingId(null);
     }

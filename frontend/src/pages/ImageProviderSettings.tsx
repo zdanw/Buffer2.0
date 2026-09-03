@@ -35,6 +35,7 @@ import HelpTooltip from '@/components/HelpTooltip';
 import ImageProviderModelSection, {
   type DiscoverStatus,
 } from '@/components/ImageProviderModelSection';
+import { sanitizeMessage, toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
 import { notifyImageProvidersChanged } from '@/lib/imageProvidersEvents';
 import { confirmDialog } from '@/lib/feedback';
@@ -102,7 +103,7 @@ export default function ImageProviderSettings() {
       setProviders(data);
       setPlatformPreset(summary.has_provider ? summary : null);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('common.loadFailed'));
+      setError(toUserFacingMessage(err, t('common.loadFailed')));
     } finally {
       if (opts?.silent) setRefreshing(false);
       else setLoading(false);
@@ -144,7 +145,7 @@ export default function ImageProviderSettings() {
         if (res.ok && res.models.length > 0) {
           setDiscoveredModels(res.models);
           setDiscoverStatus('success');
-          setDiscoverMessage(res.message || null);
+          setDiscoverMessage(sanitizeMessage(res.message, '') || null);
           setForm((prev) => {
             const next = { ...prev };
             if (res.base_url) next.base_url = res.base_url;
@@ -162,10 +163,12 @@ export default function ImageProviderSettings() {
           setDiscoverStatus('failed');
           setShowManualModel(true);
           setDiscoverMessage(
-            res.message ||
-              (res.models.length === 0
+            sanitizeMessage(
+              res.message,
+              res.models.length === 0
                 ? t('imageProviders.discover.emptyList')
-                : t('imageProviders.discover.failed'))
+                : t('imageProviders.discover.failed'),
+            ),
           );
           setForm((prev) => {
             const next = { ...prev };
@@ -181,9 +184,8 @@ export default function ImageProviderSettings() {
         setDiscoveredModels([]);
         setDiscoverStatus('failed');
         setShowManualModel(true);
-        const detail = err.response?.data?.detail;
         setDiscoverMessage(
-          typeof detail === 'string' ? detail : t('imageProviders.discover.failed')
+          toUserFacingMessage(err, t('imageProviders.discover.failed')),
         );
       } finally {
         if (seq === discoverSeq.current) setDiscovering(false);
@@ -311,8 +313,7 @@ export default function ImageProviderSettings() {
       void load({ silent: true });
       notifyImageProvidersChanged();
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0]?.msg : detail || t('common.saveFailed'));
+      setError(toUserFacingMessage(err, t('common.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -330,7 +331,7 @@ export default function ImageProviderSettings() {
       setProviders((prev) => prev.filter((p) => p.id !== id));
       notifyImageProvidersChanged();
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('common.deleteFailed'));
+      setError(toUserFacingMessage(err, t('common.deleteFailed')));
     } finally {
       setDeletingId(null);
     }
@@ -340,14 +341,14 @@ export default function ImageProviderSettings() {
     setTestingId(id);
     try {
       const res = await testImageProvider(id);
-      if (res.ok) setSuccess(res.message);
-      else setError(res.message);
+      if (res.ok) setSuccess(sanitizeMessage(res.message, t('common.updated')));
+      else setError(sanitizeMessage(res.message, t('imageProviders.test.failed')));
       setTimeout(() => {
         setSuccess('');
         setError('');
       }, 4000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('imageProviders.test.failed'));
+      setError(toUserFacingMessage(err, t('imageProviders.test.failed')));
     } finally {
       setTestingId(null);
     }
@@ -369,7 +370,7 @@ export default function ImageProviderSettings() {
       setTimeout(() => setSuccess(''), 2500);
       notifyImageProvidersChanged();
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('common.saveFailed'));
+      setError(toUserFacingMessage(err, t('common.saveFailed')));
     } finally {
       setSettingDefaultId(null);
     }

@@ -26,6 +26,7 @@ from bebcare.schemas.prompt_dimension import (
 )
 from bebcare.services.dimension_service import dimension_service, allocate_item_id_for_create
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
+from bebcare.utils.user_errors import user_safe_detail
 from bebcare.services.ownership import get_owned_or_404, owned_query, stamp_owner
 from bebcare.models import Product
 from bebcare.models.user import User
@@ -259,7 +260,10 @@ def create_prompt_dimension(
         try:
             _save_compatibilities(db, new_dim, dimension.compatibilities)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(
+                status_code=400,
+                detail=user_safe_detail(e, fallback="Invalid visual style configuration"),
+            )
 
     db.commit()
     db.refresh(new_dim)
@@ -304,7 +308,10 @@ def update_prompt_dimension(
                 db, dimension, update_data.compatibilities
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(
+                status_code=400,
+                detail=user_safe_detail(e, fallback="Invalid visual style configuration"),
+            )
 
     db.commit()
     db.refresh(dimension)
@@ -348,7 +355,10 @@ def import_visual_style_pack(
     try:
         return initialize_pack(pack_id, db, owner=current_user)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=404,
+            detail=user_safe_detail(exc, fallback="Visual style pack not found"),
+        ) from exc
 
 
 @router.post("/reset")

@@ -250,7 +250,7 @@ export const guidesEn: TranslationTree = {
       },
       generationFails: {
         q: 'Why did generation fail?',
-        a: 'Common causes: no product reference images, exhausted credits, backend/API unreachable (check the connection banner), or image provider misconfiguration. Ensure the product has at least one image and credits remain.',
+        a: 'Common causes: no product reference images, exhausted credits, a temporary server connection issue (use Retry connection), or image provider misconfiguration. Ensure the product has at least one image and credits remain.',
       },
       cronFormat: {
         q: 'How do I write a CRON expression?',
@@ -479,7 +479,7 @@ export const guidesZh: TranslationTree = {
       },
       generationFails: {
         q: '生成失败常见原因？',
-        a: '缺少产品参考图、额度不足、后端不可达（看顶部连接提示）、或图像服务商配置错误。请确保产品有图且仍有额度。',
+        a: '缺少产品参考图、额度不足、暂时无法连接服务器（可点击重试连接）、或图像服务商配置错误。请确保产品有图且仍有额度。',
       },
       cronFormat: {
         q: 'CRON 表达式怎么写？',

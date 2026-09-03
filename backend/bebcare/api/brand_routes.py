@@ -18,6 +18,7 @@ from bebcare.services.ownership import (
     owned_query,
     stamp_owner,
 )
+from bebcare.utils.user_errors import user_safe_detail
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +228,10 @@ def initialize_brand_pack(
     try:
         return initialize_pack(pack_id, db, owner=current_user)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=404,
+            detail=user_safe_detail(exc, fallback="Vertical pack not found"),
+        ) from exc
 
 
 @router.post("/{brand_id}/logo")

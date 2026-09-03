@@ -48,6 +48,12 @@ import { areDimensionsAllNull } from '@/lib/dimensionDisplay';
 import { STUDIO_REFERENCE_COUNT_MAX } from '@/lib/imageGenerationControls';
 
 import { PLATFORMS, platformLabel } from '@/lib/platformLabels';
+import {
+  extractApiDetail,
+  isConnectionError,
+  sanitizeMessage,
+  toUserFacingMessage,
+} from '@/lib/apiErrors';
 
 type ScenePipelineKey = 'legacy_scene' | 'vision_scene';
 
@@ -1148,17 +1154,11 @@ export default function Studio({ isPageActive = true }: StudioProps) {
       setActiveTaskIds(startedTaskIds);
     } catch (error: unknown) {
       console.error('Failed to generate content:', error);
-      const detail =
-        error && typeof error === 'object' && 'response' in error
-          ? (error as { response?: { data?: { detail?: string }; status?: number } }).response
-              ?.data?.detail
-          : undefined;
+      const detail = extractApiDetail(error);
       const statusCode =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { status?: number } }).response?.status
           : undefined;
-      const isTimeout =
-        error instanceof Error && error.message.toLowerCase().includes('timeout');
 
       if (startedTaskIds.length > 0) {
         setIsGenerating(true);
@@ -1167,18 +1167,13 @@ export default function Studio({ isPageActive = true }: StudioProps) {
         return;
       }
 
-      const message =
-        typeof detail === 'string' && detail.trim()
-          ? detail
-          : error instanceof Error
-            ? error.message
-            : t('preview.generateFailed');
+      const message = toUserFacingMessage(error, t('preview.generateFailed'));
       finishGeneration('FAILURE', { error: message });
       if (statusCode === 402) {
-        toast.error(detail || t('imageModelPicker.creditsExhausted'));
+        toast.error(sanitizeMessage(detail, t('imageModelPicker.creditsExhausted')));
       } else if (statusCode === 503) {
-        toast.error(detail || t('imageModelPicker.systemUnavailable'));
-      } else if (isTimeout) {
+        toast.error(sanitizeMessage(detail, t('imageModelPicker.systemUnavailable')));
+      } else if (isConnectionError(error)) {
         toast.error(t('preview.connectionRetry'));
       } else {
         toast.error(message);
@@ -1225,8 +1220,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
     } catch (error: any) {
       console.error('Failed to publish content:', error);
       setPublishStatus('failed');
-      const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === 'string' && detail.trim() ? detail : t('preview.publishFailed'));
+      toast.error(toUserFacingMessage(error, t('preview.publishFailed')));
     } finally {
       setIsPublishing(false);
     }
@@ -1662,7 +1656,9 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                  generateStatus.status === 'FAILURE' ? t('preview.generateError') : t('preview.processing')}
               </p>
               {generateStatus.status === 'FAILURE' && generateStatus.result?.error && (
-                <p className="text-sm text-red-600 mt-1">{generateStatus.result.error}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  {sanitizeMessage(generateStatus.result.error, t('errors.generic'))}
+                </p>
               )}
             </div>
           )}
