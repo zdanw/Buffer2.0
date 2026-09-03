@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { DimensionInfo, GenerationDiagnostics } from '@/api/generate';
 import GenerationChecks from '@/components/GenerationChecks';
+import OverflowHoverTooltip from '@/components/OverflowHoverTooltip';
 import { formatDimensionDisplayValue, NULL_DIMENSION_LABEL, areDimensionsAllNull } from '@/lib/dimensionDisplay';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -120,13 +121,15 @@ export default function DimensionInfoDisplay({
                     )}
                   </button>
                 </div>
-                <p
-                  className={`text-[11px] leading-snug break-words select-text ${
-                    isNull ? 'text-gray-400 italic' : 'text-gray-800'
-                  }`}
-                >
-                  {value}
-                </p>
+                <OverflowHoverTooltip text={isNull ? '' : value} className="block">
+                  <p
+                    className={`text-[11px] leading-snug break-words select-text ${
+                      isNull ? 'text-gray-400 italic' : 'text-gray-800'
+                    }`}
+                  >
+                    {value}
+                  </p>
+                </OverflowHoverTooltip>
               </div>
             );
           })}

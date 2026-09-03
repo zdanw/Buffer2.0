@@ -12,6 +12,7 @@ import BrandAvatar from '@/components/BrandAvatar';
 import PlatformIcon, { InstagramAppIcon } from '@/components/icons/PlatformIcon';
 import StatusBarIcons from '@/components/icons/StatusBarIcons';
 import PreviewGeneratingAnimation from '@/components/PreviewGeneratingAnimation';
+import OverflowHoverTooltip from '@/components/OverflowHoverTooltip';
 import { useI18n } from '@/i18n/useI18n';
 
 type Platform = 'instagram' | 'tiktok' | 'facebook';
@@ -216,10 +217,12 @@ function InstagramFeed({
           </div>
           <p className="text-[11px] font-semibold mb-1">{formatCount(1284)} likes</p>
           {caption && (
-            <p className="text-[10.5px] leading-[1.45] text-gray-900">
-              <span className="font-semibold mr-1">{username}</span>
-              <span className="whitespace-pre-wrap">{caption}</span>
-            </p>
+            <OverflowHoverTooltip text={caption} className="block">
+              <p className="text-[10.5px] leading-[1.45] text-gray-900">
+                <span className="font-semibold mr-1">{username}</span>
+                <span className="whitespace-pre-wrap">{caption}</span>
+              </p>
+            </OverflowHoverTooltip>
           )}
           <p className="text-[10px] text-gray-400 mt-1.5">View all 48 comments</p>
           <p className="text-[9px] text-gray-400 uppercase mt-0.5 tracking-wide">2 hours ago</p>
@@ -313,7 +316,9 @@ function TikTokFeed({
       <div className="absolute left-3 right-14 bottom-[88px] z-10">
         <p className="text-[12px] font-bold mb-1 drop-shadow">@{username}</p>
         {caption && (
-          <p className="text-[11px] leading-snug drop-shadow line-clamp-3 whitespace-pre-wrap">{caption}</p>
+          <OverflowHoverTooltip text={caption} className="block">
+            <p className="text-[11px] leading-snug drop-shadow line-clamp-3 whitespace-pre-wrap">{caption}</p>
+          </OverflowHoverTooltip>
         )}
         <div className="flex items-center gap-1.5 mt-2 opacity-90">
           <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor" aria-hidden>

@@ -12,6 +12,7 @@ import {
   SkipForward,
 } from 'lucide-react';
 import type { GenerationDiagnostics } from '@/api/generate';
+import OverflowHoverTooltip from '@/components/OverflowHoverTooltip';
 import { useI18n } from '@/i18n/useI18n';
 
 const GROUP_ORDER = ['references', 'intelligence', 'protections', 'quality', 'diversity', 'delivery'] as const;
@@ -92,26 +93,31 @@ export default function GenerationChecks({
         <p className="text-[11px] text-gray-500 italic mb-2">{t('diagnostics.messages.no_detailed_history')}</p>
       ) : (
         <ul className="space-y-1">
-          {diagnostics.summary.slice(0, 6).map((row) => (
+          {diagnostics.summary.slice(0, 6).map((row) => {
+            const full = `${t(`diagnostics.status.${row.status}`)} · ${messageFor(
+              t,
+              row.message_key,
+              row.params as Record<string, string | number>,
+            )}`;
+            return (
             <li key={row.key} className="min-w-0">
-              <div className="flex items-start gap-1.5">
+              <div className="flex items-start gap-1.5 min-w-0">
                 <span className="text-[10px] font-semibold text-gray-500 w-[4.5rem] shrink-0 pt-0.5">
                   {t(`diagnostics.groups.${row.key}`)}
                 </span>
-                <span
-                  className={`inline-flex items-center gap-1 max-w-full min-w-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-snug ${STATUS_CLASS[row.status] || STATUS_CLASS.off}`}
-                >
-                  <StatusIcon status={row.status} />
-                  <span className="sr-only">{t(`diagnostics.status.${row.status}`)}</span>
-                  <span className="truncate">
-                    {t(`diagnostics.status.${row.status}`)}
-                    {' · '}
-                    {messageFor(t, row.message_key, row.params as Record<string, string | number>)}
+                <OverflowHoverTooltip text={full} className="block min-w-0 flex-1">
+                  <span
+                    className={`inline-flex items-center gap-1 w-full min-w-0 overflow-hidden rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-snug ${STATUS_CLASS[row.status] || STATUS_CLASS.off}`}
+                  >
+                    <StatusIcon status={row.status} />
+                    <span className="sr-only">{t(`diagnostics.status.${row.status}`)}</span>
+                    <span className="truncate">{full}</span>
                   </span>
-                </span>
+                </OverflowHoverTooltip>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

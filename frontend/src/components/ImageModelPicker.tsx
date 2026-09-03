@@ -299,6 +299,12 @@ export default function ImageModelPicker({
     creditsRemaining <= 0 &&
     !pickerLoading;
 
+  const selectedLabel = pickerLoading
+    ? t('imageModelPicker.loadingOption')
+    : usingPlatformDefault || !selectedProvider
+      ? platformOptionLabel(systemSummary, t)
+      : providerOptionLabel(selectedProvider, t);
+
   const handleModelSelect = (key: string) => {
     if (key === PLATFORM_KEY) {
       onChange({
@@ -337,6 +343,7 @@ export default function ImageModelPicker({
           value={selectedKey}
           disabled={disabled || pickerLoading || !hasConfiguredModels}
           onChange={(e) => handleModelSelect(e.target.value)}
+          title={selectedLabel}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:bg-gray-100"
         >
           {pickerLoading ? (
