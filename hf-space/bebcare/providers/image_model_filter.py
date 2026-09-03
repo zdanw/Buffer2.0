@@ -59,6 +59,38 @@ _NON_IMAGE_KEYWORDS = (
 )
 
 _GEMINI_IMAGE_NAME_HINTS = ("-image", "imagen", "banana")
+_GEMINI_VISION_SKIP = (
+    "-image",
+    "imagen",
+    "embedding",
+    "embed",
+    "tts",
+    "aqa",
+    "native-audio",
+    "transcribe",
+    "-live",
+    "live-preview",
+    "computer-use",
+    "robotics",
+    "lyria",
+    "deep-research",
+    "antigravity",
+    "gemma",
+)
+_GEMINI_VISION_PREFER = (
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-3.1-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-pro",
+)
 
 
 def looks_like_image_model(
@@ -131,6 +163,57 @@ def filter_openai_compatible_models(
         if looks_like_image_model(mid, extra_text=extra):
             out.append(_model_entry(item, mid))
     return out
+
+
+def _gemini_methods(item: Mapping[str, object]) -> str:
+    methods = item.get("supportedGenerationMethods") or item.get("supported_actions") or []
+    return " ".join(str(m) for m in methods).lower().replace("_", "")
+
+
+def gemini_model_id(item: Mapping[str, object]) -> str:
+    name = item.get("name") or item.get("id") or item.get("model") or ""
+    return str(name).split("/")[-1].strip()
+
+
+def gemini_supports_generate_content(item: Mapping[str, object]) -> bool:
+    return "generatecontent" in _gemini_methods(item)
+
+
+def gemini_model_accepts_image_input(item: Mapping[str, object]) -> bool:
+    """Vision-capable generateContent models. Image-generation models are excluded."""
+    mid = gemini_model_id(item).lower()
+    if not mid:
+        return False
+    if not gemini_supports_generate_content(item):
+        return False
+    if any(h in mid for h in _GEMINI_VISION_SKIP):
+        return False
+    if "gemini" not in mid and "gemma" not in mid:
+        return False
+    return True
+
+
+def filter_gemini_vision_models(models: Iterable[Mapping[str, object]]) -> List[dict]:
+    eligible = []
+    for item in models:
+        if not isinstance(item, dict):
+            continue
+        if not gemini_model_accepts_image_input(item):
+            continue
+        eligible.append(_model_entry(item, gemini_model_id(item), owned_by="google"))
+    preferred = {row["id"].lower(): i for i, row in enumerate(eligible)}
+    ordered: List[dict] = []
+    seen: set[str] = set()
+    for name in _GEMINI_VISION_PREFER:
+        idx = preferred.get(name)
+        if idx is None:
+            continue
+        ordered.append(eligible[idx])
+        seen.add(eligible[idx]["id"])
+    for row in eligible:
+        if row["id"] not in seen:
+            ordered.append(row)
+    return ordered
 
 
 def filter_gemini_image_models(models: Iterable[Mapping[str, object]]) -> List[dict]:

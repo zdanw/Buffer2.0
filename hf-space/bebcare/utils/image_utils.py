@@ -50,7 +50,12 @@ def _open_image_bytes(raw: bytes) -> Image.Image:
     return image
 
 
-def download_image_bytes(url: str) -> bytes:
+def download_image_bytes(
+    url: str,
+    *,
+    timeout: float | tuple[float, float] = 60,
+    max_retries: int = 3,
+) -> bytes:
     """Download raw image bytes from http(s) or data: URL."""
     if isinstance(url, str) and url.startswith("data:"):
         match = re.match(
@@ -61,13 +66,13 @@ def download_image_bytes(url: str) -> bytes:
         return base64.b64decode(match.group(1))
 
     def download_func():
-        response = requests.get(url, timeout=60, headers=_DOWNLOAD_HEADERS)
+        response = requests.get(url, timeout=timeout, headers=_DOWNLOAD_HEADERS)
         response.raise_for_status()
         if not response.content:
             raise ValueError("Empty image response body")
         return response.content
 
-    return _retry_request(download_func, max_retries=3, initial_delay=2.0)
+    return _retry_request(download_func, max_retries=max_retries, initial_delay=1.0)
 
 
 def image_to_jpeg_bytes(image: Image.Image, quality: int = 92) -> bytes:

@@ -59,6 +59,10 @@ def fail_orphaned_generate_tasks() -> int:
             row.result = {"error": ORPHANED_TASK_ERROR}
             row.updated_at = datetime.utcnow()
             refund_reservation(db, row.task_id)
+        from bebcare.services.generation_run_store import fail_runs_for_generate_task
+
+        for row in rows:
+            fail_runs_for_generate_task(db, row.task_id, "orphaned_generate_task")
         db.commit()
         return len(rows)
     finally:
@@ -79,6 +83,9 @@ def _maybe_fail_stale_task(db: Session, row: GenerateTask) -> None:
     row.result = {"error": ORPHANED_TASK_ERROR}
     row.updated_at = datetime.utcnow()
     refund_reservation(db, row.task_id)
+    from bebcare.services.generation_run_store import fail_runs_for_generate_task
+
+    fail_runs_for_generate_task(db, row.task_id, "orphaned_generate_task")
     db.commit()
 
 
@@ -115,6 +122,16 @@ def update_generate_task(
             confirm_reservation(db, task_id)
         elif status in ("FAILURE", "FAILED", "CANCELLED"):
             refund_reservation(db, task_id)
+
+        from bebcare.services.generation_run_store import sync_runs_for_generate_task
+
+        if status is not None:
+            sync_runs_for_generate_task(
+                db,
+                task_id,
+                status=status,
+                result=result if set_result else None,
+            )
 
         db.commit()
     finally:

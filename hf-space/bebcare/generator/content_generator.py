@@ -10,9 +10,9 @@ from bebcare.config.settings import settings
 from bebcare.prompt_builder.prompt_engine import prompt_engine
 from bebcare.prompt_builder import prompt_locale
 from bebcare.utils.image_utils import persist_image_url_to_cdn
+from bebcare.utils.progress_heartbeat import ProgressHeartbeat
 from bebcare.services.logo_policy import (
     resolve_effective_logo_mode,
-    should_composite_logo,
     sanitize_dimension_text,
 )
 
@@ -122,20 +122,42 @@ class ContentGenerator:
         )
 
     def _vision_image_system_prompt(self, product_info: Dict) -> str:
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
         custom = (product_info.get("vision_image_system_prompt") or "").strip()
+        locale = prompt_locale.locale_from_product_info(product_info)
         if custom:
-            return custom
-        return prompt_locale.vision_image_prompt_system_prompt(
-            prompt_locale.locale_from_product_info(product_info)
-        )
+            base = custom
+        else:
+            base = prompt_locale.vision_image_prompt_system_prompt(locale)
+        if grounded_prompt_contract_enabled(product_info):
+            from bebcare.services.generation_plan import executed_plan_contract
+
+            contract = executed_plan_contract(product_info, locale)
+            extra = contract or prompt_locale.grounded_re_render_contract(locale)
+            return f"{base}\n{extra}"
+        return base
 
     def _vision_scene_system_prompt(self, product_info: Dict) -> str:
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
         custom = (product_info.get("vision_scene_system_prompt") or "").strip()
+        locale = prompt_locale.locale_from_product_info(product_info)
+        if grounded_prompt_contract_enabled(product_info) and not custom:
+            return prompt_locale.vision_scene_image_prompt_system_prompt_grounded(
+                locale, product_info
+            )
         if custom:
-            return custom
-        return prompt_locale.vision_scene_image_prompt_system_prompt(
-            prompt_locale.locale_from_product_info(product_info)
-        )
+            base = custom
+        else:
+            base = prompt_locale.vision_scene_image_prompt_system_prompt(locale)
+        if grounded_prompt_contract_enabled(product_info):
+            from bebcare.services.generation_plan import executed_plan_contract
+
+            contract = executed_plan_contract(product_info, locale)
+            extra = contract or prompt_locale.grounded_re_render_contract(locale)
+            return f"{base}\n{extra}"
+        return base
 
     async def _retry_request_async(
         self, func, max_retries=3, initial_delay=2.0, backoff_factor=2.0
@@ -145,7 +167,10 @@ class ContentGenerator:
 
         for attempt in range(max_retries):
             try:
-                return await func()
+                from bebcare.services.provider_request_budget import provider_request_reason
+
+                with provider_request_reason("initial" if attempt == 0 else "retry"):
+                    return await func()
             except Exception as e:
                 last_exception = e
                 logger.warning(
@@ -480,6 +505,65 @@ class ContentGenerator:
 
         if use_scene and scene_urls and product_urls:
             system_prompt = self._vision_scene_system_prompt(product_info)
+            from bebcare.schemas.reference_manifest import ReferenceManifest
+            from bebcare.services.generation_plan import plan_from_product_info
+            from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
+            plan = plan_from_product_info(product_info)
+            raw_manifest = None
+            if plan and plan.reference_manifest:
+                raw_manifest = plan.reference_manifest
+            if not raw_manifest:
+                raw_manifest = (product_info.get("generation_provenance") or {}).get(
+                    "reference_manifest"
+                )
+            if grounded_prompt_contract_enabled(product_info) and raw_manifest:
+                try:
+                    manifest = ReferenceManifest.model_validate(raw_manifest)
+                    ordered = [
+                        item
+                        for item in sorted(manifest.items, key=lambda i: i.order)
+                        if item.cdn_url
+                    ][:_MAX_VISION_REF_IMAGES]
+                    for item in ordered:
+                        role_en = {
+                            "primary_subject": "Primary subject",
+                            "supporting_subject": "Supporting subject",
+                            "scene": "Scene context",
+                        }.get(item.role, item.role)
+                        role_zh = {
+                            "primary_subject": "主产品",
+                            "supporting_subject": "辅助参考",
+                            "scene": "场景",
+                        }.get(item.role, item.role)
+                        label = (
+                            f"【Image {item.order + 1} · {role_en}】"
+                            if locale == "en"
+                            else f"【图{item.order + 1} · {role_zh}】"
+                        )
+                        user_content.append({"type": "text", "text": label})
+                        for u in self._ref_urls_to_data_urls([item.cdn_url], 1):
+                            user_content.append(
+                                {"type": "image_url", "image_url": {"url": u}}
+                            )
+                    category = (
+                        (product_info.get("category") or product_info.get("product_type") or "")
+                        .strip()
+                    )
+                    prompt_text = prompt_locale.vision_scene_fusion_user_prompt_text_grounded(
+                        product_name,
+                        category or None,
+                        locale,
+                        avoid_text=avoid_text,
+                        logo_suffix=logo_suffix,
+                        placement_suffix=placement_suffix,
+                        dim_suffix=dim_suffix,
+                        product_info=product_info,
+                    )
+                    user_content.append({"type": "text", "text": prompt_text})
+                    return user_content, system_prompt
+                except Exception:
+                    logger.exception("Grounded vision manifest labeling failed; using legacy labels")
             # 1 张场景 + 最多 2 张产品，总计不超过上限
             scene_data = self._ref_urls_to_data_urls(scene_urls, 1)
             remain = max(1, _MAX_VISION_REF_IMAGES - len(scene_data))
@@ -653,7 +737,16 @@ class ContentGenerator:
             return db, False
         return SessionLocal(), True
 
-    async def generate_copywriting_async(self, product_info: Dict, platform: str, db=None) -> str:
+    async def generate_copywriting_async(
+        self,
+        product_info: Dict,
+        platform: str,
+        db=None,
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+    ) -> str:
+        if progress_callback:
+            progress_callback("copywriting", 0.05)
+
         session, own = self._db_session(db)
         try:
             prompt = await asyncio.to_thread(
@@ -662,9 +755,23 @@ class ContentGenerator:
         finally:
             if own:
                 session.close()
-        return await self._call_deepseek_async(
-            prompt, self._copy_system_prompt(product_info), 500
-        )
+
+        if progress_callback:
+            progress_callback("copywriting", 0.15)
+
+        if progress_callback:
+            async with ProgressHeartbeat(progress_callback, "copywriting", 0.2, 0.9):
+                text = await self._call_deepseek_async(
+                    prompt, self._copy_system_prompt(product_info), 500
+                )
+        else:
+            text = await self._call_deepseek_async(
+                prompt, self._copy_system_prompt(product_info), 500
+            )
+
+        if progress_callback:
+            progress_callback("copywriting", 1.0)
+        return text
 
     def generate_copywriting(self, product_info: Dict, platform: str, db=None) -> str:
         return _run_sync(self.generate_copywriting_async(product_info, platform, db))
@@ -702,6 +809,9 @@ class ContentGenerator:
         if progress_callback:
             progress_callback("image_prompt", 0.0)
 
+        if progress_callback:
+            progress_callback("image_prompt", 0.08)
+
         selected_dimensions = None
         image_prompt = None
         positive_prompt = None
@@ -709,6 +819,8 @@ class ContentGenerator:
 
         if use_vision and refs:
             try:
+                if progress_callback:
+                    progress_callback("image_prompt", 0.15)
                 recent_prompts = await asyncio.to_thread(
                     self._fetch_recent_image_prompts,
                     str(product_info.get("product_id") or ""),
@@ -733,9 +845,18 @@ class ContentGenerator:
                     finally:
                         if own_dims:
                             session.close()
-                positive_prompt = await self._call_vision_image_prompt_async(
-                    product_info, refs, 1024, recent_prompts, dimension_hints
-                )
+                if progress_callback:
+                    progress_callback("image_prompt", 0.25)
+                    async with ProgressHeartbeat(
+                        progress_callback, "image_prompt", 0.3, 0.88
+                    ):
+                        positive_prompt = await self._call_vision_image_prompt_async(
+                            product_info, refs, 1024, recent_prompts, dimension_hints
+                        )
+                else:
+                    positive_prompt = await self._call_vision_image_prompt_async(
+                        product_info, refs, 1024, recent_prompts, dimension_hints
+                    )
                 image_prompt = positive_prompt
                 if use_scene_reference:
                     selected_dimensions = prompt_locale.vision_scene_fusion_dimensions()
@@ -778,6 +899,8 @@ class ContentGenerator:
             session, own = self._db_session(db)
             try:
                 if use_scene_reference:
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.2)
                     scene_prompt_result = await asyncio.to_thread(
                         prompt_engine.build_scene_reference_prompt,
                         product_info,
@@ -789,7 +912,11 @@ class ContentGenerator:
                     positive_prompt = meta_prompt
                     image_prompt = positive_prompt
                     selected_dimensions = scene_prompt_result.get("dimensions")
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.9)
                 else:
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.2)
                     image_prompt_result = await asyncio.to_thread(
                         prompt_engine.build_image_prompt,
                         product_info,
@@ -799,20 +926,32 @@ class ContentGenerator:
                     )
                     meta_prompt = image_prompt_result["prompt"]
                     selected_dimensions = image_prompt_result.get("dimensions", None)
-                    positive_prompt = await self._call_deepseek_async(
-                        meta_prompt, self._image_system_prompt(product_info), 1024
-                    )
+                    if progress_callback:
+                        progress_callback("image_prompt", 0.35)
+                        async with ProgressHeartbeat(
+                            progress_callback, "image_prompt", 0.4, 0.88
+                        ):
+                            positive_prompt = await self._call_deepseek_async(
+                                meta_prompt, self._image_system_prompt(product_info), 1024
+                            )
+                    else:
+                        positive_prompt = await self._call_deepseek_async(
+                            meta_prompt, self._image_system_prompt(product_info), 1024
+                        )
                     image_prompt = positive_prompt
             finally:
                 if own:
                     session.close()
+
+        if progress_callback:
+            progress_callback("image_prompt", 1.0)
 
         negative_prompt = prompt_engine.build_negative_prompt(
             prompt_locale.locale_from_product_info(product_info)
         )
 
         if progress_callback:
-            progress_callback("image_generation", 0.35)
+            progress_callback("image_generation", 0.1)
 
         provider_id = image_provider_id or product_info.get("image_provider_id")
         model_id = image_model or product_info.get("image_model")
@@ -843,23 +982,127 @@ class ContentGenerator:
                 session.close()
 
         if progress_callback:
-            progress_callback("image_generation", 0.45)
+            progress_callback("image_generation", 0.2)
 
-        async def make_image_request():
-            return await asyncio.to_thread(
-                lambda: provider.generate(
+        from bebcare.services.product_fidelity_prevention import sanitize_final_image_prompt
+        import hashlib
+
+        if positive_prompt:
+            positive_prompt = sanitize_final_image_prompt(positive_prompt, product_info)
+            image_prompt = positive_prompt
+            product_info["_sanitized_prompt_hash"] = hashlib.sha256(
+                positive_prompt.encode("utf-8")
+            ).hexdigest()
+
+        from bebcare.services.quality_protection import (
+            QualityProtectionError,
+            user_message_for,
+            validate_post_generation,
+            validate_pre_generation,
+        )
+        from bebcare.services.grounded_rollout import SOURCE_STUDIO as _SRC_STUDIO
+
+        qa_source = (product_info.get("generation_provenance") or {}).get("source") or _SRC_STUDIO
+        qa_session, qa_own = self._db_session(db)
+        try:
+            validate_pre_generation(
+                qa_session,
+                product_info,
+                source=qa_source,
+                provider_ok=bool(provider and resolved_model),
+                image_size=size,
+            )
+            qa_session.commit()
+        except QualityProtectionError:
+            qa_session.commit()
+            raise
+        finally:
+            if qa_own:
+                qa_session.close()
+
+        from bebcare.providers.generate_request import GenerateImageRequest
+        from bebcare.schemas.reference_manifest import ReferenceManifest
+        from bebcare.services.grounded_rollout import grounded_role_transport_enabled
+        from bebcare.services.prompt_contradiction_guard import (
+            persist_prompt_contradiction,
+            prepare_validated_image_request,
+        )
+
+        annotate = grounded_role_transport_enabled(product_info)
+        from bebcare.services.generation_plan import plan_from_product_info
+
+        plan = plan_from_product_info(product_info)
+        raw_manifest = (plan.reference_manifest if plan else None) or (
+            product_info.get("generation_provenance") or {}
+        ).get("reference_manifest")
+        request_obj = None
+        if raw_manifest:
+            try:
+                request_obj = GenerateImageRequest(
                     prompt=positive_prompt,
                     negative_prompt=negative_prompt,
-                    reference_images=reference_images if reference_images else None,
                     size=size,
                     model=resolved_model,
+                    references=ReferenceManifest.model_validate(raw_manifest),
+                    annotate_roles=annotate,
                 )
+            except Exception:
+                request_obj = None
+        if request_obj is None:
+            request_obj = GenerateImageRequest.from_legacy(
+                positive_prompt,
+                negative_prompt,
+                size,
+                resolved_model,
+                reference_images if reference_images else None,
+                annotate_roles=annotate,
             )
+        frozen_request, validation = prepare_validated_image_request(request_obj, product_info)
+        persist_session, persist_own = self._db_session(db)
+        try:
+            persist_prompt_contradiction(persist_session, product_info)
+            persist_session.commit()
+        except Exception:
+            logger.warning(
+                "prompt_contradiction_persist_failed",
+                extra={
+                    "generation_run_id": product_info.get("generation_run_id"),
+                    "event": "prompt_contradiction_persist_failed",
+                    "stage": "pre_provider",
+                    "outcome": "error",
+                    "policy_version": validation.policy_version,
+                    "product_id": product_info.get("product_id"),
+                    "error_category": "observability_persist",
+                },
+            )
+        finally:
+            if persist_own:
+                persist_session.close()
+        if not validation.provider_request_allowed:
+            raise QualityProtectionError(
+                user_message_for("final_prompt_validation_blocked"),
+                check_code="final_prompt_validation_blocked",
+                error_category="final_prompt_validation_blocked",
+            )
+        if validation.evaluated:
+            positive_prompt = validation.validated_prompt
+            image_prompt = validation.validated_prompt
+
+        async def make_image_request():
+            return await asyncio.to_thread(lambda: provider.generate(request=frozen_request))
 
         try:
-            image_urls = await self._retry_request_async(
-                make_image_request, max_retries=3, initial_delay=5.0
-            )
+            if progress_callback:
+                async with ProgressHeartbeat(
+                    progress_callback, "image_generation", 0.25, 0.72
+                ):
+                    image_urls = await self._retry_request_async(
+                        make_image_request, max_retries=3, initial_delay=5.0
+                    )
+            else:
+                image_urls = await self._retry_request_async(
+                    make_image_request, max_retries=3, initial_delay=5.0
+                )
         except Exception as e:
             raise Exception(f"Image generation failed after retries: {e}") from e
 
@@ -867,17 +1110,94 @@ class ContentGenerator:
             raise Exception("No images generated")
 
         if progress_callback:
-            progress_callback("finalizing", 0.75)
+            progress_callback("image_generation", 0.75)
+
+        qa_session, qa_own = self._db_session(db)
+        qa_summary: dict = {}
+        visual_summary: dict = {}
+        try:
+            qa_summary = validate_post_generation(
+                qa_session,
+                product_info,
+                source=qa_source,
+                image_urls=list(image_urls or []),
+                requested_size=size,
+                candidate_bytes=product_info.get("_qa_candidate_bytes"),
+            )
+            from bebcare.services.visual_fidelity_qa import run_visual_fidelity_qa
+
+            hashes = [row.get("sha256") for row in (qa_summary.get("candidates") or [])]
+            if not any(hashes):
+                blobs = product_info.get("_qa_candidate_bytes") or []
+                hashes = [
+                    hashlib.sha256(blob).hexdigest() if isinstance(blob, (bytes, bytearray)) else None
+                    for blob in blobs
+                ]
+            product_info["_qa_candidate_hashes"] = hashes
+            visual_summary = run_visual_fidelity_qa(
+                qa_session,
+                product_info,
+                source=qa_source,
+                image_urls=list(image_urls or []),
+                assessor=product_info.get("_visual_fidelity_assessor"),
+            )
+            if visual_summary.get("warning") and not qa_summary.get("warning"):
+                qa_summary["warning"] = visual_summary["warning"]
+            elif visual_summary.get("warning") and qa_summary.get("warning"):
+                if visual_summary["warning"] not in str(qa_summary["warning"]):
+                    qa_summary["warning"] = f"{qa_summary['warning']} {visual_summary['warning']}"
+            if visual_summary.get("warning_code"):
+                qa_summary["warning_code"] = visual_summary["warning_code"]
+            if visual_summary.get("hard_fail"):
+                qa_summary["hard_fail"] = True
+            qa_session.commit()
+        finally:
+            if qa_own:
+                qa_session.close()
+
+        if progress_callback:
+            progress_callback("finalizing", 0.78)
 
         product_id = product_info.get("product_id", "gen")
         cdn_urls = []
         cdn_upload_failed = False
         effective_logo_mode = resolve_effective_logo_mode(product_info)
+        from bebcare.services.logo_placement import should_overlay_approved_logo
+
+        overlay_ok, overlay_reason = should_overlay_approved_logo(
+            product_info,
+            generated_branding_conflict=bool(visual_summary.get("hard_fail")),
+        )
+        plan_blob = product_info.get("generation_plan") if isinstance(product_info.get("generation_plan"), dict) else {}
+        logo_policy = plan_blob.get("logo_policy") if isinstance(plan_blob.get("logo_policy"), dict) else {}
+        placement = plan_blob.get("logo_placement") if isinstance(plan_blob.get("logo_placement"), dict) else {}
+        product_info["_logo_overlay"] = {
+            "attempted": overlay_ok,
+            "succeeded": False,
+            "reason": overlay_reason,
+            "qa_evaluated": "pre_composite",
+            "composited_output_checked": False,
+            "generated_branding_prohibited": bool(logo_policy.get("generated_branding_prohibited")),
+            "generated_mark_detected": bool(visual_summary.get("hard_fail")),
+            "evidenced_region": placement.get("product_region") or "unknown",
+            "publication_eligible": not bool(visual_summary.get("hard_fail")),
+        }
+        if (
+            effective_logo_mode == "composite"
+            and overlay_reason in ("placement_unreliable", "unapproved_or_foreign_logo")
+            and not qa_summary.get("warning")
+        ):
+            from bebcare.schemas.visual_fidelity import user_message_for_visual
+
+            qa_summary["warning"] = user_message_for_visual("approved_logo_unavailable")
+            qa_summary["warning_code"] = "fidelity_branding"
         composite_logo_url = (
             (product_info.get("logo_url") or "").strip()
-            if should_composite_logo(product_info)
+            if overlay_ok
             else None
         )
+        if resolve_effective_logo_mode(product_info) == "composite" and not overlay_ok:
+            logger.info("skipping logo overlay reason=%s", overlay_reason)
         if (
             effective_logo_mode == "composite"
             and not composite_logo_url
@@ -893,6 +1213,11 @@ class ContentGenerator:
             bool(composite_logo_url),
         )
         for i, url in enumerate(image_urls):
+            if progress_callback and len(image_urls) > 0:
+                progress_callback(
+                    "finalizing",
+                    0.78 + 0.17 * (i / len(image_urls)),
+                )
             file_name = f"{product_id}_{int(time.time())}_{i}.jpg"
             try:
                 cdn_urls.append(
@@ -915,12 +1240,26 @@ class ContentGenerator:
                 )
                 cdn_urls.append(url)
 
+        overlay_meta = product_info.get("_logo_overlay")
+        if isinstance(overlay_meta, dict):
+            overlay_meta["succeeded"] = bool(overlay_ok and not cdn_upload_failed)
+            overlay_meta["composited_output_checked"] = False
+            product_info["_logo_overlay"] = overlay_meta
+            if isinstance(product_info.get("generation_plan"), dict):
+                product_info["generation_plan"]["logo_overlay"] = overlay_meta
+
         result = {
             "image_urls": cdn_urls,
             "dimensions": selected_dimensions,
             "image_prompt": image_prompt,
             "logo_mode": effective_logo_mode,
+            "logo_overlay": product_info.get("_logo_overlay"),
+            "quality_hard_fail": bool(qa_summary.get("hard_fail")),
+            "warning_code": qa_summary.get("warning_code"),
         }
+        warnings = []
+        if qa_summary.get("warning"):
+            warnings.append(qa_summary["warning"])
         if cdn_upload_failed:
             logger.error(
                 "[CDN] persist batch finished with failures product_id=%s "
@@ -929,7 +1268,7 @@ class ContentGenerator:
                 sum(1 for u in cdn_urls if "cdn.jsdelivr.net" in str(u)),
                 sum(1 for u in cdn_urls if "cdn.jsdelivr.net" not in str(u)),
             )
-            result["warning"] = (
+            warnings.append(
                 "上传 GitHub CDN 失败，已使用临时图片链接展示；请尽快发布（链接可能过期）"
             )
         else:
@@ -938,6 +1277,21 @@ class ContentGenerator:
                 product_id,
                 len(cdn_urls),
             )
+        if warnings:
+            result["warning"] = " ".join(warnings)
+        notice = product_info.get("reference_quality_notice")
+        diagnostics = product_info.get("reference_diagnostics")
+        if isinstance(diagnostics, dict):
+            result["reference_diagnostics"] = {
+                "coverage": diagnostics.get("coverage"),
+                "reason": diagnostics.get("reason"),
+                "diversity_applied": bool(diagnostics.get("diversity_applied")),
+            }
+        if notice and not result.get("warning"):
+            from bebcare.services.quality_diversity_policy import USER_LIMITED_REFERENCE
+
+            result["warning"] = USER_LIMITED_REFERENCE
+            result["warning_code"] = result.get("warning_code") or "limited_reference"
         if progress_callback:
             progress_callback("finalizing", 0.95)
         return result

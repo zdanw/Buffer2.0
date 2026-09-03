@@ -18,6 +18,10 @@ from .buffer_account import BufferAccount
 from .image_credit import ImageCreditGrant, ImageCreditReservation
 from .stripe_checkout import StripeCheckoutSession
 from .stripe_subscription import StripeSubscription
+from .generation_run import GenerationRun, GenerationArtifact
+from .generation_quality_finding import GenerationArtifactQualityFinding
+from .generation_qds import GenerationDecisionEvent, GenerationReferenceSelection
+from .product_image_analysis import ProductImageAnalysis
 
 __all__ = [
     "Brand",
@@ -44,4 +48,10 @@ __all__ = [
     "ImageCreditReservation",
     "StripeCheckoutSession",
     "StripeSubscription",
+    "GenerationRun",
+    "GenerationArtifact",
+    "GenerationArtifactQualityFinding",
+    "GenerationDecisionEvent",
+    "GenerationReferenceSelection",
+    "ProductImageAnalysis",
 ]

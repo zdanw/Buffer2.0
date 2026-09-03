@@ -544,8 +544,16 @@ Output only the post content — no other text.
             "lighting": _dim_label("lighting"),
         }
         
+        from bebcare.services.generation_plan import executed_plan_contract
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
+        text = prompt.strip()
+        if grounded_prompt_contract_enabled(product_info):
+            contract = executed_plan_contract(product_info, locale)
+            if contract:
+                text = f"{text}\n{contract}"
         return {
-            "prompt": prompt.strip(),
+            "prompt": text,
             "dimensions": dimensions_info
         }
 
@@ -589,6 +597,60 @@ Output only the post content — no other text.
         logo_constraint = prompt_locale.localized_logo_constraint_block(
             product_info, locale, start_index=8
         )
+
+        from bebcare.services.generation_plan import executed_plan_contract
+        from bebcare.services.grounded_rollout import grounded_prompt_contract_enabled
+
+        if grounded_prompt_contract_enabled(product_info):
+            contract = executed_plan_contract(product_info, locale)
+            if locale == "en":
+                prompt = f"""
+Re-render {product_name} into the scene with a controlled re-render. Do not keep product position, angle, size, and appearance frozen.
+
+## Hard constraints
+1. Controlled re-render: preserve identity-defining structure, proportions, branding, and visible relationships
+2. Allow scene-consistent perspective, supported orientation, scale, lighting, reflection, shadow, focus, environmental color, and credible occlusion
+3. Prohibit duplicate primary subjects, invented packaging, mounts, accessories, unsupported faces/views, and small generated text
+4. Handheld physical-product replacement is prohibited
+5. An unrelated object already in the scene is not an additional target subject
+6. No watermarks, QR codes, URLs, or extra brand names
+{logo_constraint}
+{contract}
+
+## Soft guidance (must not break hard constraints)
+- Style tendency: {dimensions_info['style']}
+- Quality tendency: {dimensions_info['quality']}
+- Optional details/props: {dimensions_info['details']} (must not become extra subjects)
+
+## Priority
+1) Identity fidelity → 2) Scene-consistent placement → 3) Style/quality/detail guidance
+"""
+            else:
+                prompt = f"""
+将{product_name}受控重绘进场景。禁止要求产品位置、角度、大小、外观完全不变。
+
+## 硬约束（必须遵守）
+1. 受控重绘：保留身份结构、比例、品牌与可见关系
+2. 允许与场景一致的透视、承托朝向、尺度、光线、反射、阴影、焦点、环境色与可信遮挡
+3. 禁止重复主主体、编造包装/支架/配件、未提供的面/视角，以及生成小字
+4. 禁止手持实物替换
+5. 场景中已有的无关物体不是额外目标主体
+6. 禁止水印、二维码、网址或额外品牌名
+{logo_constraint}
+{contract}
+
+## 软引导（不得违反硬约束）
+- 风格倾向：{dimensions_info['style']}
+- 画质倾向：{dimensions_info['quality']}
+- 可轻微增加的细节/道具：{dimensions_info['details']}（不得变成额外主体）
+
+## 优先级
+1）身份保真 → 2）场景一致摆放 → 3）风格/画质/细节软引导
+"""
+            return {
+                "prompt": prompt.strip(),
+                "dimensions": dimensions_info,
+            }
 
         if locale == "en":
             prompt = f"""

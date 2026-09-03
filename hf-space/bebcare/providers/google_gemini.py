@@ -5,6 +5,8 @@ import re
 from typing import List, Optional
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
+
 from bebcare.providers.image_model_filter import filter_gemini_image_models
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,35 @@ def _reference_to_part(url: str) -> dict:
         "data": base64.b64encode(raw).decode("ascii"),
         "mime_type": "image/jpeg",
     }
+
+
+def _collect_text(payload: dict) -> str:
+    texts: List[str] = []
+    seen: set[str] = set()
+
+    def _add(text: object) -> None:
+        value = str(text or "").strip()
+        if not value or value in seen:
+            return
+        seen.add(value)
+        texts.append(value)
+
+    output = payload.get("output")
+    if isinstance(output, str):
+        _add(output)
+    elif isinstance(output, dict):
+        _add(output.get("text"))
+        for item in output.get("content") or []:
+            if isinstance(item, dict) and item.get("type") == "text":
+                _add(item.get("text"))
+    for step in payload.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        _add(step.get("text"))
+        for item in step.get("content") or []:
+            if isinstance(item, dict) and item.get("type") == "text":
+                _add(item.get("text"))
+    return "\n".join(texts).strip()
 
 
 def _collect_images(payload: dict) -> List[str]:
@@ -141,24 +172,33 @@ class GoogleGeminiImageProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "2048x2048",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = model or self.default_model
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = req.model or self.default_model
         if not model_id:
             raise ValueError("image model is required")
 
-        text = (prompt or "").strip()
+        text = (req.prompt_with_role_labels() or "").strip()
         if not text:
             raise ValueError("image prompt is required")
-        if (negative_prompt or "").strip():
-            text = f"{text}\n\nAvoid: {negative_prompt.strip()}"
+        if (req.negative_prompt or "").strip():
+            text = f"{text}\n\nAvoid: {req.negative_prompt.strip()}"
 
         input_parts: List[dict] = [{"type": "text", "text": text}]
-        for url in reference_images or []:
+        for url in req.ordered_urls():
             if not url:
                 continue
             try:
@@ -170,24 +210,33 @@ class GoogleGeminiImageProvider:
             "model": model_id,
             "input": input_parts,
             "generation_config": {
-                "image_config": {"aspect_ratio": size_to_aspect(size)},
+                "image_config": {"aspect_ratio": size_to_aspect(req.size)},
             },
         }
         payload.update(self.extra_params)
         for key in _DROP_KEYS:
             payload.pop(key, None)
 
-        response = requests.post(
-            self._interactions_url(),
-            headers=self._headers(),
-            json=payload,
-            timeout=180,
+        from bebcare.services.provider_request_budget import (
+            KIND_IMAGE,
+            reserved_provider_call,
         )
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            detail = response.text[:500] if response.text else str(e)
-            raise Exception(f"Google image generation HTTP error: {detail}") from e
+
+        def _post():
+            posted = requests.post(
+                self._interactions_url(),
+                headers=self._headers(),
+                json=payload,
+                timeout=180,
+            )
+            try:
+                posted.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                detail = posted.text[:500] if posted.text else str(e)
+                raise Exception(f"Google image generation HTTP error: {detail}") from e
+            return posted
+
+        response = reserved_provider_call(_post, kind=KIND_IMAGE)
 
         result = response.json()
         if not isinstance(result, dict):
@@ -205,6 +254,80 @@ class GoogleGeminiImageProvider:
             raise Exception("No images generated")
         return image_urls
 
+    def complete_multimodal(
+        self,
+        *,
+        model: str,
+        input_parts: List[dict],
+        timeout: int = 90,
+    ) -> dict:
+        """Native Interactions API text+image completion. Not OpenAI-compat chat."""
+        model_id = (model or "").strip()
+        if not model_id:
+            raise ValueError("analysis model is required")
+        url = self._interactions_url()
+        if "/openai" in url or url.rstrip("/").endswith("/chat/completions"):
+            raise ValueError("refusing OpenAI-compatible Gemini URL")
+        payload = {"model": model_id, "input": input_parts}
+        from bebcare.services.provider_request_budget import reserved_provider_call
+
+        def _post():
+            posted = requests.post(
+                url,
+                headers=self._headers(),
+                json=payload,
+                timeout=timeout,
+            )
+            posted.raise_for_status()
+            return posted
+
+        response = reserved_provider_call(_post)
+        result = response.json()
+        if not isinstance(result, dict):
+            raise Exception("Google multimodal returned a non-object payload")
+        if result.get("error"):
+            err = result["error"]
+            msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+            raise Exception(f"Google multimodal failed: {msg}")
+        result["_text"] = _collect_text(result)
+        return result
+
+    def generate_content(
+        self,
+        *,
+        model: str,
+        body: dict,
+        timeout: int = 90,
+    ) -> dict:
+        """Native models/{id}:generateContent. Not OpenAI-compat chat."""
+        model_id = (model or "").strip()
+        if not model_id:
+            raise ValueError("analysis model is required")
+        url = f"{self._root()}/models/{model_id}:generateContent"
+        if "/openai" in url or url.rstrip("/").endswith("/chat/completions"):
+            raise ValueError("refusing OpenAI-compatible Gemini URL")
+        from bebcare.services.provider_request_budget import reserved_provider_call
+
+        def _post():
+            posted = requests.post(
+                url,
+                headers=self._headers(),
+                json=body,
+                timeout=timeout,
+            )
+            posted.raise_for_status()
+            return posted
+
+        response = reserved_provider_call(_post)
+        result = response.json()
+        if not isinstance(result, dict):
+            raise Exception("Google generateContent returned a non-object payload")
+        if result.get("error"):
+            err = result["error"]
+            msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+            raise Exception(f"Google generateContent failed: {msg}")
+        return result
+
     def verify_credentials(self) -> None:
         """Lightweight auth probe via GET /models. Raises on auth / HTTP failure."""
         response = requests.get(
@@ -216,7 +339,8 @@ class GoogleGeminiImageProvider:
             detail = response.text[:500] if response.text else str(e)
             raise Exception(f"Google Gemini connection test failed: {detail}") from e
 
-    def list_models(self) -> List[dict]:
+    def list_raw_models(self) -> List[dict]:
+        """Unfiltered GET /models payload items. Non-billable capability listing."""
         if not self.supports_list_models:
             return []
         try:
@@ -232,16 +356,10 @@ class GoogleGeminiImageProvider:
                 raw = payload
             if not isinstance(raw, list):
                 return []
-            models = []
-            for item in raw:
-                if not isinstance(item, dict):
-                    continue
-                name = item.get("name") or item.get("id") or item.get("model") or ""
-                mid = str(name).split("/")[-1].strip()
-                if not mid:
-                    continue
-                models.append(item)
-            return filter_gemini_image_models(models)
+            return [item for item in raw if isinstance(item, dict)]
         except Exception as e:
-            logger.warning("Google list_models failed for %s: %s", self._root(), e)
+            logger.warning("Google list_raw_models failed for %s: %s", self._root(), e)
             return []
+
+    def list_models(self) -> List[dict]:
+        return filter_gemini_image_models(self.list_raw_models())

@@ -9,7 +9,7 @@ from bebcare.dedup.deduplication_engine import deduplication_engine
 from bebcare.publisher.buffer_publisher import buffer_publisher
 from bebcare.models import ScheduledTask, TaskExecution, ManualTaskDraft, Product
 from bebcare.models.user import User
-from bebcare.utils.reference_selector import select_reference_images
+from bebcare.utils.reference_selector import resolve_generate_references
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.buffer_account_service import (
     resolve_buffer_api_token,
@@ -17,6 +17,7 @@ from bebcare.services.buffer_account_service import (
 )
 from bebcare.services.ownership import stamp_owner
 from bebcare.config.settings import settings
+from bebcare.services.grounded_rollout import grounded_rollout_mode, selection_provenance
 from bebcare.services.generate_task_store import (
     create_generate_task,
     update_generate_task,
@@ -49,42 +50,159 @@ def _run_expire_due_grants():
         db.close()
 
 
-def _run_platform_image_generation(owner_user_id: str, mode: str | None, generate_fn):
+def _run_platform_image_generation(
+    owner_user_id: str,
+    mode: str | None,
+    generate_fn,
+    *,
+    ctx: dict | None = None,
+    scheduled_task_id: str | None = None,
+):
     """Reserve one platform credit around a single image generation when mode=platform."""
-    if mode != "platform":
-        return generate_fn()
+    from bebcare.models.generation_run import GenerationRun
+    from bebcare.services.generation_run_store import (
+        build_output_snapshot,
+        create_generation_run,
+        finish_generation_run,
+    )
+    from bebcare.services.quality_protection_rollout import (
+        POLICY_VERSION,
+        quality_protection_mode,
+    )
+    from bebcare.services.product_fidelity_rollout import (
+        VISUAL_POLICY_VERSION,
+        product_fidelity_prevention_mode,
+        visual_fidelity_qa_mode,
+    )
+    from bebcare.services.grounded_rollout import SOURCE_AUTOMATION, grounded_rollout_mode
 
-    gen_task_id = str(uuid.uuid4())
-    create_generate_task(gen_task_id, status="PENDING", owner_user_id=owner_user_id)
-    session = Session(bind=engine)
-    try:
-        reserve_one(session, user_id=owner_user_id, generate_task_id=gen_task_id)
-        session.commit()
-    except CreditError as exc:
-        session.rollback()
-        update_generate_task(
-            gen_task_id,
-            status="FAILURE",
-            set_result=True,
-            result={"error": str(exc)},
-        )
-        raise Exception(
-            "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
-        ) from exc
-    finally:
-        session.close()
+    gen_task_id = None
+    if mode == "platform":
+        gen_task_id = str(uuid.uuid4())
+        create_generate_task(gen_task_id, status="PENDING", owner_user_id=owner_user_id)
+        session = Session(bind=engine)
+        try:
+            reserve_one(session, user_id=owner_user_id, generate_task_id=gen_task_id)
+            session.commit()
+        except CreditError as exc:
+            session.rollback()
+            update_generate_task(
+                gen_task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": str(exc)},
+            )
+            raise Exception(
+                "平台出图额度不足，调度任务无法使用平台供应商出图（不会静默切换到 BYOK）"
+            ) from exc
+        finally:
+            session.close()
+
+    run_id = None
+    if ctx is not None:
+        provenance = (ctx.get("product_info") or {}).get("generation_provenance") or {}
+        session = Session(bind=engine)
+        try:
+            run = create_generation_run(
+                session,
+                owner_user_id=owner_user_id,
+                source=SOURCE_AUTOMATION,
+                product_id=ctx.get("product_id_str"),
+                generate_task_id=gen_task_id,
+                scheduled_task_id=scheduled_task_id,
+                rollout_mode_at_start=provenance.get("rollout_mode_at_start")
+                or grounded_rollout_mode(),
+                experiment_variant=provenance.get("experiment_variant"),
+                requested_pipeline_version=provenance.get("requested_pipeline_version")
+                or "baseline_current",
+                executed_pipeline_version=provenance.get("executed_pipeline_version")
+                or "legacy_random_refs",
+                fallback_reason=provenance.get("fallback_reason"),
+                fallback_path=provenance.get("fallback_path"),
+                image_prompt_pipeline=None,
+                compare_group_id=None,
+                generation_plan=ctx.get("product_info", {}).get("generation_plan")
+                or provenance.get("generation_plan"),
+                reference_manifest=provenance.get("reference_manifest"),
+                provider_id=ctx.get("image_provider_id"),
+                model=ctx.get("image_model"),
+                image_size=ctx.get("image_size"),
+                image_provider_mode=mode,
+                quality_protection_mode=quality_protection_mode(),
+                quality_policy_version=POLICY_VERSION,
+                product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
+                visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
+                visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
+                requested_selector_strategy=provenance.get("requested_selector_strategy"),
+                executed_selector_strategy=provenance.get("executed_selector_strategy"),
+                selection_seed=provenance.get("selection_seed"),
+            )
+            session.commit()
+            run_id = run.run_id
+            if ctx.get("product_info") is not None:
+                ctx["product_info"]["generation_run_id"] = run_id
+                from bebcare.services.quality_diversity_events import attach_from_product_info
+
+                attach_from_product_info(
+                    session,
+                    run,
+                    ctx.get("product_info"),
+                    source=SOURCE_AUTOMATION,
+                    task_mode=ctx.get("task_mode"),
+                )
+                session.commit()
+                ctx["product_info"]["owner_user_id"] = owner_user_id
+        finally:
+            session.close()
 
     try:
         result = generate_fn()
-        update_generate_task(gen_task_id, status="SUCCESS")
+        image_urls = result.get("image_urls") if isinstance(result, dict) else result
+        warning = result.get("warning") if isinstance(result, dict) else None
+        if gen_task_id:
+            first = image_urls[0] if image_urls else None
+            update_generate_task(
+                gen_task_id,
+                status="SUCCESS",
+                set_result=True,
+                result={"image": first, "warning": warning} if first else None,
+            )
+        if run_id:
+            session = Session(bind=engine)
+            try:
+                run = session.query(GenerationRun).filter(GenerationRun.run_id == run_id).first()
+                if run:
+                    finish_generation_run(
+                        session,
+                        run,
+                        status="succeeded",
+                        image_urls=list(image_urls or []),
+                        persistence_warning=warning,
+                        output_snapshot=build_output_snapshot(result) if isinstance(result, dict) else None,
+                    )
+                    session.commit()
+            finally:
+                session.close()
         return result
     except Exception:
-        update_generate_task(
-            gen_task_id,
-            status="FAILURE",
-            set_result=True,
-            result={"error": "scheduler image generation failed"},
-        )
+        if gen_task_id:
+            update_generate_task(
+                gen_task_id,
+                status="FAILURE",
+                set_result=True,
+                result={"error": "scheduler image generation failed"},
+            )
+        elif run_id:
+            session = Session(bind=engine)
+            try:
+                run = session.query(GenerationRun).filter(GenerationRun.run_id == run_id).first()
+                if run:
+                    finish_generation_run(
+                        session, run, status="failed", error_category="scheduler_image_failed"
+                    )
+                    session.commit()
+            finally:
+                session.close()
         raise
 
 
@@ -340,11 +458,44 @@ class APSchedulerService:
     def _prepare_product_context(
         self, session, product, task_id, reference_image_count, use_scene_reference, platforms
     ):
-        selected = select_reference_images(
-            session, product.product_id, reference_image_count, use_scene_reference
+        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
+        from bebcare.services.asset_intelligence import load_usable_analyses
+        from bebcare.services.quality_diversity_context import build_selector_context
+
+        intel = {}
+        try:
+            intel = load_usable_analyses(
+                session,
+                owner_user_id=product.owner_user_id,
+                product_id=str(product.product_id),
+            )
+        except Exception:
+            intel = {}
+        brand = getattr(product, "brand", None)
+        selector_ctx = build_selector_context(
+            source="automation",
+            product=product,
+            task_mode=getattr(task_cfg, "mode", None) if task_cfg else None,
+            image_size=getattr(task_cfg, "image_size", None) if task_cfg else None,
+            use_scene_reference=use_scene_reference,
+            realistic_placement=bool(getattr(task_cfg, "realistic_placement", True)) if task_cfg else True,
+            reference_count=reference_image_count,
+            logo_mode=getattr(brand, "logo_in_images", None) if brand is not None else None,
+            intelligence_by_image=intel,
         )
-        reference_image_urls = selected["reference_images"]
-        effective_scene = selected["use_scene_reference"]
+        selected = resolve_generate_references(
+            session,
+            product_id=product.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=reference_image_count,
+            use_scene_reference=use_scene_reference,
+            source="automation",
+            task_mode=getattr(task_cfg, "mode", None) if task_cfg else None,
+            image_size=getattr(task_cfg, "image_size", None) if task_cfg else None,
+            selector_context=selector_ctx,
+        )
+        reference_image_urls = selected.reference_images
+        effective_scene = selected.use_scene_reference
         logger.info(
             "Product %s reference images (%s): %s",
             product.product_id,
@@ -353,7 +504,6 @@ class APSchedulerService:
         )
         logger.info("Scene reference mode: %s", effective_scene)
 
-        task_cfg = session.query(ScheduledTask).filter(ScheduledTask.task_id == task_id).first()
         product_id_str = str(product.product_id)
         base_info = {
             "product_id": product_id_str,
@@ -363,8 +513,8 @@ class APSchedulerService:
             "selling_points": product.selling_points,
             "brand_voice": product.brand_voice,
             "reference_images": reference_image_urls,
-            "reference_product_images": selected["reference_product_images"],
-            "reference_scene_images": selected["reference_scene_images"],
+            "reference_product_images": selected.reference_product_images,
+            "reference_scene_images": selected.reference_scene_images,
             "platform": platforms[0] if platforms else "instagram",
             "use_scene_reference": effective_scene,
             "use_vision_image_prompt": bool(
@@ -377,8 +527,17 @@ class APSchedulerService:
             )
             if task_cfg
             else True,
+            "experiment_variant": selected.experiment_variant,
+            "executed_pipeline_version": selected.executed_pipeline_version,
+            "grounded_phase1b_enabled": bool(selected.grounded),
+            "generation_provenance": selection_provenance(
+                selected, source="automation"
+            ),
         }
         product_info = enrich_product_info(session, product, base_info)
+        from bebcare.services.generation_plan import attach_generation_plan
+
+        attach_generation_plan(product_info)
         owner_user_id = (
             task_cfg.owner_user_id if task_cfg else product.owner_user_id
         )
@@ -387,12 +546,13 @@ class APSchedulerService:
         ) or "byok"
         product_info["owner_user_id"] = owner_user_id
         product_info["image_provider_mode"] = provider_mode
+        product_info["task_mode"] = getattr(task_cfg, "mode", None) if task_cfg else None
         return {
             "product_id_str": product_id_str,
             "product_info": product_info,
             "reference_image_urls": reference_image_urls,
-            "reference_product_images": selected["reference_product_images"],
-            "reference_scene_images": selected["reference_scene_images"],
+            "reference_product_images": selected.reference_product_images,
+            "reference_scene_images": selected.reference_scene_images,
             "image_provider_id": task_cfg.image_provider_id if task_cfg else None,
             "image_provider_mode": provider_mode,
             "image_model": task_cfg.image_model if task_cfg else None,
@@ -566,6 +726,8 @@ class APSchedulerService:
                             image_model=ctx["image_model"],
                             image_size=ctx.get("image_size"),
                         ),
+                        ctx=ctx,
+                        scheduled_task_id=task_id,
                     )
                     image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
                     if not image_urls:
@@ -687,6 +849,8 @@ class APSchedulerService:
                 image_model=ctx["image_model"],
                 image_size=ctx.get("image_size"),
             ),
+            ctx=ctx,
+            scheduled_task_id=task_id,
         )
         image_urls = image_result.get("image_urls") if isinstance(image_result, dict) else image_result
         dimensions = image_result.get("dimensions") if isinstance(image_result, dict) else None
@@ -695,10 +859,65 @@ class APSchedulerService:
             raise Exception("Auto task image generation returned no URLs; publish aborted")
         logger.info(f"Generated images: {image_urls}")
 
+        from bebcare.services.grounded_rollout import SOURCE_AUTOMATION
+        from bebcare.services.quality_protection import apply_publish_gate
+
+        gate_session = Session(bind=engine)
+        try:
+            gate = apply_publish_gate(
+                gate_session,
+                owner_user_id=ctx["owner_user_id"],
+                run_id=(ctx.get("product_info") or {}).get("generation_run_id"),
+                source=SOURCE_AUTOMATION,
+                task_mode="auto",
+                hard_fail=bool(isinstance(image_result, dict) and image_result.get("quality_hard_fail")),
+                image_urls=list(image_urls),
+            )
+            gate_session.commit()
+        finally:
+            gate_session.close()
+        if gate.get("blocked"):
+            draft_session = Session(bind=engine)
+            try:
+                draft = ManualTaskDraft(
+                    draft_id=str(uuid.uuid4()),
+                    task_id=task_id,
+                    product_id=str(product_id),
+                    images=list(image_urls),
+                    copywritings=[copywriting],
+                    dimensions=[dimensions],
+                    image_prompts=[image_prompt],
+                    reference_product_images=reference_product_images,
+                    reference_scene_images=reference_scene_images,
+                    status="pending",
+                )
+                stamp_owner(draft, SimpleNamespace(user_id=ctx["owner_user_id"]))
+                draft_session.add(draft)
+                draft_session.commit()
+            finally:
+                draft_session.close()
+            logger.info(
+                "Auto task %s publish paused; draft routed to Review product=%s",
+                task_id,
+                product_id,
+            )
+            return {
+                "images": list(image_urls),
+                "platforms": [],
+                "copywriting": copywriting,
+                "dimensions": dimensions,
+                "image_prompt": image_prompt,
+                "reference_product_images": reference_product_images,
+                "reference_scene_images": reference_scene_images,
+                "warning": gate.get("warning"),
+                "publish_paused": True,
+            }
+
         generated_images = []
         published_platforms = []
 
-        similarity = deduplication_engine.calculate_text_image_match(copywriting, image_urls[0])
+        publish_url = gate.get("selected_url") or image_urls[0]
+        similarity = deduplication_engine.calculate_text_image_match(copywriting, publish_url)
         if similarity is None:
             logger.info("Text-image match skipped (CLIP disabled)")
         else:
@@ -720,7 +939,7 @@ class APSchedulerService:
                 }
 
         # generate_image already persists to CDN
-        cdn_url = image_urls[0]
+        cdn_url = publish_url
         generated_images.append(cdn_url)
 
         publish_result = buffer_publisher.publish(

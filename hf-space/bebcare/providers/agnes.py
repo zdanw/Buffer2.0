@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
 from bebcare.providers.image_model_filter import filter_image_models
 
 logger = logging.getLogger(__name__)
@@ -54,27 +55,34 @@ class AgnesImageProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "1024x1024",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = (model or self.default_model or "").strip()
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = (req.model or self.default_model or "").strip()
         if not model_id:
             raise ValueError("image model is required")
 
-        # Official i2i / multi-image: put URLs in extra_body.image (not top-level image).
-        # Do not send response_format — LiteLLM rejects it for several Agnes models.
         data: dict = {
             "model": model_id,
-            "prompt": (prompt or "").strip(),
-            "size": size,
+            "prompt": (req.prompt_with_role_labels() or "").strip(),
+            "size": req.size,
         }
-        if negative_prompt:
-            data["negative_prompt"] = negative_prompt
+        if req.negative_prompt:
+            data["negative_prompt"] = req.negative_prompt
 
-        refs = [u.strip() for u in (reference_images or []) if (u or "").strip()][:3]
+        refs = [u.strip() for u in req.ordered_urls() if (u or "").strip()][:3]
         extra_body: dict = {}
         if refs:
             extra_body["image"] = refs

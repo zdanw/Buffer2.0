@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import List, Optional
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
 from bebcare.providers.image_model_filter import (
     filter_aliyun_catalog_models,
     filter_image_models,
@@ -92,17 +93,26 @@ class AliyunMaasMultimodalProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "2048x2048",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = model or self.default_model
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = req.model or self.default_model
         if not model_id:
             raise ValueError("image model is required")
 
-        refs = [u for u in (reference_images or []) if u]
+        refs = [u for u in req.ordered_urls() if u]
         if not refs:
             raise ValueError(
                 "阿里云图生图需要至少 1 张参考图；请确认产品已上传图片后再生成"
@@ -122,19 +132,20 @@ class AliyunMaasMultimodalProvider:
                 ) from e
 
         # prompt 注入：作为唯一 text 项，与参考图一起提交
-        if not (prompt or "").strip():
+        prompt_text = (req.prompt_with_role_labels() or "").strip()
+        if not prompt_text:
             raise ValueError("图生图需要非空 prompt")
-        content.append({"text": prompt.strip()})
+        content.append({"text": prompt_text})
 
         # prompt_extend=false：保留系统拼装/DeepSeek 生成的提示词，避免被阿里云改写冲掉
         parameters = {
-            "size": _to_aliyun_size(size),
+            "size": _to_aliyun_size(req.size),
             "n": 1,
             "watermark": False,
             "prompt_extend": False,
         }
-        if negative_prompt:
-            parameters["negative_prompt"] = negative_prompt[:500]
+        if req.negative_prompt:
+            parameters["negative_prompt"] = req.negative_prompt[:500]
         parameters.update(self.extra_params)
 
         payload = {
