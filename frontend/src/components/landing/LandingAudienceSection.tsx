@@ -11,7 +11,7 @@ export default function LandingAudienceSection() {
   const { t } = useI18n();
 
   return (
-    <section id="for-teams" className="py-14 sm:py-16 bg-canvas border-b border-canvas-border">
+    <section id="for-teams" className="py-14 sm:py-16 bg-paper border-b border-canvas-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <p className="text-sm font-semibold text-forge-600 uppercase tracking-wider mb-2">

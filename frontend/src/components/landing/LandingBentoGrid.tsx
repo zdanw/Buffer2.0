@@ -2,16 +2,24 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
-  Clock,
+  Check,
+  ClipboardCheck,
   Layers,
   PenLine,
+  Pencil,
   Radio,
-  Settings,
+  Send,
   Zap,
 } from 'lucide-react';
 import PlatformIcon, { InstagramAppIcon } from '@/components/icons/PlatformIcon';
 import { useI18n } from '@/i18n/useI18n';
 import LandingPicture from '@/components/landing/LandingPicture';
+
+const REVIEW_STEPS = [
+  { icon: Check, labelKey: 'landing.reviewStepApprove' },
+  { icon: Pencil, labelKey: 'landing.reviewStepEdit' },
+  { icon: Send, labelKey: 'landing.reviewStepQueue' },
+] as const;
 
 export default function LandingBentoGrid() {
   const { t } = useI18n();
@@ -20,19 +28,26 @@ export default function LandingBentoGrid() {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 auto-rows-[minmax(140px,auto)]">
       <Link
         to="/signup"
-        className="col-span-2 lg:col-span-2 lg:row-span-2 group relative overflow-hidden rounded-2xl border border-forge-200 bg-gradient-to-br from-forge-500 via-forge-600 to-forge-800 p-6 sm:p-8 flex flex-col justify-between min-h-[200px] lg:min-h-[280px] transition-transform hover:scale-[1.01] hover:shadow-card-hover"
+        className="col-span-2 lg:col-span-2 lg:row-span-2 group relative overflow-hidden rounded-2xl border border-midnight-elevated bg-gradient-to-br from-midnight via-[#141a28] to-[#1e2638] p-6 sm:p-8 flex flex-col justify-between min-h-[200px] lg:min-h-[280px] transition-transform hover:scale-[1.01] hover:shadow-card-hover"
       >
-        <div className="absolute inset-0 landing-gradient-shift opacity-30 pointer-events-none" />
-        <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-white/15 blur-2xl group-hover:scale-110 transition-transform duration-700" />
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 60% at 85% 20%, rgba(255, 77, 61, 0.35) 0%, transparent 55%), radial-gradient(ellipse 50% 50% at 10% 90%, rgba(64, 107, 255, 0.2) 0%, transparent 50%)',
+          }}
+        />
+        <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-forge-500/10 blur-2xl group-hover:scale-110 transition-transform duration-700" />
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wide mb-4">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white/90 text-xs font-bold uppercase tracking-wide mb-4 border border-white/10">
             <Radio className="w-3 h-3" />
             {t('landing.bentoPromoBadge')}
           </span>
           <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight max-w-sm">
             {t('landing.bentoPromoTitle')}
           </h3>
-          <p className="mt-2 text-white/85 text-sm max-w-md">{t('landing.bentoPromoDesc')}</p>
+          <p className="mt-2 text-white/75 text-sm max-w-md">{t('landing.bentoPromoDesc')}</p>
         </div>
         <span className="relative z-10 inline-flex items-center gap-2 mt-6 text-white font-semibold text-sm group-hover:gap-3 transition-all">
           {t('landing.getStarted')}
@@ -75,11 +90,22 @@ export default function LandingBentoGrid() {
       </div>
 
       <div className="col-span-1 rounded-2xl border border-canvas-border bg-white p-5 shadow-card">
-        <Settings className="w-5 h-5 text-emerald-600 mb-2" strokeWidth={1.75} />
+        <ClipboardCheck className="w-5 h-5 text-moss-600 mb-2" strokeWidth={1.75} />
         <h3 className="font-bold text-ink-900 text-sm">{t('landing.step3Title')}</h3>
-        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-ink-400 font-mono">
-          <Clock className="w-3 h-3" />
-          0 9 * * 1-5
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {REVIEW_STEPS.map(({ icon: Icon, labelKey }, index) => (
+            <span
+              key={labelKey}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${
+                index === 0
+                  ? 'bg-moss-50 text-moss-600 border border-moss-50'
+                  : 'bg-paper text-ink-500 border border-canvas-border'
+              }`}
+            >
+              <Icon className="w-2.5 h-2.5" strokeWidth={2} />
+              {t(labelKey)}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -93,7 +119,7 @@ export default function LandingBentoGrid() {
         </div>
       </div>
 
-      <div className="col-span-2 rounded-2xl border border-canvas-border bg-canvas p-4 sm:p-5 grid sm:grid-cols-2 gap-3">
+      <div className="col-span-2 rounded-2xl border border-canvas-border bg-paper p-4 sm:p-5 grid sm:grid-cols-2 gap-3">
         <div className="rounded-xl bg-white border border-canvas-border p-3 shadow-sm">
           <div className="flex items-center gap-1.5 text-ink-400 text-xs font-medium mb-1">
             <Zap className="w-3 h-3" />

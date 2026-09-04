@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Sparkles, Wand2, PenLine, ImageIcon } from 'lucide-react';
+import { ImageIcon, PenLine } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 
 type ProgressStage =
@@ -31,77 +31,6 @@ interface PreviewGeneratingAnimationProps {
   stage?: string | null;
 }
 
-const FLOATING_EMOJI = ['✨', '💫', '🔥', '📸', '💕', '⭐', '🌸', '🎨'];
-
-function SparkleParticle({ emoji, style }: { emoji: string; style: React.CSSProperties }) {
-  return (
-    <span
-      className="absolute text-sm pointer-events-none preview-gen-rise"
-      style={style}
-      aria-hidden
-    >
-      {emoji}
-    </span>
-  );
-}
-
-function ForgeBuddy() {
-  return (
-    <div className="relative preview-gen-float">
-      <div className="preview-gen-wiggle">
-        <svg viewBox="0 0 120 120" className="w-24 h-24 drop-shadow-lg" aria-hidden>
-          <defs>
-            <linearGradient id="buddy-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f47538" />
-              <stop offset="50%" stopColor="#ec4899" />
-              <stop offset="100%" stopColor="#a855f7" />
-            </linearGradient>
-            <filter id="buddy-glow">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <ellipse cx="60" cy="68" rx="42" ry="38" fill="url(#buddy-gradient)" filter="url(#buddy-glow)" />
-          <ellipse cx="60" cy="72" rx="34" ry="30" fill="white" opacity="0.12" />
-          <ellipse cx="44" cy="62" rx="10" ry="12" fill="white" className="preview-gen-blink" />
-          <ellipse cx="76" cy="62" rx="10" ry="12" fill="white" className="preview-gen-blink" />
-          <circle cx="47" cy="64" r="5" fill="#1a1a1a" />
-          <circle cx="79" cy="64" r="5" fill="#1a1a1a" />
-          <circle cx="49" cy="62" r="2" fill="white" />
-          <circle cx="81" cy="62" r="2" fill="white" />
-          <ellipse cx="38" cy="72" rx="6" ry="3.5" fill="#fda4af" opacity="0.7" />
-          <ellipse cx="82" cy="72" rx="6" ry="3.5" fill="#fda4af" opacity="0.7" />
-          <path
-            d="M 48 82 Q 60 92 72 82"
-            fill="none"
-            stroke="#1a1a1a"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-          <g className="preview-gen-wand">
-            <rect x="88" y="28" width="4" height="22" rx="2" fill="#fcd34d" transform="rotate(25 90 39)" />
-            <polygon
-              points="98,18 102,28 94,28"
-              fill="#fef08a"
-              transform="rotate(25 98 23)"
-            />
-            <circle cx="100" cy="16" r="5" fill="#fde047" className="preview-gen-sparkle-pulse" />
-          </g>
-        </svg>
-      </div>
-      <div className="absolute -top-1 -right-2 preview-gen-orbit">
-        <Sparkles className="w-5 h-5 text-yellow-300 drop-shadow" />
-      </div>
-      <div className="absolute -bottom-1 -left-3 preview-gen-orbit-reverse">
-        <Sparkles className="w-4 h-4 text-pink-300 drop-shadow" />
-      </div>
-    </div>
-  );
-}
-
 function TypeIcon({ generatingType }: { generatingType?: GeneratingType }) {
   if (generatingType === 'copywriting') {
     return <PenLine className="w-3.5 h-3.5" />;
@@ -109,7 +38,46 @@ function TypeIcon({ generatingType }: { generatingType?: GeneratingType }) {
   if (generatingType === 'image') {
     return <ImageIcon className="w-3.5 h-3.5" />;
   }
-  return <Wand2 className="w-3.5 h-3.5" />;
+  return <PenLine className="w-3.5 h-3.5" />;
+}
+
+/** Living Signal motif: one source idea branching to channel outputs. */
+function SignalVisual() {
+  return (
+    <div className="relative w-28 h-28" aria-hidden="true">
+      <svg viewBox="0 0 112 112" className="w-full h-full">
+        <circle cx="56" cy="56" r="6" fill="#F5F1E8" className="preview-signal-pulse" />
+        <circle cx="56" cy="56" r="14" fill="none" stroke="rgba(245,241,232,0.15)" strokeWidth="1" />
+        <path
+          d="M56 50 L56 22"
+          stroke="#e85736"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="preview-signal-line"
+          style={{ animationDelay: '0s' }}
+        />
+        <path
+          d="M60 54 L88 68"
+          stroke="#406BFF"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="preview-signal-line"
+          style={{ animationDelay: '0.4s' }}
+        />
+        <path
+          d="M52 54 L24 68"
+          stroke="#91B89A"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="preview-signal-line"
+          style={{ animationDelay: '0.8s' }}
+        />
+        <circle cx="56" cy="18" r="4" fill="#e85736" opacity="0.9" />
+        <circle cx="92" cy="70" r="4" fill="#406BFF" opacity="0.9" />
+        <circle cx="20" cy="70" r="4" fill="#91B89A" opacity="0.9" />
+      </svg>
+    </div>
+  );
 }
 
 export default function PreviewGeneratingAnimation({
@@ -159,44 +127,26 @@ export default function PreviewGeneratingAnimation({
     return () => clearInterval(interval);
   }, [messageKeys]);
 
-  const particles = useMemo(
-    () =>
-      FLOATING_EMOJI.map((emoji, i) => ({
-        emoji,
-        style: {
-          left: `${8 + (i * 11) % 84}%`,
-          bottom: `${12 + (i * 17) % 40}%`,
-          animationDelay: `${i * 0.35}s`,
-          animationDuration: `${2.8 + (i % 3) * 0.6}s`,
-        } as React.CSSProperties,
-      })),
-    []
-  );
-
   return (
     <div
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden preview-gen-gradient"
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden preview-gen-surface"
       role="status"
       aria-live="polite"
       aria-label={t('preview.generating')}
     >
       <div className="absolute inset-0 preview-gen-shimmer pointer-events-none" />
 
-      {particles.map((p) => (
-        <SparkleParticle key={p.emoji + p.style.left} emoji={p.emoji} style={p.style} />
-      ))}
-
       <div className="relative flex flex-col items-center px-6 text-center">
-        <ForgeBuddy />
+        <SignalVisual />
 
-        <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[10px] font-semibold tracking-wide uppercase">
+        <div className="mt-5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white/90 text-[10px] font-semibold tracking-wide uppercase">
           <TypeIcon generatingType={generatingType} />
           {t('preview.generating')}
         </div>
 
         <p
           key={messageIndex}
-          className="mt-3 text-[13px] font-bold text-white drop-shadow-md preview-gen-message"
+          className="mt-3 text-[13px] font-medium text-white/95 preview-gen-message max-w-[200px] leading-snug"
         >
           {t(messageKeys[messageIndex])}
         </p>
@@ -205,19 +155,19 @@ export default function PreviewGeneratingAnimation({
           {[0, 1, 2].map((i) => (
             <span
               key={i}
-              className="w-2 h-2 rounded-full bg-white preview-gen-dot"
+              className="w-1.5 h-1.5 rounded-full bg-forge-500 preview-gen-dot"
               style={{ animationDelay: `${i * 0.2}s` }}
             />
           ))}
         </div>
 
         <div className="mt-5 w-44">
-          <div className="flex items-center justify-between text-[10px] font-semibold text-white/90 mb-1.5">
+          <div className="flex items-center justify-between text-[10px] font-medium text-white/70 mb-1.5">
             <span>{stageLabel ?? t('preview.generating')}</span>
             <span aria-hidden>{displayProgress}%</span>
           </div>
           <div
-            className="h-1.5 rounded-full bg-white/20 overflow-hidden"
+            className="h-1 rounded-full bg-white/10 overflow-hidden"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
@@ -225,7 +175,7 @@ export default function PreviewGeneratingAnimation({
             aria-label={stageLabel ?? t('preview.generating')}
           >
             <div
-              className="h-full rounded-full bg-white/90 transition-[width] duration-500 ease-out"
+              className="h-full rounded-full bg-forge-500 transition-[width] duration-500 ease-out"
               style={{ width: `${Math.max(displayProgress, 4)}%` }}
             />
           </div>

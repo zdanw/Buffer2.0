@@ -6,25 +6,29 @@
   /* Postence — The Living Signal */
   --po-midnight: #0B0D14;
   --po-paper: #F5F1E8;
-  --po-vermilion: #FF4D3D;
+  --po-vermilion: #e85736;
   --po-signal: #406BFF;
   --po-moss: #91B89A;
   --po-graphite: #747782;
 
-  /* Vermilion scale (primary action) */
-  --pf-forge-50: #fff0ee;
-  --pf-forge-100: #ffd9d4;
-  --pf-forge-200: #ffb3aa;
-  --pf-forge-500: #FF4D3D;
-  --pf-forge-600: #e63d2e;
-  --pf-forge-700: #c42f22;
+  /* Vermilion scale — matches logo red accent (#e85736) */
+  --pf-forge-50: #fdf0eb;
+  --pf-forge-100: #fad8cc;
+  --pf-forge-200: #f5b09a;
+  --pf-forge-300: #ef8868;
+  --pf-forge-400: #eb6f4f;
+  --pf-forge-500: #e85736;
+  --pf-forge-600: #e85736;
+  --pf-forge-700: #c94928;
+  --pf-forge-800: #a33a20;
+  --pf-forge-900: #7d2e19;
 
   /* Ink & surface */
   --pf-ink-900: #0B0D14;
   --pf-ink-500: #747782;
   --pf-ink-400: #9496a1;
-  --pf-canvas: #F5F1E8;
-  --pf-canvas-border: #e4dfd3;
+  --pf-canvas: #f7f6f3;
+  --pf-canvas-border: #e8e6e1;
 
   /* Extended semantic tokens */
   --po-signal-50: #eef2ff;
@@ -58,16 +62,12 @@ html, body, #root {
 }
 
 body {
-  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: var(--po-text-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--pf-ink-900);
   background-color: var(--pf-canvas);
-}
-
-.font-editorial {
-  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
 }
 
 @keyframes spin {
@@ -228,43 +228,38 @@ body {
   50% { background-position: 100% 50%; }
 }
 
-/* Studio preview overlay */
+/* Studio preview — Living Signal overlay */
 @keyframes preview-gen-gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
 
-@keyframes preview-gen-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+@keyframes preview-signal-pulse-keyframes {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 
-@keyframes preview-gen-wiggle {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg); }
+@keyframes preview-signal-line-keyframes {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
 }
 
-@keyframes preview-gen-wand {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-8deg); }
-  75% { transform: rotate(8deg); }
+.preview-gen-surface {
+  background: linear-gradient(
+    165deg,
+    var(--po-midnight) 0%,
+    #12151f 45%,
+    #1a2030 100%
+  );
 }
 
-@keyframes preview-gen-orbit {
-  0% { transform: rotate(0deg) translateX(18px) rotate(0deg); }
-  100% { transform: rotate(360deg) translateX(18px) rotate(-360deg); }
+.preview-signal-pulse {
+  transform-origin: center;
+  animation: preview-signal-pulse-keyframes 2.4s ease-in-out infinite;
 }
 
-@keyframes preview-gen-orbit-reverse {
-  0% { transform: rotate(0deg) translateX(14px) rotate(0deg); }
-  100% { transform: rotate(-360deg) translateX(14px) rotate(360deg); }
-}
-
-@keyframes preview-gen-rise {
-  0% { opacity: 0; transform: translateY(24px) scale(0.6); }
-  15% { opacity: 1; }
-  85% { opacity: 0.6; }
-  100% { opacity: 0; transform: translateY(-80px) scale(1.1) rotate(12deg); }
+.preview-signal-line {
+  animation: preview-signal-line-keyframes 2.4s ease-in-out infinite;
 }
 
 @keyframes preview-gen-shimmer {
@@ -290,27 +285,6 @@ body {
   100% { opacity: 0; transform: translateY(-4px); }
 }
 
-@keyframes preview-gen-blink {
-  0%, 42%, 46%, 100% { transform: scaleY(1); }
-  44% { transform: scaleY(0.12); }
-}
-
-@keyframes preview-gen-sparkle-pulse {
-  0%, 100% { opacity: 0.7; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-
-.preview-gen-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--po-vermilion) 0%,
-    var(--po-signal) 50%,
-    var(--po-midnight) 100%
-  );
-  background-size: 200% 200%;
-  animation: preview-gen-gradient-shift 5s ease infinite;
-}
-
 .preview-gen-shimmer::after {
   content: '';
   position: absolute;
@@ -318,23 +292,14 @@ body {
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 77, 61, 0.08) 50%,
     transparent 60%
   );
   animation: preview-gen-shimmer 3.2s ease-in-out infinite;
 }
 
-.preview-gen-float { animation: preview-gen-float 3s ease-in-out infinite; }
-.preview-gen-wiggle { animation: preview-gen-wiggle 2.4s ease-in-out infinite; transform-origin: center bottom; }
-.preview-gen-wand { animation: preview-gen-wand 1.8s ease-in-out infinite; transform-origin: 90px 39px; }
-.preview-gen-orbit { animation: preview-gen-orbit 4s linear infinite; }
-.preview-gen-orbit-reverse { animation: preview-gen-orbit-reverse 5.5s linear infinite; }
-.preview-gen-rise { animation: preview-gen-rise 3.2s ease-out infinite; }
 .preview-gen-dot { animation: preview-gen-dot 1.2s ease-in-out infinite; }
-.preview-gen-progress { animation: preview-gen-progress 1.8s ease-in-out infinite; }
 .preview-gen-message { animation: preview-gen-message 2.4s ease-in-out; }
-.preview-gen-blink { transform-origin: center; animation: preview-gen-blink 4s ease-in-out infinite; }
-.preview-gen-sparkle-pulse { animation: preview-gen-sparkle-pulse 1.4s ease-in-out infinite; }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

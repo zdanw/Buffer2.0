@@ -23,7 +23,7 @@ function PublicDocsShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen bg-canvas text-ink-900 flex flex-col">
+    <div className="min-h-screen bg-paper text-ink-900 flex flex-col">
       <header className="sticky top-0 z-50 border-b border-canvas-border bg-white/90 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">

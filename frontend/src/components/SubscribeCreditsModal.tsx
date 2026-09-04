@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Sparkles, X } from 'lucide-react';
+import { CreditCard, X } from 'lucide-react';
 import { getCurrentUser } from '@/api/auth';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { useI18n } from '@/i18n/useI18n';
@@ -357,7 +357,7 @@ export function SubscribeCreditsButton({
         className={className || defaultClassName}
       >
         {variant === 'inline' ? (
-          <Sparkles className="w-3.5 h-3.5 shrink-0 opacity-90" aria-hidden />
+          <CreditCard className="w-3.5 h-3.5 shrink-0 opacity-90" aria-hidden />
         ) : null}
         <span className={variant === 'inline' ? 'hidden min-[420px]:inline' : undefined}>
           {label}

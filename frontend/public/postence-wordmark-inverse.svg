@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 36" fill="none" role="img" aria-label="Postence">
+  <text
+    x="0"
+    y="26"
+    font-family="'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif"
+    font-size="26"
+    font-weight="600"
+    letter-spacing="0.02em"
+    fill="#FFFFFF"
+  >Postence</text>
+  <rect x="133.5" y="21.5" width="2.25" height="7" rx="0.5" fill="#e85736"/>
+</svg>

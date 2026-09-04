@@ -2,6 +2,7 @@ import { Calendar, Image, Settings, Clock, Users, Palette, Cpu, X, Layers, Packa
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import BrandLogo from './BrandLogo';
+import PostenceWordmark from './PostenceWordmark';
 
 interface SidebarProps {
   activeTab: string;
@@ -106,12 +107,14 @@ export default function Sidebar({ activeTab, onTabChange, isAdmin, isOpen = fals
         }`}
       >
         <div className="mb-8 flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2.5 tracking-tight">
-              <BrandLogo size="md" className="bg-white/10 shadow-none ring-1 ring-white/10" />
-              {t('brand.name')}
-            </h1>
-            <p className="text-white/45 text-xs mt-1.5 leading-snug">{t('brand.tagline')}</p>
+          <div className="min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
+              <BrandLogo size="md" variant="filled" className="mt-0.5" />
+              <div className="min-w-0">
+                <PostenceWordmark size="lg" variant="inverse" />
+                <p className="text-white/45 text-xs mt-1 leading-snug">{t('brand.tagline')}</p>
+              </div>
+            </div>
           </div>
           <button
             type="button"

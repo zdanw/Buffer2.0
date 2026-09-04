@@ -18,12 +18,12 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen flex bg-canvas">
+    <div className="min-h-screen flex bg-paper">
       <div
         className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 xl:p-14 border-r border-canvas-border bg-gradient-to-br from-paper-elevated via-canvas to-signal-50/30"
       >
         <div>
-          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
             <BrandLogo size="md" />
             <PostenceWordmark size="lg" />
           </Link>
@@ -33,7 +33,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
         </div>
 
         <div className="max-w-md">
-          <h2 className="text-2xl xl:text-3xl font-bold tracking-tight leading-tight text-ink-900 font-editorial">
+          <h2 className="text-2xl xl:text-3xl font-bold tracking-tight leading-tight text-ink-900">
             {t('auth.panelTitle')}
           </h2>
           <p className="mt-4 text-ink-600 text-sm leading-relaxed">{t('auth.panelSubtitle')}</p>
@@ -59,8 +59,8 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex justify-center mb-8">
-            <Link to="/" className="flex items-center gap-2.5">
-              <BrandLogo size="lg" />
+            <Link to="/" className="flex items-center gap-2">
+              <BrandLogo size="md" />
               <PostenceWordmark size="lg" />
             </Link>
           </div>

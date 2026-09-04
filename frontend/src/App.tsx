@@ -254,7 +254,7 @@ function AppContent() {
                 <Menu className="h-5 w-5" />
               </button>
               <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
-                <BrandLogo size="sm" />
+                <BrandLogo size="sm" variant="filled" />
                 {t('brand.name')}
               </span>
             </div>

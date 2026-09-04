@@ -1630,7 +1630,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                   type="button"
                   onClick={() => void handleManualRefreshStatus()}
                   disabled={isRefreshingStatus}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60"
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-forge-600 text-white hover:bg-forge-700 disabled:opacity-60"
                 >
                   <RefreshCw
                     className={`w-4 h-4 ${isRefreshingStatus ? 'animate-spin' : ''}`}

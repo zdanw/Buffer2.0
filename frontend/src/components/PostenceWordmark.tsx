@@ -1,35 +1,33 @@
 type PostenceWordmarkProps = {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'default' | 'inverse';
 };
 
-const sizeClasses = {
-  sm: 'text-base',
-  md: 'text-lg',
-  lg: 'text-xl',
+/** Wordmark height tuned to align cap-height with icon lockup. */
+const heightClasses = {
+  sm: 'h-[17px]',
+  md: 'h-[20px]',
+  lg: 'h-[23px]',
+  xl: 'h-[26px]',
 } as const;
 
-/**
- * Typographic wordmark: subtle weight transition at the post→presence seam (T→E).
- * The signal underline marks the internal name concept without splitting the word.
- */
 export default function PostenceWordmark({
   className = '',
   size = 'md',
+  variant = 'default',
 }: PostenceWordmarkProps) {
+  const src =
+    variant === 'inverse'
+      ? '/brand/postence-wordmark-inverse.png'
+      : '/brand/postence-wordmark.png';
+
   return (
-    <span
-      className={`inline-flex items-baseline font-bold tracking-tight text-ink-900 ${sizeClasses[size]} ${className}`}
-      aria-label="Postence"
-    >
-      <span className="font-semibold">Post</span>
-      <span className="relative font-bold">
-        ence
-        <span
-          className="absolute -bottom-0.5 left-0 right-0 h-[2px] rounded-full bg-gradient-to-r from-forge-500 via-signal-500 to-transparent"
-          aria-hidden="true"
-        />
-      </span>
-    </span>
+    <img
+      src={src}
+      alt="Postence"
+      className={`w-auto shrink-0 object-contain ${heightClasses[size]} ${className}`}
+      draggable={false}
+    />
   );
 }

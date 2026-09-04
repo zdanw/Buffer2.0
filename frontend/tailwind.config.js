@@ -11,13 +11,13 @@ export default {
           50: 'var(--pf-forge-50)',
           100: 'var(--pf-forge-100)',
           200: 'var(--pf-forge-200)',
-          300: '#ff8a7d',
-          400: '#ff6b5a',
+          300: 'var(--pf-forge-300)',
+          400: 'var(--pf-forge-400)',
           500: 'var(--pf-forge-500)',
           600: 'var(--pf-forge-600)',
           700: 'var(--pf-forge-700)',
-          800: '#a3281c',
-          900: '#7a1f16',
+          800: 'var(--pf-forge-800)',
+          900: 'var(--pf-forge-900)',
         },
         ink: {
           DEFAULT: 'var(--pf-ink-900)',
@@ -59,7 +59,7 @@ export default {
       },
       fontFamily: {
         sans: [
-          'DM Sans',
+          'Plus Jakarta Sans',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -68,12 +68,6 @@ export default {
           'Helvetica Neue',
           'Arial',
           'sans-serif',
-        ],
-        editorial: [
-          'Source Serif 4',
-          'Georgia',
-          'Times New Roman',
-          'serif',
         ],
       },
       fontSize: {

@@ -32,17 +32,17 @@ export default function Landing() {
   });
 
   return (
-    <div className="min-h-screen bg-canvas text-ink-900">
+    <div className="min-h-screen bg-paper text-ink-900">
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute top-[-12%] right-[-8%] w-[50%] h-[40%] rounded-full bg-signal-50/60 blur-[100px] animate-landing-glow" />
         <div className="absolute bottom-[-8%] left-[-8%] w-[40%] h-[35%] rounded-full bg-forge-100/40 blur-[90px] animate-landing-float-slow" />
       </div>
 
       <header className="sticky top-0 z-50 border-b border-canvas-border bg-paper-elevated/90 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-2 shrink-0 min-w-0">
             <BrandLogo size="md" />
-            <PostenceWordmark size="md" className="hidden sm:inline-flex" />
+            <PostenceWordmark size="lg" className="hidden sm:inline-flex" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-ink-500">
             <a href="#showcase" className="hover:text-ink-900 transition-colors">{t('landing.navShowcase')}</a>
@@ -73,7 +73,7 @@ export default function Landing() {
               <p className="text-sm font-semibold text-forge-600 tracking-wide mb-4">
                 {t('brand.tagline')}
               </p>
-              <h1 className="font-editorial text-fluid-4xl sm:text-fluid-5xl font-semibold tracking-tight leading-[1.08] text-ink-900">
+              <h1 className="text-fluid-4xl sm:text-fluid-5xl font-bold tracking-tight leading-[1.08] text-ink-900">
                 {t(heroTitleKey)}
               </h1>
               <p className="mt-5 text-fluid-lg text-ink-500 leading-relaxed max-w-lg">
@@ -134,7 +134,7 @@ export default function Landing() {
             {t('landing.socialProof')}
           </p>
           <blockquote className="max-w-2xl mx-auto">
-            <p className="font-editorial text-fluid-2xl sm:text-fluid-3xl text-white font-medium leading-relaxed">
+            <p className="text-fluid-2xl sm:text-fluid-3xl text-white font-semibold leading-relaxed">
               &ldquo;{t('landing.testimonialQuote')}&rdquo;
             </p>
             <footer className="mt-4 text-sm text-ink-400">{t('landing.testimonialAuthor')}</footer>
@@ -142,7 +142,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="how-it-works" className="py-16 sm:py-20 bg-canvas">
+      <section id="how-it-works" className="py-16 sm:py-20 bg-paper">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-fluid-2xl sm:text-fluid-3xl font-bold text-ink-900">{t('landing.howTitle')}</h2>
           <p className="text-ink-500 mt-2 max-w-xl mx-auto">{t('landing.howSubtitle')}</p>
@@ -174,7 +174,7 @@ export default function Landing() {
 
       <section className="relative overflow-hidden border-t border-canvas-border bg-midnight">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 text-center">
-          <h2 className="font-editorial text-fluid-3xl sm:text-fluid-4xl font-semibold tracking-tight text-white">
+          <h2 className="text-fluid-3xl sm:text-fluid-4xl font-bold tracking-tight text-white">
             {t('landing.ctaTitle')}
           </h2>
           <p className="text-ink-400 mt-4 max-w-md mx-auto">{t('landing.ctaSubtitle')}</p>
