@@ -148,7 +148,7 @@ function DocsArticle({ slug }: { slug: HelpArticleId }) {
       '@type': 'TechArticle',
       headline: title,
       description: summary,
-      publisher: { '@type': 'Organization', name: 'PulseForge' },
+      publisher: { '@type': 'Organization', name: 'Postence' },
     },
   });
 

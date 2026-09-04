@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
+import PostenceWordmark from '@/components/PostenceWordmark';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -19,20 +20,20 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
   return (
     <div className="min-h-screen flex bg-canvas">
       <div
-        className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 xl:p-14 border-r border-canvas-border bg-gradient-to-br from-forge-50 via-white to-orange-50/80"
+        className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 xl:p-14 border-r border-canvas-border bg-gradient-to-br from-paper-elevated via-canvas to-signal-50/30"
       >
         <div>
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <BrandLogo size="md" />
-            <span className="text-xl font-bold tracking-tight text-ink-900">{t('brand.name')}</span>
+            <PostenceWordmark size="lg" />
           </Link>
-          <span className="mt-6 inline-flex items-center px-3 py-1 rounded-full bg-white border border-forge-200 text-forge-700 text-xs font-semibold uppercase tracking-wide shadow-sm">
+          <span className="mt-6 inline-flex items-center px-3 py-1 rounded-full bg-white border border-canvas-border text-ink-600 text-xs font-semibold uppercase tracking-wide shadow-sm">
             {t('auth.audienceBadge')}
           </span>
         </div>
 
         <div className="max-w-md">
-          <h2 className="text-2xl xl:text-3xl font-bold tracking-tight leading-tight text-ink-900">
+          <h2 className="text-2xl xl:text-3xl font-bold tracking-tight leading-tight text-ink-900 font-editorial">
             {t('auth.panelTitle')}
           </h2>
           <p className="mt-4 text-ink-600 text-sm leading-relaxed">{t('auth.panelSubtitle')}</p>
@@ -46,8 +47,8 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
             ))}
           </ul>
 
-          <div className="mt-8 rounded-xl border border-forge-100 bg-white/80 px-4 py-3 text-sm">
-            <span className="font-semibold text-forge-700">{t('auth.panelStat')}</span>
+          <div className="mt-8 rounded-xl border border-canvas-border bg-white/80 px-4 py-3 text-sm">
+            <span className="font-semibold text-ink-900">{t('auth.panelStat')}</span>
             <span className="text-ink-500"> — {t('auth.panelStatContext')}</span>
           </div>
         </div>
@@ -60,7 +61,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/" className="flex items-center gap-2.5">
               <BrandLogo size="lg" />
-              <span className="text-xl font-bold text-ink-900">{t('brand.name')}</span>
+              <PostenceWordmark size="lg" />
             </Link>
           </div>
 

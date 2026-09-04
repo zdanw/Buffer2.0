@@ -1,0 +1,17 @@
+{
+  "name": "Postence",
+  "short_name": "Postence",
+  "description": "AI social presence system that turns company knowledge into continuous, platform-native content.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F1E8",
+  "theme_color": "#0B0D14",
+  "icons": [
+    {
+      "src": "/postence-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

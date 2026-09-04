@@ -3,17 +3,48 @@
 @tailwind utilities;
 
 :root {
-  --pf-forge-50: #fef4ed;
-  --pf-forge-100: #fde6d4;
-  --pf-forge-200: #fbc9a8;
-  --pf-forge-500: #f05a1a;
-  --pf-forge-600: #e14a10;
-  --pf-forge-700: #bc3a0f;
-  --pf-ink-900: #141414;
-  --pf-ink-500: #6d6d6d;
-  --pf-ink-400: #888888;
-  --pf-canvas: #f7f6f3;
-  --pf-canvas-border: #e8e6e1;
+  /* Postence — The Living Signal */
+  --po-midnight: #0B0D14;
+  --po-paper: #F5F1E8;
+  --po-vermilion: #FF4D3D;
+  --po-signal: #406BFF;
+  --po-moss: #91B89A;
+  --po-graphite: #747782;
+
+  /* Vermilion scale (primary action) */
+  --pf-forge-50: #fff0ee;
+  --pf-forge-100: #ffd9d4;
+  --pf-forge-200: #ffb3aa;
+  --pf-forge-500: #FF4D3D;
+  --pf-forge-600: #e63d2e;
+  --pf-forge-700: #c42f22;
+
+  /* Ink & surface */
+  --pf-ink-900: #0B0D14;
+  --pf-ink-500: #747782;
+  --pf-ink-400: #9496a1;
+  --pf-canvas: #F5F1E8;
+  --pf-canvas-border: #e4dfd3;
+
+  /* Extended semantic tokens */
+  --po-signal-50: #eef2ff;
+  --po-signal-100: #dce4ff;
+  --po-signal-600: #3358d4;
+  --po-moss-50: #eef5f0;
+  --po-moss-600: #6a9a76;
+  --po-midnight-elevated: #141722;
+  --po-paper-elevated: #faf7f0;
+
+  /* Fluid type scale */
+  --po-text-xs: clamp(0.75rem, 0.7rem + 0.15vw, 0.8125rem);
+  --po-text-sm: clamp(0.8125rem, 0.78rem + 0.2vw, 0.875rem);
+  --po-text-base: clamp(0.9375rem, 0.88rem + 0.25vw, 1rem);
+  --po-text-lg: clamp(1.0625rem, 0.98rem + 0.35vw, 1.125rem);
+  --po-text-xl: clamp(1.2rem, 1.05rem + 0.5vw, 1.375rem);
+  --po-text-2xl: clamp(1.45rem, 1.2rem + 0.8vw, 1.75rem);
+  --po-text-3xl: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem);
+  --po-text-4xl: clamp(2.1rem, 1.6rem + 1.8vw, 3rem);
+  --po-text-5xl: clamp(2.5rem, 1.9rem + 2.4vw, 3.5rem);
 }
 
 * {
@@ -27,20 +58,21 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--po-text-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--pf-ink-900);
   background-color: var(--pf-canvas);
 }
 
+.font-editorial {
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+}
+
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .animate-spin {
@@ -52,12 +84,8 @@ body {
 }
 
 @keyframes pulse-line {
-  0%, 100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 .animate-pulse-line {
@@ -81,8 +109,8 @@ body {
 }
 
 @keyframes landing-glow {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.05); }
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.04); }
 }
 
 @keyframes landing-marquee {
@@ -100,33 +128,20 @@ body {
   50% { opacity: 1; transform: translateX(4px); }
 }
 
-.animate-landing-float {
-  animation: landing-float 4s ease-in-out infinite;
+@keyframes landing-signal-flow {
+  0% { stroke-dashoffset: 24; opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0.5; }
 }
 
-.animate-landing-float-delay {
-  animation: landing-float 4.5s ease-in-out 0.8s infinite;
-}
-
-.animate-landing-float-slow {
-  animation: landing-float-slow 6s ease-in-out infinite;
-}
-
-.animate-landing-float-phone {
-  animation: landing-float-phone 5s ease-in-out infinite;
-}
-
-.animate-landing-glow {
-  animation: landing-glow 5s ease-in-out infinite;
-}
-
-.animate-landing-marquee {
-  animation: landing-marquee 28s linear infinite;
-}
-
-.animate-landing-orbit {
-  animation: landing-orbit 3s ease-in-out infinite;
-}
+.animate-landing-float { animation: landing-float 4s ease-in-out infinite; }
+.animate-landing-float-delay { animation: landing-float 4.5s ease-in-out 0.8s infinite; }
+.animate-landing-float-slow { animation: landing-float-slow 6s ease-in-out infinite; }
+.animate-landing-float-phone { animation: landing-float-phone 5s ease-in-out infinite; }
+.animate-landing-glow { animation: landing-glow 5s ease-in-out infinite; }
+.animate-landing-marquee { animation: landing-marquee 28s linear infinite; }
+.animate-landing-orbit { animation: landing-orbit 3s ease-in-out infinite; }
+.animate-landing-signal { animation: landing-signal-flow 2.8s ease-in-out infinite; }
 
 .landing-shimmer {
   background: linear-gradient(
@@ -180,7 +195,7 @@ body {
 .landing-reel-rim-light {
   background: radial-gradient(
     ellipse 80% 60% at 85% 25%,
-    rgba(240, 90, 26, 0.45) 0%,
+    rgba(255, 77, 61, 0.35) 0%,
     transparent 55%
   );
   animation: landing-reel-rim-pulse 4s ease-in-out infinite;
@@ -199,10 +214,10 @@ body {
 .landing-gradient-shift {
   background: linear-gradient(
     135deg,
-    var(--pf-forge-600),
-    #7c3aed,
-    var(--pf-forge-700),
-    #1e1b4b
+    var(--po-midnight),
+    #1a1f2e,
+    var(--po-signal-600),
+    var(--po-midnight)
   );
   background-size: 300% 300%;
   animation: gradient-shift 8s ease infinite;
@@ -213,7 +228,7 @@ body {
   50% { background-position: 100% 50%; }
 }
 
-/* Studio preview — cute content-generating overlay */
+/* Studio preview overlay */
 @keyframes preview-gen-gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -288,10 +303,9 @@ body {
 .preview-gen-gradient {
   background: linear-gradient(
     135deg,
-    #f47538 0%,
-    #ec4899 35%,
-    #a855f7 65%,
-    #6366f1 100%
+    var(--po-vermilion) 0%,
+    var(--po-signal) 50%,
+    var(--po-midnight) 100%
   );
   background-size: 200% 200%;
   animation: preview-gen-gradient-shift 5s ease infinite;
@@ -322,38 +336,29 @@ body {
 .preview-gen-blink { transform-origin: center; animation: preview-gen-blink 4s ease-in-out infinite; }
 .preview-gen-sparkle-pulse { animation: preview-gen-sparkle-pulse 1.4s ease-in-out infinite; }
 
-/* Fallback utilities — ensures design tokens work even if Tailwind JIT misses a class */
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer utilities {
-  .bg-canvas {
-    background-color: var(--pf-canvas);
-  }
-  .bg-ink-900 {
-    background-color: var(--pf-ink-900);
-  }
-  .bg-ink-950 {
-    background-color: #0a0a0a;
-  }
-  .bg-forge-600 {
-    background-color: var(--pf-forge-600);
-  }
-  .bg-forge-700 {
-    background-color: var(--pf-forge-700);
-  }
-  .text-ink-900 {
-    color: var(--pf-ink-900);
-  }
-  .text-ink-500 {
-    color: var(--pf-ink-500);
-  }
-  .text-ink-400 {
-    color: var(--pf-ink-400);
-  }
-  .text-forge-600 {
-    color: var(--pf-forge-600);
-  }
-  .border-canvas-border {
-    border-color: var(--pf-canvas-border);
-  }
+  .bg-canvas { background-color: var(--pf-canvas); }
+  .bg-ink-900 { background-color: var(--pf-ink-900); }
+  .bg-ink-950 { background-color: var(--po-midnight); }
+  .bg-forge-600 { background-color: var(--pf-forge-600); }
+  .bg-forge-700 { background-color: var(--pf-forge-700); }
+  .text-ink-900 { color: var(--pf-ink-900); }
+  .text-ink-500 { color: var(--pf-ink-500); }
+  .text-ink-400 { color: var(--pf-ink-400); }
+  .text-forge-600 { color: var(--pf-forge-600); }
+  .border-canvas-border { border-color: var(--pf-canvas-border); }
   .sidebar-nav-scroll {
     overflow-y: auto;
     scrollbar-width: none;
@@ -366,7 +371,6 @@ body {
   }
 }
 
-/* App shell: keep sidebar visible on large screens (mobile off-canvas toggle) */
 @media (min-width: 1024px) {
   .app-sidebar {
     transform: translateX(0) !important;

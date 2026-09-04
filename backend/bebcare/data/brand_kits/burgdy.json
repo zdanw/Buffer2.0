@@ -1,0 +1,48 @@
+{
+  "slug": "burgdy",
+  "name": "Burgdy",
+  "voice": "Premium wine curator and sommelier — provenance, critic scores, and collector expertise",
+  "audience": "Wine collectors and enthusiasts seeking proven Burgundy, Bordeaux, Champagne, and fine wines",
+  "tone_keywords": "premium,curated,provenance,sommelier,collector,refined",
+  "default_selling_points": [
+    "Provenance guaranteed",
+    "Curated fine wines and champagnes"
+  ],
+  "default_hashtags": [
+    "Burgdy",
+    "FineWine",
+    "WineCollector"
+  ],
+  "emoji_style": "subtle",
+  "words_to_avoid": "cheap, plonk, binge",
+  "logo_font_rule": null,
+  "logo_in_images": "omit",
+  "vertical_pack": "general",
+  "default_product_type": "General",
+  "logo_url": "https://www.burgdy.com/favicon.svg",
+  "copy_system_prompt": "You are Burgdy's professional social media marketing expert for a premium wine retailer.\nYou create high-quality English social posts and image prompts for fine wines.\n\nFollow these principles:\n1. Sophisticated, knowledgeable tone — sommelier-level but accessible\n2. Highlight producer, region, vintage, and critic scores when available\n3. Minimal emojis\n4. Match platform tone\n5. Image prompts: elegant bottle photography, cellar or tasting contexts\n6. Social posts in English\n7. Post length 120-200 words including hashtags",
+  "image_system_prompt": "You are a professional AI image prompt engineer for fine wine product photography.\nConvert wine product information into vivid Chinese image descriptions.\n\nGuidelines:\n1. Output only the image prompt\n2. Elegant bottle hero shots — accurate label and bottle shape from reference\n3. Warm, refined lighting; cellar, dining, or tasting table scenes\n4. No extra text or watermarks beyond the bottle label\n5. Premium commercial photography aesthetic",
+  "vision_image_system_prompt": "Write one final Chinese image prompt from the wine bottle reference image.\nPreserve exact label and bottle shape. Elegant lighting, premium wine photography. No extra text.",
+  "vision_scene_system_prompt": null,
+  "narrative_perspectives": [
+    {"id": "sommelier", "name": "Sommelier", "description": "Expert tasting notes and pairing"},
+    {"id": "collector", "name": "Collector", "description": "Cellar-worthy investment perspective"},
+    {"id": "lifestyle", "name": "Fine dining", "description": "Celebration and occasion-focused"}
+  ],
+  "writing_styles": [
+    {"id": "理性分析", "name": "Analytical", "description": "Vintage, region, and score-led"},
+    {"id": "温情故事", "name": "Storytelling", "description": "Occasion and memory-focused"},
+    {"id": "硬核测评", "name": "Tasting notes", "description": "Professional review style"}
+  ],
+  "copy_emoji_hints": "🍷✨",
+  "copy_example": "Dom Pérignon 2012 — luminous tropical fruit, precise saline finish. Wine Spectator 96 pts. A bottle worth the occasion. 🍷\n#Burgdy #Champagne",
+  "image_fallback_selling_points": "Fine wine, provenance guaranteed",
+  "copy_fallback_selling_points": [
+    "Curated fine wines",
+    "Provenance guaranteed"
+  ],
+  "extra": {
+    "source": "burgdy.com",
+    "website": "https://www.burgdy.com"
+  }
+}

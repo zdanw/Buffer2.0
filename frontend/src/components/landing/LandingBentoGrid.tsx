@@ -5,8 +5,8 @@ import {
   Clock,
   Layers,
   PenLine,
+  Radio,
   Settings,
-  Sparkles,
   Zap,
 } from 'lucide-react';
 import PlatformIcon, { InstagramAppIcon } from '@/components/icons/PlatformIcon';
@@ -26,7 +26,7 @@ export default function LandingBentoGrid() {
         <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-white/15 blur-2xl group-hover:scale-110 transition-transform duration-700" />
         <div className="relative z-10">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wide mb-4">
-            <Sparkles className="w-3 h-3" />
+            <Radio className="w-3 h-3" />
             {t('landing.bentoPromoBadge')}
           </span>
           <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight max-w-sm">
@@ -40,9 +40,9 @@ export default function LandingBentoGrid() {
         </span>
       </Link>
 
-      <div className="col-span-1 relative overflow-hidden rounded-2xl border border-canvas-border bg-white p-5 shadow-card group hover:border-violet-200 transition-colors">
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-50 to-transparent opacity-80" />
-        <PenLine className="relative z-10 w-6 h-6 text-violet-600 mb-3" strokeWidth={1.75} />
+      <div className="col-span-1 relative overflow-hidden rounded-2xl border border-canvas-border bg-white p-5 shadow-card group hover:border-signal-200 transition-colors">
+        <div className="absolute inset-0 bg-gradient-to-br from-signal-50 to-transparent opacity-80" />
+        <PenLine className="relative z-10 w-6 h-6 text-signal-600 mb-3" strokeWidth={1.75} />
         <h3 className="relative z-10 font-bold text-ink-900 text-sm">{t('landing.step2Title')}</h3>
         <p className="relative z-10 text-ink-500 text-xs mt-1 leading-relaxed">{t('landing.step2Desc')}</p>
       </div>
@@ -103,7 +103,7 @@ export default function LandingBentoGrid() {
         </div>
         <div className="rounded-xl bg-forge-50 border border-forge-100 p-3">
           <div className="flex items-center gap-1.5 text-forge-700 text-xs font-medium mb-1">
-            <Sparkles className="w-3 h-3" />
+            <Radio className="w-3 h-3" />
             {t('landing.compareAfterLabel')}
           </div>
           <p className="text-ink-800 text-xs leading-relaxed font-medium">{t('landing.compareAfter')}</p>

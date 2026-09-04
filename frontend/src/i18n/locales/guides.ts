@@ -3,12 +3,12 @@ import type { TranslationTree } from '../types';
 export const guidesEn: TranslationTree = {
   help: {
     title: 'Help Center',
-    subtitle: 'Guides, onboarding, and answers for PulseForge',
+    subtitle: 'Guides, onboarding, and answers for Postence',
     searchPlaceholder: 'Search guides…',
     backToApp: 'Back to app',
     openArticle: 'Read guide',
     screenshotAlt: 'Screenshot: {{page}}',
-    screenshotCaption: 'PulseForge — {{page}}',
+    screenshotCaption: 'Postence — {{page}}',
     tableOfContents: 'On this page',
     stepsTitle: 'Steps',
     tipsTitle: 'Tips',
@@ -16,7 +16,7 @@ export const guidesEn: TranslationTree = {
     relatedTitle: 'Related guides',
     noResults: 'No guides match your search.',
     publicIndexHint:
-      'These guides are public and indexable. Use them to learn PulseForge before or after signing up.',
+      'These guides are public and indexable. Use them to learn Postence before or after signing up.',
     publicFaqHint: 'Answers to common questions about publishing, credits, Buffer, and generation.',
     openFaq: 'View all FAQ',
     backToIndex: 'All guides',
@@ -34,7 +34,7 @@ export const guidesEn: TranslationTree = {
           'Sign up, set up a brand and product, generate in Studio, then publish manually or on a schedule.',
         body: {
           '1':
-            'PulseForge turns your product photos and brand rules into platform-ready social posts. This guide walks you through the shortest path from a blank account to a published (or queued) post.',
+            'Postence turns your product photos and brand rules into platform-ready social posts. This guide walks you through the shortest path from a blank account to a published (or queued) post.',
           '2':
             'You can skip detailed brand setup at first — the onboarding wizard and Generic brand let you experiment immediately. Come back to Brand kits when you want consistent voice across many products.',
         },
@@ -58,7 +58,7 @@ export const guidesEn: TranslationTree = {
           'What happens when you first sign in, how to use the wizard, and how the floating checklist tracks your progress.',
         body: {
           '1':
-            'After your first login, PulseForge shows a short wizard. You can skip it anytime — your account is fully usable without finishing.',
+            'After your first login, Postence shows a short wizard. You can skip it anytime — your account is fully usable without finishing.',
           '2':
             'A floating Getting started checklist stays in the bottom-right until you complete all core steps. Click any incomplete step to jump to the right page.',
         },
@@ -78,7 +78,7 @@ export const guidesEn: TranslationTree = {
           'Define voice, audience, hashtags, and Buffer binding once — every product under the brand inherits these rules.',
         body: {
           '1':
-            'Brand kits are the single source of truth for how PulseForge writes copy and handles logos in images. Products inherit brand voice unless you override them per product.',
+            'Brand kits are the single source of truth for how Postence writes copy and handles logos in images. Products inherit brand voice unless you override them per product.',
           '2':
             'Bind one Buffer account per brand so publishes route to the correct social profiles.',
           '3':
@@ -96,7 +96,7 @@ export const guidesEn: TranslationTree = {
           '1':
             'Each product needs a name, category, and at least one reference image before Studio can generate. Product images show the item clearly; scene images show it in real environments (nursery, desk, kitchen, etc.).',
           '2':
-            'Visual setup tells PulseForge what kind of item this is (physical product, software, service, etc.) so image generation stays realistic.',
+            'Visual setup tells Postence what kind of item this is (physical product, software, service, etc.) so image generation stays realistic.',
           '3':
             'Mark a preferred reference image when you have several — Studio uses it first. You can inherit brand voice or override tone per product.',
         },
@@ -113,7 +113,7 @@ export const guidesEn: TranslationTree = {
           '1':
             'Visual styles are your catalog of image “looks”: cozy nursery, golden hour, minimalist white, etc. They are shared across your brands and filtered by product type.',
           '2':
-            'On first run, PulseForge seeds general presets automatically. Import Baby or other vertical packs if you need industry-specific options.',
+            'On first run, Postence seeds general presets automatically. Import Baby or other vertical packs if you need industry-specific options.',
           '3':
             'Link styles to products in the Products page, or let Studio pick from compatible presets for the product category.',
         },
@@ -187,11 +187,11 @@ export const guidesEn: TranslationTree = {
           'Add your Buffer API token, bind it to a brand, then publish from Studio, Review, or Automations.',
         body: {
           '1':
-            'PulseForge publishes through Buffer — you need a Buffer account with connected social profiles. Each brand kit binds to exactly one Buffer token.',
+            'Postence publishes through Buffer — you need a Buffer account with connected social profiles. Each brand kit binds to exactly one Buffer token.',
         },
         steps: {
           '1': 'In Buffer, go to Account → Developers → Create an app or use an existing access token.',
-          '2': 'In PulseForge, open Buffer accounts under Settings and paste your API token. Test the connection.',
+          '2': 'In Postence, open Buffer accounts under Settings and paste your API token. Test the connection.',
           '3': 'Open Brand kits, edit your brand, and select the Buffer account to bind.',
           '4': 'Publish from Studio, Review, or enable auto publish on an Automation.',
         },
@@ -202,7 +202,7 @@ export const guidesEn: TranslationTree = {
           'Platform credits vs bring-your-own-key (BYOK) image providers.',
         body: {
           '1':
-            'PulseForge includes platform image credits (shown in the top bar). Each image generation consumes one credit unless you configure your own provider.',
+            'Postence includes platform image credits (shown in the top bar). Each image generation consumes one credit unless you configure your own provider.',
           '2':
             'Under Image Models, add providers (e.g. Doubao) with your API key. Set one as default for your account. Automations can override the model per task.',
           '3':
@@ -229,8 +229,8 @@ export const guidesEn: TranslationTree = {
     },
     faq: {
       whatIsPulseforge: {
-        q: 'What is PulseForge?',
-        a: 'PulseForge is a multi-brand social content platform. You define brand voice and product assets, then AI generates platform-specific copy and images. Content can auto-publish via Buffer or go through a Review queue first.',
+        q: 'What is Postence?',
+        a: 'Postence is a multi-brand social content platform. You define brand voice and product assets, then AI generates platform-specific copy and images. Content can auto-publish via Buffer or go through a Review queue first.',
       },
       autoVsManual: {
         q: 'What is the difference between auto and manual publish?',
@@ -238,7 +238,7 @@ export const guidesEn: TranslationTree = {
       },
       bufferToken: {
         q: 'Why do I need a Buffer token?',
-        a: 'PulseForge does not post directly to Instagram or Facebook. Buffer handles scheduling and delivery to connected social accounts. One Buffer token is bound per brand kit.',
+        a: 'Postence does not post directly to Instagram or Facebook. Buffer handles scheduling and delivery to connected social accounts. One Buffer token is bound per brand kit.',
       },
       credits: {
         q: 'How do image credits work?',
@@ -246,7 +246,7 @@ export const guidesEn: TranslationTree = {
       },
       cdnPublish: {
         q: 'Why must images be on CDN before publishing?',
-        a: 'Generated images may start on temporary URLs. Buffer needs stable public URLs. PulseForge re-uploads to GitHub CDN; Review shows “Not on CDN” until that completes.',
+        a: 'Generated images may start on temporary URLs. Buffer needs stable public URLs. Postence re-uploads to GitHub CDN; Review shows “Not on CDN” until that completes.',
       },
       generationFails: {
         q: 'Why did generation fail?',
@@ -275,12 +275,12 @@ export const guidesEn: TranslationTree = {
 export const guidesZh: TranslationTree = {
   help: {
     title: '帮助中心',
-    subtitle: 'PulseForge 使用指南、入门说明与常见问题',
+    subtitle: 'Postence 使用指南、入门说明与常见问题',
     searchPlaceholder: '搜索指南…',
     backToApp: '返回应用',
     openArticle: '阅读指南',
     screenshotAlt: '截图：{{page}}',
-    screenshotCaption: 'PulseForge — {{page}}',
+    screenshotCaption: 'Postence — {{page}}',
     tableOfContents: '本页目录',
     stepsTitle: '操作步骤',
     tipsTitle: '提示',
@@ -303,7 +303,7 @@ export const guidesZh: TranslationTree = {
         title: '快速上手 — 5 分钟发出第一条内容',
         summary: '注册账号、配置品牌与产品、在 Studio 生成，再手动发布或定时自动化。',
         body: {
-          '1': 'PulseForge 根据产品照片与品牌规则生成各平台可用的社媒文案与配图。本指南是从空账号到发布（或进入审核队列）的最短路径。',
+          '1': 'Postence 根据产品照片与品牌规则生成各平台可用的社媒文案与配图。本指南是从空账号到发布（或进入审核队列）的最短路径。',
           '2': '初期可跳过详尽品牌配置 — 入门向导与「通用」品牌即可马上试生成。需要多产品统一语气时再完善品牌套件。',
         },
         steps: {
@@ -423,11 +423,11 @@ export const guidesZh: TranslationTree = {
         title: '连接 Buffer 发布',
         summary: '添加 Buffer API 令牌、绑定品牌，即可从 Studio、审核或自动化发布。',
         body: {
-          '1': 'PulseForge 通过 Buffer 发布到已连接的社媒账号；每个品牌套件绑定一个 Buffer 令牌。',
+          '1': 'Postence 通过 Buffer 发布到已连接的社媒账号；每个品牌套件绑定一个 Buffer 令牌。',
         },
         steps: {
           '1': '在 Buffer：账户 → 开发者 → 创建应用或获取访问令牌。',
-          '2': '在 PulseForge「Buffer 账户」中粘贴令牌并测试连接。',
+          '2': '在 Postence「Buffer 账户」中粘贴令牌并测试连接。',
           '3': '在「品牌」中编辑品牌并选择要绑定的 Buffer 账户。',
           '4': '从 Studio、审核发布，或为自动化开启自动发布。',
         },
@@ -458,7 +458,7 @@ export const guidesZh: TranslationTree = {
     },
     faq: {
       whatIsPulseforge: {
-        q: 'PulseForge 是什么？',
+        q: 'Postence 是什么？',
         a: '多品牌社媒内容平台：配置品牌语气与产品素材后，AI 生成各平台文案与配图，可经 Buffer 自动发布或先进入审核队列。',
       },
       autoVsManual: {
@@ -467,7 +467,7 @@ export const guidesZh: TranslationTree = {
       },
       bufferToken: {
         q: '为什么需要 Buffer 令牌？',
-        a: 'PulseForge 不直接对接 Instagram/Facebook API，由 Buffer 负责排队与投递；每个品牌绑定一个 Buffer 令牌。',
+        a: 'Postence 不直接对接 Instagram/Facebook API，由 Buffer 负责排队与投递；每个品牌绑定一个 Buffer 令牌。',
       },
       credits: {
         q: '出图额度怎么用？',
@@ -475,7 +475,7 @@ export const guidesZh: TranslationTree = {
       },
       cdnPublish: {
         q: '为什么发布前图像要在 CDN 上？',
-        a: '生成图可能先是临时链接，Buffer 需要稳定公网 URL。PulseForge 会同步到 GitHub CDN；审核页显示「未上传 CDN」时需先处理。',
+        a: '生成图可能先是临时链接，Buffer 需要稳定公网 URL。Postence 会同步到 GitHub CDN；审核页显示「未上传 CDN」时需先处理。',
       },
       generationFails: {
         q: '生成失败常见原因？',

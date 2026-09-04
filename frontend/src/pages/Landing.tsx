@@ -2,34 +2,47 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import BrandLogo from '@/components/BrandLogo';
+import PostenceWordmark from '@/components/PostenceWordmark';
 import LandingFooter from '@/components/landing/LandingFooter';
 import LandingBentoGrid from '@/components/landing/LandingBentoGrid';
 import LandingHeroVisual from '@/components/landing/LandingHeroVisual';
-import { pickRandomHeroTitleKey } from '@/components/landing/landingHeroTitles';
 import LandingMarquee from '@/components/landing/LandingMarquee';
-import LandingPicture from '@/components/landing/LandingPicture';
 import LandingPainSection from '@/components/landing/LandingPainSection';
 import LandingAudienceSection from '@/components/landing/LandingAudienceSection';
 import { useI18n } from '@/i18n/useI18n';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 export default function Landing() {
   const { t } = useI18n();
-  const [heroTitleKey] = useState(pickRandomHeroTitleKey);
+  const [heroTitleKey] = useState<'landing.heroTitle1'>('landing.heroTitle1');
+
+  usePageMeta({
+    title: 'Postence — AI social presence system',
+    description:
+      'Postence learns your brand, finds what is worth saying, and turns ideas into platform-native social content for Instagram, TikTok, and Facebook—with review and publishing control.',
+    canonicalPath: '/',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Postence',
+      applicationCategory: 'BusinessApplication',
+      description:
+        'AI social presence system that turns company knowledge into continuous, platform-native content.',
+    },
+  });
 
   return (
     <div className="min-h-screen bg-canvas text-ink-900">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-15%] right-[-5%] w-[55%] h-[45%] rounded-full bg-forge-200/50 blur-[100px] animate-landing-glow" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[45%] h-[40%] rounded-full bg-orange-100/60 blur-[90px] animate-landing-float-slow" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div className="absolute top-[-12%] right-[-8%] w-[50%] h-[40%] rounded-full bg-signal-50/60 blur-[100px] animate-landing-glow" />
+        <div className="absolute bottom-[-8%] left-[-8%] w-[40%] h-[35%] rounded-full bg-forge-100/40 blur-[90px] animate-landing-float-slow" />
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-canvas-border bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-canvas-border bg-paper-elevated/90 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <BrandLogo size="md" />
-            <span className="font-bold text-lg tracking-tight hidden sm:inline text-ink-900">
-              {t('brand.name')}
-            </span>
+            <PostenceWordmark size="md" className="hidden sm:inline-flex" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-ink-500">
             <a href="#showcase" className="hover:text-ink-900 transition-colors">{t('landing.navShowcase')}</a>
@@ -45,7 +58,7 @@ export default function Landing() {
             </Link>
             <Link
               to="/signup"
-              className="text-sm font-semibold bg-forge-600 text-white px-4 py-2.5 rounded-lg hover:bg-forge-700 transition-all shadow-md shadow-forge-600/20"
+              className="text-sm font-semibold bg-forge-500 text-white px-4 py-2.5 rounded-lg hover:bg-forge-600 transition-all shadow-md shadow-forge-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2"
             >
               {t('landing.getStarted')}
             </Link>
@@ -54,20 +67,23 @@ export default function Landing() {
       </header>
 
       <section className="relative">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-12 sm:pt-14 lg:pt-16 lg:pb-16">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-12 sm:pt-16 lg:pt-20 lg:pb-16">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <div className="relative z-10">
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.05] text-ink-900">
+              <p className="text-sm font-semibold text-forge-600 tracking-wide mb-4">
+                {t('brand.tagline')}
+              </p>
+              <h1 className="font-editorial text-fluid-4xl sm:text-fluid-5xl font-semibold tracking-tight leading-[1.08] text-ink-900">
                 {t(heroTitleKey)}
               </h1>
-              <p className="mt-5 text-lg text-ink-500 leading-relaxed max-w-lg">
+              <p className="mt-5 text-fluid-lg text-ink-500 leading-relaxed max-w-lg">
                 {t('landing.heroSubtitle')}
               </p>
 
               <div className="mt-8">
                 <Link
                   to="/signup"
-                  className="inline-flex items-center justify-center gap-2 bg-forge-600 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-forge-700 transition-all text-base shadow-lg shadow-forge-600/20 hover:scale-[1.02] active:scale-[0.98]"
+                  className="inline-flex items-center justify-center gap-2 bg-forge-500 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-forge-600 transition-all text-base shadow-lg shadow-forge-500/20 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2"
                 >
                   {t('landing.getStarted')}
                   <ArrowRight className="w-5 h-5" />
@@ -88,11 +104,11 @@ export default function Landing() {
       <LandingPainSection />
       <LandingAudienceSection />
 
-      <section id="showcase" className="relative py-16 sm:py-20 bg-white border-y border-canvas-border">
+      <section id="showcase" className="relative py-16 sm:py-20 bg-paper-elevated border-y border-canvas-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink-900">
+              <h2 className="text-fluid-2xl sm:text-fluid-3xl font-bold tracking-tight text-ink-900">
                 {t('landing.showcaseTitle')}
               </h2>
               <p className="text-ink-500 mt-2 max-w-xl">{t('landing.showcaseSubtitle')}</p>
@@ -109,28 +125,26 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="relative py-12 overflow-hidden">
-        <LandingPicture
-          asset="workflow"
-          className="absolute inset-0 w-full h-full object-cover opacity-[0.35] pointer-events-none scale-105"
-        />
-        <div className="absolute inset-0 bg-canvas/75 pointer-events-none" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
-          <p className="text-center text-sm font-medium text-ink-400 mb-6 uppercase tracking-wider">
+      <section className="relative py-14 sm:py-16 overflow-hidden bg-midnight text-white">
+        <div className="absolute inset-0 opacity-30 pointer-events-none" aria-hidden="true">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-signal-500/20 blur-[100px]" />
+        </div>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
+          <p className="text-sm font-medium text-ink-400 mb-4 uppercase tracking-wider">
             {t('landing.socialProof')}
           </p>
-          <blockquote className="max-w-2xl mx-auto text-center">
-            <p className="text-xl sm:text-2xl text-ink-900 font-medium leading-relaxed">
+          <blockquote className="max-w-2xl mx-auto">
+            <p className="font-editorial text-fluid-2xl sm:text-fluid-3xl text-white font-medium leading-relaxed">
               &ldquo;{t('landing.testimonialQuote')}&rdquo;
             </p>
-            <footer className="mt-4 text-sm text-ink-500">{t('landing.testimonialAuthor')}</footer>
+            <footer className="mt-4 text-sm text-ink-400">{t('landing.testimonialAuthor')}</footer>
           </blockquote>
         </div>
       </section>
 
-      <section id="how-it-works" className="py-16 sm:py-20 bg-white">
+      <section id="how-it-works" className="py-16 sm:py-20 bg-canvas">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">{t('landing.howTitle')}</h2>
+          <h2 className="text-fluid-2xl sm:text-fluid-3xl font-bold text-ink-900">{t('landing.howTitle')}</h2>
           <p className="text-ink-500 mt-2 max-w-xl mx-auto">{t('landing.howSubtitle')}</p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             {[
@@ -141,7 +155,7 @@ export default function Landing() {
             ].map((step) => (
               <div
                 key={step.key}
-                className="px-5 py-3 rounded-xl border border-canvas-border bg-canvas text-sm font-semibold text-ink-700 hover:border-forge-300 hover:bg-forge-50 transition-colors"
+                className="px-5 py-3 rounded-xl border border-canvas-border bg-paper-elevated text-sm font-semibold text-ink-700 hover:border-signal-200 hover:bg-signal-50/50 transition-colors"
               >
                 <span className="text-forge-600 mr-2">{step.n}</span>
                 {t(step.key)}
@@ -150,7 +164,7 @@ export default function Landing() {
           </div>
           <Link
             to="/signup"
-            className="mt-10 inline-flex items-center gap-2 bg-forge-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-forge-700 transition-colors shadow-md shadow-forge-600/15"
+            className="mt-10 inline-flex items-center gap-2 bg-forge-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-forge-600 transition-colors shadow-md shadow-forge-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2"
           >
             {t('landing.getStarted')}
             <ArrowRight className="w-4 h-4" />
@@ -158,27 +172,29 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="relative overflow-hidden border-t border-canvas-border bg-forge-50">
+      <section className="relative overflow-hidden border-t border-canvas-border bg-midnight">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink-900">{t('landing.ctaTitle')}</h2>
-          <p className="text-ink-500 mt-4 max-w-md mx-auto">{t('landing.ctaSubtitle')}</p>
+          <h2 className="font-editorial text-fluid-3xl sm:text-fluid-4xl font-semibold tracking-tight text-white">
+            {t('landing.ctaTitle')}
+          </h2>
+          <p className="text-ink-400 mt-4 max-w-md mx-auto">{t('landing.ctaSubtitle')}</p>
           <Link
             to="/signup"
-            className="mt-8 inline-flex items-center gap-2 bg-forge-600 text-white font-semibold px-10 py-4 rounded-xl hover:bg-forge-700 transition-all text-base shadow-lg shadow-forge-600/20 hover:scale-[1.02]"
+            className="mt-8 inline-flex items-center gap-2 bg-forge-500 text-white font-semibold px-10 py-4 rounded-xl hover:bg-forge-600 transition-all text-base shadow-lg shadow-forge-500/25 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 focus-visible:ring-offset-midnight"
           >
             {t('landing.getStarted')}
             <ArrowRight className="w-5 h-5" />
           </Link>
-          <p className="mt-4 text-xs text-ink-400">{t('landing.heroNote')}</p>
+          <p className="mt-4 text-xs text-ink-500">{t('landing.heroNote')}</p>
         </div>
       </section>
 
       <LandingFooter />
 
-      <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 border-t border-canvas-border backdrop-blur sm:hidden">
+      <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-paper-elevated/95 border-t border-canvas-border backdrop-blur sm:hidden">
         <Link
           to="/signup"
-          className="flex items-center justify-center gap-2 w-full bg-forge-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-forge-600/20"
+          className="flex items-center justify-center gap-2 w-full bg-forge-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-forge-500/20"
         >
           {t('landing.stickyCta')}
           <ArrowRight className="w-4 h-4" />

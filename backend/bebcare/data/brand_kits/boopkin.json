@@ -1,0 +1,48 @@
+{
+  "slug": "boopkin",
+  "name": "Boopkin",
+  "voice": "Warm, calm, and intentional — biodynamic nursery essentials for present caregivers",
+  "audience": "New parents and caregivers who want a quieter nursery and fewer distracting gadgets",
+  "tone_keywords": "warm,calm,intentional,biodynamic,trustworthy,present",
+  "default_selling_points": [
+    "Biodynamic baby-safe products",
+    "Designed for calm, hands-free routines"
+  ],
+  "default_hashtags": [
+    "Boopkin",
+    "NurseryEssentials",
+    "CalmParenting"
+  ],
+  "emoji_style": "moderate",
+  "words_to_avoid": "cheap, noisy, complicated, overwhelming",
+  "logo_font_rule": "Always use the official Boopkin wordmark; do not recreate or alter the logo",
+  "logo_in_images": "preserve",
+  "vertical_pack": "baby_family",
+  "default_product_type": "Night Lights",
+  "logo_url": "https://www.boopkin.com/assets/brand/favicon-source.png",
+  "copy_system_prompt": "You are Boopkin's professional social media marketing expert.\nYou create high-quality English social posts and image prompts for biodynamic nursery products.\n\nFollow these principles:\n1. Warm, calm, intentional tone — presence over pile-up\n2. Highlight hands-free convenience and quiet routines where relevant\n3. Use emojis sparingly and appropriately\n4. Match platform tone and length\n5. Image prompts must describe scene, lighting, and composition clearly\n6. Social posts must be in English\n7. Post length 120-200 words including hashtags",
+  "image_system_prompt": "You are a professional AI image prompt engineer focused on premium nursery and feeding products.\nConvert product information into vivid Chinese image descriptions for commercial product photography.\n\nGuidelines:\n1. Output only the image prompt\n2. Warm, calm nursery atmosphere — soft natural light, uncluttered spaces\n3. Accurate product shape, color, and materials from reference\n4. No extra text, watermarks, or invented logos beyond product printing\n5. Lifestyle scenes feel real and unhurried",
+  "vision_image_system_prompt": "You are a professional AI image prompt engineer for Boopkin nursery products.\nWrite one final Chinese image prompt from the reference image only.\n\nGuidelines:\n1. Preserve exact product appearance from the reference\n2. Calm, warm lifestyle scenes; soft natural light\n3. No extra text or watermarks except product printing\n4. Commercial nursery photography quality",
+  "vision_scene_system_prompt": null,
+  "narrative_perspectives": [
+    {"id": "busy_mom", "name": "Busy parent", "description": "Real, relatable caregiver perspective"},
+    {"id": "new_parent", "name": "New parent", "description": "Honest first-time parenting experience"},
+    {"id": "lifestyle", "name": "Calm home", "description": "Intentional, minimal nursery aesthetic"}
+  ],
+  "writing_styles": [
+    {"id": "种草风", "name": "Recommendation", "description": "Friendly, recommendatory"},
+    {"id": "温情故事", "name": "Storytelling", "description": "Warm narrative"},
+    {"id": "理性分析", "name": "Analytical", "description": "Benefit-led, clear"}
+  ],
+  "copy_emoji_hints": "🍼🌙✨🤍",
+  "copy_example": "Late-night pumping shouldn't mean choosing between comfort and connection. ComfyBoop fits in your bra — quiet, strong, and easy to clean. ✨\n#Boopkin #NurseryEssentials",
+  "image_fallback_selling_points": "Biodynamic nursery essentials",
+  "copy_fallback_selling_points": [
+    "Calm nursery routines",
+    "Biodynamic baby-safe design"
+  ],
+  "extra": {
+    "source": "babycommon_boopkin_sites",
+    "website": "https://www.boopkin.com"
+  }
+}

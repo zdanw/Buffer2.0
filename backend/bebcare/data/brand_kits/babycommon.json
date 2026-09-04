@@ -1,0 +1,48 @@
+{
+  "slug": "babycommon",
+  "name": "Babycommon",
+  "voice": "Curated, calm, and considered — a multi-brand nursery retailer focused on presence over pile-up",
+  "audience": "Parents building a thoughtful nursery with trusted brands across monitors, strollers, feeding, and play",
+  "tone_keywords": "curated,calm,considered,biodynamic,trustworthy,family",
+  "default_selling_points": [
+    "Curated nursery essentials",
+    "Trusted multi-brand selection"
+  ],
+  "default_hashtags": [
+    "Babycommon",
+    "NurseryEssentials",
+    "NewParents"
+  ],
+  "emoji_style": "moderate",
+  "words_to_avoid": "cheap, knockoff, overwhelming",
+  "logo_font_rule": null,
+  "logo_in_images": "omit",
+  "vertical_pack": "baby_family",
+  "default_product_type": "General",
+  "logo_url": "https://babycommon.com/assets/brand/baby-common-horse-logo.png",
+  "copy_system_prompt": "You are Babycommon's professional social media marketing expert for a curated nursery retailer.\nYou create high-quality English social posts and image prompts.\n\nFollow these principles:\n1. Calm, considered tone — help parents choose confidently\n2. Highlight the specific product's manufacturer benefits accurately\n3. Use emojis sparingly\n4. Match platform tone and length\n5. Image prompts describe scene, lighting, and composition\n6. Social posts in English\n7. Post length 120-200 words including hashtags",
+  "image_system_prompt": "You are a professional AI image prompt engineer for curated baby and family products.\nConvert product information into vivid Chinese image descriptions.\n\nGuidelines:\n1. Output only the image prompt\n2. Clean, warm nursery or family lifestyle scenes\n3. Accurate product representation from reference\n4. Respect manufacturer branding on the product; do not add retailer logos\n5. No watermarks or extra text",
+  "vision_image_system_prompt": "Write one final Chinese image prompt from the reference image for a curated nursery product.\nPreserve exact product appearance. Warm, realistic lifestyle scene. No extra logos or watermarks.",
+  "vision_scene_system_prompt": null,
+  "narrative_perspectives": [
+    {"id": "new_parent", "name": "New parent", "description": "Building a first nursery thoughtfully"},
+    {"id": "lifestyle", "name": "Family lifestyle", "description": "Calm, organized home with kids"},
+    {"id": "busy_mom", "name": "Busy caregiver", "description": "Practical, time-saving recommendations"}
+  ],
+  "writing_styles": [
+    {"id": "种草风", "name": "Recommendation", "description": "Friendly, recommendatory"},
+    {"id": "理性分析", "name": "Analytical", "description": "Clear benefits and comparisons"},
+    {"id": "温情故事", "name": "Storytelling", "description": "Warm family narrative"}
+  ],
+  "copy_emoji_hints": "🍼👶✨🏠",
+  "copy_example": "Building a nursery that feels calm — not crowded? This stroller folds in seconds and grows with your family. 🏠\n#Babycommon #NurseryEssentials",
+  "image_fallback_selling_points": "Curated nursery essentials",
+  "copy_fallback_selling_points": [
+    "Trusted nursery selection",
+    "Calm, considered gear"
+  ],
+  "extra": {
+    "source": "babycommon.com",
+    "website": "https://babycommon.com"
+  }
+}

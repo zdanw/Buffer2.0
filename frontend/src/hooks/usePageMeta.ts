@@ -8,8 +8,8 @@ export type PageMeta = {
   noIndex?: boolean;
 };
 
-const SITE_NAME = 'PulseForge';
-const JSON_LD_ID = 'pulseforge-page-jsonld';
+const SITE_NAME = 'Postence';
+const JSON_LD_ID = 'postence-page-jsonld';
 
 function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   let el = document.querySelector(`meta[${attr}="${key}"]`);

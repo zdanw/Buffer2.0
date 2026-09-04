@@ -1,6 +1,6 @@
-# PulseForge
+# Postence
 
-> Social content, forged at scale — multi-brand AI social media automation.
+> Presence that compounds — AI social presence system for multi-brand content operations.
 
 ## Documentation (preferred for LLM ingestion)
 

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import BrandLogo from '@/components/BrandLogo';
+import PostenceWordmark from '@/components/PostenceWordmark';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -21,7 +22,7 @@ export default function LandingFooter() {
           <div className="sm:col-span-2 lg:col-span-2">
             <Link to="/" className="inline-flex items-center gap-2.5">
               <BrandLogo size="md" />
-              <span className="font-bold text-lg tracking-tight text-ink-900">{t('brand.name')}</span>
+              <PostenceWordmark size="md" />
             </Link>
             <p className="mt-4 text-sm text-ink-500 leading-relaxed max-w-md">
               {t('landing.footerDescription')}

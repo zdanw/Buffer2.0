@@ -56,7 +56,7 @@ export default function LandingHeroVisual() {
                   <div className="absolute inset-0 landing-reel-sweep pointer-events-none" />
                   <div className="absolute inset-0 landing-reel-grain pointer-events-none" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/45 pointer-events-none" />
-                  <div className="absolute inset-0 bg-gradient-to-br from-forge-600/15 via-transparent to-violet-900/20 pointer-events-none landing-reel-color-grade" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-forge-600/10 via-transparent to-signal-500/15 pointer-events-none landing-reel-color-grade" />
                 </div>
 
                 <div className="absolute top-0 inset-x-0 z-20 flex justify-between items-center px-5 pt-2 text-[8px] font-semibold text-white">

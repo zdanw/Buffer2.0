@@ -103,7 +103,7 @@ export const pagesEn: TranslationTree = {
       brand:
         'Which brand kit supplies voice, hashtags, logo rules, and Buffer account.\n\nExample: Pick "Fisher-Price" so posts inherit that brand\'s tone and publish channel.',
       visualSetup:
-        'Tells PulseForge whether to present this as a physical product, software, service, digital content, event, or mixed offering.',
+        'Tells Postence whether to present this as a physical product, software, service, digital content, event, or mixed offering.',
     },
   },
   brands: {
@@ -257,7 +257,7 @@ export const pagesEn: TranslationTree = {
     invoiceCredits: '{{n}} credits left',
   },
   onboarding: {
-    welcomeTitle: 'Welcome to PulseForge',
+    welcomeTitle: 'Welcome to Postence',
     welcomeSubtitle: 'Create your first social post in under 5 minutes',
     getStarted: 'Get started',
     skip: 'Skip for now',
@@ -970,7 +970,7 @@ export const pagesZh: TranslationTree = {
       brand:
         '继承哪个品牌套件的调性、话题标签、Logo 规则与 Buffer 账户。\n\n例：选「Fisher-Price」则帖子用该品牌语气并从对应 Buffer 发布。',
       visualSetup:
-        '告诉 PulseForge 应按实体产品、软件、服务、数字内容、活动还是混合类型来呈现。',
+        '告诉 Postence 应按实体产品、软件、服务、数字内容、活动还是混合类型来呈现。',
     },
   },
   brands: {
@@ -1124,7 +1124,7 @@ export const pagesZh: TranslationTree = {
     invoiceCredits: '剩余 {{n}} 次',
   },
   onboarding: {
-    welcomeTitle: '欢迎使用 PulseForge',
+    welcomeTitle: '欢迎使用 Postence',
     welcomeSubtitle: '5 分钟内生成第一条社媒内容',
     getStarted: '开始使用',
     skip: '暂时跳过',

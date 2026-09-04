@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 init_db()
 
 app = FastAPI(
-    title="PulseForge API",
-    description="全自动社媒内容生成与发布系统",
+    title="Postence API",
+    description="AI social presence system — content generation and publishing",
     version="2.0.0"
 )
 
