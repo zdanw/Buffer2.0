@@ -22,7 +22,13 @@ export const LIMITS = {
   generateCopyCount: { min: 1, max: 10 },
 } as const;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Google-style standards:
+ *  Email: local part starts/ends alphanumeric, separators (._%+-) single only;
+ *  domain labels start/end alphanumeric (hyphen inside allowed), at least two labels.
+ *  Username: starts with a letter, ends alphanumeric; only letters, digits,
+ *  dots and underscores; no consecutive separators. */
+const EMAIL_RE = /^[A-Za-z0-9]+(?:[._%+-][A-Za-z0-9]+)*@[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:\.[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)+$/;
+const USERNAME_RE = /^[A-Za-z](?:[A-Za-z0-9]*(?:[._][A-Za-z0-9]+)*)$/;
 const ITEM_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
@@ -49,6 +55,19 @@ export function createValidators(t: TranslateFn) {
     if (value == null || !value.trim()) return optional ? null : t('validation.required', { label });
     if (value.length > LIMITS.email) return t('validation.maxLenSimple', { label, max: LIMITS.email });
     if (!EMAIL_RE.test(value.trim())) return t('validation.emailFormat', { label });
+    return null;
+  };
+
+  const usernameFormat = (label: string, value: string | undefined | null): string | null => {
+    if (value == null || !value.trim()) return t('validation.required', { label });
+    if (value.trim().length < LIMITS.username.min || value.trim().length > LIMITS.username.max) {
+      return t('validation.usernameLen', {
+        label,
+        min: LIMITS.username.min,
+        max: LIMITS.username.max,
+      });
+    }
+    if (!USERNAME_RE.test(value.trim())) return t('validation.usernameFormat');
     return null;
   };
 
@@ -82,7 +101,12 @@ export function createValidators(t: TranslateFn) {
     return null;
   };
 
-  return { required, maxLen, minLen, emailFormat, cronFormat, intInRange, itemIdFormat };
+  return { required, maxLen, minLen, emailFormat, usernameFormat, cronFormat, intInRange, itemIdFormat };
+}
+
+/** Login identifier containing '@' is treated as an email, otherwise as a username. */
+export function loginLooksLikeEmail(identifier: string): boolean {
+  return identifier.includes('@');
 }
 
 /** Show validation errors; returns true if submission should abort */

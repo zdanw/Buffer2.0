@@ -30,7 +30,7 @@ const generateRandomPassword = (): string => {
 
 function UserManagement() {
   const { t, locale } = useI18n();
-  const { required, maxLen, minLen, emailFormat } = useValidators();
+  const { required, maxLen, minLen, emailFormat, usernameFormat } = useValidators();
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,9 +89,7 @@ function UserManagement() {
     setSuccess('');
     if (
       alertValidationErrors([
-        required(t('users.username'), newUser.username),
-        minLen(t('users.username'), newUser.username, LIMITS.username.min),
-        maxLen(t('users.username'), newUser.username, LIMITS.username.max),
+        usernameFormat(t('users.username'), newUser.username),
         emailFormat(t('users.email'), newUser.email, true),
         required(t('users.password'), newUser.password),
         minLen(t('users.password'), newUser.password, LIMITS.password.min),

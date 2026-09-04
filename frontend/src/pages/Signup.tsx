@@ -25,9 +25,8 @@ export default function Signup() {
     setError('');
     if (
       alertValidationErrors([
-        v.required(t('signup.username'), username),
-        v.maxLen(t('signup.username'), username, LIMITS.username.max),
-        v.required(t('signup.email'), email),
+        v.usernameFormat(t('signup.username'), username),
+        v.emailFormat(t('signup.email'), email),
         v.required(t('signup.password'), password),
         v.minLen(t('signup.password'), password, LIMITS.password.min),
         v.maxLen(t('signup.password'), password, LIMITS.password.max),

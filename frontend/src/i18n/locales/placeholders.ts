@@ -49,7 +49,7 @@ export const placeholdersEn: TranslationTree = {
       autoPassword: 'Min. 6 characters',
     },
     login: {
-      username: 'e.g. admin',
+      username: 'e.g. admin or admin@company.com',
       password: 'Your password',
     },
     signup: {
@@ -127,7 +127,7 @@ export const placeholdersZh: TranslationTree = {
       autoPassword: '至少 6 位字符',
     },
     login: {
-      username: '例如：admin',
+      username: '例如：admin 或 admin@company.com',
       password: '请输入密码',
     },
     signup: {
