@@ -6,6 +6,7 @@ Revises: 035_single_model_per_provider
 
 from alembic import op
 
+
 revision = "036_clear_brand_vision"
 down_revision = "035_single_model_per_provider"
 branch_labels = None

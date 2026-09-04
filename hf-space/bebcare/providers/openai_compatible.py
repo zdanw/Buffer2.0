@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
 from bebcare.providers.image_model_filter import (
     filter_openai_compatible_models,
     is_openrouter_base_url,
@@ -55,27 +56,37 @@ class OpenAICompatibleImageProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "1024x1024",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = model or self.default_model
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = req.model or self.default_model
         if not model_id:
             raise ValueError("image model is required")
 
         data = {
             "model": model_id,
-            "prompt": prompt,
-            "size": size,
+            "prompt": req.prompt_with_role_labels(),
+            "size": req.size,
             "n": 1,
         }
-        if negative_prompt:
-            data["negative_prompt"] = negative_prompt
-        if reference_images:
+        if req.negative_prompt:
+            data["negative_prompt"] = req.negative_prompt
+        refs = req.ordered_urls()
+        if refs:
             # Best-effort: many OpenAI-compatible gateways accept `image` as URL(s)
-            data["image"] = reference_images if len(reference_images) > 1 else reference_images[0]
+            data["image"] = refs if len(refs) > 1 else refs[0]
         data.update(self.extra_params)
         # Agnes / LiteLLM rejects response_format for some models (e.g. agnes-t2i-*).
         # Default to URL responses; opt in via extra_params only for non-Agnes gateways.

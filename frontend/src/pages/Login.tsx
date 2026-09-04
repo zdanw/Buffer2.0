@@ -5,6 +5,7 @@ import type { LoginData } from '../api/auth';
 import {
   LIMITS,
   alertValidationErrors,
+  loginLooksLikeEmail,
 } from '@/lib/formValidation';
 import { useI18n } from '@/i18n/useI18n';
 import { useValidators } from '@/i18n/helpers';
@@ -24,10 +25,12 @@ function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const identifier = username.trim();
     if (
       alertValidationErrors([
-        v.required(t('login.username'), username),
-        v.maxLen(t('login.username'), username, LIMITS.username.max),
+        loginLooksLikeEmail(identifier)
+          ? v.emailFormat(t('login.username'), identifier)
+          : v.usernameFormat(t('login.username'), identifier),
         v.required(t('login.password'), password),
         v.minLen(t('login.password'), password, LIMITS.password.min),
         v.maxLen(t('login.password'), password, LIMITS.password.max),
@@ -38,7 +41,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const data: LoginData = { username, password };
+      const data: LoginData = { username: identifier, password };
       const response = await login(data);
 
       if (response && response.access_token) {
@@ -75,6 +78,7 @@ function Login() {
             onChange={(e) => setUsername(e.target.value)}
             required
             maxLength={LIMITS.username.max}
+            autoComplete="username"
             className="w-full px-4 py-3 border border-canvas-border rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent transition-all"
             placeholder={t('placeholders.login.username')}
           />

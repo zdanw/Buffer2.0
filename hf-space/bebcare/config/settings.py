@@ -107,6 +107,35 @@ class Settings(BaseSettings):
     resend_api_key: str | None = None
     resend_from: str | None = None
 
+    # Phase 1A grounded reference selection. Default off preserves current random
+    # scene-first behavior. Recommended first enablement: studio.
+    # off | studio | manual_automation | all
+    grounded_rollout_mode: str = "off"
+    # 64-bit pHash bit Hamming distance; near-duplicates are excluded as supporting refs.
+    phash_near_duplicate_hamming: int = 8
+
+    # Phase 2B semantic asset intelligence. Default off: no vision analysis calls.
+    # off | studio | all
+    asset_intelligence_mode: str = "off"
+    # Phase 3A deterministic quality protection. Default off: no new blocking.
+    # off | studio | manual_automation | all
+    quality_protection_mode: str = "off"
+    # Product Fidelity Guard v1 checkpoint A. off | studio | all
+    product_fidelity_prevention_mode: str = "off"
+    # Product Fidelity Guard v1 checkpoint B. off | studio | auto_publish | all
+    visual_fidelity_qa_mode: str = "off"
+    # platform = existing vision/deepseek OpenAI-compatible URL.
+    # owner_gemini_byok = local owner-scoped native Gemini Interactions (dev/benchmark).
+    # google_openai_compat is a legacy alias for owner_gemini_byok; it does not call /openai.
+    visual_fidelity_qa_transport: str = "platform"
+    visual_fidelity_qa_google_api_key: str | None = None
+    visual_fidelity_qa_google_model: str = "gemini-2.5-flash"
+    asset_intelligence_transport: str = "platform"
+    owner_gemini_analysis_model: str | None = None
+    owner_gemini_byok_vpn_profile: str | None = None
+    # Quality and Diversity Selector. Default off. off | studio | manual_automation | all
+    quality_diversity_selector_mode: str = "off"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(_BACKEND_DIR, ".env"),
         extra="ignore",
@@ -137,6 +166,74 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return ",".join(str(v).strip() for v in value if str(v).strip())
         return str(value)
+
+    @field_validator("grounded_rollout_mode", mode="before")
+    @classmethod
+    def normalize_grounded_rollout_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("asset_intelligence_mode", mode="before")
+    @classmethod
+    def normalize_asset_intelligence_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("quality_protection_mode", mode="before")
+    @classmethod
+    def normalize_quality_protection_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("product_fidelity_prevention_mode", mode="before")
+    @classmethod
+    def normalize_product_fidelity_prevention_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("visual_fidelity_qa_mode", mode="before")
+    @classmethod
+    def normalize_visual_fidelity_qa_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "auto_publish", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
+
+    @field_validator("visual_fidelity_qa_transport", mode="before")
+    @classmethod
+    def normalize_visual_fidelity_qa_transport(cls, value: str) -> str:
+        allowed = {"platform", "owner_gemini_byok", "google_openai_compat"}
+        mode = str(value or "platform").strip().lower()
+        return mode if mode in allowed else "platform"
+
+    @field_validator("asset_intelligence_transport", mode="before")
+    @classmethod
+    def normalize_asset_intelligence_transport(cls, value: str) -> str:
+        allowed = {"platform", "owner_gemini_byok", "google_openai_compat"}
+        mode = str(value or "platform").strip().lower()
+        return mode if mode in allowed else "platform"
+
+    @field_validator("quality_diversity_selector_mode", mode="before")
+    @classmethod
+    def normalize_quality_diversity_selector_mode(cls, value: str) -> str:
+        allowed = {"off", "studio", "manual_automation", "all"}
+        mode = str(value or "off").strip().lower()
+        if mode not in allowed:
+            return "off"
+        return mode
 
     @property
     def cors_origins(self) -> list[str]:

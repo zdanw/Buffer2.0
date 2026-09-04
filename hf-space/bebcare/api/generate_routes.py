@@ -6,13 +6,19 @@ from bebcare.models import Product
 from bebcare.models.image_provider import ImageProviderConfig
 from bebcare.models.user import User
 from bebcare.schemas.generate import (
+    CompareSelectionRequest,
     GenerateRequest,
     GenerateResponse,
     ReferenceSelectionRequest,
     ReferenceSelectionResponse,
 )
 from bebcare.generator.content_generator import ContentGenerator
-from bebcare.utils.reference_selector import resolve_reference_images, select_reference_images
+from bebcare.utils.reference_selector import resolve_generate_references
+from bebcare.services.grounded_rollout import (
+    SOURCE_STUDIO,
+    grounded_rollout_mode,
+    selection_provenance,
+)
 from bebcare.services.auth_dependency import get_current_active_user
 from bebcare.services.brand_context import enrich_product_info
 from bebcare.services.generate_task_store import (
@@ -47,32 +53,66 @@ def _image_progress_callback(task_id: str, start: int, end: int):
     return callback
 
 
-def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
+def _studio_selector_context(product, request, db, *, source: str = SOURCE_STUDIO):
+    from bebcare.services.asset_intelligence import load_usable_analyses
+    from bebcare.services.quality_diversity_context import build_selector_context
+
+    intel = {}
     try:
-        selected = resolve_reference_images(
+        intel = load_usable_analyses(
+            db, owner_user_id=product.owner_user_id, product_id=str(product.product_id)
+        )
+    except Exception:
+        intel = {}
+    brand = getattr(product, "brand", None)
+    return build_selector_context(
+        source=source,
+        product=product,
+        image_size=getattr(request, "image_size", None),
+        use_scene_reference=bool(getattr(request, "use_scene_reference", False)),
+        realistic_placement=bool(getattr(request, "realistic_placement", True)),
+        style_hint=getattr(request, "style_hint", None),
+        reference_count=getattr(request, "reference_count", 1) or 1,
+        logo_mode=getattr(brand, "logo_in_images", None) if brand is not None else None,
+        intelligence_by_image=intel,
+    )
+
+
+def _build_product_info(
+    product, request: GenerateRequest, db: Session, *, source: str = SOURCE_STUDIO
+) -> dict:
+    try:
+        selected = resolve_generate_references(
             db,
-            request.product_id,
-            request.reference_count,
-            request.use_scene_reference,
+            product_id=request.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=request.reference_count,
+            use_scene_reference=request.use_scene_reference,
+            source=source,
+            image_size=request.image_size,
             pinned_product_images=request.reference_product_images,
             pinned_scene_images=request.reference_scene_images,
+            pinned_product_image_ids=request.reference_product_image_ids,
+            pinned_scene_image_ids=request.reference_scene_image_ids,
+            requested_experiment=request.experiment_variant,
+            selector_context=_studio_selector_context(product, request, db, source=source),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if request.use_scene_reference and not selected["use_scene_reference"]:
+    if request.use_scene_reference and not selected.use_scene_reference:
         logger.warning(
             "No scene images for product %s, falling back to regular mode",
             request.product_id,
         )
-    if request.use_scene_reference and not selected["reference_product_images"]:
+    if request.use_scene_reference and not selected.reference_product_images:
         logger.warning("No product images for product %s", request.product_id)
     if (
         not request.use_scene_reference
-        and len(selected["reference_images"]) < request.reference_count
+        and len(selected.reference_images) < request.reference_count
     ):
         logger.warning(
             "Only %s images for product %s, requested %s",
-            len(selected["reference_images"]),
+            len(selected.reference_images),
             request.product_id,
             request.reference_count,
         )
@@ -84,12 +124,12 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "description": product.description,
         "selling_points": product.selling_points,
         "brand_voice": product.brand_voice,
-        "reference_images": selected["reference_images"],
-        "reference_product_images": selected["reference_product_images"],
-        "reference_scene_images": selected["reference_scene_images"],
+        "reference_images": selected.reference_images,
+        "reference_product_images": selected.reference_product_images,
+        "reference_scene_images": selected.reference_scene_images,
         "platform": request.platform,
         "style_hint": request.style_hint,
-        "use_scene_reference": selected["use_scene_reference"],
+        "use_scene_reference": selected.use_scene_reference,
         "use_vision_image_prompt": bool(request.use_vision_image_prompt),
         "realistic_placement": bool(request.realistic_placement),
         "image_provider_id": request.image_provider_id,
@@ -99,8 +139,21 @@ def _build_product_info(product, request: GenerateRequest, db: Session) -> dict:
         "owner_user_id": product.owner_user_id,
         "locale": request.locale or "en",
         "image_prompt_pipeline": request.image_prompt_pipeline,
+        "compare_group_id": request.compare_group_id,
+        "experiment_variant": selected.experiment_variant,
+        "executed_pipeline_version": selected.executed_pipeline_version,
+        "grounded_phase1b_enabled": bool(selected.grounded),
+        "generation_provenance": selection_provenance(selected, source=source),
+        "asset_intelligence": getattr(selected, "asset_intelligence", None),
+        "asset_intelligence_results": (
+            (getattr(selected, "asset_intelligence", None) or {}).get("results") or []
+        ),
     }
-    return enrich_product_info(db, product, base)
+    from bebcare.services.generation_plan import attach_generation_plan
+
+    enriched = enrich_product_info(db, product, base)
+    attach_generation_plan(enriched)
+    return enriched
 
 
 @router.post("/reference-selection/", response_model=ReferenceSelectionResponse)
@@ -109,16 +162,57 @@ def resolve_reference_selection(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    get_owned_or_404(
+    from bebcare.services.generation_diagnostics import build_planned_diagnostics
+
+    product = get_owned_or_404(
         db, Product, request.product_id, current_user, id_attr="product_id"
     )
-    selected = select_reference_images(
-        db,
-        request.product_id,
-        request.reference_count,
-        request.use_scene_reference,
+    try:
+        selected = resolve_generate_references(
+            db,
+            product_id=request.product_id,
+            owner_user_id=product.owner_user_id,
+            reference_count=request.reference_count,
+            use_scene_reference=request.use_scene_reference,
+            source=SOURCE_STUDIO,
+            image_size=request.image_size,
+            pinned_product_image_ids=request.reference_product_image_ids,
+            pinned_scene_image_ids=request.reference_scene_image_ids,
+            selector_context=_studio_selector_context(product, request, db),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ReferenceSelectionResponse(
+        reference_images=selected.reference_images,
+        reference_product_images=selected.reference_product_images,
+        reference_scene_images=selected.reference_scene_images,
+        use_scene_reference=selected.use_scene_reference,
+        reference_product_image_ids=selected.manifest
+        and [
+            item["image_id"]
+            for item in selected.manifest.get("items", [])
+            if item.get("image_type") == "product" and item.get("image_id")
+        ]
+        or [],
+        reference_scene_image_ids=selected.manifest
+        and [
+            item["image_id"]
+            for item in selected.manifest.get("items", [])
+            if item.get("image_type") == "scene" and item.get("image_id")
+        ]
+        or [],
+        reference_manifest=selected.manifest,
+        generation_diagnostics=build_planned_diagnostics(
+            selection_payload={
+                "selector_trace": selected.selector_trace,
+                "executed_selector_strategy": selected.executed_selector_strategy,
+                "requested_selector_strategy": selected.requested_selector_strategy,
+                "selection_seed": selected.selection_seed,
+                "manifest": selected.manifest,
+            },
+            include_technical=bool(current_user.is_admin),
+        ).model_dump(),
     )
-    return ReferenceSelectionResponse(**selected)
 
 
 def _owned_generate_product(
@@ -218,6 +312,58 @@ def _create_task_and_maybe_reserve(
         ) from exc
 
 
+def _record_studio_generation_run(
+    db: Session, *, task_id: str, product, request: GenerateRequest, product_info: dict
+) -> None:
+    from bebcare.services.generation_run_store import create_generation_run
+    from bebcare.services.quality_protection_rollout import (
+        POLICY_VERSION,
+        quality_protection_mode,
+    )
+    from bebcare.services.product_fidelity_rollout import (
+        VISUAL_POLICY_VERSION,
+        product_fidelity_prevention_mode,
+        visual_fidelity_qa_mode,
+    )
+
+    provenance = product_info.get("generation_provenance") or {}
+    run = create_generation_run(
+        db,
+        owner_user_id=product.owner_user_id,
+        source=SOURCE_STUDIO,
+        product_id=str(product.product_id),
+        generate_task_id=task_id,
+        rollout_mode_at_start=provenance.get("rollout_mode_at_start") or grounded_rollout_mode(),
+        experiment_variant=provenance.get("experiment_variant"),
+        requested_pipeline_version=provenance.get("requested_pipeline_version") or "baseline_current",
+        executed_pipeline_version=provenance.get("executed_pipeline_version") or "legacy_random_refs",
+        fallback_reason=provenance.get("fallback_reason"),
+        fallback_path=provenance.get("fallback_path"),
+        image_prompt_pipeline=request.image_prompt_pipeline,
+        compare_group_id=request.compare_group_id or product_info.get("compare_group_id"),
+        generation_plan=product_info.get("generation_plan"),
+        reference_manifest=provenance.get("reference_manifest"),
+        provider_id=request.image_provider_id,
+        model=request.image_model,
+        image_size=request.image_size,
+        image_provider_mode=product_info.get("image_provider_mode"),
+        quality_protection_mode=quality_protection_mode(),
+        quality_policy_version=POLICY_VERSION,
+        product_fidelity_prevention_mode=product_fidelity_prevention_mode(),
+        visual_fidelity_qa_mode=visual_fidelity_qa_mode(),
+        visual_fidelity_policy_version=VISUAL_POLICY_VERSION,
+        requested_selector_strategy=provenance.get("requested_selector_strategy"),
+        executed_selector_strategy=provenance.get("executed_selector_strategy"),
+        selection_seed=provenance.get("selection_seed"),
+    )
+    product_info["generation_run_id"] = run.run_id
+    product_info["owner_user_id"] = product.owner_user_id
+    from bebcare.services.quality_diversity_events import attach_from_product_info
+
+    attach_from_product_info(db, run, product_info, source=SOURCE_STUDIO)
+    db.commit()
+
+
 @router.post("/", response_model=GenerateResponse)
 def generate_content(
     request: GenerateRequest,
@@ -236,6 +382,9 @@ def generate_content(
     _create_task_and_maybe_reserve(
         db, task_id=task_id, user_id=current_user.user_id, mode=mode
     )
+    _record_studio_generation_run(
+        db, task_id=task_id, product=product, request=request, product_info=product_info
+    )
 
     async def run_generation(task_id: str, product_info: dict):
         try:
@@ -250,14 +399,10 @@ def generate_content(
             generator = ContentGenerator()
             style_hint = product_info.get("style_hint", None)
 
-            await asyncio.to_thread(
-                _report_progress, task_id, 15, "copywriting"
-            )
             copywriting_text = await generator.generate_copywriting_async(
-                product_info, platform
-            )
-            await asyncio.to_thread(
-                _report_progress, task_id, 45, "copywriting"
+                product_info,
+                platform,
+                progress_callback=_image_progress_callback(task_id, 15, 45),
             )
 
             image_result = await generator.generate_image_async(
@@ -360,14 +505,10 @@ def generate_copywriting_only(
             )
 
             generator = ContentGenerator()
-            await asyncio.to_thread(
-                _report_progress, task_id, 20, "copywriting"
-            )
             copywriting_text = await generator.generate_copywriting_async(
-                product_info, product_info.get("platform", "instagram")
-            )
-            await asyncio.to_thread(
-                _report_progress, task_id, 90, "copywriting"
+                product_info,
+                product_info.get("platform", "instagram"),
+                progress_callback=_image_progress_callback(task_id, 20, 90),
             )
 
             await asyncio.to_thread(
@@ -414,6 +555,9 @@ def generate_image_only(
     task_id = str(uuid4())
     _create_task_and_maybe_reserve(
         db, task_id=task_id, user_id=current_user.user_id, mode=mode
+    )
+    _record_studio_generation_run(
+        db, task_id=task_id, product=product, request=request, product_info=product_info
     )
 
     async def run_image_generation(task_id: str, product_info: dict):
@@ -496,6 +640,30 @@ def generate_image_only(
     return {"task_id": task_id, "status": "queued"}
 
 
+@router.post("/compare-selection/")
+def persist_studio_compare_selection(
+    request: CompareSelectionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    from bebcare.services.generation_run_store import persist_compare_selection
+
+    updated = persist_compare_selection(
+        db,
+        owner_user_id=current_user.user_id,
+        compare_group_id=request.compare_group_id,
+        image_prompt_pipeline=request.image_prompt_pipeline,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    db.commit()
+    return {
+        "compare_group_id": request.compare_group_id,
+        "image_prompt_pipeline": request.image_prompt_pipeline,
+        "updated": updated,
+    }
+
+
 @router.get("/status/{task_id}")
 def get_generate_status(
     task_id: str,
@@ -507,10 +675,23 @@ def get_generate_status(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    from bebcare.services.generation_diagnostics import diagnostics_for_task
+
+    result = task.get("result")
+    if isinstance(result, dict):
+        result = dict(result)
+        diag = diagnostics_for_task(db, task_id, viewer=current_user)
+        if diag is not None:
+            result["generation_diagnostics"] = diag.model_dump()
+    elif result is None:
+        diag = diagnostics_for_task(db, task_id, viewer=current_user)
+        if diag is not None:
+            result = {"generation_diagnostics": diag.model_dump()}
+
     return {
         "task_id": task_id,
         "status": task["status"],
         "progress": task.get("progress", 0),
         "stage": task.get("stage"),
-        "result": task.get("result"),
+        "result": result,
     }

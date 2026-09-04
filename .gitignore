@@ -69,8 +69,8 @@ instance/
 # Scrapy
 .scrapy
 
-# Local planning notes only (user-facing guides in /docs are committed)
-/docs/private/
+# Docs (untracked)
+docs/
 
 # PyBuilder
 .pybuilder/

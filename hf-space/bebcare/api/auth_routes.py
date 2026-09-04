@@ -2,6 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import List, Optional
@@ -14,6 +15,10 @@ from bebcare.services.auth_service import (
     create_refresh_token,
     get_password_hash,
     get_user,
+    get_user_by_email,
+    is_valid_email,
+    is_valid_username,
+    looks_like_email,
     verify_password,
 )
 from bebcare.services.auth_dependency import get_current_admin_user, get_current_active_user
@@ -78,11 +83,30 @@ def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    identifier = (form_data.username or "").strip()
+    if not identifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email is required",
+        )
+    # Validate identifier format (Google standards) before querying
+    if looks_like_email(identifier):
+        if not is_valid_email(identifier):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email format is invalid",
+            )
+    elif not is_valid_username(identifier):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username format is invalid",
+        )
+
+    user = authenticate_user(db, identifier, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect username/email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
@@ -106,18 +130,29 @@ def register_user(
     if not user.email or not user.email.strip():
         raise HTTPException(status_code=400, detail="Email is required")
 
-    db_user = get_user(db, user.username)
+    email = user.email.strip()
+    if not is_valid_email(email):
+        raise HTTPException(status_code=400, detail="Email format is invalid")
+
+    username = user.username.strip()
+    if not is_valid_username(username):
+        raise HTTPException(
+            status_code=400,
+            detail="Username format is invalid: must start with a letter and contain only letters, digits, dots or underscores",
+        )
+
+    db_user = get_user(db, username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
 
-    db_email = db.query(User).filter(User.email == user.email.strip()).first()
+    db_email = get_user_by_email(db, email)
     if db_email:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = get_password_hash(user.password)
     new_user = User(
-        username=user.username.strip(),
-        email=user.email.strip(),
+        username=username,
+        email=email,
         hashed_password=hashed_password,
         is_admin=False,
     )
@@ -190,9 +225,11 @@ def update_current_user_info(
         email = body.email.strip()
         if not email:
             raise HTTPException(status_code=400, detail="Email is required")
+        if not is_valid_email(email):
+            raise HTTPException(status_code=400, detail="Email format is invalid")
         existing_email = (
             db.query(User)
-            .filter(User.email == email, User.user_id != current_user.user_id)
+            .filter(func.lower(User.email) == email.lower(), User.user_id != current_user.user_id)
             .first()
         )
         if existing_email:
@@ -257,9 +294,17 @@ def create_user(
     db_user = get_user(db, user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    
+
+    if not is_valid_username(user.username.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Username format is invalid: must start with a letter and contain only letters, digits, dots or underscores",
+        )
+
     if user.email:
-        db_email = db.query(User).filter(User.email == user.email).first()
+        if not is_valid_email(user.email.strip()):
+            raise HTTPException(status_code=400, detail="Email format is invalid")
+        db_email = get_user_by_email(db, user.email.strip())
         if db_email:
             raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -291,13 +336,15 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     if user_update.email is not None:
+        if not is_valid_email(user_update.email.strip()):
+            raise HTTPException(status_code=400, detail="Email format is invalid")
         existing_email = db.query(User).filter(
-            User.email == user_update.email,
+            func.lower(User.email) == user_update.email.strip().lower(),
             User.user_id != user_id
         ).first()
         if existing_email:
             raise HTTPException(status_code=400, detail="Email already registered")
-        user.email = user_update.email
+        user.email = user_update.email.strip()
     
     if user_update.password is not None:
         user.hashed_password = get_password_hash(user_update.password)

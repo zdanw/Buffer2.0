@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 import requests
 
+from bebcare.providers.generate_request import GenerateImageRequest, resolve_generate_image_request
 from bebcare.providers.image_model_filter import filter_doubao_ark_models
 
 logger = logging.getLogger(__name__)
@@ -48,27 +49,37 @@ class DoubaoArkImageProvider:
 
     def generate(
         self,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_images: Optional[List[str]] = None,
         size: str = "2048x2048",
         model: Optional[str] = None,
+        request: Optional[GenerateImageRequest] = None,
     ) -> List[str]:
-        model_id = model or self.default_model
+        req = resolve_generate_image_request(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            reference_images=reference_images,
+            size=size,
+            model=model,
+            request=request,
+        )
+        model_id = req.model or self.default_model
         if not model_id:
             raise ValueError("image model is required")
 
+        urls = req.ordered_urls()
         data = {
             "model": model_id,
-            "prompt": prompt,
-            "negative_prompt": negative_prompt or "",
-            "size": size,
+            "prompt": req.prompt_with_role_labels(),
+            "negative_prompt": req.negative_prompt or "",
+            "size": req.size,
             "sequential_image_generation": "disabled",
             "response_format": "url",
             "watermark": False,
         }
-        if reference_images:
-            data["image"] = reference_images
+        if urls:
+            data["image"] = urls
         data.update(self.extra_params)
 
         response = requests.post(self._images_url(), headers=self._headers(), json=data, timeout=600)
