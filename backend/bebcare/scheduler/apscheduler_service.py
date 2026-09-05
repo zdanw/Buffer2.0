@@ -237,6 +237,23 @@ def products_for_task(session, task) -> list:
     return []
 
 
+def pick_products_for_execution(session, task, products: list) -> list:
+    """Rotate through the catalog — one product per scheduled run."""
+    if not products:
+        return []
+    if len(products) == 1:
+        return products
+    success_count = (
+        session.query(TaskExecution)
+        .filter(
+            TaskExecution.task_id == task.task_id,
+            TaskExecution.status == "SUCCESS",
+        )
+        .count()
+    )
+    return [products[success_count % len(products)]]
+
+
 def _task_owner(task):
     return SimpleNamespace(user_id=task.owner_user_id)
 
@@ -572,6 +589,7 @@ class APSchedulerService:
                 logger.error("Scheduled task not found: %s", task_id)
                 return
             products = products_for_task(session, task)
+            products = pick_products_for_execution(session, task, products)
             product_ids = [str(p.product_id) for p in products]
             task_owner = _task_owner(task)
         finally:

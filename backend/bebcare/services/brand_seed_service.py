@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -31,9 +32,23 @@ def _load_kit_files() -> List[Dict[str, Any]]:
     return kits
 
 
-def _kit_to_brand_fields(kit: Dict[str, Any]) -> Dict[str, Any]:
+def _resolve_brand_id(db: Session, kit: Dict[str, Any]) -> str:
+    brand_id = kit.get("brand_id")
+    if brand_id:
+        return brand_id
+    slug = kit.get("slug")
+    if not slug:
+        source = kit.get("_source_file", "unknown")
+        raise KeyError(f"brand kit missing brand_id and slug ({source})")
+    existing = db.query(Brand).filter(Brand.slug == slug).first()
+    if existing:
+        return existing.brand_id
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"bebcare.brand.{slug}"))
+
+
+def _kit_to_brand_fields(kit: Dict[str, Any], brand_id: str) -> Dict[str, Any]:
     fields = {
-        "brand_id": kit["brand_id"],
+        "brand_id": brand_id,
         "slug": kit["slug"],
         "name": kit["name"],
         "is_generic": kit.get("is_generic", False),
@@ -82,9 +97,9 @@ def _earliest_admin(db: Session) -> User:
 
 def upsert_brand_from_kit(db: Session, kit: Dict[str, Any]) -> Brand:
     admin = _earliest_admin(db)
-    brand_id = kit["brand_id"]
+    brand_id = _resolve_brand_id(db, kit)
     existing = db.query(Brand).filter(Brand.brand_id == brand_id).first()
-    fields = _kit_to_brand_fields(kit)
+    fields = _kit_to_brand_fields(kit, brand_id)
     if existing:
         for key, value in fields.items():
             setattr(existing, key, value)
@@ -107,7 +122,8 @@ def seed_system_brands(db: Session, force_update: bool = True) -> Dict[str, str]
     results: Dict[str, str] = {}
     for kit in _load_kit_files():
         slug = kit.get("slug", "unknown")
-        existing = db.query(Brand).filter(Brand.brand_id == kit["brand_id"]).first()
+        brand_id = _resolve_brand_id(db, kit)
+        existing = db.query(Brand).filter(Brand.brand_id == brand_id).first()
         if existing and not force_update:
             results[slug] = "skipped"
             continue

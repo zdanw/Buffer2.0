@@ -27,12 +27,17 @@
   "narrative_perspectives": [
     {"id": "sommelier", "name": "Sommelier", "description": "Expert tasting notes and pairing"},
     {"id": "collector", "name": "Collector", "description": "Cellar-worthy investment perspective"},
-    {"id": "lifestyle", "name": "Fine dining", "description": "Celebration and occasion-focused"}
+    {"id": "lifestyle", "name": "Fine dining", "description": "Celebration and occasion-focused"},
+    {"id": "humorist", "name": "Wine humorist", "description": "Playful, meme-friendly wine culture takes"},
+    {"id": "meme_lord", "name": "Meme curator", "description": "Internet-native humor with wine twists"}
   ],
   "writing_styles": [
-    {"id": "理性分析", "name": "Analytical", "description": "Vintage, region, and score-led"},
-    {"id": "温情故事", "name": "Storytelling", "description": "Occasion and memory-focused"},
-    {"id": "硬核测评", "name": "Tasting notes", "description": "Professional review style"}
+    {"id": "analytical", "name": "Analytical", "description": "Vintage, region, and score-led"},
+    {"id": "storytelling", "name": "Storytelling", "description": "Occasion and memory-focused"},
+    {"id": "tasting_notes", "name": "Tasting notes", "description": "Professional review style"},
+    {"id": "meme_classic", "name": "Classic meme", "description": "Bold caption over relatable wine moment"},
+    {"id": "meme_minimal", "name": "Minimal meme", "description": "Dry one-liner, understated humor"},
+    {"id": "meme_visual", "name": "Visual gag", "description": "Image-led joke with short punchy copy"}
   ],
   "copy_emoji_hints": "🍷✨",
   "copy_example": "Dom Pérignon 2012 — luminous tropical fruit, precise saline finish. Wine Spectator 96 pts. A bottle worth the occasion. 🍷\n#Burgdy #Champagne",

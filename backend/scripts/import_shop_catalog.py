@@ -47,6 +47,7 @@ CACHE_PATH = OUT_DIR / "catalog-cache.json"
 MANIFEST_PATH = OUT_DIR / "import-manifest.json"
 
 SKIP_SLUG_PARTS = ("gift-card", "gift_card", "copy-of-")
+BAD_IMAGE_PARTS = (".js", "hcaptcha", "shopifycloud", "/assets/brand/", "favicon")
 
 SITE_CONFIGS = [
     {"key": "bebcare", "sitemap": "https://bebcare.com/sitemap-0.xml", "base": "https://bebcare.com"},
@@ -244,6 +245,22 @@ def _feature_bullets(html: str) -> list[str]:
     return out[:12]
 
 
+def _is_valid_image_url(url: str) -> bool:
+    low = url.lower()
+    if any(part in low for part in BAD_IMAGE_PARTS):
+        return False
+    return low.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")) or "/assets/products/" in low
+
+
+def _filter_image_urls(urls: list[str]) -> list[str]:
+    out: list[str] = []
+    for url in urls:
+        clean = url.split("?")[0]
+        if _is_valid_image_url(clean) and clean not in out:
+            out.append(clean)
+    return out
+
+
 def _product_images_for_slug(html: str, base_url: str, slug: str) -> tuple[list[str], list[str]]:
     slug_key = slug.replace("%C2%AE", "").lower()
     slug_parts = [p for p in re.split(r"[-_]", slug_key) if len(p) > 2]
@@ -271,7 +288,7 @@ def _product_images_for_slug(html: str, base_url: str, slug: str) -> tuple[list[
     for url in cdn:
         if any(part in url.lower() for part in slug_parts[:2]):
             product_imgs.append(url.split("?")[0])
-    return product_imgs[:8], scene_imgs[:4]
+    return _filter_image_urls(product_imgs)[:8], _filter_image_urls(scene_imgs)[:4]
 
 
 def assign_brand_slug(source_site: str, product_url: str) -> str:
@@ -339,8 +356,8 @@ def scrape_product_page(client: httpx.Client, url: str, source_site: str) -> Scr
         if not product_imgs:
             meta = re.search(r'<meta property="og:image" content="([^"]+)"', html)
             if meta:
-                product_imgs = [meta.group(1).split("?")[0]]
-                preferred = product_imgs[0]
+                product_imgs = _filter_image_urls([meta.group(1)])
+                preferred = product_imgs[0] if product_imgs else None
         brand_slug = assign_brand_slug(source_site, url)
 
         return ScrapedProduct(
@@ -431,13 +448,20 @@ class PulseForgeClient:
         self.client.headers["Authorization"] = f"Bearer {token}"
 
     def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
-        self._sleep()
-        resp = self.client.request(method, url, **kwargs)
-        if resp.status_code == 401:
-            logger.warning("token expired, re-authenticating")
-            self._set_token(self._login(self.username, self.password))
+        retries = 5
+        for attempt in range(retries):
             self._sleep()
             resp = self.client.request(method, url, **kwargs)
+            if resp.status_code == 401:
+                logger.warning("token expired, re-authenticating")
+                self._set_token(self._login(self.username, self.password))
+                continue
+            if resp.status_code in (500, 502, 503, 504) and attempt < retries - 1:
+                wait = 2 ** attempt
+                logger.warning("retry %s %s after %ss (%s)", method, url, wait, resp.status_code)
+                time.sleep(wait)
+                continue
+            return resp
         return resp
 
     def _login(self, username: str, password: str) -> str:
@@ -531,17 +555,32 @@ class PulseForgeClient:
             else:
                 logger.info("initialized pack for %s", slug)
 
-    def _build_product_index(self) -> None:
+    def _build_product_index(self, manifest: dict[str, Any] | None = None) -> None:
+        if manifest:
+            for entry in manifest.get("products") or []:
+                product_id = entry.get("product_id")
+                brand_slug = entry.get("brand_slug")
+                name = entry.get("product_name")
+                if product_id and brand_slug and name and brand_slug in self.brand_ids:
+                    brand_id = self.brand_ids[brand_slug]
+                    self._product_index[(brand_id, _normalize_name(name))] = product_id
+
         for brand_id in self.brand_ids.values():
             page = 1
             while page <= 100:
-                resp = self._request(
-                    "GET",
-                    "/v1/products/",
-                    params={"page": page, "page_size": 100, "brand_id": brand_id},
-                )
-                resp.raise_for_status()
-                data = resp.json()
+                try:
+                    resp = self._request(
+                        "GET",
+                        "/v1/products/",
+                        params={"page": page, "page_size": 100, "brand_id": brand_id},
+                    )
+                    if resp.status_code >= 400:
+                        logger.warning("product index page failed brand=%s page=%s: %s", brand_id, page, resp.status_code)
+                        break
+                    data = resp.json()
+                except Exception as exc:
+                    logger.warning("product index error brand=%s page=%s: %s", brand_id, page, exc)
+                    break
                 rows = data.get("data") or []
                 for row in rows:
                     key = (brand_id, _normalize_name(row.get("product_name", "")))
@@ -635,7 +674,7 @@ def import_catalog(
     max_products: int | None = None,
 ) -> None:
     pf.ensure_brands()
-    pf._build_product_index()
+    pf._build_product_index(manifest)
     done_urls = {
         e["source_url"]: e
         for e in manifest.get("products", [])
@@ -695,6 +734,7 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--max-products", type=int, default=None)
     parser.add_argument("--init-packs-only", action="store_true")
+    parser.add_argument("--retry-failures", action="store_true")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -708,7 +748,24 @@ def main() -> int:
 
     if args.phase in ("scrape", "all"):
         with httpx.Client(timeout=60, follow_redirects=True) as client:
-            catalog = scrape_catalog(client, workers=args.workers)
+            if args.retry_failures and MANIFEST_PATH.exists():
+                manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+                retry_urls = [
+                    p["source_url"]
+                    for p in manifest.get("products", [])
+                    if p.get("status") != "ok" or not p.get("images_uploaded")
+                ]
+                catalog = json.loads(CACHE_PATH.read_text(encoding="utf-8")).get("products") if CACHE_PATH.exists() else []
+                by_url = {p["source_url"]: p for p in catalog}
+                logger.info("re-scraping %d failed/pending URLs", len(retry_urls))
+                for url in retry_urls:
+                    site = "bebcare" if "bebcare.com" in url else "boopkin" if "boopkin.com" in url else "burgdy" if "burgdy.com" in url else "babycommon"
+                    item = scrape_product_page(client, url, site)
+                    if item:
+                        by_url[url] = asdict(item)
+                catalog = list(by_url.values())
+            else:
+                catalog = scrape_catalog(client, workers=args.workers)
         CACHE_PATH.write_text(
             json.dumps({"scraped_at": _now_iso(), "products": catalog}, ensure_ascii=False, indent=2),
             encoding="utf-8",
@@ -723,9 +780,18 @@ def main() -> int:
         manifest = {"started_at": _now_iso(), "products": []}
         if MANIFEST_PATH.exists():
             manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        if args.retry_failures:
+            retry_urls = {
+                p["source_url"]
+                for p in manifest.get("products", [])
+                if p.get("status") != "ok" or not p.get("images_uploaded")
+            }
+            catalog = [p for p in catalog if p["source_url"] in retry_urls]
+            logger.info("importing %d retry products", len(catalog))
         pf = PulseForgeClient(args.base_url, args.username, args.password)
         import_catalog(pf, catalog, manifest, max_products=args.max_products)
-        pf.initialize_packs()
+        if not args.retry_failures:
+            pf.initialize_packs()
         ok = sum(1 for p in manifest.get("products", []) if p.get("status") == "ok")
         logger.info("import complete: %d ok / %d total in manifest", ok, len(manifest.get("products", [])))
 

@@ -1,7 +1,19 @@
 {
-  "exported_at": "2026-09-03T09:40:40.837528+00:00",
+  "exported_at": "2026-09-04T07:08:54.674110+00:00",
   "source_url": "https://buffrer2-0.vercel.app",
-  "status": "http_error",
-  "http_status": 401,
-  "detail": "{\"detail\":\"Incorrect username or password\"}"
+  "status": "success",
+  "product_count": 554,
+  "categories": [
+    "Comfort",
+    "Everyday care",
+    "Feeding",
+    "Champagne",
+    "Monitoring",
+    "Burgundy",
+    "Red Wine",
+    "White Wine",
+    "General",
+    "Bedtime"
+  ],
+  "products_file": "bebcare\\data\\exports\\buffrer2-0.vercel.app\\products-export.json"
 }
