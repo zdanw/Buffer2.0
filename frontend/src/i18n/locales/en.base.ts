@@ -43,6 +43,7 @@ export const en: TranslationTree = {
   },
   common: {
     refresh: 'Refresh',
+    tryAgain: 'Try again',
     save: 'Save',
     saving: 'Saving…',
     cancel: 'Cancel',
@@ -190,6 +191,7 @@ export const en: TranslationTree = {
     reviewStepApprove: 'Approve',
     reviewStepEdit: 'Edit',
     reviewStepQueue: 'Queue',
+    bentoPromoBadge: 'Content operations',
     bentoPromoTitle: 'Operate your social presence',
     bentoPromoDesc: 'Plan, create, adapt, approve, and publish—in one connected workflow.',
     marquee1: 'Presence that compounds',

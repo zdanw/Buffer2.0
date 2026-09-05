@@ -70,7 +70,6 @@ export default function ImageProviderSettings() {
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [discoverStatus, setDiscoverStatus] = useState<DiscoverStatus>('idle');
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
@@ -92,10 +91,9 @@ export default function ImageProviderSettings() {
     };
   };
 
-  const load = async (opts?: { silent?: boolean }) => {
+  const load = async () => {
     try {
-      if (opts?.silent) setRefreshing(true);
-      else setLoading(true);
+      setLoading(true);
       const [data, summary] = await Promise.all([
         listImageProviders(),
         getSystemImageProviderSummary().catch(() => ({ has_provider: false as const })),
@@ -105,8 +103,7 @@ export default function ImageProviderSettings() {
     } catch (err: any) {
       setError(toUserFacingMessage(err, t('common.loadFailed')));
     } finally {
-      if (opts?.silent) setRefreshing(false);
-      else setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -310,7 +307,7 @@ export default function ImageProviderSettings() {
       }
       closeModal();
       setTimeout(() => setSuccess(''), 2500);
-      void load({ silent: true });
+      void load();
       notifyImageProvidersChanged();
     } catch (err: any) {
       setError(toUserFacingMessage(err, t('common.saveFailed')));
@@ -394,15 +391,6 @@ export default function ImageProviderSettings() {
           <p className="text-gray-500 mt-1 text-sm sm:text-base">{t('imageProviders.subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => void load({ silent: true })}
-            disabled={refreshing || loading}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 sm:px-4 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
           <button
             type="button"
             onClick={openCreate}

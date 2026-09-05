@@ -41,7 +41,6 @@ export default function TaskConfiguration() {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -146,17 +145,6 @@ export default function TaskConfiguration() {
 
   const handlePageSizeChange = (newPageSize: number) => {
     void loadTasks(1, newPageSize, { keepRows: true });
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      invalidateCache('tasks');
-      invalidateCache('products');
-      await Promise.all([loadTasks(currentPage, undefined, { keepRows: true }), loadPickerProducts()]);
-    } finally {
-      setRefreshing(false);
-    }
   };
 
   const resetForm = () => {
@@ -357,15 +345,6 @@ export default function TaskConfiguration() {
           <p className="text-gray-500 mt-1">{t('tasks.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={refreshing || listBusy}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
           <button
             onClick={() => openModal()}
             className="flex items-center gap-2 bg-forge-600 text-white px-4 py-2 rounded-lg hover:bg-forge-700 transition-colors"

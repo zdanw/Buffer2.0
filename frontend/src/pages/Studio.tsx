@@ -349,7 +349,6 @@ export default function Studio({ isPageActive = true }: StudioProps) {
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [saveDraftStatus, setSaveDraftStatus] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [compareResults, setCompareResults] = useState<CompareSceneResults | null>(null);
@@ -839,15 +838,6 @@ export default function Studio({ isPageActive = true }: StudioProps) {
     setProducts([]);
     void loadProducts();
   }, [activeBrandId]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await loadProducts(true);
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   useEffect(() => {
     saveStateToStorage(userId, {
@@ -1360,15 +1350,6 @@ export default function Studio({ isPageActive = true }: StudioProps) {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => void handleRefresh()}
-          disabled={refreshing || isGenerating}
-          className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {t('common.refresh')}
-        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -1401,7 +1382,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
                 id="studio-product"
                 value={selectedProduct}
                 onChange={(e) => setSelectedProduct(e.target.value)}
-                disabled={refreshing}
+                disabled={productsLoading}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forge-500 focus:border-transparent disabled:opacity-50"
               >
                 <option value="">{t('placeholders.studio.selectProduct')}</option>

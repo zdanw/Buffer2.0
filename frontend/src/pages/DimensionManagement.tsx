@@ -188,7 +188,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
   const [loading, setLoading] = useState(false);
   const [filtering, setFiltering] = useState(false);
   const [listBusy, setListBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -352,21 +351,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
   const handleFilter = () => {
     // 保留当前表格内容，只在筛选按钮上转圈，避免“全部重置”的闪烁
     void loadDimensions(1, undefined, { fromFilter: true, keepRows: true });
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      invalidateCache('productTypes');
-      invalidateCache('dimensionTypes');
-      await Promise.all([
-        loadDimensionTypes(),
-        loadProductTypes(),
-        loadDimensions(currentPage, undefined, { keepRows: true }),
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
@@ -603,15 +587,6 @@ export default function DimensionManagement({ isAdmin = false }: { isAdmin?: boo
           <p className="text-gray-400 mt-1 text-xs sm:text-sm">{t('dimensionsPage.emptyStateHint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={refreshing || loading || filtering || listBusy}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 sm:px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing || listBusy ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
           {isAdmin && (
             <div className="flex items-center gap-1">
               <div className="relative">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus, Star } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, X, RefreshCw, Palette, FileText, Sparkles, Megaphone, AlertCircle, CopyPlus, Star, Search } from 'lucide-react';
 import type { Product, ProductCreate, PaginatedResponse, OfferingType } from '@/api/products';
 import { getProducts, getProduct, getCategories, createProduct, updateProduct, deleteProduct, duplicateProduct, uploadProductImages, deleteProductImage, setProductImagePreferred } from '@/api/products';
 import { findOwnedBrand, defaultProductBrandId } from '@/api/brands';
@@ -48,7 +48,7 @@ export default function AssetManagement() {
   const v = createValidators(t);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeBrandId, brands, loading: brandsLoading, refreshBrands, setBrandFilterLoading, brandFilterLoading } = useBrandContext();
+  const { activeBrandId, activeBrand, brands, loading: brandsLoading, refreshBrands, setBrandFilterLoading, brandFilterLoading } = useBrandContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -69,6 +69,8 @@ export default function AssetManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState<ProductCreate & { use_brand_voice?: boolean }>({
     product_name: '',
     category: '',
@@ -87,8 +89,21 @@ export default function AssetManagement() {
     setProducts([]);
     setSelectedProduct(null);
     setCurrentPage(1);
-    void Promise.all([loadProducts(1), loadDimensionTypes()]);
+    setSearchInput('');
+    setSearchQuery('');
+    void loadDimensionTypes();
   }, [activeBrandId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    void loadProducts(1, undefined, { keepRows: Boolean(searchQuery), search: searchQuery });
+  }, [activeBrandId, searchQuery]);
 
   const applyProductDraft = useCallback((draft: ProductFormDraft, brandId?: string | null) => {
     setIsEdit(draft.isEdit);
@@ -212,15 +227,16 @@ export default function AssetManagement() {
   const loadProducts = async (
     page: number = currentPage,
     newPageSize?: number,
-    opts?: { silent?: boolean; keepRows?: boolean }
+    opts?: { silent?: boolean; keepRows?: boolean; search?: string }
   ) => {
     const keepRows = Boolean(opts?.keepRows || opts?.silent);
     if (!opts?.silent && !keepRows) setLoading(true);
     if (keepRows && !opts?.silent) setListBusy(true);
     setLoadError(false);
     const size = newPageSize ?? pageSize;
+    const query = opts?.search ?? searchQuery;
     try {
-      const response: PaginatedResponse<Product> = await getProducts(page, size, activeBrandId || undefined);
+      const response: PaginatedResponse<Product> = await getProducts(page, size, activeBrandId || undefined, query);
       setProducts(response.data);
       setTotal(response.pagination.total);
       setCurrentPage(response.pagination.current);
@@ -476,6 +492,12 @@ export default function AssetManagement() {
     }
   };
 
+  const listLoadingMessage = brandFilterLoading
+    ? activeBrand
+      ? t('brands.selector.loadingProductsFor', { brand: activeBrand.name })
+      : t('brands.selector.loadingAllProducts')
+    : t('assets.loadingProducts');
+
   return (
     <>
       <div className="p-4 sm:p-6 lg:p-8">
@@ -485,22 +507,6 @@ export default function AssetManagement() {
             <p className="text-ink-500 mt-1 text-sm">{t('assets.subtitle')}</p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                invalidateCache('products');
-                invalidateCache('dimensionTypes');
-                void Promise.all([
-                  loadProducts(currentPage, undefined, { keepRows: true }),
-                  loadDimensionTypes(),
-                ]);
-              }}
-              disabled={loading || listBusy}
-              className="flex items-center gap-2 bg-white border border-canvas-border text-ink-700 px-4 py-2 rounded-lg hover:shadow-card transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading || listBusy ? 'animate-spin' : ''}`} />
-              {t('common.refresh')}
-            </button>
             <button
               onClick={() => openModal()}
               className="flex items-center gap-2 bg-forge-600 text-white px-4 py-2 rounded-lg hover:bg-forge-700 transition-colors"
@@ -515,6 +521,28 @@ export default function AssetManagement() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-card border border-canvas-border p-4 min-h-[320px] lg:min-h-[480px]">
             <h3 className="font-semibold text-gray-800 mb-4">{t('assets.productList')}</h3>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t('assets.searchProducts')}
+                disabled={loading && products.length === 0}
+                className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-forge-500 disabled:opacity-50"
+                aria-label={t('assets.searchProducts')}
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                  aria-label={t('common.remove')}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             <div className={`space-y-2 relative min-h-[12rem] ${listBusy ? 'opacity-60 pointer-events-none' : ''}`}>
               {listBusy && products.length > 0 && (
                 <ListLoadingOverlay message={t('assets.updatingList')} />
@@ -523,7 +551,7 @@ export default function AssetManagement() {
                 <div className="space-y-3" role="status" aria-live="polite">
                   <div className="flex items-center gap-2 text-sm font-medium text-forge-800">
                     <div className="w-5 h-5 border-2 border-forge-600 border-t-transparent rounded-full animate-spin shrink-0" />
-                    <span>{brandFilterLoading ? t('assets.loadingProducts') : t('assets.startingUp')}</span>
+                    <span>{listLoadingMessage}</span>
                   </div>
                   <ListSkeleton rows={5} />
                 </div>
@@ -532,15 +560,16 @@ export default function AssetManagement() {
                   <p className="text-sm text-gray-600">{t('assets.loadProductsFailed')}</p>
                   <button
                     type="button"
-                    onClick={() => void loadProducts(currentPage)}
+                    onClick={() => void loadProducts(currentPage, undefined, { search: searchQuery })}
                     className="inline-flex items-center gap-2 rounded-lg bg-forge-600 px-4 py-2 text-sm font-medium text-white hover:bg-forge-700"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    {t('common.refresh')}
+                    {t('common.tryAgain')}
                   </button>
                 </div>
               ) : products.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">{t('assets.noProducts')}</div>
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  {searchQuery ? t('assets.noSearchResults') : t('assets.noProducts')}
+                </div>
               ) : (
                 products.map((product) => (
                   <div
@@ -597,7 +626,7 @@ export default function AssetManagement() {
           {(loading || brandFilterLoading) && !selectedProduct ? (
             <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 h-full flex flex-col items-center justify-center gap-3 text-center" role="status" aria-live="polite">
               <div className="w-8 h-8 border-2 border-forge-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-medium text-forge-800">{t('assets.loadingProducts')}</p>
+              <p className="text-sm font-medium text-forge-800">{listLoadingMessage}</p>
               <p className="text-xs text-gray-500 max-w-xs">{t('assets.selectProductHint')}</p>
             </div>
           ) : selectedProduct ? (

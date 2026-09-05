@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 
@@ -26,8 +27,13 @@ export default function Pagination({
   const { t } = useI18n();
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(current, pages);
-  const from = Math.min((currentPage - 1) * pageSize + 1, total);
+  const from = total === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, total);
   const to = Math.min(currentPage * pageSize, total);
+  const [jumpValue, setJumpValue] = useState('');
+
+  useEffect(() => {
+    setJumpValue('');
+  }, [currentPage, pages]);
 
   const getPageNumbers = () => {
     const pageNumbers: (number | string)[] = [];
@@ -63,8 +69,50 @@ export default function Pagination({
     if (!disabled && currentPage < pages) onChange(pages);
   };
 
+  const handleJump = () => {
+    const page = Number.parseInt(jumpValue, 10);
+    if (!disabled && Number.isFinite(page) && page >= 1 && page <= pages) {
+      onChange(page);
+      setJumpValue('');
+    }
+  };
+
   const navDisabled = disabled || currentPage <= 1;
   const nextDisabled = disabled || currentPage >= pages;
+
+  const pageJumpControl = pages > 1 ? (
+    <div className="flex items-center gap-1.5">
+      <label className="sr-only" htmlFor={`pagination-jump-${compact ? 'compact' : 'full'}`}>
+        {t('pagination.goToPage')}
+      </label>
+      <input
+        id={`pagination-jump-${compact ? 'compact' : 'full'}`}
+        type="number"
+        min={1}
+        max={pages}
+        value={jumpValue}
+        disabled={disabled}
+        onChange={(e) => setJumpValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleJump();
+          }
+        }}
+        placeholder={String(currentPage)}
+        className="w-14 text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-forge-500 disabled:opacity-50 disabled:cursor-not-allowed tabular-nums"
+        aria-label={t('pagination.goToPage')}
+      />
+      <button
+        type="button"
+        onClick={handleJump}
+        disabled={disabled || !jumpValue.trim()}
+        className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {t('pagination.go')}
+      </button>
+    </div>
+  ) : null;
 
   if (compact) {
     return (
@@ -89,7 +137,7 @@ export default function Pagination({
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={handlePrev}
             disabled={navDisabled}
@@ -98,9 +146,12 @@ export default function Pagination({
             <ChevronLeft className="w-3.5 h-3.5" />
             {t('pagination.prev')}
           </button>
-          <span className="text-xs text-gray-600 tabular-nums">
-            {t('pagination.pageOf', { current: currentPage, pages })}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600 tabular-nums">
+              {t('pagination.pageOf', { current: currentPage, pages })}
+            </span>
+            {pageJumpControl}
+          </div>
           <button
             onClick={handleNext}
             disabled={nextDisabled}
@@ -152,6 +203,7 @@ export default function Pagination({
               </select>
             </div>
           )}
+          {pageJumpControl}
         </div>
         <div className="max-w-full overflow-x-auto">
           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">

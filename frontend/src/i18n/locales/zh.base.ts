@@ -42,6 +42,7 @@ export const zh: TranslationTree = {
   },
   common: {
     refresh: '刷新',
+    tryAgain: '重试',
     save: '保存',
     saving: '保存中…',
     cancel: '取消',

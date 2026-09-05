@@ -90,13 +90,15 @@ export interface PaginatedResponse<T> {
 export const getProducts = async (
   page: number = 1,
   pageSize: number = 10,
-  brandId?: string
+  brandId?: string,
+  search?: string,
 ): Promise<PaginatedResponse<Product>> => {
   const response = await axiosInstance.get('/products/', { 
     params: {
       page,
       page_size: pageSize,
       ...(brandId ? { brand_id: brandId } : {}),
+      ...(search?.trim() ? { search: search.trim() } : {}),
     },
     responseType: 'json' 
   });

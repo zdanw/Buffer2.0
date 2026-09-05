@@ -34,7 +34,6 @@ function UserManagement() {
   const { required, maxLen, minLen, emailFormat, usernameFormat } = useValidators();
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -66,17 +65,15 @@ function UserManagement() {
   const [revokeCredits, setRevokeCredits] = useState(true);
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
-  const fetchUsers = async (opts?: { silent?: boolean }) => {
+  const fetchUsers = async () => {
     try {
-      if (opts?.silent) setRefreshing(true);
-      else setLoading(true);
+      setLoading(true);
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
       setError(toUserFacingMessage(err, t('users.loadFailed')));
     } finally {
-      if (opts?.silent) setRefreshing(false);
-      else setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -207,15 +204,6 @@ function UserManagement() {
           <p className="text-gray-500 mt-1">{t('users.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void fetchUsers({ silent: true })}
-            disabled={loading || refreshing}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-forge-600 text-white rounded-lg hover:bg-forge-700 transition-colors"
@@ -575,7 +563,7 @@ function UserManagement() {
                 await grantUserCredits(grantUser.user_id, qty, grantNote || undefined);
                 setSuccess(t('users.grantSuccess'));
                 setGrantUser(null);
-                await fetchUsers({ silent: true });
+                await fetchUsers();
               } catch (err: any) {
                 setError(toUserFacingMessage(err, t('users.grantFailed')));
               } finally {
@@ -728,7 +716,7 @@ function UserManagement() {
                                 } catch {
                                   /* keep optimistic row */
                                 }
-                                await fetchUsers({ silent: true });
+                                await fetchUsers();
                               })
                               .catch((err: any) => {
                                 setError(toUserFacingMessage(err, t('users.refundFailed')));

@@ -7,6 +7,7 @@ from copy import deepcopy
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
 from typing import List, Optional
 from uuid import UUID
 from bebcare.database import get_db
@@ -177,6 +178,7 @@ def list_products(
     page: int = 1,
     page_size: int = 10,
     brand_id: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -186,6 +188,19 @@ def list_products(
     )
     if brand_id:
         query = query.filter(Product.brand_id == brand_id)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = (
+            query.outerjoin(Brand, Product.brand_id == Brand.brand_id)
+            .filter(
+                or_(
+                    Product.product_name.ilike(term),
+                    Product.category.ilike(term),
+                    Brand.name.ilike(term),
+                )
+            )
+            .distinct()
+        )
     total = query.count()
     
     offset = (page - 1) * page_size

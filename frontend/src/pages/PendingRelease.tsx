@@ -53,7 +53,6 @@ export default function PendingRelease() {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [listBusy, setListBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [reuploading, setReuploading] = useState(false);
@@ -129,20 +128,6 @@ export default function PendingRelease() {
       setSelectedPlatforms([]);
     }
   }, [searchParams, visibleDrafts]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      invalidateCache('tasks');
-      await Promise.all([
-        loadDrafts(currentPage, undefined, { keepRows: true }),
-        loadTasks(true),
-        loadBufferAccountMap(),
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const loadDrafts = async (
     page: number = currentPage,
@@ -322,15 +307,6 @@ export default function PendingRelease() {
             <Calendar className="w-4 h-4" />
             <span>{t('pending.totalDrafts', { total })}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={refreshing || listBusy}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
         </div>
       </div>
 

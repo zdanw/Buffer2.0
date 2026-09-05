@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import {
   getGenerationRun,
   listGenerationRuns,
@@ -56,7 +56,6 @@ export default function GenerationHistory() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -76,8 +75,7 @@ export default function GenerationHistory() {
     async (opts?: { silent?: boolean; nextPage?: number; filters?: AppliedFilters }) => {
       const filters = opts?.filters ?? appliedFilters;
       try {
-        if (opts?.silent) setRefreshing(true);
-        else setLoading(true);
+        setLoading(true);
         setError('');
         const currentPage = opts?.nextPage ?? page;
         const response = await listGenerationRuns({
@@ -103,8 +101,7 @@ export default function GenerationHistory() {
       } catch (err: unknown) {
         setError(toUserFacingMessage(err, t('generationHistory.loadFailed')));
       } finally {
-        if (opts?.silent) setRefreshing(false);
-        else setLoading(false);
+        setLoading(false);
       }
     },
     [page, pageSize, userIdFromUrl, appliedFilters, t],
@@ -242,15 +239,6 @@ export default function GenerationHistory() {
           <h1 className="text-2xl font-bold text-gray-900">{t('generationHistory.title')}</h1>
           <p className="text-sm text-gray-600 mt-1">{t('generationHistory.subtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void fetchList({ silent: true })}
-          disabled={refreshing}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {t('common.refresh')}
-        </button>
       </div>
 
       {error ? (

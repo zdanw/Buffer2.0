@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Edit2, Trash2, X, RefreshCw, Lock, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Lock, Upload } from 'lucide-react';
 import {
   createBrand,
   deleteBrand,
@@ -350,14 +350,6 @@ export default function BrandManagement() {
           <p className="text-gray-500 mt-1">{t('brands.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void loadBrands()}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </button>
           <button
             type="button"
             onClick={openCreate}
