@@ -193,27 +193,30 @@ export default function AssetManagement() {
     return () => window.removeEventListener('focus', onFocus);
   }, [showModal, refreshBrands]);
 
+  const hasProductVoiceOverride = (useBrandVoice?: boolean, brandVoice?: string | null) =>
+    Boolean(useBrandVoice && brandVoice?.trim());
+
   useEffect(() => {
-    if (formData.use_brand_voice) {
+    if (hasProductVoiceOverride(formData.use_brand_voice, formData.brand_voice)) {
       setInheritedVoice('');
       return;
     }
     const brand = findOwnedBrand(brands, formData.brand_id);
     setInheritedVoice(brand?.voice || '');
-  }, [formData.brand_id, formData.use_brand_voice, brands]);
+  }, [formData.brand_id, formData.use_brand_voice, formData.brand_voice, brands]);
 
   useEffect(() => {
     if (!selectedProduct) {
       setDetailInheritedVoice('');
       return;
     }
-    if (selectedProduct.use_brand_voice) {
+    if (hasProductVoiceOverride(selectedProduct.use_brand_voice, selectedProduct.brand_voice)) {
       setDetailInheritedVoice('');
       return;
     }
     const brand = findOwnedBrand(brands, selectedProduct.brand_id);
     setDetailInheritedVoice(brand?.voice || '');
-  }, [selectedProduct?.product_id, selectedProduct?.use_brand_voice, selectedProduct?.brand_id, brands]);
+  }, [selectedProduct?.product_id, selectedProduct?.use_brand_voice, selectedProduct?.brand_id, selectedProduct?.brand_voice, brands]);
 
   const loadDimensionTypes = async () => {
     try {
@@ -716,7 +719,7 @@ export default function AssetManagement() {
                       <Megaphone className="w-3.5 h-3.5" />
                       {t('assets.brandVoice')}
                     </div>
-                    {selectedProduct.use_brand_voice && selectedProduct.brand_voice ? (
+                    {hasProductVoiceOverride(selectedProduct.use_brand_voice, selectedProduct.brand_voice) ? (
                       <div>
                         <span className="inline-block px-3 py-1 bg-forge-50 text-forge-700 border border-forge-100 rounded-full text-sm">
                           {selectedProduct.brand_voice}
@@ -1017,7 +1020,9 @@ export default function AssetManagement() {
                     brands={brands}
                     loading={brandsLoading}
                   />
-                  {!formData.use_brand_voice && <BrandInheritanceHint voice={inheritedVoice} className="mt-1" />}
+                  {!hasProductVoiceOverride(formData.use_brand_voice, formData.brand_voice) && (
+                    <BrandInheritanceHint voice={inheritedVoice} className="mt-1" />
+                  )}
                   {needsBrandSetup && (
                     <div className="mt-3">
                       <SetupFlowCallout
