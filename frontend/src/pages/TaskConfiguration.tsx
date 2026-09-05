@@ -11,6 +11,8 @@ import { toast, confirmDialog } from '@/lib/feedback';
 import { useValidators } from '@/i18n/helpers';
 import { useI18n } from '@/i18n/useI18n';
 import Pagination from '@/components/Pagination';
+import ListSkeleton from '@/components/ListSkeleton';
+import ListLoadingOverlay from '@/components/ListLoadingOverlay';
 import ImageModelPicker from '@/components/ImageModelPicker';
 import ImageGenerationControls from '@/components/ImageGenerationControls';
 import { DEFAULT_IMAGE_GENERATION_CONTROLS } from '@/lib/imageGenerationControls';
@@ -25,7 +27,7 @@ const PLATFORMS = ['instagram', 'tiktok', 'facebook'];
 
 export default function TaskConfiguration() {
   const { t } = useI18n();
-  const { activeBrandId, brands } = useBrandContext();
+  const { activeBrandId, brands, setBrandFilterLoading, brandFilterLoading } = useBrandContext();
   const { required, maxLen, cronFormat, intInRange } = useValidators();
   const [searchParams, setSearchParams] = useSearchParams();
   const openedTaskFromUrlRef = useRef<string | null>(null);
@@ -66,6 +68,7 @@ export default function TaskConfiguration() {
   });
 
   useEffect(() => {
+    setInitialLoading(true);
     void loadTasks(1);
   }, [activeBrandId]);
 
@@ -137,6 +140,7 @@ export default function TaskConfiguration() {
     } finally {
       if (keepRows) setListBusy(false);
       setInitialLoading(false);
+      setBrandFilterLoading(false);
     }
   };
 
@@ -372,7 +376,9 @@ export default function TaskConfiguration() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-4 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
+      <div className={`relative ${listBusy ? 'opacity-60 pointer-events-none' : ''}`}>
+        {listBusy && <ListLoadingOverlay message={t('tasks.updatingList')} />}
+      <div className="grid grid-cols-1 gap-4">
         {tasks.map((task) => (
           <div
             key={task.task_id}
@@ -456,9 +462,12 @@ export default function TaskConfiguration() {
         ))}
 
         {initialLoading && tasks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-gray-500 text-sm">{t('common.loading')}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3" role="status" aria-live="polite">
+            <div className="flex items-center gap-2 text-sm font-medium text-forge-800">
+              <div className="w-5 h-5 border-2 border-forge-600 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span>{brandFilterLoading ? t('tasks.loadingTasks') : t('common.loading')}</span>
+            </div>
+            <ListSkeleton rows={3} />
           </div>
         ) : tasks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -479,6 +488,7 @@ export default function TaskConfiguration() {
             />
           </div>
         )}
+      </div>
       </div>
 
       {showModal && (

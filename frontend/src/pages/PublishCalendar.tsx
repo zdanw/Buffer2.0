@@ -124,7 +124,7 @@ function PlatformPostLinks({ posts, t }: { posts: PlatformPost[]; t: (key: strin
 export default function PublishCalendar() {
   const location = useLocation();
   const { t, locale } = useI18n();
-  const { activeBrandId } = useBrandContext();
+  const { activeBrandId, setBrandFilterLoading } = useBrandContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [executionSummaries, setExecutionSummaries] = useState<CalendarExecutionSummary[]>([]);
@@ -160,6 +160,7 @@ export default function PublishCalendar() {
         console.error('Failed to load brand products for calendar:', error);
       } finally {
         setBrandProductsLoading(false);
+        setBrandFilterLoading(false);
       }
     })();
   }, [activeBrandId]);
@@ -549,8 +550,11 @@ export default function PublishCalendar() {
 
       <div className="relative">
         {isCalendarBusy ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/80 backdrop-blur-[1px]" role="status" aria-live="polite">
             <LoadingIndicator size="md" />
+            <p className="text-sm font-medium text-forge-800">
+              {brandProductsLoading ? t('calendar.loadingBrand') : t('common.loading')}
+            </p>
           </div>
         ) : null}
         <div

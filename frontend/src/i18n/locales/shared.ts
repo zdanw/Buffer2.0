@@ -21,6 +21,7 @@ export const sharedEn: TranslationTree = {
     next: 'Next',
     showing: 'Showing {{from}}–{{to}} of {{total}}',
     perPage: 'Per page:',
+    pageOf: 'Page {{current}} of {{pages}}',
   },
   datetime: {
     unknown: 'Unknown time',
@@ -207,6 +208,7 @@ export const sharedZh: TranslationTree = {
     next: '下一页',
     showing: '显示第 {{from}} - {{to}} 条，共 {{total}} 条记录',
     perPage: '每页显示:',
+    pageOf: '第 {{current}} / {{pages}} 页',
   },
   datetime: {
     unknown: '未知时间',

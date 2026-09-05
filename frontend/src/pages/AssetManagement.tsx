@@ -20,6 +20,8 @@ import {
 } from '@/lib/imageUpload';
 import { isProductIncomplete } from '@/lib/productCompleteness';
 import Pagination from '@/components/Pagination';
+import ListSkeleton from '@/components/ListSkeleton';
+import ListLoadingOverlay from '@/components/ListLoadingOverlay';
 import LabelWithTooltip from '@/components/LabelWithTooltip';
 import FieldRequirementBadge from '@/components/FieldRequirementBadge';
 import BrandPicker from '@/components/BrandPicker';
@@ -46,13 +48,14 @@ export default function AssetManagement() {
   const v = createValidators(t);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeBrandId, brands, loading: brandsLoading, refreshBrands } = useBrandContext();
+  const { activeBrandId, brands, loading: brandsLoading, refreshBrands, setBrandFilterLoading, brandFilterLoading } = useBrandContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [listBusy, setListBusy] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
@@ -81,6 +84,9 @@ export default function AssetManagement() {
   const [detailInheritedVoice, setDetailInheritedVoice] = useState<string>('');
 
   useEffect(() => {
+    setProducts([]);
+    setSelectedProduct(null);
+    setCurrentPage(1);
     void Promise.all([loadProducts(1), loadDimensionTypes()]);
   }, [activeBrandId]);
 
@@ -211,6 +217,7 @@ export default function AssetManagement() {
     const keepRows = Boolean(opts?.keepRows || opts?.silent);
     if (!opts?.silent && !keepRows) setLoading(true);
     if (keepRows && !opts?.silent) setListBusy(true);
+    setLoadError(false);
     const size = newPageSize ?? pageSize;
     try {
       const response: PaginatedResponse<Product> = await getProducts(page, size, activeBrandId || undefined);
@@ -222,9 +229,12 @@ export default function AssetManagement() {
       }
     } catch (error) {
       console.error('Failed to load products:', error);
+      setLoadError(true);
+      toast.error(t('assets.loadProductsFailed'));
     } finally {
       if (!opts?.silent && !keepRows) setLoading(false);
       if (keepRows && !opts?.silent) setListBusy(false);
+      if (!opts?.silent) setBrandFilterLoading(false);
     }
   };
 
@@ -505,11 +515,29 @@ export default function AssetManagement() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-card border border-canvas-border p-4 min-h-[320px] lg:min-h-[480px]">
             <h3 className="font-semibold text-gray-800 mb-4">{t('assets.productList')}</h3>
-            <div className={`space-y-2 ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
+            <div className={`space-y-2 relative min-h-[12rem] ${listBusy ? 'opacity-60 pointer-events-none' : ''}`}>
+              {listBusy && products.length > 0 && (
+                <ListLoadingOverlay message={t('assets.updatingList')} />
+              )}
               {loading && products.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <span className="text-gray-500 text-sm">{t('assets.startingUp')}</span>
+                <div className="space-y-3" role="status" aria-live="polite">
+                  <div className="flex items-center gap-2 text-sm font-medium text-forge-800">
+                    <div className="w-5 h-5 border-2 border-forge-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <span>{brandFilterLoading ? t('assets.loadingProducts') : t('assets.startingUp')}</span>
+                  </div>
+                  <ListSkeleton rows={5} />
+                </div>
+              ) : loadError && products.length === 0 ? (
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-sm text-gray-600">{t('assets.loadProductsFailed')}</p>
+                  <button
+                    type="button"
+                    onClick={() => void loadProducts(currentPage)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-forge-600 px-4 py-2 text-sm font-medium text-white hover:bg-forge-700"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {t('common.refresh')}
+                  </button>
                 </div>
               ) : products.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">{t('assets.noProducts')}</div>
@@ -552,6 +580,7 @@ export default function AssetManagement() {
             {total > 0 && (
               <div className="mt-4">
                 <Pagination
+                  compact
                   current={currentPage}
                   total={total}
                   pageSize={pageSize}
@@ -565,7 +594,13 @@ export default function AssetManagement() {
         </div>
 
         <div className="lg:col-span-2 min-h-[320px] lg:min-h-[480px]">
-          {selectedProduct ? (
+          {(loading || brandFilterLoading) && !selectedProduct ? (
+            <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 h-full flex flex-col items-center justify-center gap-3 text-center" role="status" aria-live="polite">
+              <div className="w-8 h-8 border-2 border-forge-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm font-medium text-forge-800">{t('assets.loadingProducts')}</p>
+              <p className="text-xs text-gray-500 max-w-xs">{t('assets.selectProductHint')}</p>
+            </div>
+          ) : selectedProduct ? (
             <div className="bg-white rounded-xl shadow-card border border-canvas-border p-6 h-full">
               <div className="flex justify-between items-start mb-6">
                 <div>

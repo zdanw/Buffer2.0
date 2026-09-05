@@ -9,6 +9,8 @@ interface PaginationProps {
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
   disabled?: boolean;
+  /** Narrow layouts: prev/next + page indicator only (no full page-number strip). */
+  compact?: boolean;
 }
 
 export default function Pagination({
@@ -19,6 +21,7 @@ export default function Pagination({
   onPageSizeChange,
   pageSizeOptions = [5, 10, 20, 50],
   disabled = false,
+  compact = false,
 }: PaginationProps) {
   const { t } = useI18n();
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -63,8 +66,56 @@ export default function Pagination({
   const navDisabled = disabled || currentPage <= 1;
   const nextDisabled = disabled || currentPage >= pages;
 
+  if (compact) {
+    return (
+      <div className={`flex flex-col gap-3 px-3 py-3 bg-white border-t border-gray-200 ${disabled ? 'opacity-70' : ''}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-gray-600">
+            {t('pagination.showing', { from, to, total })}
+          </p>
+          {onPageSizeChange && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">{t('pagination.perPage')}</span>
+              <select
+                value={pageSize}
+                disabled={disabled}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-forge-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pageSizeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={handlePrev}
+            disabled={navDisabled}
+            className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            {t('pagination.prev')}
+          </button>
+          <span className="text-xs text-gray-600 tabular-nums">
+            {t('pagination.pageOf', { current: currentPage, pages })}
+          </span>
+          <button
+            onClick={handleNext}
+            disabled={nextDisabled}
+            className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t('pagination.next')}
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 ${disabled ? 'opacity-70' : ''}`}>
+    <div className={`flex flex-col gap-3 px-4 py-3 bg-white border-t border-gray-200 sm:px-6 ${disabled ? 'opacity-70' : ''}`}>
       <div className="flex-1 flex justify-between sm:hidden">
         <button
           onClick={handlePrev}
@@ -81,8 +132,8 @@ export default function Pagination({
           {t('pagination.next')}
         </button>
       </div>
-      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+      <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex flex-wrap items-center gap-4 min-w-0">
           <p className="text-sm text-gray-700">
             {t('pagination.showing', { from, to, total })}
           </p>
@@ -102,7 +153,7 @@ export default function Pagination({
             </div>
           )}
         </div>
-        <div>
+        <div className="max-w-full overflow-x-auto">
           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
             <button onClick={handleFirst} disabled={navDisabled} className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
               <SkipBack className="w-4 h-4" />

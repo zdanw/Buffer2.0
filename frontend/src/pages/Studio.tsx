@@ -296,7 +296,7 @@ interface StudioProps {
 
 export default function Studio({ isPageActive = true }: StudioProps) {
   const { t, locale } = useI18n();
-  const { activeBrandId, activeBrand, brands } = useBrandContext();
+  const { activeBrandId, activeBrand, brands, setBrandFilterLoading } = useBrandContext();
   const userId = getAuthUserId();
   const savedState = loadStateFromStorage(userId);
   
@@ -835,6 +835,8 @@ export default function Studio({ isPageActive = true }: StudioProps) {
   }, []);
 
   useEffect(() => {
+    setSelectedProduct('');
+    setProducts([]);
     void loadProducts();
   }, [activeBrandId]);
 
@@ -946,6 +948,7 @@ export default function Studio({ isPageActive = true }: StudioProps) {
       console.error('Failed to load products:', error);
     } finally {
       setProductsLoading(false);
+      setBrandFilterLoading(false);
     }
   };
 
@@ -1378,8 +1381,8 @@ export default function Studio({ isPageActive = true }: StudioProps) {
               required
             />
             {productsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
+              <div className="flex items-center gap-2 rounded-lg border border-forge-200 bg-forge-50 px-3 py-2.5 text-sm font-medium text-forge-800" role="status" aria-live="polite">
+                <RefreshCw className="w-4 h-4 animate-spin shrink-0 text-forge-600" />
                 {t('preview.loadingProducts')}
               </div>
             ) : products.length === 0 ? (

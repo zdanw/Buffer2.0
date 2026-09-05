@@ -11,6 +11,8 @@ import { useBrandContext } from '@/context/BrandContext';
 import { cachedFetch, invalidateCache } from '@/lib/staticCache';
 import { formatServerDateTime } from '@/lib/datetime';
 import Pagination from '@/components/Pagination';
+import ListSkeleton from '@/components/ListSkeleton';
+import ListLoadingOverlay from '@/components/ListLoadingOverlay';
 import ReferenceImagesDisplay from '@/components/ReferenceImagesDisplay';
 import { toUserFacingMessage } from '@/lib/apiErrors';
 import { useI18n } from '@/i18n/useI18n';
@@ -36,7 +38,7 @@ function isCdnUrl(url: string) {
 
 export default function PendingRelease() {
   const { t, locale } = useI18n();
-  const { activeBrandId } = useBrandContext();
+  const { activeBrandId, setBrandFilterLoading, brandFilterLoading } = useBrandContext();
   const [searchParams] = useSearchParams();
   const [drafts, setDrafts] = useState<ManualTaskDraft[]>([]);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
@@ -61,7 +63,12 @@ export default function PendingRelease() {
   const { publishOverlay, runPublishWithProgress } = usePublishPhaseRunner();
 
   useEffect(() => {
-    void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands(), loadBufferAccountMap()]);
+    setInitialLoading(true);
+    setSelectedDraftId(null);
+    setProductBrandMap({});
+    void Promise.all([loadDrafts(1), loadTasks(), loadProductBrands(), loadBufferAccountMap()]).finally(() => {
+      setBrandFilterLoading(false);
+    });
   }, [activeBrandId]);
 
   const loadProductBrands = async () => {
@@ -332,9 +339,12 @@ export default function PendingRelease() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('pending.draftList')}</h3>
           
           {initialLoading && drafts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-6 h-6 border-2 border-forge-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-gray-500 text-sm">{t('common.loading')}</p>
+            <div className="space-y-3" role="status" aria-live="polite">
+              <div className="flex items-center gap-2 text-sm font-medium text-forge-800">
+                <div className="w-5 h-5 border-2 border-forge-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                <span>{brandFilterLoading ? t('pending.loadingDrafts') : t('common.loading')}</span>
+              </div>
+              <ListSkeleton rows={4} />
             </div>
           ) : visibleDrafts.length === 0 ? (
             <div className="text-center py-12">
@@ -344,7 +354,8 @@ export default function PendingRelease() {
             </div>
           ) : (
             <>
-              <div className={`space-y-3 max-h-[600px] overflow-y-auto ${listBusy ? 'opacity-70 pointer-events-none' : ''}`}>
+              <div className={`relative space-y-3 max-h-[600px] overflow-y-auto ${listBusy ? 'opacity-60 pointer-events-none' : ''}`}>
+                {listBusy && <ListLoadingOverlay message={t('pending.updatingList')} />}
                 {visibleDrafts.map((draft) => {
                   const bufferName = getDraftBufferAccountName(draft);
                   return (

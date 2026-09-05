@@ -8,8 +8,10 @@ interface BrandContextValue {
   activeBrandId: string | null;
   activeBrand: BrandSummary | null;
   loading: boolean;
+  brandFilterLoading: boolean;
   loadError: string | null;
   setActiveBrandId: (id: string | null) => void;
+  setBrandFilterLoading: (loading: boolean) => void;
   refreshBrands: () => Promise<void>;
 }
 
@@ -18,6 +20,7 @@ const BrandContext = createContext<BrandContextValue | null>(null);
 export function BrandProvider({ children }: { children: ReactNode }) {
   const [brands, setBrands] = useState<BrandSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [brandFilterLoading, setBrandFilterLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeBrandId, setActiveBrandIdState] = useState<string | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -44,6 +47,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, [refreshBrands]);
 
   const setActiveBrandId = useCallback((id: string | null) => {
+    setBrandFilterLoading(true);
     setActiveBrandIdState(id);
     if (id) {
       localStorage.setItem(STORAGE_KEY, id);
@@ -63,11 +67,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       activeBrandId,
       activeBrand,
       loading,
+      brandFilterLoading,
       loadError,
       setActiveBrandId,
+      setBrandFilterLoading,
       refreshBrands,
     }),
-    [brands, activeBrandId, activeBrand, loading, loadError, setActiveBrandId, refreshBrands]
+    [brands, activeBrandId, activeBrand, loading, brandFilterLoading, loadError, setActiveBrandId, refreshBrands]
   );
 
   return <BrandContext.Provider value={value}>{children}</BrandContext.Provider>;
